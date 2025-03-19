@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: chatbot-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn chatbot_project.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.1
+      - key: WEB_CONCURRENCY
+        value: 4
