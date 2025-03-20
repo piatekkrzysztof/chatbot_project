@@ -3,7 +3,9 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-from .models import ChatMessage, Conversation
+from .models import ChatMessage, Conversation,FAQ
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 import uuid
 
 
@@ -27,20 +29,29 @@ def chat_with_gpt(request):
 
             ChatMessage.objects.create(conversation=conversation,sender="user", message=user_message)
 
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-            chat_completion = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "Jesteś pomocnym chatbotem obsługującym klientów sklepu internetowego."},
-                    {"role": "user", "content": user_message},
-                ],
-                max_tokens=500,
-                temperature=0.7
-            )
+            faqs = FAQ.objects.all()
+            faq_questions = [faq.question for faq in faqs]
 
-            bot_response = chat_completion.choices[0].message.content
+            match, score=process.extractOne(user_message,faq_questions,scorer=fuzz.token_sort_ratio)
 
-            ChatMessage.objects.create(conversation=conversation,sender="bot", message=bot_response)
+            if score > 75:
+                matched_faq = FAQ.objects.get(question=match)
+                bot_response = matched_faq.answer
+            else:
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                chat_completion = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "Jesteś pomocnym chatbotem obsługującym klientów sklepu internetowego."},
+                        {"role": "user", "content": user_message},
+                    ],
+                    max_tokens=500,
+                    temperature=0.7
+                )
+
+                bot_response = chat_completion.choices[0].message.content
+
+                ChatMessage.objects.create(conversation=conversation,sender="bot", message=bot_response)
 
             return JsonResponse({"response": bot_response})
 
