@@ -18,6 +18,9 @@ def chat_with_gpt(request):
             if not user_message:
                 return JsonResponse({'error': 'Brak treści pytania (pole "message").'}, status=400)
 
+            if not conversation_id:
+                return JsonResponse({'error': 'Brak conversation_id.'}, status=400)
+
             conversation, created = Conversation.objects.get_or_create(
                 user_identifier=conversation_id
             )
@@ -42,6 +45,7 @@ def chat_with_gpt(request):
             return JsonResponse({"response": bot_response})
 
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            import traceback
+            return JsonResponse({'error': str(e), 'traceback': traceback.format_exc()}, status=500)
 
     return JsonResponse({"error": "Metoda niedozwolona"}, status=405)
