@@ -3,7 +3,8 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-from .models import ChatMessage
+from .models import ChatMessage, Conversation
+import uuid
 
 
 @csrf_exempt
@@ -12,11 +13,16 @@ def chat_with_gpt(request):
         try:
             data = json.loads(request.body)
             user_message = data.get('message')
+            conversation_id = data.get('conversation_id')
 
             if not user_message:
                 return JsonResponse({'error': 'Brak treści pytania (pole "message").'}, status=400)
 
-            ChatMessage.objects.create(sender="user", message=user_message)
+            conversation, created = Conversation.objects.get_or_create(
+                user_identifier=conversation_id
+            )
+
+            ChatMessage.objects.create(conversation=conversation,sender="user", message=user_message)
 
             client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
             chat_completion = client.chat.completions.create(
@@ -31,7 +37,7 @@ def chat_with_gpt(request):
 
             bot_response = chat_completion.choices[0].message.content
 
-            ChatMessage.objects.create(sender="bot", message=bot_response)
+            ChatMessage.objects.create(conversation=conversation,sender="bot", message=bot_response)
 
             return JsonResponse({"response": bot_response})
 
