@@ -1,9 +1,10 @@
 import openai
 from django.conf import settings
+from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-from .models import ChatMessage, Conversation, FAQ
+from .models import ChatMessage, Conversation, FAQ, WebsiteSettings
 # from fuzzywuzzy import fuzz
 # from fuzzywuzzy import process
 # import uuid
@@ -35,6 +36,17 @@ def chat_with_gpt(request):
             conversation, created = Conversation.objects.get_or_create(
                 user_identifier=conversation_id
             )
+
+            website_settings=WebsiteSettings.objects.first()
+
+            if created and website_settings and website_settings.owner_email:
+                send_mail(
+                    subject='🟢 Nowa rozmowa z chatbotem',
+                    message=f'Nowa rozmowa rozpoczęta.\n\nPierwsza wiadomość: "{user_message}"\n\nID rozmowy: {conversation_id}',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[settings.OWNER_EMAIL],
+                    fail_silently=False,
+                )
             ChatMessage.objects.create(
                 conversation=conversation, sender="user", message=user_message
             )
