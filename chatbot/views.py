@@ -44,7 +44,7 @@ def chat_with_gpt(request):
                     subject='🟢 Nowa rozmowa z chatbotem',
                     message=f'Nowa rozmowa rozpoczęta.\n\nPierwsza wiadomość: "{user_message}"\n\nID rozmowy: {conversation_id}',
                     from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[settings.OWNER_EMAIL],
+                    recipient_list=[website_settings.owner_email],
                     fail_silently=False,
                 )
             ChatMessage.objects.create(
