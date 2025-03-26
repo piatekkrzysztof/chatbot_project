@@ -61,6 +61,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     'https://sprightly-jalebi-cbc049.netlify.app',
+    'https://agencjasm-art.com',
     ]
 
 CORS_ALLOW_HEADERS = [
