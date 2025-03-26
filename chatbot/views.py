@@ -4,7 +4,9 @@ from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-from .models import ChatMessage, Conversation, FAQ, WebsiteSettings
+from .models import ChatMessage, Conversation, FAQ, Tenant
+
+
 # from fuzzywuzzy import fuzz
 # from fuzzywuzzy import process
 # import uuid
@@ -23,28 +25,31 @@ REGULAMIN = "DUPA"
 
 @csrf_exempt
 def chat_with_gpt(request):
-
     if request.method == "POST":
         try:
+            api_key = request.headers.get('X-API-KEY')
             data = json.loads(request.body)
             user_message = data.get('message')
             conversation_id = data.get('conversation_id')
 
-            if not user_message or not conversation_id:
-                return JsonResponse({'error': "Brak wymaganych danych"}, status=400)
+            if not api_key:
+                return JsonResponse({'error': 'Brak klucza API'}, status=403)
+
+            tenant = Tenant.objects.filter(api_key=api_key).first()
+            if not tenant:
+                return JsonResponse({'error': 'Niepoprawny klucz API'}, status=403)
 
             conversation, created = Conversation.objects.get_or_create(
-                user_identifier=conversation_id
+                tenant=tenant, user_identifier=conversation_id
             )
 
-            website_settings=WebsiteSettings.objects.first()
-
-            if created and website_settings and website_settings.owner_email:
+            if created:
                 send_mail(
-                    subject='🟢 Nowa rozmowa z chatbotem',
-                    message=f'Nowa rozmowa rozpoczęta.\n\nPierwsza wiadomość: "{user_message}"\n\nID rozmowy: {conversation_id}',
+                    subject='🟢 Nowa czat rozpoczęty!',
+                    message=f'Nowa rozmowa rozpoczęta.\n\nPierwsza wiadomość: "{user_message}"'
+                            f'\n\nID rozmowy: {conversation_id}',
                     from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[website_settings.owner_email],
+                    recipient_list=[tenant.owner_email],
                     fail_silently=False,
                 )
             ChatMessage.objects.create(
@@ -53,22 +58,19 @@ def chat_with_gpt(request):
 
             # reuglamin
             if 'regulamin' in user_message.lower():
-                bot_response = REGULAMIN
+                bot_response = tenant.regulamin
             else:
-                faq_context = generate_faq_text()
+                faq_items= FAQ.objects.filter(tenant=tenant)
+                faq_text = "\n\n".join([f"Pytanie: {f.question}\nOdpowiedź: {f.answer}" for f in faq_items])
             prompt = (
-                "Otrzymasz teraz pytanie od klienta sklepu internetowego oraz zestaw FAQ. "
-                "Twoim zadaniem jest odpowiedzieć na pytanie klienta na podstawie FAQ. "
-                "Jeśli FAQ nie zawiera odpowiedzi na pytanie, odpowiedz słowem 'BRAK'.\n\n"
-                f"{faq_context}\n\n"
-                f"Pytanie klienta: {user_message}\n"
-                "Odpowiedź (lub BRAK):"
+                f"{faq_text}\n\nPytanie klienta: {user_message}\n"
+                "Jeśli FAQ nie zawiera odpowiedzi, napisz 'BRAK'."
             )
             client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
             chat_completiton = client.chat.completions.create(
                 model='gpt-4o',
                 messages=[
-                    {"role": "system", "content": "Jesteś chatbotem obsługującym klientów sklepu internetowego."},
+                    {"role": "system", "content": tenant.gpt_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 max_tokens=300,
@@ -81,7 +83,7 @@ def chat_with_gpt(request):
                 fallback_completition = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
-                        {"role": "system", "content": "Jesteś pomocnym chatbotem sklepu internetowego."},
+                        {"role": "system", "content": tenant.gpt_prompt},
                         {"role": "user", "content": user_message},
                     ],
                     max_tokens=500,
