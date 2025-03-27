@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
 import json
 from .models import ChatMessage, Conversation, FAQ, Tenant
 
@@ -10,6 +11,22 @@ from .models import ChatMessage, Conversation, FAQ, Tenant
 # from fuzzywuzzy import fuzz
 # from fuzzywuzzy import process
 # import uuid
+
+@require_GET
+def widget_settings(request):
+    api_key = request.headers.get('X-API-KEY')
+    tenant = Tenant.objects.filter(api_key=api_key).first()
+
+    if not tenant:
+        return JsonResponse({'error': 'Niepoprawny klucz API'}, status=403)
+
+    settings = {
+        'widget_position': tenant.widget_position,
+        'widget_color': tenant.widget_color,
+        'widget_title': tenant.widget_title,
+    }
+
+    return JsonResponse(settings)
 
 
 def generate_faq_text():
@@ -60,7 +77,7 @@ def chat_with_gpt(request):
             if 'regulamin' in user_message.lower():
                 bot_response = tenant.regulamin
             else:
-                faq_items= FAQ.objects.filter(tenant=tenant)
+                faq_items = FAQ.objects.filter(tenant=tenant)
                 faq_text = "\n\n".join([f"Pytanie: {f.question}\nOdpowiedź: {f.answer}" for f in faq_items])
             prompt = (
                 f"{faq_text}\n\nPytanie klienta: {user_message}\n"
