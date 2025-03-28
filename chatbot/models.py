@@ -9,6 +9,7 @@ class Tenant(models.Model):
     owner_email = models.EmailField(verbose_name="Owner email")
     gpt_prompt = models.TextField(default="Jesteś chatbotem z obsługi klienta", verbose_name="Prompt GPT")
     regulamin = models.TextField(default="Treść regulaminu")
+    openai_api_key=models.CharField(max_length=255, blank=True, null=True)
 
     WIDGET_POSITIONS = [
         ('bottom-right', 'Dół strony (prawy)'),
