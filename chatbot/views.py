@@ -1,11 +1,13 @@
-import openai
 from django.conf import settings
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 import json
-from .models import ChatMessage, Conversation, FAQ, Tenant
+
+from openai import OpenAI
+
+from .models import ChatMessage, Conversation, FAQ, Tenant, ChatUsageLog
 
 
 # from fuzzywuzzy import fuzz
@@ -62,55 +64,67 @@ def chat_with_gpt(request):
 
             if created:
                 send_mail(
-                    subject='🟢 Nowa czat rozpoczęty!',
+                    subject='🟢 Nowy czat rozpoczęty!',
                     message=f'Nowa rozmowa rozpoczęta.\n\nPierwsza wiadomość: "{user_message}"'
                             f'\n\nID rozmowy: {conversation_id}',
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[tenant.owner_email],
                     fail_silently=False,
                 )
+
             ChatMessage.objects.create(
                 conversation=conversation, sender="user", message=user_message
             )
 
-            # reuglamin
             if 'regulamin' in user_message.lower():
                 bot_response = tenant.regulamin
+                total_tokens = 0  # brak użycia OpenAI
             else:
                 faq_items = FAQ.objects.filter(tenant=tenant)
-                faq_text = "\n\n".join([f"Pytanie: {f.question}\nOdpowiedź: {f.answer}" for f in faq_items])
-            prompt = (
-                f"{faq_text}\n\nPytanie klienta: {user_message}\n"
-                "Jeśli FAQ nie zawiera odpowiedzi, napisz 'BRAK'."
-            )
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-            chat_completiton = client.chat.completions.create(
-                model='gpt-4o',
-                messages=[
-                    {"role": "system", "content": tenant.gpt_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=300,
-                temperature=0.0
-            )
+                faq_text = "\n\n".join([
+                    f"Pytanie: {f.question}\nOdpowiedź: {f.answer}" for f in faq_items
+                ])
 
-            bot_response = chat_completiton.choices[0].message.content.strip()
+                prompt = (
+                    f"{faq_text}\n\nPytanie klienta: {user_message}\n"
+                    "Jeśli FAQ nie zawiera odpowiedzi, napisz 'BRAK'."
+                )
 
-            if bot_response == 'BRAK':
-                fallback_completition = client.chat.completions.create(
-                    model="gpt-4o",
+                openai_key = tenant.openai_api_key or settings.OPENAI_API_KEY
+                client = OpenAI(api_key=openai_key)
+
+                chat_completiton = client.chat.completions.create(
+                    model='gpt-4o',
                     messages=[
                         {"role": "system", "content": tenant.gpt_prompt},
-                        {"role": "user", "content": user_message},
+                        {"role": "user", "content": prompt},
                     ],
-                    max_tokens=500,
-                    temperature=0.7
+                    max_tokens=300,
+                    temperature=0.0
                 )
-                bot_response = fallback_completition.choices[0].message.content.strip()
+
+                bot_response = chat_completiton.choices[0].message.content.strip()
+                total_tokens = chat_completiton.usage.total_tokens
+
+                if bot_response == 'BRAK':
+                    fallback_completition = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {"role": "system", "content": tenant.gpt_prompt},
+                            {"role": "user", "content": user_message},
+                        ],
+                        max_tokens=500,
+                        temperature=0.7
+                    )
+                    bot_response = fallback_completition.choices[0].message.content.strip()
+                    total_tokens += fallback_completition.usage.total_tokens
 
             ChatMessage.objects.create(
                 conversation=conversation, sender="bot", message=bot_response
             )
+
+            ChatUsageLog.objects.create(tenant=tenant, tokens_used=total_tokens)
+
             return JsonResponse({"response": bot_response})
 
         except Exception as e:
