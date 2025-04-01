@@ -61,6 +61,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     'https://sprightly-jalebi-cbc049.netlify.app',
+    'https://monumental-squirrel-9c45a2.netlify.app/',
     'https://agencjasm-art.com',
     ]
 
