@@ -1,4 +1,14 @@
 chatbot_project/.env
 db.sqlite3.
 generate_embeddings.py
-chroma_db
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+db.sqlite3
+chroma_db/
+.env
+staticfiles/
