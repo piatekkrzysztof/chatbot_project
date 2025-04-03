@@ -16,7 +16,9 @@ class WidgetSettingsSerializer(serializers.Serializer):
     widget_color = serializers.CharField()
     widget_title = serializers.CharField()
 
+
 class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
-        fields = ['id', 'title', 'file', 'uploaded_at']
+        fields = ['id', 'title', 'file', 'uploaded_at', 'content']
+        read_only_fields = ['uploaded_at', 'content']
