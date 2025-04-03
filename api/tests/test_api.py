@@ -29,3 +29,23 @@ class ChatAPITest(APITestCase):
         url = reverse("widget-settings")
         response = self.client.get(url, HTTP_X_API_KEY=self.tenant.api_key)
         self.assertEqual(response.status_code, 200)
+
+
+class WidgetSettingsTest(APITestCase):
+    def setUp(self):
+        self.tenant = Tenant.objects.create(
+            name="Test Tenant",
+            api_key="test-api-key-001",
+            widget_position="bottom-right",
+            widget_color="#3b82f6",
+            widget_title="Chatbot Test",
+            owner_email="test@example.com",
+            gpt_prompt="Test prompt",
+            regulamin="Test regulamin"
+        )
+
+    def test_widget_settings(self):
+        url = reverse("widget-settings")
+        response = self.client.get(url, HTTP_X_API_KEY=self.tenant.api_key)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["widget_title"], "Chatbot Test")
