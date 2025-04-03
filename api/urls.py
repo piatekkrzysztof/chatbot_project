@@ -1,9 +1,8 @@
 from django.urls import path
-from .views.chat import ChatAPIView
-from .views.widget import WidgetSettingsAPIView
+from .views.chat import ChatWithGPTView
+from .views.widget import WidgetSettingsView
 
 urlpatterns = [
-    path("chat/", ChatAPIView.as_view(), name="chat"),
-    path("widget-settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
-]
+    path("chat/", ChatWithGPTView.as_view(), name="chat"),
+    path("widget-settings/", WidgetSettingsView.as_view(), name="widget-settings"),
 ]
