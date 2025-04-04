@@ -5,7 +5,7 @@ import docx2txt
 
 def extract_text_from_pdf(file_path):
     """
-    wyodrebnia tekst z pliku pdf
+    Wyodębnia tekst z pliku PDF
     """
     try:
         reader = PdfReader(file_path)
@@ -21,9 +21,7 @@ def extract_text_from_pdf(file_path):
 
 def extract_text_from_docx(file_path):
     """
-    Wyodrebnia tekst z pliku doc
-    :param file_path:
-    :return:
+    Wyodrebnia tekst z pliku DOCX
     """
     try:
         text = docx2txt.process(file_path)
@@ -34,7 +32,7 @@ def extract_text_from_docx(file_path):
 
 def extract_text_from_txt(file_path):
     """
-    Odczytuje tekst z txt
+    Odczytuje tekst z pliku TXT
     """
     try:
         with open(file_path, "r", encoding="utf-8") as f:
