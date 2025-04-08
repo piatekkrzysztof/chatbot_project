@@ -24,7 +24,6 @@ import os
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/", include("api.urls")),
-    path('', include("chatbot.urls")),
-]
+   ]
 
 urlpatterns += static('/static/', document_root=os.path.join(settings.BASE_DIR, 'widget', 'static'))

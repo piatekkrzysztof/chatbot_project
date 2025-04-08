@@ -1,4 +1,5 @@
 import uuid
+from django.contrib.auth.models import AbstractUser
 
 from django.db import models
 
@@ -29,3 +30,17 @@ class Tenant(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CustomUser(AbstractUser):
+    tenant = models.ForeignKey(Tenant, related_name='users', on_delete=models.CASCADE)
+
+    ROLE_CHOICES = (
+        ('owner', 'Właściciel'),
+        ('employee', 'Pracownik'),
+    )
+
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
+
+    def __str__(self):
+        return f"{self.username} ({self.tenant.name})"
