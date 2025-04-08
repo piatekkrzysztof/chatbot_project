@@ -1,10 +1,10 @@
-from django.urls import path
-from api.views.chat import ChatWithGPTView
-from api.views.widget import WidgetSettingsAPIView
-from api.views.documents import DocumentUploadView
+from django.urls import path, include
+from .views.chat import ChatWithGPTView
+from .views.widget import WidgetSettingsAPIView
+from .routers import router  # NOWE
 
 urlpatterns = [
-    path("chat/", ChatWithGPTView.as_view(), name="chat"),
-    path("widget-settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
-    path("documents/upload/", DocumentUploadView.as_view(), name="document-upload"),
-    ]
+    path('', include(router.urls)),  # NOWE
+    path('widget-settings/', WidgetSettingsAPIView.as_view(), name='widget-settings'),
+    path('chat/', ChatWithGPTView.as_view(), name='chat'),
+]

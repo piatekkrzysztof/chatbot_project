@@ -1,5 +1,13 @@
 from rest_framework import serializers
+
+from accounts.models import CustomUser
 from documents.models import Document
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'tenant', 'role']
 
 
 class ChatRequestSerializer(serializers.Serializer):
