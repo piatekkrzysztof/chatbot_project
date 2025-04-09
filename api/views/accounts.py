@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from api.serializers import RegisterSerializer,UserSerializer
+from api.serializers import RegisterSerializer, UserSerializer, AcceptInvitationSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from api.serializers import CustomTokenObtainPairSerializer
@@ -42,3 +42,12 @@ class CreateInvitationView(generics.CreateAPIView):
         if self.request.user.role != 'owner':
             raise PermissionDenied("Only owners can invite users.")
         serializer.save()
+
+
+class AcceptInvitationView(APIView):
+    def post(self, request):
+        serializer = AcceptInvitationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

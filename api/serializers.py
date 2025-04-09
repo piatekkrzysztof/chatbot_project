@@ -79,3 +79,37 @@ class InvitationCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         tenant = self.context['request'].user.tenant
         return InvitationToken.objects.create(tenant=tenant, **validated_data)
+
+
+class AcceptInvitationSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    username = serializers.CharField()
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        try:
+            invitation = InvitationToken.objects.get(token=attrs['token'])
+        except InvitationToken.DoesNotExist:
+            raise serializers.ValidationError("Invalid token.")
+
+        if not invitation.is_valid():
+            raise serializers.ValidationError("Token expired or used up.")
+
+        attrs['invitation'] = invitation
+        return attrs
+
+    def create(self, validated_data):
+        invitation = validated_data['invitation']
+        tenant = invitation.tenant
+
+        user = CustomUser.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            tenant=tenant,
+            role=invitation.role
+        )
+
+        invitation.use()
+        return user
