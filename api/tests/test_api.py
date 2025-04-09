@@ -1,6 +1,6 @@
 from rest_framework.test import APITestCase
 from django.urls import reverse
-from chatbot.models import Tenant
+from accounts.models import Tenant
 
 
 class ChatAPITest(APITestCase):

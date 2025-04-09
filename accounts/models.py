@@ -70,6 +70,7 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.tenant.name})"
 
+    @property
     def is_owner(self):
         return self.role == 'owner'
 

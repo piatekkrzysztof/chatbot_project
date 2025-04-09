@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'documents',
     'api',
     'corsheaders',
+    'pytest',
 ]
 
 MIDDLEWARE = [
