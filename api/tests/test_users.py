@@ -32,3 +32,18 @@ def test_employee_cannot_create_user():
         "role": "viewer"
     })
     assert response.status_code == 403
+
+@pytest.mark.django_db
+def test_user_cannot_access_users_from_another_tenant():
+    tenant1 = Tenant.objects.create(name="T1", owner_email="a@t1.com")
+    tenant2 = Tenant.objects.create(name="T2", owner_email="a@t2.com")
+
+    user1 = CustomUser.objects.create_user(username="u1", password="x", tenant=tenant1)
+    CustomUser.objects.create_user(username="u2", password="x", tenant=tenant2)
+
+    client = APIClient()
+    client.force_authenticate(user=user1)
+
+    response = client.get("/api/users/")
+    usernames = [u["username"] for u in response.data]
+    assert "u2" not in usernames

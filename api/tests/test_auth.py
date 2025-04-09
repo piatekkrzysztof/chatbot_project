@@ -40,3 +40,27 @@ def test_me_view_returns_logged_in_user():
     response = client.get("/api/accounts/me/")
     assert response.status_code == 200
     assert response.data["email"] == "user@t.com"
+
+@pytest.mark.django_db
+def test_login_invalid_credentials():
+    tenant = Tenant.objects.create(name="T", owner_email="admin@t.com")
+    CustomUser.objects.create_user(username="x", email="x@x.com", password="secret", tenant=tenant)
+
+    client = APIClient()
+    response = client.post("/api/accounts/login/", {"username": "x", "password": "wrongpass"})
+    assert response.status_code == 401
+
+@pytest.mark.django_db
+def test_register_duplicate_email():
+    tenant = Tenant.objects.create(name="DupCorp", owner_email="dup@dup.com")
+    CustomUser.objects.create_user(username="dup", email="dup@dup.com", password="secret", tenant=tenant)
+
+    client = APIClient()
+    payload = {
+        "company_name": "DupCorp2",
+        "email": "dup@dup.com",
+        "password": "StrongPassword123"
+    }
+
+    response = client.post("/api/accounts/register/", payload)
+    assert response.status_code == 400
