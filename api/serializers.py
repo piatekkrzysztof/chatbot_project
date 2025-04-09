@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from accounts.models import CustomUser, Tenant
+from accounts.models import CustomUser, Tenant, InvitationToken
 from documents.models import Document
 
 
@@ -69,3 +69,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         }
 
         return data
+
+
+class InvitationCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InvitationToken
+        fields = ['email', 'role', 'duration_hours', 'max_uses']
+
+    def create(self, validated_data):
+        tenant = self.context['request'].user.tenant
+        return InvitationToken.objects.create(tenant=tenant, **validated_data)

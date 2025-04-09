@@ -7,6 +7,10 @@ from api.serializers import RegisterSerializer,UserSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from api.serializers import CustomTokenObtainPairSerializer
 
+from rest_framework import generics, permissions
+from api.serializers import InvitationCreateSerializer
+from rest_framework.exceptions import PermissionDenied
+
 
 class RegisterView(APIView):
     def post(self, request):
@@ -28,3 +32,13 @@ class MeView(APIView):
         user = request.user
         data = UserSerializer(user).data
         return Response(data)
+
+
+class CreateInvitationView(generics.CreateAPIView):
+    serializer_class = InvitationCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'owner':
+            raise PermissionDenied("Only owners can invite users.")
+        serializer.save()
