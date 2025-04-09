@@ -1,6 +1,9 @@
 import uuid
 from django.contrib.auth.models import AbstractUser
 
+from django.utils import timezone
+from datetime import timedelta
+
 from django.db import models
 
 WIDGET_POSITIONS = [
@@ -15,6 +18,12 @@ ROLE_CHOICES = [
     ('owner', 'Owner'),
     ('employee', 'Employee'),
     ('viewer', 'Viewer'),
+]
+
+DURATION_CHOICES = [
+    (12, '12 godzin'),
+    (24, '24 godziny'),
+    (48, '48 godzin'),
 ]
 
 
@@ -63,3 +72,34 @@ class CustomUser(AbstractUser):
 
     def is_owner(self):
         return self.role == 'owner'
+
+
+class InvitationToken(models.Model):
+    tenant = models.ForeignKey('Tenant', on_delete=models.CASCADE, related_name='invitations')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    email = models.EmailField(blank=True, null=True)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
+    created_at = models.DateTimeField(auto_now_add=True)
+    duration_hours = models.IntegerField(choices=DURATION_CHOICES, default=24)
+    max_uses = models.PositiveIntegerField(default=1)
+    uses = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    @property
+    def expires_at(self):
+        return self.created_at + timedelta(hours=self.duration_hours)
+
+    def is_valid(self):
+        now = timezone.now()
+        return self.uses < self.max_uses and self.expires_at > now
+
+    def use(self):
+        if not self.is_valid():
+            raise ValueError("Token is expired or fully used.")
+        self.uses += 1
+        self.save()
+
+    def __str__(self):
+        return f"{self.token} ({self.tenant.name})"
