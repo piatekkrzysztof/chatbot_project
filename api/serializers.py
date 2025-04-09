@@ -8,7 +8,11 @@ from documents.models import Document
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'tenant', 'role']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'role', 'tenant', 'is_active', 'last_login'
+        ]
+        read_only_fields = ['id', 'tenant', 'last_login']
 
 
 class ChatRequestSerializer(serializers.Serializer):

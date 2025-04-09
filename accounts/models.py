@@ -55,6 +55,8 @@ class Tenant(models.Model):
 class CustomUser(AbstractUser):
     tenant = models.ForeignKey(Tenant, related_name='users', on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
+    is_active = models.BooleanField(default=True)
+    last_login = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.username} ({self.tenant.name})"
