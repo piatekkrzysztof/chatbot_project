@@ -12,7 +12,5 @@ db.sqlite3
 chroma_db/
 .env
 staticfiles/
-/documents/*
-!documents/utils/
 .idea/
 .vscode/
