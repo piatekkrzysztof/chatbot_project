@@ -6,6 +6,8 @@ from accounts.models import Tenant
 from documents.utils.pdf_parser import extract_text_from_pdf
 from api.serializers import DocumentSerializer
 from documents.models import Document
+from documents.utils.embedding_generator import generate_embeddings_for_document
+from documents.tasks import embed_document_task
 
 
 class DocumentsViewSet(viewsets.ModelViewSet):
@@ -45,5 +47,8 @@ class UploadDocumentView(APIView):
             text = extract_text_from_pdf(file)
             document.content = text
             document.save()
+            generate_embeddings_for_document(document)
+
+        embed_document_task.delay(document.id)
 
         return Response({"message": "Uploaded successfully."}, status=201)
