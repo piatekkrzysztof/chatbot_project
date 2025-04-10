@@ -7,7 +7,7 @@ from api.serializers import ChatRequestSerializer, ChatResponseSerializer
 from rest_framework.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.utils import timezone
-from chat.utils import build_prompt, get_openai_response, count_tokens, match_faq_answer
+from chat.utils import build_prompt, get_openai_response, count_tokens, match_faq_answer, search_documents_chroma
 from api.views.throttles import APIKeyRateThrottle
 
 
