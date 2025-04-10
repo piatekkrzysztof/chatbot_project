@@ -4,6 +4,7 @@ from .views.widget import WidgetSettingsAPIView
 from .views.accounts import RegisterView, LoginView, MeView, CreateInvitationView,AcceptInvitationView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .routers import router
+from views.documents import UploadDocumentView
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -15,5 +16,6 @@ urlpatterns = [
     path('accounts/me/', MeView.as_view(), name='me'),
     path('accounts/invitations/', CreateInvitationView.as_view(), name='invite-user'),
     path('accounts/accept-invite/', AcceptInvitationView.as_view(), name='accept-invite'),
+    path("upload-document/", UploadDocumentView.as_view()),
 
 ]
