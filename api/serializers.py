@@ -30,13 +30,6 @@ class WidgetSettingsSerializer(serializers.Serializer):
     widget_title = serializers.CharField()
 
 
-class DocumentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Document
-        fields = ['id', 'title', 'file', 'uploaded_at', 'content']
-        read_only_fields = ['uploaded_at', 'content']
-
-
 class RegisterSerializer(serializers.Serializer):
     company_name = serializers.CharField(max_length=100)
     email = serializers.EmailField()
@@ -118,3 +111,9 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
         invitation.use()
         return user
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ["id", "name", "processed", "uploaded_at"]
