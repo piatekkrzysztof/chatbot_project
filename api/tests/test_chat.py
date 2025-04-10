@@ -1,9 +1,9 @@
 import pytest
 from rest_framework.test import APIClient
+from django.core.cache import cache
 from accounts.models import Tenant
-from unittest.mock import patch
-
 from chat.models import Conversation
+from unittest.mock import patch
 
 
 @pytest.fixture
@@ -81,3 +81,77 @@ def test_chat_view_openai_error_handling(mock_openai, client, tenant):
 
     assert response.status_code == 200
     assert "błąd" in response.data["response"].lower()
+
+
+@pytest.mark.django_db
+def test_faq_response(client, tenant):
+    faq = tenant.faqs.create(question="Jak się kontaktować?", answer="Poprzez formularz kontaktowy.")
+    response = client.post("/api/chat/", {
+        "conversation_id": "1",
+        "message": "Jak się kontaktować?"
+    }, HTTP_X_API_KEY=tenant.api_key)
+    assert response.status_code == 200
+    assert "formularz" in response.data["response"].lower()
+
+
+@pytest.mark.django_db
+@patch("api.views.chat.search_documents_chroma")
+@patch("api.views.chat.get_openai_response")
+def test_document_response(mock_gpt, mock_search, client, tenant):
+    mock_search.return_value = ["Suplement przechowuj w 25°C."]
+    mock_gpt.return_value = {
+        "content": "Przechowuj suplementy w maksymalnie 25 stopniach.",
+        "tokens": 45
+    }
+
+    response = client.post("/api/chat/", {
+        "conversation_id": "2",
+        "message": "Gdzie trzymać suplementy?"
+    }, HTTP_X_API_KEY=tenant.api_key)
+
+    assert response.status_code == 200
+    assert "25" in response.data["response"]
+
+
+@pytest.mark.django_db
+@patch("api.views.chat.get_openai_response")
+def test_gpt_response(mock_gpt, client, tenant):
+    mock_gpt.return_value = {
+        "content": "To zależy od kontekstu.",
+        "tokens": 28
+    }
+
+    response = client.post("/api/chat/", {
+        "conversation_id": "3",
+        "message": "Jaka jest prędkość światła?"
+    }, HTTP_X_API_KEY=tenant.api_key)
+
+    assert response.status_code == 200
+    assert "kontekstu" in response.data["response"]
+
+
+@pytest.mark.django_db
+def test_missing_api_key(client):
+    response = client.post("/api/chat/", {
+        "conversation_id": "4",
+        "message": "Cokolwiek"
+    })
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+@patch("chat.utils.openai_helpers.get_openai_response")
+def test_rate_limiting(mock_gpt, client, tenant):
+    cache.clear()
+    mock_gpt.return_value = {
+        "content": "Test GPT.",
+        "tokens": 10
+    }
+
+    for _ in range(11):
+        response = client.post("/api/chat/", {
+            "conversation_id": "999",
+            "message": "trigger"
+        }, HTTP_X_API_KEY=tenant.api_key)
+
+    assert response.status_code == 429
