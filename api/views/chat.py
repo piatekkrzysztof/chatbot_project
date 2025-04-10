@@ -1,14 +1,17 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from accounts.models import Tenant
 from chat.models import Conversation, ChatMessage, ChatUsageLog
-from api.serializers import ChatRequestSerializer, ChatResponseSerializer
-from rest_framework.exceptions import PermissionDenied
+from api.serializers import ChatRequestSerializer
+from chat.utils import (
+    build_prompt,
+    get_openai_response,
+    match_faq_answer,
+    search_documents_chroma
+)
 from django.core.mail import send_mail
-from django.utils import timezone
-from chat.utils import build_prompt, get_openai_response, count_tokens, match_faq_answer, search_documents_chroma
-from api.views.throttles import APIKeyRateThrottle
+from api.throttles import APIKeyRateThrottle
 
 
 class ChatWithGPTView(APIView):
@@ -19,7 +22,7 @@ class ChatWithGPTView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        api_key = request.headers.get('X-API-KEY')
+        api_key = request.headers.get("X-API-KEY")
         if not api_key:
             raise PermissionDenied("API key missing.")
         try:
@@ -28,17 +31,17 @@ class ChatWithGPTView(APIView):
             raise PermissionDenied("Invalid API key.")
 
         conversation, _ = Conversation.objects.get_or_create(
-            id=data.get('conversation_id'),
+            id=data["conversation_id"],
             defaults={
-                'tenant': tenant,
-                'user_identifier': request.META.get("REMOTE_ADDR", "unknown"),
+                "tenant": tenant,
+                "user_identifier": request.META.get("REMOTE_ADDR", "unknown")
             }
         )
 
-        user_message = data['message'].strip()
+        user_message = data["message"].strip()
 
-        # 🔐 Regulamin (oddzielna logika)
-        if user_message.lower() in ['regulamin', 'regulamin.']:
+        # 1. Regulamin
+        if user_message.lower() in ["regulamin", "regulamin."]:
             response_text = tenant.regulamin or "Brak regulaminu"
             ChatMessage.objects.create(
                 conversation=conversation,
@@ -48,7 +51,7 @@ class ChatWithGPTView(APIView):
             )
             return Response({"response": response_text})
 
-        # 📥 Zapisz wiadomość użytkownika
+        # 2. Zapisz pytanie użytkownika
         ChatMessage.objects.create(
             conversation=conversation,
             sender="user",
@@ -56,16 +59,16 @@ class ChatWithGPTView(APIView):
             source="manual"
         )
 
-        # 📧 E-mail do właściciela
+        # 3. Powiadom właściciela (opcjonalne)
         send_mail(
-            subject=f"Nowy czat – {tenant.name}",
-            message=f"Użytkownik napisał: {user_message}",
+            subject=f"Nowa wiadomość – {tenant.name}",
+            message=f"Użytkownik napisał:\n\n{user_message}",
             from_email="no-reply@yourdomain.com",
             recipient_list=[tenant.owner_email],
-            fail_silently=True,
+            fail_silently=True
         )
 
-        # 🔍 Fallback #1: Dopasowanie do FAQ
+        # 4. Fallback 1 – FAQ
         faq_answer = match_faq_answer(user_message, tenant)
         if faq_answer:
             ChatMessage.objects.create(
@@ -76,18 +79,56 @@ class ChatWithGPTView(APIView):
             )
             return Response({"response": faq_answer})
 
-        # 🔁 Fallback #2: OpenAI GPT
+        # 5. Fallback 2 – dokumenty (RAG)
+        document_fragments = search_documents_chroma(tenant, user_message)
+        if document_fragments:
+            rag_context = "\n".join(document_fragments)
+            prompt = f"""Na podstawie poniższych informacji z dokumentów klienta, odpowiedz na pytanie użytkownika.
+
+### Dokumenty:
+{rag_context}
+
+### Pytanie:
+{user_message}
+"""
+            try:
+                model = "gpt-3.5-turbo"
+                gpt_response = get_openai_response(prompt, model=model)
+                response_text = gpt_response["content"]
+                token_usage = gpt_response["tokens"]
+            except Exception:
+                response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
+                token_usage = 0
+
+            ChatMessage.objects.create(
+                conversation=conversation,
+                sender="bot",
+                message=response_text,
+                source="document",
+                token_count=token_usage
+            )
+
+            ChatUsageLog.objects.create(
+                tenant=tenant,
+                tokens_used=token_usage,
+                model_used=model,
+                source="document",
+                conversation=conversation
+            )
+
+            return Response({"response": response_text})
+
+        # 6. Fallback 3 – GPT domyślnie
         try:
+            model = "gpt-3.5-turbo"
             prompt = build_prompt(tenant, user_message)
-            model = 'gpt-3.5-turbo'
             gpt_response = get_openai_response(prompt, model=model)
-            response_text = gpt_response['content']
-            token_usage = gpt_response['tokens']
+            response_text = gpt_response["content"]
+            token_usage = gpt_response["tokens"]
         except Exception:
             response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
             token_usage = 0
 
-        # ✅ Zapisz odpowiedź bota
         ChatMessage.objects.create(
             conversation=conversation,
             sender="bot",
@@ -96,7 +137,6 @@ class ChatWithGPTView(APIView):
             token_count=token_usage
         )
 
-        # 📊 Log tokenów
         ChatUsageLog.objects.create(
             tenant=tenant,
             tokens_used=token_usage,
