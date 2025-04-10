@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,7 +35,6 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
-
 
 # Application definition
 
@@ -70,7 +69,7 @@ CORS_ALLOWED_ORIGINS = [
     'https://sprightly-jalebi-cbc049.netlify.app',
     'https://monumental-squirrel-9c45a2.netlify.app',
     'https://agencjasm-art.com',
-    ]
+]
 
 CORS_ALLOW_HEADERS = [
     'content-type',
@@ -101,7 +100,13 @@ WSGI_APPLICATION = 'chatbot_project.wsgi.application'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'chat': '10/min',
+    }
 }
 
 # Database
@@ -110,10 +115,9 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME':  BASE_DIR/ 'db.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -133,7 +137,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
@@ -144,7 +147,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
