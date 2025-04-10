@@ -4,7 +4,7 @@ from .views.widget import WidgetSettingsAPIView
 from .views.accounts import RegisterView, LoginView, MeView, CreateInvitationView,AcceptInvitationView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .routers import router
-from views.documents import UploadDocumentView
+from api.views.documents import UploadDocumentView
 
 urlpatterns = [
     path('', include(router.urls)),
