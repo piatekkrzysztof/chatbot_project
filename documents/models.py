@@ -1,5 +1,6 @@
 from django.db import models
 from accounts.models import Tenant
+from pgvector.django import VectorField
 
 
 class Document(models.Model):
@@ -13,16 +14,12 @@ class Document(models.Model):
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
 
-# class DocumentChunk(models.Model):
-#     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='chunks')
-#     content = models.TextField()
-#     embedding = models.TextField()  # JSON string — lista wektorów (np. 1536 floats)
-#
-#     def __str__(self):
-#         return f"Chunk {self.id} of {self.document.name}"
-#
-#     def get_embedding(self) -> list[float]:
-#         return json.loads(self.embedding)
-#
-#     def set_embedding(self, vector: list[float]):
-#         self.embedding = json.dumps(vector)
+
+class DocumentChunk(models.Model):
+    document = models.ForeignKey("Document", on_delete=models.CASCADE, related_name="chunks")
+    content = models.TextField()
+    embedding = VectorField(dimensions=1536)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Chunk of {self.document.name}"
