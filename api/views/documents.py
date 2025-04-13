@@ -54,13 +54,13 @@ class UploadDocumentView(APIView):
             file=file
         )
 
-        # Jeśli PDF – odczytaj i zapisz jako content
+        # Odczyt treści PDF
         if file.name.lower().endswith(".pdf"):
             text = extract_text_from_pdf(file)
             document.content = text
             document.save()
-            generate_embeddings_for_document(document)
 
+        # Embeddingi już przez Celery (async)
         embed_document_task.delay(document.id)
 
         return Response({"message": "Uploaded successfully."}, status=201)
