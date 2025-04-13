@@ -1,18 +1,37 @@
-version: '3.9'
-
+version: "3.9"
 services:
-  postgres:
-    image: ankane/pgvector
-    container_name: chatbot_postgres
+  db:
+    image: ankane/pgvector:latest
+    container_name: chatbot_db
     restart: always
-    ports:
-      - "5433:5432"
     environment:
       POSTGRES_DB: chatbot_db
-      POSTGRES_USER: chatbot_user
-      POSTGRES_PASSWORD: chatbot_pass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+    container_name: chatbot_web
+    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
-  pgdata:
+  postgres_data:

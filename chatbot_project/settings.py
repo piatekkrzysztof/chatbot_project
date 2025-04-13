@@ -115,7 +115,14 @@ REST_FRAMEWORK = {
 
 
 DATABASES = {
-    "default": dj_database_url.config(default="sqlite:///db.sqlite3")
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", "chatbot_db"),
+        "USER": os.getenv("POSTGRES_USER", "postgres"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
+        "HOST": os.getenv("POSTGRES_HOST", "localhost"),  # WAŻNE: domyślnie localhost, ale z env pobierze `db`
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+    }
 }
 
 # Password validation
@@ -171,3 +178,5 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 EMAIL_TIMEOUT = 30
+
+print("POSTGRES HOST:", os.getenv("POSTGRES_HOST"))
