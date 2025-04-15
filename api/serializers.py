@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
-from documents.models import Document
+from documents.models import Document, DocumentChunk
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -142,3 +142,9 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     def get_preview(self, obj):
         return obj.content[:500] if obj.content else ""
+
+class DocumentChunkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentChunk
+        fields = ["id", "content", "created_at"]
+        read_only_fields = fields

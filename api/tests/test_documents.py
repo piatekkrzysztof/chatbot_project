@@ -1,8 +1,10 @@
 import io
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
+
 from documents.models import Document, DocumentChunk
-from accounts.models import Tenant
+from accounts.models import Tenant, CustomUser
 from rest_framework.test import APIClient
 
 
@@ -30,3 +32,19 @@ def test_document_upload_creates_chunks():
     # Więc jeśli to test bez Celery = OK
     chunks = DocumentChunk.objects.filter(document=doc)
     assert chunks.exists()  # chunki istnieją?
+
+
+@pytest.mark.django_db
+def test_list_chunks_for_document():
+    tenant = Tenant.objects.create(name="Firma A", api_key="abc123")
+    user = CustomUser.objects.create_user(username="a", email="a@x.com", password="x", tenant=tenant)
+    doc = Document.objects.create(name="Doc", tenant=tenant, processed=True)
+    for i in range(5):
+        DocumentChunk.objects.create(document=doc, content=f"chunk {i}", embedding=[0.1] * 1536)
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    url = reverse("document-chunks", args=[doc.id])
+    res = client.get(url, HTTP_X_API_KEY="abc123")
+    assert res.status_code == 200
+    assert len(res.data) == 5

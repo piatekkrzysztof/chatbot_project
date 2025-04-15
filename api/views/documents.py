@@ -1,17 +1,19 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from accounts.models import Tenant
 from documents.utils.pdf_parser import extract_text_from_pdf
 from api.serializers import DocumentSerializer
-from documents.models import Document
+from documents.models import Document, DocumentChunk
 from documents.utils.embedding_generator import generate_embeddings_for_document
 from documents.tasks import embed_document_task
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
 from rest_framework import status
+from rest_framework.generics import ListAPIView
+from api.serializers import DocumentChunkSerializer
 
 
 class DocumentDetailView(RetrieveAPIView):
@@ -92,3 +94,19 @@ class UploadDocumentView(APIView):
         embed_document_task.delay(document.id)
 
         return Response({"message": "Uploaded successfully."}, status=201)
+
+
+class DocumentChunkListView(ListAPIView):
+    serializer_class = DocumentChunkSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        api_key = self.request.headers.get("X-API-KEY")
+        tenant = Tenant.objects.filter(api_key=api_key).first()
+        if not tenant:
+            return DocumentChunk.objects.none()
+
+        return DocumentChunk.objects.filter(
+            document__id=self.kwargs["document_id"],
+            document__tenant=tenant
+        ).order_by("created_at")
