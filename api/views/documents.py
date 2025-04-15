@@ -9,6 +9,34 @@ from api.serializers import DocumentSerializer
 from documents.models import Document
 from documents.utils.embedding_generator import generate_embeddings_for_document
 from documents.tasks import embed_document_task
+from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView
+from rest_framework import status
+
+
+class DocumentDetailView(RetrieveAPIView):
+    serializer_class = DocumentSerializer
+    permission_classes = [AllowAny]  # lub IsAuthenticated jeśli JWT
+
+    def get_queryset(self):
+        api_key = self.request.headers.get("X-API-KEY")
+        if not api_key:
+            return Document.objects.none()
+        try:
+            tenant = Tenant.objects.get(api_key=api_key)
+        except Tenant.DoesNotExist:
+            return Document.objects.none()
+        return Document.objects.filter(tenant=tenant)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data = DocumentSerializer(instance).data
+        data["chunk_count"] = instance.chunks.count()
+        data["status"] = "ready" if instance.processed and instance.chunks.exists() else (
+            "processing" if not instance.processed else "processed_no_chunks"
+        )
+        data["preview"] = instance.content[:500] if instance.content else ""
+        return Response(data)
 
 
 class DocumentsViewSet(viewsets.ReadOnlyModelViewSet):

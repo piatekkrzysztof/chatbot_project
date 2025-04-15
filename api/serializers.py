@@ -114,6 +114,31 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
 
 class DocumentSerializer(serializers.ModelSerializer):
+    chunk_count = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    preview = serializers.SerializerMethodField()
+
     class Meta:
         model = Document
-        fields = ["id", "name", "processed", "uploaded_at"]
+        fields = [
+            "id",
+            "name",
+            "processed",
+            "uploaded_at",
+            "chunk_count",
+            "status",
+            "preview",
+        ]
+
+    def get_chunk_count(self, obj):
+        return obj.chunks.count()
+
+    def get_status(self, obj):
+        if obj.processed:
+            if obj.chunks.exists():
+                return "ready"
+            return "processed_no_chunks"
+        return "processing"
+
+    def get_preview(self, obj):
+        return obj.content[:500] if obj.content else ""
