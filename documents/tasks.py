@@ -4,7 +4,6 @@ from documents.utils.embedding_generator import generate_embeddings_for_document
 from celery import shared_task
 import textract
 from documents.models import Document, DocumentChunk
-from pgvector.django import Vector
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 import textwrap
 import os
@@ -57,12 +56,10 @@ def generate_embeddings_for_document(document_id):
         for i, chunk_text in enumerate(chunks):
             chunk_id = f"{document.id}-{i}"
             embedding = embedding_function(chunk_text)
-
-            # zapis do Postgres
             DocumentChunk.objects.create(
                 document=document,
                 content=chunk_text,
-                embedding=Vector(embedding)
+                embedding=embedding  # przekazujesz listę floatów
             )
 
             # zapis do Chroma
