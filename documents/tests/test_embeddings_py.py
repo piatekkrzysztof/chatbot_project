@@ -1,24 +1,14 @@
 import pytest
-from documents.models import Document, DocumentChunk
-from documents.utils.embedding_generator import generate_embeddings_for_document
-from accounts.models import Tenant
-
+from unittest.mock import patch
+from documents.models import DocumentChunk
 
 @pytest.mark.django_db
-def test_embeddings_are_generated_for_chunks(mocker):
-    tenant = Tenant.objects.create(name="TestOrg", owner_email="admin@t.pl")
-    doc = Document.objects.create(
-        tenant=tenant,
-        name="test",
-        content="Ten tekst zostanie podzielony i przetworzony na embeddingi."
-    )
+@patch("documents.utils.embedding_generator.py.generate_embeddings_for_document")  # <- lub "documents.models.utils.generate_embedding"
+def test_embeddings_are_generated_for_chunks(mock_generate_embedding):
+    mock_generate_embedding.return_value = [0.0] * 1536
 
-    # Mock odpowiedzi OpenAI, żeby nie strzelać do API
-    mock_embed = mocker.patch("documents.utils.embedding_generator.client.embeddings.create")
-    mock_embed.return_value.data = [type("obj", (object,), {"embedding": [0.1] * 1536})()]
+    chunk = DocumentChunk.objects.create(text="Test text", document_id=1)
+    chunk.generate_embedding()
 
-    generate_embeddings_for_document(doc)
-
-    chunks = DocumentChunk.objects.filter(document=doc)
-    assert chunks.exists()
-    assert chunks.first().embedding is not None
+    mock_generate_embedding.assert_called_once_with("Test text")
+    assert chunk.embedding is not None

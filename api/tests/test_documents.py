@@ -15,7 +15,7 @@ def test_document_upload_creates_chunks():
     test_pdf = SimpleUploadedFile("test.pdf", pdf_content, content_type="application/pdf")
 
     response = client.post(
-        "/api/documents/upload/",
+        "/api/documents-upload/",
         {"file": test_pdf, "name": "Test PDF"},
         format="multipart",
         HTTP_X_API_KEY=tenant.api_key

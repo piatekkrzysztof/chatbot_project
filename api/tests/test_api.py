@@ -18,7 +18,7 @@ class ChatAPITest(APITestCase):
             url,
             {
                 "message": "Cześć!",
-                "conversation_id": "abc-123"
+                "conversation_id": 1
             },
             HTTP_X_API_KEY=self.tenant.api_key,
             format="json"

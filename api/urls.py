@@ -16,6 +16,6 @@ urlpatterns = [
     path('accounts/me/', MeView.as_view(), name='me'),
     path('accounts/invitations/', CreateInvitationView.as_view(), name='invite-user'),
     path('accounts/accept-invite/', AcceptInvitationView.as_view(), name='accept-invite'),
-    path("upload-document/", UploadDocumentView.as_view()),
+    path("documents-upload/", UploadDocumentView.as_view(),name="upload-document"),
 
 ]
