@@ -8,6 +8,12 @@ from django.core.management import call_command
 # Wczytujemy zmienne środowiskowe z .env.test
 load_dotenv(".env.test")
 
+@pytest.fixture(autouse=True)
+def mock_celery_tasks(monkeypatch):
+    monkeypatch.setattr("documents.tasks.embed_document_task.delay", lambda *a, **kw: None)
+    monkeypatch.setattr("documents.tasks.extract_text_from_document.delay", lambda *a, **kw: None)
+    monkeypatch.setattr("documents.tasks.generate_embeddings_for_document.delay", lambda *a, **kw: None)
+
 
 @pytest.fixture(scope="session")
 def django_db_setup():
