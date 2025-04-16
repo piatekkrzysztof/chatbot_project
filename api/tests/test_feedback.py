@@ -7,7 +7,7 @@ from accounts.models import Tenant
 @pytest.mark.django_db
 def test_feedback_submission_creates_feedback():
     tenant = Tenant.objects.create(name="T", api_key="x")
-    conversation = Conversation.objects.create(id="conv1", tenant=tenant)
+    conversation = Conversation.objects.create(id=1, tenant=tenant)
     message = ChatMessage.objects.create(
         conversation=conversation,
         sender="bot",
