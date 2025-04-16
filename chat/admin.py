@@ -1,3 +1,6 @@
+from django.contrib import admin
+from chat.models import PromptLog
+
 @admin.register(PromptLog)
 class PromptLogAdmin(admin.ModelAdmin):
     list_display = ("tenant", "source", "model", "tokens", "short_prompt", "short_response", "created_at")
