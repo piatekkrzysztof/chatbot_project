@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
+from chat.models import PromptLog, ChatMessage
 from documents.models import Document, DocumentChunk
 
 
@@ -143,8 +144,30 @@ class DocumentSerializer(serializers.ModelSerializer):
     def get_preview(self, obj):
         return obj.content[:500] if obj.content else ""
 
+
 class DocumentChunkSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentChunk
         fields = ["id", "content", "created_at"]
         read_only_fields = fields
+
+
+class PromptLogSerializer(serializers.ModelSerializer):
+    is_helpful = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PromptLog
+        fields = [
+            "id", "prompt", "response", "model", "source",
+            "tokens", "created_at", "is_helpful", "conversation_id"
+        ]
+
+    def get_is_helpful(self, obj):
+        msg = ChatMessage.objects.filter(
+            conversation=obj.conversation,
+            sender="bot",
+            message=obj.response
+        ).first()
+        if msg and hasattr(msg, "feedback"):
+            return msg.feedback.is_helpful
+        return None
