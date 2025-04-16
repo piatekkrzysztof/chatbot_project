@@ -104,7 +104,8 @@ class ChatWithGPTView(APIView):
                     model=model,
                     prompt=prompt,
                     tokens=token_usage,
-                    source="document"
+                    source="document",
+                    response=response_text,
                 )
             except Exception:
                 response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
@@ -143,7 +144,8 @@ class ChatWithGPTView(APIView):
                 model=model,
                 prompt=user_message,
                 tokens=token_usage,
-                source="gpt"
+                source="gpt",
+                response=response_text,
             )
         except Exception:
             response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."

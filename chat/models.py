@@ -79,6 +79,7 @@ class PromptLog(models.Model):
     ])
     tokens = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    response = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
