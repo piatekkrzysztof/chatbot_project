@@ -5,7 +5,7 @@ from api.serializers import ChatRequestSerializer
 from api.throttles import APIKeyRateThrottle
 
 from accounts.models import Tenant
-from chat.models import ChatMessage, Conversation, ChatUsageLog
+from chat.models import ChatMessage, Conversation, ChatUsageLog, PromptLog
 from rag.engine import query_similar_chunks_pgvector
 from rag.prompter import build_prompt
 from utils.openai_client import get_openai_response
@@ -98,6 +98,14 @@ class ChatWithGPTView(APIView):
                 gpt_response = get_openai_response(prompt, model=model)
                 response_text = gpt_response["content"]
                 token_usage = gpt_response["tokens"]
+                PromptLog.objects.create(
+                    tenant=tenant,
+                    conversation=conversation,
+                    model=model,
+                    prompt=prompt,
+                    tokens=token_usage,
+                    source="document"
+                )
             except Exception:
                 response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
                 token_usage = 0
@@ -129,6 +137,14 @@ class ChatWithGPTView(APIView):
             gpt_response = get_openai_response(user_message, model=model)
             response_text = gpt_response["content"]
             token_usage = gpt_response["tokens"]
+            PromptLog.objects.create(
+                tenant=tenant,
+                conversation=conversation,
+                model=model,
+                prompt=user_message,
+                tokens=token_usage,
+                source="gpt"
+            )
         except Exception:
             response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
             token_usage = 0

@@ -65,3 +65,23 @@ class ChatUsageLog(models.Model):
 
     def __str__(self):
         return f"{self.tenant.name} - {self.tokens_used} tokens on {self.model_used} ({self.source})"
+
+
+class PromptLog(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
+    conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
+    model = models.CharField(max_length=50)
+    prompt = models.TextField()
+    source = models.CharField(max_length=50, choices=[
+        ("faq", "FAQ"),
+        ("document", "RAG"),
+        ("gpt", "GPT fallback")
+    ])
+    tokens = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.model}] ({self.source}) {self.created_at.strftime('%Y-%m-%d %H:%M')}"
