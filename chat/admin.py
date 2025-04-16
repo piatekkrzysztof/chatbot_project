@@ -1,7 +1,7 @@
 import csv
 
 from django.contrib import admin
-from chat.models import PromptLog
+from chat.models import PromptLog, ChatFeedback
 from django.http import HttpResponse
 
 @admin.register(PromptLog)
@@ -42,3 +42,8 @@ class PromptLogAdmin(admin.ModelAdmin):
 
     short_prompt.short_description = "Prompt (skrót)"
     short_response.short_description = "Odpowiedź (skrót)"
+
+@admin.register(ChatFeedback)
+class ChatFeedbackAdmin(admin.ModelAdmin):
+    list_display = ("message", "is_helpful", "submitted_at")
+    list_filter = ("is_helpful",)
