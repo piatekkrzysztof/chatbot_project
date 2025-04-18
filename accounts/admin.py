@@ -1,27 +1,27 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Tenant
-from django.utils.translation import gettext_lazy as _
+from .models import Tenant, CustomUser, InvitationToken
 
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display = (
-    'name', 'api_key', 'owner_email', 'widget_position', 'widget_color', 'widget_title', 'openai_api_key')
-    search_fields = ('name', 'owner_email', 'api_key')
+    list_display = ("name", "subscription_status", "current_token_usage", "token_limit")
+    search_fields = ("name",)
+    readonly_fields = ("api_key", "created_at")
 
 
-class CustomUserAdmin(UserAdmin):
-    model = CustomUser
-    list_display = ('username', 'email', 'first_name', 'last_name', 'tenant', 'role', 'is_staff')
-    list_filter = ('tenant', 'role', 'is_staff', 'is_active')
-
-    fieldsets = (
-        (None, {'fields': ('username', 'password')}),
-        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email')}),
-        (_('Permissions'), {'fields': ('tenant', 'role', 'is_staff', 'is_active')}),
-        (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
-    )
+@admin.register(CustomUser)
+class CustomUserAdmin(admin.ModelAdmin):
+    list_display = ("username", "email", "tenant", "role")
+    list_filter = ("role", "tenant")
 
 
-admin.site.register(CustomUser, CustomUserAdmin)
+@admin.register(InvitationToken)
+class InvitationTokenAdmin(admin.ModelAdmin):
+    list_display = ("email", "tenant", "role", "duration", "users", "max_users", "is_valid_token", "expires_at")
+    readonly_fields = ("token", "created_at", "expires_at")
+    list_filter = ("role", "duration")
+
+    def is_valid_token(self, obj):
+        return obj.is_valid()
+
+    is_valid_token.boolean = True
