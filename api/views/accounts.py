@@ -51,3 +51,19 @@ class AcceptInvitationView(APIView):
             serializer.save()
             return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InvitationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role != "owner":
+            raise PermissionDenied("Only tenant owners can list invitations.")
+
+        from accounts.models import InvitationToken
+        from api.serializers import InvitationCreateSerializer
+
+        invitations = InvitationToken.objects.filter(tenant=user.tenant)
+        serializer = InvitationCreateSerializer(invitations, many=True)
+        return Response(serializer.data)

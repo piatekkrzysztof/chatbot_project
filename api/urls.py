@@ -2,7 +2,8 @@ from django.urls import path, include
 from .views.chat import ChatWithGPTView
 from .views.widget import WidgetSettingsAPIView
 from .views.feedback import SubmitFeedbackView
-from .views.accounts import RegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView
+from .views.accounts import RegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
+    InvitationListView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
@@ -19,6 +20,7 @@ urlpatterns = [
     path('accounts/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('accounts/me/', MeView.as_view(), name='me'),
     path('accounts/invitations/', CreateInvitationView.as_view(), name='invite-user'),
+    path("accounts/invitations/list/", InvitationListView.as_view(), name="list-invitations"),
     path('accounts/accept-invite/', AcceptInvitationView.as_view(), name='accept-invite'),
     path("documents-upload/", UploadDocumentView.as_view(), name="upload-document"),
     path("documents/<int:pk>/", DocumentDetailView.as_view(), name="document-detail"),
