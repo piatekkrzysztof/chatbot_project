@@ -103,10 +103,10 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.ScopedRateThrottle',
+        "api.throttles.APIKeyRateThrottle",
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'chat': '10/min',
+        'chat': '100/hour',
     }
 }
 
