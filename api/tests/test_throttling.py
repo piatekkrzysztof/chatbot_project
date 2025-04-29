@@ -9,7 +9,7 @@ def test_chat_throttling_enforces_limit(settings):
     settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["chat"] = "3/min"
 
     client = APIClient()
-    tenant = Tenant.objects.create(name="Firma", api_key="api123", owner_email="x@example.com")
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
     conv = Conversation.objects.create(id=99, tenant=tenant)
 
     headers = {"HTTP_X_API_KEY": tenant.api_key}
