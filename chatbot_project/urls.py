@@ -20,10 +20,17 @@ from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
 import os
+from django.http import JsonResponse
+
+
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("api/", include("api.urls")),
-   ]
+    path('api/', include('api.urls')),
+    path('health/', health_check),  # <= dodany health-check
+]
 
 urlpatterns += static('/static/', document_root=os.path.join(settings.BASE_DIR, 'widget', 'static'))
