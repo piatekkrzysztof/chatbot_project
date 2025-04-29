@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
-from chat.models import PromptLog, ChatMessage
+from chat.models import PromptLog, ChatMessage, ChatFeedback
 from documents.models import Document, DocumentChunk
 
 
@@ -171,3 +171,27 @@ class PromptLogSerializer(serializers.ModelSerializer):
         if msg and hasattr(msg, "feedback"):
             return msg.feedback.is_helpful
         return None
+
+
+class ChatFeedbackSerializer(serializers.Serializer):
+    message_id = serializers.IntegerField()
+    is_helpful = serializers.BooleanField(required=True)
+
+    def validate(self, data):
+        if "is_helpful" not in data:
+            raise serializers.ValidationError({"is_helpful": "To pole jest wymagane."})
+        return data
+
+    def validate_message_id(self, value):
+        try:
+            message = ChatMessage.objects.get(id=value, sender="bot")
+        except ChatMessage.DoesNotExist:
+            raise serializers.ValidationError("Nie znaleziono wiadomości od bota.")
+        self.context["message"] = message
+        return value
+
+    def create(self, validated_data):
+        return ChatFeedback.objects.update_or_create(
+            message=self.context["message"],
+            defaults={"is_helpful": validated_data["is_helpful"]}
+        )[0]
