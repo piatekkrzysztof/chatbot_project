@@ -1,6 +1,6 @@
 from django.urls import path, include
 from .views.chat import ChatWithGPTView
-from .views.chat_csv import ExportPromptLogsCSVView
+from .views.chat_csv import ExportPromptLogsCSVView, ImportPromptLogsCSVView
 from .views.widget import WidgetSettingsAPIView
 from .views.feedback import SubmitFeedbackView
 from .views.accounts import RegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
@@ -17,6 +17,7 @@ urlpatterns = [
     path("chat/feedback/", SubmitFeedbackView.as_view(), name="chat-feedback"),
     path("chat/logs/", PromptLogListView.as_view(), name="chat-logs"),
     path("chat/export/", ExportPromptLogsCSVView.as_view(), name="chat-export-csv"),
+    path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
     path('accounts/register/', RegisterView.as_view(), name='register'),
     path('accounts/login/', LoginView.as_view(), name='login'),
     path('accounts/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
