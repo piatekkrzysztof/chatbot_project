@@ -158,8 +158,8 @@ class PromptLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = PromptLog
         fields = [
-            "id", "prompt", "response", "model", "source",
-            "tokens", "created_at", "is_helpful", "conversation_id"
+            "id", "conversation_id", "prompt", "response",
+            "tokens", "source", "model", "created_at", "is_helpful"
         ]
 
     def get_is_helpful(self, obj):
@@ -168,9 +168,9 @@ class PromptLogSerializer(serializers.ModelSerializer):
             sender="bot",
             message=obj.response
         ).first()
-        if msg and hasattr(msg, "feedback"):
-            return msg.feedback.is_helpful
-        return None
+
+        feedback = getattr(msg, "feedback", None)
+        return feedback.is_helpful if feedback else None
 
 
 class ChatFeedbackSerializer(serializers.Serializer):

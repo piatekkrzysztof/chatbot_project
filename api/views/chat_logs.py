@@ -1,8 +1,8 @@
 from rest_framework.generics import ListAPIView
-from chat.models import PromptLog, Tenant
-from api.serializers import PromptLogSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
+from chat.models import PromptLog, Tenant
+from api.serializers import PromptLogSerializer
 
 
 class PromptLogListView(ListAPIView):
@@ -19,23 +19,16 @@ class PromptLogListView(ListAPIView):
         except Tenant.DoesNotExist:
             raise PermissionDenied("Invalid API key.")
 
-        qs = PromptLog.objects.filter(
-            tenant=tenant
-        ).select_related("conversation").order_by("-created_at")
+        qs = PromptLog.objects.filter(tenant=tenant).select_related("conversation").order_by("-created_at")
 
-        is_helpful_param = self.request.query_params.get("is_helpful")
-        if is_helpful_param is not None:
-            bool_val = is_helpful_param.lower() in ["true", "1"]
-            from chat.models import ChatMessage
+        is_helpful = self.request.query_params.get("is_helpful")
+        if is_helpful is not None:
+            bool_value = is_helpful.lower() in ["true", "1"]
+            qs = list(qs)
+
             filtered = []
             for log in qs:
-                msg = ChatMessage.objects.filter(
-                    conversation=log.conversation,
-                    sender="bot",
-                    message=log.response
-                ).first()
-                feedback = getattr(msg, "feedback", None)
-                if feedback and feedback.is_helpful == bool_val:
+                if log.is_helpful == bool_value:
                     filtered.append(log)
             return filtered
 
