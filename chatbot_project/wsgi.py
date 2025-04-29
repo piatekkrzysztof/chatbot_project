@@ -8,9 +8,9 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/wsgi/
 """
 
 import os
-
 from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'chatbot_project.settings')
+os.environ.setdefault('DJANGO_ENV', os.getenv("DJANGO_ENV", "prod"))  # <= Na produkcji ustawiamy PROD jako default
 
 application = get_wsgi_application()

@@ -1,0 +1,19 @@
+from .base import *
+
+DEBUG = False
+
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "").split(",")
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_SSL_REDIRECT = True
+
+# Redis/Celery
+CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
