@@ -13,7 +13,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('widget-settings/', WidgetSettingsAPIView.as_view(), name='widget-settings'),
     path('chat/', ChatWithGPTView.as_view(), name='chat'),
-    path('chat/feedback/', SubmitFeedbackView.as_view(), name='chat'),
+    path("chat/feedback/", SubmitFeedbackView.as_view(), name="chat-feedback"),
     path("chat/logs/", PromptLogListView.as_view(), name="chat-logs"),
     path('accounts/register/', RegisterView.as_view(), name='register'),
     path('accounts/login/', LoginView.as_view(), name='login'),

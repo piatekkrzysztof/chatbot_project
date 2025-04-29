@@ -178,7 +178,7 @@ class ChatFeedbackSerializer(serializers.Serializer):
     is_helpful = serializers.BooleanField(required=True)
 
     def validate(self, data):
-        if "is_helpful" not in data:
+        if "is_helpful" not in self.initial_data:
             raise serializers.ValidationError({"is_helpful": "To pole jest wymagane."})
         return data
 
