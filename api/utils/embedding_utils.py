@@ -1,22 +1,27 @@
-import chromadb
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
-from django.conf import settings
+import openai
+import logging
 
-client = chromadb.PersistentClient(path="./chroma_db")
+logger = logging.getLogger(__name__)
 
 
-def find_relevant_documents(tenant, user_message, top_k=3):
-    collection_name = f"tenant_{tenant.id}_documents"
+def get_embedding(text, model="text-embedding-3-small"):
+    """
+    Pobiera embedding dla pojedynczego tekstu przy użyciu modelu OpenAI.
+    """
+    try:
+        response = openai.Embedding.create(
+            input=[text],
+            model=model
+        )
+        return response["data"][0]["embedding"]
+    except Exception as e:
+        logger.exception("Błąd podczas generowania embeddingu: %s", str(e))
+        raise ValueError(f"Błąd generowania embeddingu: {e}")
 
-    embedding_function = OpenAIEmbeddingFunction(
-        api_key=tenant.openai_api_key or settings.OPENAI_API_KEY,
-        model_name="text-embedding-3-small"
-    )
 
-    collection = client.get_or_create_collection(
-        name=collection_name,
-        embedding_function=embedding_function
-    )
+def prepare_document_chunks_for_embedding(chunks):
+    """
+    Przygotowuje listę tekstów z chunków dokumentu do embeddingu.
+    """
+    return [chunk.content for chunk in chunks]
 
-    results = collection.query(query_texts=[user_message], n_results=top_k)
-    return "\n\n".join(results["documents"][0]) if results["documents"] else ""
