@@ -1,51 +1,123 @@
-import openai
 import logging
+from chat.models import ChatMessage, ChatUsageLog
 from rag.engine import query_similar_chunks_pgvector
+from openai import OpenAIError
+from openai import ChatCompletion
 
 logger = logging.getLogger(__name__)
 
 
-def build_prompt(user_message, chunks):
-    context = "\n\n".join([chunk.content for chunk in chunks])
-    return f"Kontekst:\n{context}\n\nPytanie:\n{user_message}"
-
-
 def get_openai_response(prompt, model="gpt-3.5-turbo"):
     try:
-        response = openai.ChatCompletion.create(
+        response = ChatCompletion.create(
             model=model,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
         )
         return {
-            "content": response["choices"][0]["message"]["content"],
-            "tokens": response["usage"]["total_tokens"]
+            "content": response.choices[0].message["content"],
+            "tokens": response.usage.total_tokens,
         }
-    except Exception as e:
-        logger.exception("Błąd zapytania do OpenAI: %s", str(e))
+    except OpenAIError as e:
+        logger.exception("Błąd w OpenAI: %s", e)
         raise
 
 
-def process_chat_message(tenant, conversation, user_message):
-    user_message = user_message.strip()
+def process_chat_message(tenant, conversation, message_text):
+    """
+    Procesuje wiadomość użytkownika w ramach jednej konwersacji.
+    Wykonuje fallbacki: regulamin -> RAG -> GPT
+    """
+    user_message = message_text.strip().lower()
 
-    # Fallback 1: regulamin
-    if user_message.lower() in ["regulamin", "regulamin."]:
-        return {"response": tenant.regulamin or "Brak regulaminu."}
+    # 1. Regulamin
+    if user_message in ["regulamin", "regulamin."]:
+        response_text = tenant.regulamin or "Brak regulaminu."
+        ChatMessage.objects.create(
+            conversation=conversation,
+            sender="bot",
+            message=response_text,
+            source="manual"
+        )
+        return {"response": response_text, "source": "manual", "tokens": 0}
 
-    # Fallback 2: dokumenty (RAG)
+    # 2. Zapisz wiadomość użytkownika
+    ChatMessage.objects.create(
+        conversation=conversation,
+        sender="user",
+        message=message_text,
+        source="manual"
+    )
+
+    # 3. Fallback RAG
     try:
-        chunks = query_similar_chunks_pgvector(tenant.id, user_message, top_k=5)
-        if chunks:
-            prompt = build_prompt(user_message, chunks)
+        chunks = query_similar_chunks_pgvector(tenant.id, message_text, top_k=5)
+    except Exception as e:
+        logger.exception("Błąd podczas pobierania chunków: %s", e)
+        chunks = []
+
+    if chunks:
+        prompt = build_prompt_from_chunks(message_text, chunks)
+        try:
             gpt_response = get_openai_response(prompt)
-            return {"response": gpt_response["content"], "tokens": gpt_response["tokens"], "source": "document"}
-    except Exception as e:
-        logger.warning("Błąd pobierania chunków dokumentów: %s", str(e))
+            response_text = gpt_response["content"]
+            tokens = gpt_response["tokens"]
+        except Exception:
+            response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
+            tokens = 0
 
-    # Fallback 3: GPT
+        ChatMessage.objects.create(
+            conversation=conversation,
+            sender="bot",
+            message=response_text,
+            source="document",
+            token_count=tokens
+        )
+        ChatUsageLog.objects.create(
+            tenant=tenant,
+            conversation=conversation,
+            tokens_used=tokens,
+            model_used="gpt-3.5-turbo",
+            source="document"
+        )
+        return {"response": response_text, "source": "document", "tokens": tokens}
+
+    # 4. Fallback GPT
     try:
-        gpt_response = get_openai_response(user_message)
-        return {"response": gpt_response["content"], "tokens": gpt_response["tokens"], "source": "gpt"}
-    except Exception as e:
-        logger.error("Błąd zapytania do GPT: %s", str(e))
-        return {"response": "Wystąpił błąd po stronie modelu. Spróbuj ponownie później.", "tokens": 0, "source": "error"}
+        fallback_prompt = build_prompt_without_docs(tenant, message_text)
+        gpt_response = get_openai_response(fallback_prompt)
+        response_text = gpt_response["content"]
+        tokens = gpt_response["tokens"]
+    except Exception:
+        response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
+        tokens = 0
+
+    ChatMessage.objects.create(
+        conversation=conversation,
+        sender="bot",
+        message=response_text,
+        source="gpt",
+        token_count=tokens
+    )
+    ChatUsageLog.objects.create(
+        tenant=tenant,
+        conversation=conversation,
+        tokens_used=tokens,
+        model_used="gpt-3.5-turbo",
+        source="gpt"
+    )
+    return {"response": response_text, "source": "gpt", "tokens": tokens}
+
+
+def build_prompt_from_chunks(user_message, chunks):
+    """
+    Tworzy prompt do GPT na podstawie znalezionych chunków.
+    """
+    sources = "\n\n".join(chunk.content for chunk in chunks)
+    return f"Użytkownik zapytał: '{user_message}'\n\nZnane informacje:\n{sources}"
+
+
+def build_prompt_without_docs(tenant, user_message):
+    """
+    Tworzy domyślny prompt do GPT, bez dokumentów.
+    """
+    return f"Klient: {tenant.name}. Pytanie: {user_message}"
