@@ -1,5 +1,8 @@
 import os
 import pytest
+import uuid
+from rest_framework.test import APIClient
+from accounts.models import Tenant
 import psycopg2
 from dotenv import load_dotenv
 from django.conf import settings
@@ -7,6 +10,26 @@ from django.core.management import call_command
 
 # Wczytujemy zmienne środowiskowe z .env.test
 load_dotenv(".env.test")
+
+
+
+
+@pytest.fixture
+def tenant():
+    return Tenant.objects.create(name="Firma Testowa",
+                                 api_key=str(uuid.uuid4()),
+                                 owner_email="owner@example.com")
+
+
+@pytest.fixture
+def api_client(tenant):
+    """
+    Klient DRF z domyślnie ustawionym nagłówkiem X-API-KEY.
+    """
+    client = APIClient()
+    client.credentials(HTTP_X_API_KEY=tenant.api_key)
+    return client
+
 
 @pytest.fixture(autouse=True)
 def mock_celery_tasks(monkeypatch):
