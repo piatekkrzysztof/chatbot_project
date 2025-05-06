@@ -28,6 +28,11 @@ class Tenant(models.Model):
     name = models.CharField(max_length=100)
     api_key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     regulamin = models.TextField(blank=True, null=True)
+    gpt_prompt = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Unikalny prompt charakterystyczny dla firmy (np. 'Jesteśmy hurtownią elektryczną...')"
+    )
 
     # OpenAI
     openai_api_key = models.CharField(max_length=128, blank=True, null=True)

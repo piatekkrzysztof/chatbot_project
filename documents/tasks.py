@@ -56,13 +56,21 @@ def generate_embeddings_for_document(document_id):
         for i, chunk_text in enumerate(chunks):
             chunk_id = f"{document.id}-{i}"
             embedding = embedding_function(chunk_text)
+
+            # 🛠️ Naprawa problemu: pgvector wymaga 1D listy floatów
+            if isinstance(embedding, list) and len(embedding) == 1:
+                embedding = embedding[0]
+            elif hasattr(embedding, 'shape') and len(embedding.shape) == 2:
+                embedding = embedding[0]
+            elif not isinstance(embedding, list):
+                raise ValueError("Unsupported embedding format")
+
             DocumentChunk.objects.create(
                 document=document,
                 content=chunk_text,
-                embedding=embedding  # przekazujesz listę floatów
+                embedding=embedding
             )
 
-            # zapis do Chroma
             chroma_collection.add(
                 ids=[chunk_id],
                 documents=[chunk_text],
@@ -73,8 +81,7 @@ def generate_embeddings_for_document(document_id):
                 }]
             )
 
-        print(
-            f"✅ Wygenerowano {len(chunks)} embeddingów dla dokumentu {document.name} (tenant: {document.tenant.name})")
+        print(f"✅ Wygenerowano {len(chunks)} embeddingów dla dokumentu {document.name} (tenant: {document.tenant.name})")
 
     except Exception as e:
         print(f"❌ Błąd podczas generowania embeddingów dla dokumentu {document_id}: {e}")

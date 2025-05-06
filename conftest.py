@@ -7,11 +7,24 @@ import psycopg2
 from dotenv import load_dotenv
 from django.conf import settings
 from django.core.management import call_command
+import io
+from reportlab.pdfgen import canvas
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 # Wczytujemy zmienne środowiskowe z .env.test
 load_dotenv(".env.test")
 
 
+
+@pytest.fixture
+def valid_pdf_file():
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer)
+    p.drawString(100, 750, "Test PDF content")
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return SimpleUploadedFile("test.pdf", buffer.read(), content_type="application/pdf")
 
 
 @pytest.fixture
