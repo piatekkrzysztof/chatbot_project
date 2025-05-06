@@ -118,6 +118,8 @@ def build_prompt_from_chunks(user_message, chunks):
 
 def build_prompt_without_docs(tenant, user_message):
     """
-    Tworzy domyślny prompt do GPT, bez dokumentów.
+    Tworzy domyślny prompt do GPT bez dokumentów.
+    Uwzględnia gpt_prompt jako kontekst biznesowy firmy.
     """
-    return f"Klient: {tenant.name}. Pytanie: {user_message}"
+    prompt_prefix = tenant.gpt_prompt.strip() if tenant.gpt_prompt else f"Klient: {tenant.name}"
+    return f"{prompt_prefix}\n\nPytanie: {user_message}"
