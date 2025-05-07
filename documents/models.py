@@ -23,3 +23,21 @@ class DocumentChunk(models.Model):
 
     def __str__(self):
         return f"Chunk of {self.document.name}"
+
+
+class WebsiteSource(models.Model):
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="website_sources"
+    )
+    name = models.CharField(max_length=255, default="Strona WWW klienta")
+    url = models.URLField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("tenant", "url")
+
+    def __str__(self):
+        return f"{self.name} ({self.url})"
