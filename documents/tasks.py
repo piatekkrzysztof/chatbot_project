@@ -1,13 +1,14 @@
-from celery import shared_task
-from documents.models import Document
 from documents.utils.embedding_generator import generate_embeddings_for_document
 from celery import shared_task
 import textract
-from documents.models import Document, DocumentChunk
+from documents.models import Document, DocumentChunk, WebsiteSource
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 import textwrap
 import os
 import chromadb
+from documents.models import WebsiteSource, Document
+from documents.website_import import import_website_as_document
+import trafilatura
 
 
 @shared_task
@@ -81,7 +82,47 @@ def generate_embeddings_for_document(document_id):
                 }]
             )
 
-        print(f"✅ Wygenerowano {len(chunks)} embeddingów dla dokumentu {document.name} (tenant: {document.tenant.name})")
+        print(
+            f"✅ Wygenerowano {len(chunks)} embeddingów dla dokumentu {document.name} (tenant: {document.tenant.name})")
 
     except Exception as e:
         print(f"❌ Błąd podczas generowania embeddingów dla dokumentu {document_id}: {e}")
+
+
+@shared_task
+def crawl_and_import_website_source(source_id):
+    try:
+        source = WebsiteSource.objects.select_related("tenant").get(id=source_id)
+        url = source.url
+        tenant = source.tenant
+
+        # pobierz wszystkie podstrony z sitemap
+        urls = trafilatura.sitemaps.sitemap_search(url)
+
+        if not urls:
+            urls = [url]  # fallback – tylko główna strona
+
+        for suburl in urls:
+            if not suburl.startswith(url):  # zabezpieczenie przed ucieczką poza domenę
+                continue
+
+            # sprawdź, czy dokument już istnieje
+            if Document.objects.filter(tenant=tenant, source="website", name=suburl).exists():
+                continue
+
+            try:
+                import_website_as_document(tenant=tenant, url=suburl, name=suburl)
+            except Exception as e:
+                print(f"⚠️ Błąd podczas importu {suburl}: {e}")
+
+        print(f"✅ Zakończono crawling {url} (source_id={source_id})")
+
+    except WebsiteSource.DoesNotExist:
+        print(f"❌ Nie znaleziono WebsiteSource z ID {source_id}")
+
+
+@shared_task
+def crawl_all_active_sources():
+    sources = WebsiteSource.objects.filter(is_active=True)
+    for source in sources:
+        crawl_and_import_website_source.delay(source.id)
