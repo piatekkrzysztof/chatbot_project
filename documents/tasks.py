@@ -3,6 +3,7 @@ from celery import shared_task
 import textract
 from documents.models import Document, DocumentChunk, WebsiteSource
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+from documents.website_import import discover_links_recursively
 import textwrap
 import os
 import chromadb
@@ -97,7 +98,10 @@ def crawl_and_import_website_source(source_id):
         tenant = source.tenant
 
         # pobierz wszystkie podstrony z sitemap
-        urls = trafilatura.sitemaps.sitemap_search(url)
+
+        urls = trafilatura.sitemaps.sitemap_search(source.url) or []
+        if not urls:
+            urls = discover_links_recursively(source.url, max_depth=2)
 
         if not urls:
             urls = [url]  # fallback – tylko główna strona

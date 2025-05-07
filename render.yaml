@@ -9,3 +9,36 @@ services:
         value: 3.11.1
       - key: WEB_CONCURRENCY
         value: 4
+      - key: REDIS_URL
+        fromService:
+          name: chatbot-redis
+          type: redis
+
+  - type: worker
+    name: celery-worker
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "celery -A chatbot_project worker --loglevel=info"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.1
+      - key: REDIS_URL
+        fromService:
+          name: chatbot-redis
+          type: redis
+
+  - type: worker
+    name: celery-beat
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "celery -A chatbot_project beat --loglevel=info"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.1
+      - key: REDIS_URL
+        fromService:
+          name: chatbot-redis
+          type: redis
+
+  - type: redis
+    name: chatbot-redis

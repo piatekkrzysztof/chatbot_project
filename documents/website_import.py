@@ -1,4 +1,9 @@
+import requests
 import trafilatura
+from urllib.parse import urljoin, urlparse
+
+from bs4 import BeautifulSoup
+
 from documents.models import Document
 from documents.tasks import generate_embeddings_for_document
 
@@ -39,3 +44,36 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
 
     generate_embeddings_for_document.delay(document.id)
     return document
+
+
+def discover_links_recursively(base_url: str, max_depth: int = 2) -> set[str]:
+    """
+    Heurystyczny crawler: podąża za linkami wewnętrznymi w obrębie jednej domeny.
+    """
+    visited = set()
+    to_visit = [(base_url, 0)]
+    base_domain = urlparse(base_url).netloc
+
+    while to_visit:
+        current_url, depth = to_visit.pop()
+        if current_url in visited or depth > max_depth:
+            continue
+
+        visited.add(current_url)
+
+        try:
+            resp = requests.get(current_url, timeout=5)
+            resp.raise_for_status()
+        except Exception:
+            continue
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for link_tag in soup.find_all("a", href=True):
+            href = link_tag["href"]
+            absolute_url = urljoin(current_url, href)
+            parsed = urlparse(absolute_url)
+
+            if parsed.netloc == base_domain and parsed.scheme.startswith("http"):
+                to_visit.append((absolute_url, depth + 1))
+
+    return visited
