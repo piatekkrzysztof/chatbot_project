@@ -24,7 +24,7 @@ def test_document_upload_creates_chunks(monkeypatch):
     from documents.tasks import embed_document_task
     monkeypatch.setattr(embed_document_task, "delay", lambda *args, **kwargs: None)
 
-    tenant = Tenant.objects.create(name="TestOrg", api_key="abc123")
+    tenant = Tenant.objects.create(name="TestOrg")
     client = APIClient()
 
     pdf = generate_valid_pdf_bytes()
@@ -43,7 +43,7 @@ def test_document_upload_creates_chunks(monkeypatch):
 
 @pytest.mark.django_db
 def test_list_chunks_for_document():
-    tenant = Tenant.objects.create(name="Firma A", api_key="abc123")
+    tenant = Tenant.objects.create(name="Firma A")
     user = CustomUser.objects.create_user(username="a", email="a@x.com", password="x", tenant=tenant)
     doc = Document.objects.create(name="Doc", tenant=tenant, processed=True)
     for i in range(5):
@@ -72,7 +72,7 @@ def test_upload_without_file_returns_400():
 
 @pytest.mark.django_db
 def test_chunk_list_nonexistent_document_returns_empty():
-    tenant = Tenant.objects.create(name="FirmX", api_key="keyx")
+    tenant = Tenant.objects.create(name="FirmX")
     user = CustomUser.objects.create_user("x", "x@x.com", "pw", tenant=tenant)
     client = APIClient()
     client.force_authenticate(user)
@@ -84,7 +84,7 @@ def test_chunk_list_nonexistent_document_returns_empty():
 
 @pytest.mark.django_db
 def test_document_detail_view_response_fields():
-    tenant = Tenant.objects.create(name="Org1", api_key="ak123")
+    tenant = Tenant.objects.create(name="Org1")
     user = CustomUser.objects.create_user("u", "u@e.com", "pw", tenant=tenant)
     doc = Document.objects.create(name="Doc", tenant=tenant, processed=True, content="abc def")
     client = APIClient()

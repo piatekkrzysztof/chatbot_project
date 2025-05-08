@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 @pytest.fixture
 def tenant():
-    return Tenant.objects.create(name="TestTenant", api_key="testkey123", owner_email="test@test.com")
+    return Tenant.objects.create(name="TestTenant", owner_email="test@test.com")
 
 
 @pytest.fixture

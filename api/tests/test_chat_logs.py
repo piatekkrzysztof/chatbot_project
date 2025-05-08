@@ -7,7 +7,7 @@ from chat.models import PromptLog, Conversation, ChatMessage, ChatFeedback
 @pytest.mark.django_db
 def test_prompt_logs_endpoint_returns_logs():
     client = APIClient()
-    tenant = Tenant.objects.create(name="Firma A", api_key="abc123", owner_email="x@example.com")
+    tenant = Tenant.objects.create(name="Firma A", owner_email="x@example.com")
     conv = Conversation.objects.create(id=1, tenant=tenant)
 
     PromptLog.objects.create(
@@ -30,7 +30,7 @@ def test_prompt_logs_endpoint_returns_logs():
 @pytest.mark.django_db
 def test_prompt_logs_endpoint_filters_by_is_helpful():
     client = APIClient()
-    tenant = Tenant.objects.create(name="Firma B", api_key="abc456", owner_email="y@example.com")
+    tenant = Tenant.objects.create(name="Firma B", owner_email="y@example.com")
     conv = Conversation.objects.create(id=2, tenant=tenant)
 
     log1 = PromptLog.objects.create(

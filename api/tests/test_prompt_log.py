@@ -18,7 +18,7 @@ def test_prompt_log_created_after_rag(monkeypatch):
         DocumentChunk(content="To jest przykładowy chunk.")
     ])
 
-    tenant = Tenant.objects.create(name="Test Tenant", api_key="test-key")
+    tenant = Tenant.objects.create(name="Test Tenant")
     document = Document.objects.create(name="Test Doc", tenant=tenant, content="abc")
     client = APIClient()
 

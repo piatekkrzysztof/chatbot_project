@@ -7,7 +7,6 @@ class ChatAPITest(APITestCase):
     def setUp(self):
         self.tenant = Tenant.objects.create(
             name="Test Client",
-            api_key="test-key-123",
             gpt_prompt="Odpowiadaj jak ekspert.",
             owner_email="test@example.com"
         )
@@ -35,7 +34,6 @@ class WidgetSettingsTest(APITestCase):
     def setUp(self):
         self.tenant = Tenant.objects.create(
             name="Test Tenant",
-            api_key="test-api-key-001",
             widget_position="bottom-right",
             widget_color="#3b82f6",
             widget_title="Chatbot Test",
