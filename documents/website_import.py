@@ -5,7 +5,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from documents.models import Document
-from documents.tasks import generate_embeddings_for_document
+from documents import tasks
 
 
 def fetch_text_from_url(url: str) -> str:
@@ -33,6 +33,7 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     """
     Pobiera stronę WWW, zapisuje jako Document, generuje embeddingi.
     """
+    print(repr(tasks.generate_embeddings_for_document))
     text = fetch_text_from_url(url)
 
     document = Document.objects.create(
@@ -42,7 +43,7 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
         source="website"
     )
 
-    generate_embeddings_for_document.delay(document.id)
+    tasks.generate_embeddings_for_document.delay(document.id)
     return document
 
 

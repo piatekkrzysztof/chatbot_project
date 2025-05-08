@@ -10,6 +10,7 @@ class Document(models.Model):
     file = models.FileField(upload_to="documents/", null=True, blank=True)
     processed = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    source = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
