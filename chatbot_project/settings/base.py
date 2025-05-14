@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+from decouple import config, Csv
 import dj_database_url
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -8,7 +9,7 @@ load_dotenv(dotenv_path)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "insecure-secret-for-dev")
+SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
