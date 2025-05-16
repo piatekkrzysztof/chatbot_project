@@ -7,10 +7,17 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
 from chat.models import PromptLog, Tenant, Conversation
+from api.utils.mixins import TenantQuerysetMixin
+from rest_framework.generics import ListAPIView
 
 
-class ExportPromptLogsCSVView(APIView):
-    def get(self, request):
+class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
+    serializer_class = None
+    permission_classes = []
+    queryset = PromptLog.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        logs = self.get_queryset().order_by("-created_at")
         api_key = request.headers.get("X-API-KEY")
         if not api_key:
             raise PermissionDenied("Brak klucza API.")

@@ -14,21 +14,15 @@ from rest_framework.generics import RetrieveAPIView
 from rest_framework import status
 from rest_framework.generics import ListAPIView
 from api.serializers import DocumentChunkSerializer
+from api.utils.mixins import TenantQuerysetMixin
 
 
-class DocumentDetailView(RetrieveAPIView):
+class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
     serializer_class = DocumentSerializer
     permission_classes = [AllowAny]  # lub IsAuthenticated jeśli JWT
 
     def get_queryset(self):
-        api_key = self.request.headers.get("X-API-KEY")
-        if not api_key:
-            return Document.objects.none()
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-        except Tenant.DoesNotExist:
-            return Document.objects.none()
-        return Document.objects.filter(tenant=tenant)
+        return super().get_queryset().order_by("-uploaded_at")
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -41,21 +35,12 @@ class DocumentDetailView(RetrieveAPIView):
         return Response(data)
 
 
-class DocumentsViewSet(viewsets.ReadOnlyModelViewSet):
+class DocumentsViewSet(TenantQuerysetMixin,viewsets.ReadOnlyModelViewSet):
     serializer_class = DocumentSerializer
     permission_classes = [AllowAny]  # API key wystarcza
 
     def get_queryset(self):
-        api_key = self.request.headers.get("X-API-KEY")
-        if not api_key:
-            return Document.objects.none()
-
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-        except Tenant.DoesNotExist:
-            return Document.objects.none()
-
-        return Document.objects.filter(tenant=tenant).order_by("-uploaded_at")
+        return super().get_queryset().order_by("-uploaded_at")
 
 
 class UploadDocumentView(APIView):
@@ -96,17 +81,11 @@ class UploadDocumentView(APIView):
         return Response({"message": "Uploaded successfully."}, status=201)
 
 
-class DocumentChunkListView(ListAPIView):
+class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
     serializer_class = DocumentChunkSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        api_key = self.request.headers.get("X-API-KEY")
-        tenant = Tenant.objects.filter(api_key=api_key).first()
-        if not tenant:
-            return DocumentChunk.objects.none()
-
-        return DocumentChunk.objects.filter(
-            document__id=self.kwargs["document_id"],
-            document__tenant=tenant
+        return super().get_queryset().filter(
+            document_id=self.kwargs["document_id"]
         ).order_by("created_at")

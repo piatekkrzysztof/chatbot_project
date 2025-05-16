@@ -2,6 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+
+from accounts.models import InvitationToken
 from api.serializers import RegisterSerializer, UserSerializer, AcceptInvitationSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -10,6 +12,8 @@ from api.serializers import CustomTokenObtainPairSerializer
 from rest_framework import generics, permissions
 from api.serializers import InvitationCreateSerializer
 from rest_framework.exceptions import PermissionDenied
+from api.utils.mixins import TenantQuerysetMixin
+from rest_framework.generics import ListAPIView
 
 
 class RegisterView(APIView):
@@ -53,17 +57,8 @@ class AcceptInvitationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class InvitationListView(APIView):
+
+class InvitationListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        if user.role != "owner":
-            raise PermissionDenied("Only tenant owners can list invitations.")
-
-        from accounts.models import InvitationToken
-        from api.serializers import InvitationCreateSerializer
-
-        invitations = InvitationToken.objects.filter(tenant=user.tenant)
-        serializer = InvitationCreateSerializer(invitations, many=True)
-        return Response(serializer.data)
+    serializer_class = InvitationCreateSerializer
+    queryset = InvitationToken.objects.all()
