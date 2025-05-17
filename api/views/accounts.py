@@ -14,9 +14,12 @@ from api.serializers import InvitationCreateSerializer
 from rest_framework.exceptions import PermissionDenied
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
+from api.permissions import *
 
 
 class RegisterView(APIView):
+    permission_classes = []
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -27,6 +30,7 @@ class RegisterView(APIView):
 
 class LoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = []
 
 
 class MeView(APIView):
@@ -40,7 +44,7 @@ class MeView(APIView):
 
 class CreateInvitationView(generics.CreateAPIView):
     serializer_class = InvitationCreateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsOwner]
 
     def perform_create(self, serializer):
         if self.request.user.role != 'owner':
@@ -57,8 +61,7 @@ class AcceptInvitationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class InvitationListView(TenantQuerysetMixin, ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsOwner]
     serializer_class = InvitationCreateSerializer
     queryset = InvitationToken.objects.all()

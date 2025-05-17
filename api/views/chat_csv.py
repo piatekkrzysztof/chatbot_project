@@ -9,11 +9,12 @@ from rest_framework import status
 from chat.models import PromptLog, Tenant, Conversation
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
+from api.permissions import IsTenantMember, IsOwnerOrEmployee
 
 
 class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
     serializer_class = None
-    permission_classes = []
+    permission_classes = [IsTenantMember]
     queryset = PromptLog.objects.all()
 
     def get(self, request, *args, **kwargs):
@@ -51,6 +52,7 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
 
 class ImportPromptLogsCSVView(APIView):
     parser_classes = [MultiPartParser]
+    permission_classes = [IsOwnerOrEmployee]
 
     def post(self, request):
         api_key = request.headers.get("X-API-KEY")

@@ -8,6 +8,7 @@ from uuid import UUID
 
 class WidgetSettingsAPIView(APIView):
     throttle_classes = [APIKeyRateThrottle]
+    permission_classes = []
 
     def get(self, request):
         api_key = request.headers.get("X-API-KEY")

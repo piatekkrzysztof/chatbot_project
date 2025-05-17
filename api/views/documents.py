@@ -15,11 +15,12 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView
 from api.serializers import DocumentChunkSerializer
 from api.utils.mixins import TenantQuerysetMixin
+from api.permissions import *
 
 
 class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
     serializer_class = DocumentSerializer
-    permission_classes = [AllowAny]  # lub IsAuthenticated jeśli JWT
+    permission_classes = [IsTenantMember]
 
     def get_queryset(self):
         return super().get_queryset().order_by("-uploaded_at")
@@ -35,9 +36,9 @@ class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
         return Response(data)
 
 
-class DocumentsViewSet(TenantQuerysetMixin,viewsets.ReadOnlyModelViewSet):
+class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = DocumentSerializer
-    permission_classes = [AllowAny]  # API key wystarcza
+    permission_classes = [IsTenantMember]
 
     def get_queryset(self):
         return super().get_queryset().order_by("-uploaded_at")
@@ -45,6 +46,7 @@ class DocumentsViewSet(TenantQuerysetMixin,viewsets.ReadOnlyModelViewSet):
 
 class UploadDocumentView(APIView):
     parser_classes = [MultiPartParser]
+    permissions_classes=[IsOwnerOrEmployee]
 
     def post(self, request):
         api_key = request.headers.get("X-API-KEY")
@@ -83,7 +85,7 @@ class UploadDocumentView(APIView):
 
 class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
     serializer_class = DocumentChunkSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTenantMember]
 
     def get_queryset(self):
         return super().get_queryset().filter(
