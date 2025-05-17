@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-
+from accounts.utils.email import send_invitation_email
 from accounts.models import InvitationToken
 from api.serializers import RegisterSerializer, UserSerializer, AcceptInvitationSerializer
 
@@ -49,7 +49,8 @@ class CreateInvitationView(generics.CreateAPIView):
     def perform_create(self, serializer):
         if self.request.user.role != 'owner':
             raise PermissionDenied("Only owners can invite users.")
-        serializer.save()
+        invitation = serializer.save()
+        send_invitation_email(invitation)
 
 
 class AcceptInvitationView(APIView):
