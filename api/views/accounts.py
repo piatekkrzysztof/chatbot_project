@@ -66,3 +66,6 @@ class InvitationListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsOwner]
     serializer_class = InvitationCreateSerializer
     queryset = InvitationToken.objects.all()
+
+
+"acc"
