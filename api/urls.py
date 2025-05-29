@@ -3,7 +3,7 @@ from .views.chat import ChatWithGPTView
 from .views.chat_csv import ExportPromptLogsCSVView, ImportPromptLogsCSVView
 from .views.widget import WidgetSettingsAPIView
 from .views.feedback import SubmitFeedbackView
-from .views.accounts import RegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
+from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
     InvitationListView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .routers import router
@@ -18,7 +18,7 @@ urlpatterns = [
     path("chat/logs/", PromptLogListView.as_view(), name="chat-logs"),
     path("chat/export/", ExportPromptLogsCSVView.as_view(), name="chat-export-csv"),
     path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
-    path('accounts/register/', RegisterView.as_view(), name='register'),
+    path('accounts/register/', ClientRegisterView.as_view(), name='register'),
     path('accounts/login/', LoginView.as_view(), name='login'),
     path('accounts/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('accounts/me/', MeView.as_view(), name='me'),
