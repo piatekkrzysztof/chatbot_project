@@ -109,3 +109,112 @@ class InvitationToken(models.Model):
 
     def __str__(self):
         return f"Invitation for {self.email} [{self.role}] ({self.tenant.name})"
+
+
+class Client(models.Model):
+    # Powiązania
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name='clients',
+        verbose_name="Firma kliencka"
+    )
+    created_by = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Twórca konfiguracji"
+    )
+
+    # Pola podstawowe
+    name = models.CharField(
+        max_length=100,
+        verbose_name="Nazwa konfiguracji",
+        help_text="Np. 'Chatbot Sklepu Głównego'"
+    )
+    website_url = models.URLField(
+        verbose_name="Adres URL strony",
+        help_text="Gdzie zostanie osadzony chatbot"
+    )
+
+    # Autogenerowany klucz API
+    api_key = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        verbose_name="Klucz API"
+    )
+
+    # Konfiguracja chatbota w formacie JSON
+    chatbot_config = models.JSONField(
+        default=dict,
+        verbose_name="Konfiguracja",
+        help_text="Ustawienia chatbota w formacie JSON"
+    )
+
+    # Status
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktywny"
+    )
+
+    # Automatyczne znaczniki czasu
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.tenant.name})"
+
+    class Meta:
+        verbose_name = "Konfiguracja Chatbota"
+        verbose_name_plural = "Konfiguracje Chatbotów"
+        unique_together = ['tenant', 'name']
+
+
+class Subscription(models.Model):
+    # Istniejące pola (przykład - dostosuj do twojej implementacji)
+    tenant = models.OneToOneField(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name='subscription'
+    )
+    plan_type = models.CharField(max_length=50)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+
+    # Nowe pola dla limitów
+    message_limit = models.PositiveIntegerField(
+        default=1000,
+        verbose_name="Limit wiadomości/miesiąc",
+        help_text="Miesięczny limit wiadomości dla wszystkich chatbotów firmy"
+    )
+
+    current_message_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Liczba użytych wiadomości"
+    )
+
+    # Cykl rozliczeniowy
+    billing_cycle_start = models.DateField(
+        auto_now_add=True,
+        verbose_name="Start cyklu rozliczeniowego"
+    )
+
+    # Metody walidacyjne
+    def has_message_quota(self):
+        """Czy firma ma dostępne wiadomości w bieżącym cyklu"""
+        return self.current_message_count < self.message_limit
+
+    def reset_usage(self):
+        """Resetowanie licznika przy nowym cyklu rozliczeniowym"""
+        self.current_message_count = 0
+        self.billing_cycle_start = timezone.now().date()
+        self.save()
+
+    def __str__(self):
+        return f"{self.tenant.name} - {self.plan_type}"
+
+    class Meta:
+        verbose_name = "Subskrypcja"
+        verbose_name_plural = "Subskrypcje"

@@ -1,6 +1,8 @@
 from django.db import models
 from accounts.models import Tenant
 from django.utils import timezone
+from accounts.models import Client  # Import nowego modelu Client
+import uuid
 
 
 class Conversation(models.Model):
@@ -95,3 +97,56 @@ class ChatFeedback(models.Model):
 
     def __str__(self):
         return f"{self.message.id}: {'👍' if self.is_helpful else '👎'}"
+
+
+
+
+
+class Chat(models.Model):
+    # Powiązanie z konfiguracją klienta
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='chats',
+        verbose_name="Konfiguracja Chatbota"
+    )
+
+    # Identyfikator sesji
+    session_id = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        verbose_name="ID Sesji"
+    )
+
+    # Dane użytkownika końcowego (anonimowe)
+    user_ip = models.GenericIPAddressField(
+        blank=True,
+        null=True,
+        verbose_name="IP użytkownika"
+    )
+    user_agent = models.TextField(
+        blank=True,
+        verbose_name="Przeglądarka użytkownika"
+    )
+
+    # Status konwersacji
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktywna sesja"
+    )
+
+    # Automatyczne znaczniki czasu
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Chat: {self.client.name} ({self.started_at})"
+
+    class Meta:
+        verbose_name = "Sesja Chat"
+        verbose_name_plural = "Sesje Chatów"
+        indexes = [
+            models.Index(fields=['session_id']),
+            models.Index(fields=['client', 'started_at']),
+        ]

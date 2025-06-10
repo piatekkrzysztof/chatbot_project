@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Tenant, CustomUser, InvitationToken
+from .models import Tenant, CustomUser, InvitationToken, Client, Subscription
 
 
 @admin.register(Tenant)
@@ -13,6 +13,10 @@ class TenantAdmin(admin.ModelAdmin):
 class CustomUserAdmin(admin.ModelAdmin):
     list_display = ("username", "email", "tenant", "role")
     list_filter = ("role", "tenant")
+
+
+admin.site.register(Client)
+admin.site.register(Subscription)
 
 
 @admin.register(InvitationToken)
