@@ -207,14 +207,16 @@ class Subscription(models.Model):
         return self.current_message_count < self.message_limit
 
     def reset_usage(self):
-        """Resetowanie licznika przy nowym cyklu rozliczeniowym"""
+        """Resetuj licznik na początku nowego cyklu"""
         self.current_message_count = 0
         self.billing_cycle_start = timezone.now().date()
-        self.save()
+        self.save(update_fields=['current_message_count', 'billing_cycle_start'])
 
-    def __str__(self):
-        return f"{self.tenant.name} - {self.plan_type}"
-
-    class Meta:
-        verbose_name = "Subskrypcja"
-        verbose_name_plural = "Subskrypcje"
+    def increment_usage(self):
+        """Atomowe zwiększenie licznika wiadomości"""
+        Subscription.objects.filter(
+            pk=self.pk
+        ).update(
+            current_message_count=models.F('current_message_count') + 1
+        )
+        self.refresh_from_db()
