@@ -4,6 +4,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from accounts.models import CustomUser, Tenant, InvitationToken
 from chat.models import PromptLog, ChatMessage, ChatFeedback
 from documents.models import Document, DocumentChunk
+from documents.validators import validate_document_limit
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -54,7 +55,6 @@ class RegisterSerializer(serializers.Serializer):
             tenant=tenant,
             role='owner',
         )
-
 
         return {
             "user": user,
@@ -142,6 +142,11 @@ class DocumentSerializer(serializers.ModelSerializer):
             "status",
             "preview",
         ]
+
+    def validate(self, attrs):
+        tenant = self.context["request"].user.tenant
+        validate_document_limit(tenant)
+        return attrs
 
     def get_chunk_count(self, obj):
         return obj.chunks.count()

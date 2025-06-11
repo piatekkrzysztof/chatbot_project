@@ -1,6 +1,6 @@
 chatbot_project/.env
 db.sqlite3.
-generate_embeddings.py
+# .gitignore
 .venv/
 venv/
 __pycache__/
