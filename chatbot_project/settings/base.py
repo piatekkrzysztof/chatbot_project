@@ -58,6 +58,16 @@ TEMPLATES = [
     },
 ]
 
+REST_FRAMEWORK = {
+    # ...
+    "DEFAULT_THROTTLE_CLASSES": [
+        "api.throttles.SubscriptionRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "subscription": "100/min",  # fallback, ale dynamiczne są brane z klasy
+    }
+}
+
 WSGI_APPLICATION = "chatbot_project.wsgi.application"
 ASGI_APPLICATION = "chatbot_project.asgi.application"
 

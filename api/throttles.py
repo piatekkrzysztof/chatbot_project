@@ -13,3 +13,31 @@ class APIKeyRateThrottle(SimpleRateThrottle):
             'scope': self.scope,
             'ident': api_key
         }
+
+
+from rest_framework.throttling import SimpleRateThrottle
+
+class SubscriptionRateThrottle(SimpleRateThrottle):
+    scope = 'subscription'
+
+    def get_cache_key(self, request, view):
+        if not request.user.is_authenticated:
+            return None
+        ident = request.user.id
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': ident
+        }
+
+    def get_rate(self):
+        user = self.request.user
+        try:
+            plan = user.tenant.subscription.plan_type.lower()
+        except AttributeError:
+            plan = 'free'
+
+        return {
+            'free': '20/min',
+            'pro': '100/min',
+            'enterprise': '500/min',
+        }.get(plan, '20/min')
