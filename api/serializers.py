@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
-from chat.models import PromptLog, ChatMessage, ChatFeedback
+from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ
 from documents.models import Document, DocumentChunk
 from documents.validators import validate_document_limit
 
@@ -212,3 +212,8 @@ class ChatFeedbackSerializer(serializers.Serializer):
             message=self.context["message"],
             defaults={"is_helpful": validated_data["is_helpful"]}
         )[0]
+
+class PublicFAQSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FAQ
+        fields = ["question", "answer"]

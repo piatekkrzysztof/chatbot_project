@@ -1,7 +1,7 @@
 from django.urls import path, include
 from .views.chat import ChatWithGPTView
 from .views.chat_csv import ExportPromptLogsCSVView, ImportPromptLogsCSVView
-from .views.widget import WidgetSettingsAPIView
+from .views.widget import WidgetSettingsAPIView, PublicFAQView
 from .views.feedback import SubmitFeedbackView
 from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
     InvitationListView
@@ -29,5 +29,6 @@ urlpatterns = [
     path("documents/<int:pk>/", DocumentDetailView.as_view(), name="document-detail"),
     path("documents/<int:document_id>/chunks/", DocumentChunkListView.as_view(), name="document-chunks"),
     path("widget/settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
+    path("widget/faq/", PublicFAQView.as_view(), name="widget-faq"),
 
 ]
