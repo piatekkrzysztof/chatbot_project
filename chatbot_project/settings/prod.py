@@ -1,4 +1,9 @@
 from .base import *
+import os
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
+
 
 DEBUG = False
 
@@ -39,3 +44,14 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 STRIPE_DEFAULT_PRICE_ID = os.getenv("STRIPE_DEFAULT_PRICE_ID")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=0.1,  # ogranicz śledzenie zapytań
+        send_default_pii=True,  # pozwala przesłać np. user.id, IP
+    )
