@@ -5,6 +5,7 @@ from .views.widget import WidgetSettingsAPIView, PublicFAQView
 from .views.feedback import SubmitFeedbackView
 from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
     InvitationListView
+from .views.stripe import CreateCheckoutSessionView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
@@ -30,5 +31,6 @@ urlpatterns = [
     path("documents/<int:document_id>/chunks/", DocumentChunkListView.as_view(), name="document-chunks"),
     path("widget/settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
     path("widget/faq/", PublicFAQView.as_view(), name="widget-faq"),
+    path("billing/create-checkout-session/", CreateCheckoutSessionView.as_view()),
 
 ]

@@ -23,10 +23,13 @@ class InvitationDuration(models.TextChoices):
     ONE_DAY = "1d", "1 Day"
     ONE_WEEK = "7d", "7 Days"
 
+def generate_api_key():
+    return uuid.uuid4()
+
 
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
-    api_key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    api_key = models.UUIDField(default=generate_api_key, unique=True, editable=False)
     regulamin = models.TextField(blank=True, null=True)
     gpt_prompt = models.TextField(
         blank=True,
