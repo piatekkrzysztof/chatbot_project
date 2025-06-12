@@ -10,10 +10,11 @@ from accounts.models import Tenant
 
 logger = logging.getLogger(__name__)
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 @csrf_exempt
 def stripe_webhook(request):
+    stripe.api_key = settings.STRIPE_SECRET_KEY
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET

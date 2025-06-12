@@ -5,17 +5,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.conf import settings
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
+# stripe.api_key = settings.STRIPE_SECRET_KEY
 
 PRICE_IDS = {
     "pro": "price_abc123",
     "enterprise": "price_def456",
 }
 
+
 class CreateCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        stripe.api_key = settings.STRIPE_SECRET_KEY
         plan_type = request.data.get("plan_type")
         price_id = PRICE_IDS.get(plan_type)
 
