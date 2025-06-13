@@ -21,10 +21,10 @@ def test_invitation_token_validity():
         email="invite@org.com"
     )
     assert token.is_valid() is True
-    assert token.uses == 0
+    assert token.users == 0
 
     token.use()
-    assert token.uses == 1
+    assert token.users == 1
     assert token.is_valid() is False
 
 
@@ -36,7 +36,7 @@ def test_invitation_token_expired():
     )
     token.created_at = timezone.now() - timedelta(hours=2)
     token.save()
-    assert token.is_valid() is False
+    assert not token.is_valid()
 
 
 @pytest.mark.django_db
@@ -52,11 +52,12 @@ def test_invitation_token_overused():
 def test_token_str_repr():
     tenant = Tenant.objects.create(name="Corp", owner_email="corp@x.com")
     token = InvitationToken.objects.create(tenant=tenant, role="viewer", duration=24)
-    assert str(token) == "x [A]"
+    assert str(token) == f"Invitation for {token.email} [{token.role}] ({token.tenant.name})"
+
 
 
 @pytest.mark.django_db
 def test_user_str_repr():
     tenant = Tenant.objects.create(name="A", owner_email="a@a.com")
     user = CustomUser.objects.create_user(username="x", email="x@x.com", password="123", tenant=tenant)
-    assert str(user) == "x (A)"
+    assert str(user) == "x [A]"
