@@ -32,11 +32,15 @@ def test_invitation_token_validity():
 def test_invitation_token_expired():
     tenant = Tenant.objects.create(name="T", owner_email="x@x.com")
     token = InvitationToken.objects.create(
-        tenant=tenant, role="employee", duration=1, max_users=1
+        tenant=tenant,
+        role="employee",
+        duration="1h",
+        max_users=1
     )
     token.created_at = timezone.now() - timedelta(hours=2)
-    token.save()
-    assert not token.is_valid()
+    token.save(update_fields=["created_at"])
+
+    assert token.is_valid() is False
 
 
 @pytest.mark.django_db
