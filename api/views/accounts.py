@@ -39,13 +39,14 @@ class ClientRegisterView(APIView):
                 status=status.HTTP_201_CREATED,
             )
 
+
 class LoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = []
 
 
 class MeView(APIView):
-    premission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user

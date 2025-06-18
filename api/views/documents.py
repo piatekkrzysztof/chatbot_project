@@ -46,7 +46,7 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 
 class UploadDocumentView(APIView):
     parser_classes = [MultiPartParser]
-    permissions_classes=[IsOwnerOrEmployee]
+    permission_classes=[IsOwnerOrEmployee]
 
     def post(self, request):
         api_key = request.headers.get("X-API-KEY")
