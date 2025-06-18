@@ -1,4 +1,6 @@
 import logging
+import openai
+from django.conf import settings
 from chat.models import ChatMessage, ChatUsageLog
 from rag.engine import query_similar_chunks_pgvector
 from openai import OpenAIError
@@ -7,17 +9,22 @@ from openai import ChatCompletion
 logger = logging.getLogger(__name__)
 
 
-def get_openai_response(prompt, model="gpt-3.5-turbo"):
+def get_openai_response(prompt, model="gpt-3.5-turbo", tenant=None):
     try:
-        response = ChatCompletion.create(
+        api_key = tenant.openai_api_key if tenant and tenant.openai_api_key else settings.OPENAI_API_KEY
+        openai.api_key = api_key
+
+        response = openai.ChatCompletion.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
         )
+
         return {
             "content": response.choices[0].message["content"],
             "tokens": response.usage.total_tokens,
         }
-    except OpenAIError as e:
+
+    except openai.OpenAIError as e:
         logger.exception("Błąd w OpenAI: %s", e)
         raise
 
