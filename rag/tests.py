@@ -1,5 +1,9 @@
 import pytest
 
+from accounts.models import Tenant
+from documents.models import Document, DocumentChunk
+
+
 @pytest.mark.django_db
 def test_query_chunks_with_pgvector(monkeypatch):
     from rag.engine import query_similar_chunks_pgvector
