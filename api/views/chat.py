@@ -28,7 +28,7 @@ class ChatWithGPTView(APIView):
             raise PermissionDenied("Invalid API key.")
 
         conversation, _ = Conversation.objects.get_or_create(
-            id=data["conversation_id"],
+            session_id=data["conversation_id"],
             tenant=tenant,
             defaults={
                 "tenant": tenant,
