@@ -29,6 +29,7 @@ class ChatWithGPTView(APIView):
 
         conversation, _ = Conversation.objects.get_or_create(
             id=data["conversation_id"],
+            tenant=tenant,
             defaults={
                 "tenant": tenant,
                 "user_identifier": request.META.get("REMOTE_ADDR", "unknown")
