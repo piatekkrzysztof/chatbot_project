@@ -6,40 +6,39 @@ from api.throttles import APIKeyRateThrottle
 from accounts.models import Tenant
 from chat.models import Conversation, ChatMessage, PromptLog, ChatUsageLog
 from api.utils.chat_engine import process_chat_message
-from accounts.models import Subscription
-
 
 class ChatWithGPTView(APIView):
     throttle_classes = [APIKeyRateThrottle]
 
     def post(self, request):
-        subscription = request.subscription
         serializer = ChatRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        api_key = request.headers.get("X-API-KEY")
-        if not api_key:
-            raise PermissionDenied("API key missing.")
+        # Autoryzacja po kluczu API obsługiwana w throttlingu,
+        # request.tenant oraz request.subscription są już ustawione
 
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-        except Tenant.DoesNotExist:
-            raise PermissionDenied("Invalid API key.")
+        # Ostateczna weryfikacja subskrypcji
+        if not hasattr(request, "subscription") or request.subscription is None:
+            raise PermissionDenied("Invalid subscription")
 
+        tenant = request.tenant
+
+        # Rozpocznij lub pobierz konwersację
         conversation, _ = Conversation.objects.get_or_create(
-            session_id=data["conversation_id"],
-            tenant=tenant,
+            id=data["conversation_id"],
             defaults={
                 "tenant": tenant,
-                "user_identifier": request.META.get("REMOTE_ADDR", "unknown")
-            }
+                "user_identifier": request.META.get("REMOTE_ADDR", "unknown"),
+            },
         )
 
         user_message = data["message"].strip()
 
+        # Przetwarzanie wiadomości przez silnik GPT/AI
         result = process_chat_message(tenant, conversation, user_message)
 
-        subscription.increment_usage()
+        # Logowanie zużycia (np. liczenie wiadomości do limitów)
+        request.subscription.increment_usage()
 
         return Response(result)

@@ -175,7 +175,7 @@ class Client(models.Model):
 
 
 class Subscription(models.Model):
-    # Istniejące pola (przykład - dostosuj do twojej implementacji)
+
     tenant = models.OneToOneField(
         Tenant,
         on_delete=models.CASCADE,

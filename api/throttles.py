@@ -1,43 +1,77 @@
 from rest_framework.throttling import SimpleRateThrottle
-
+from accounts.models import Tenant, Subscription
 
 class APIKeyRateThrottle(SimpleRateThrottle):
-    scope = 'chat'
+    scope = "chat"
 
     def get_cache_key(self, request, view):
-        api_key = request.headers.get('X-API-KEY')
-        ident = api_key or self.get_ident(request)
+        api_key = request.headers.get("X-API-KEY")
         if not api_key:
-            return None  # brak throttlingu (lub zablokuj całkiem)
-        return self.cache_format % {
-            'scope': self.scope,
-            'ident': api_key
-        }
+            return None
+        try:
+            tenant = Tenant.objects.get(api_key=api_key)
+            request.tenant = tenant  # <- udostępniamy tenant dalej
+            subscription = (
+                Subscription.objects
+                .filter(tenant=tenant, is_active=True)
+                .order_by("-end_date")
+                .first()
+            )
+            request.subscription = subscription  # <- NAJWAŻNIEJSZE!
+            return self.cache_format % {
+                "scope": self.scope,
+                "ident": f"tenant-{tenant.pk}"
+            }
+        except Tenant.DoesNotExist:
+            return None
 
+    def get_rate(self):
+        subscription = getattr(self.request, "subscription", None)
+        if subscription:
+            plan = (subscription.plan_type or "free").lower()
+        else:
+            plan = "free"
+        return {
+            "free": "20/min",
+            "pro": "100/min",
+            "enterprise": "500/min",
+        }.get(plan, "20/min")
 
-from rest_framework.throttling import SimpleRateThrottle
 
 class SubscriptionRateThrottle(SimpleRateThrottle):
-    scope = 'subscription'
+    scope = "subscription"
 
     def get_cache_key(self, request, view):
-        if not request.user.is_authenticated:
-            return None
-        ident = request.user.id
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            api_key = request.headers.get("X-API-KEY")
+            if not api_key:
+                return None
+            try:
+                tenant = Tenant.objects.get(api_key=api_key)
+                request.tenant = tenant
+            except Tenant.DoesNotExist:
+                return None
+        subscription = (
+            Subscription.objects
+            .filter(tenant=tenant, is_active=True)
+            .order_by("-end_date")
+            .first()
+        )
+        request.subscription = subscription
         return self.cache_format % {
-            'scope': self.scope,
-            'ident': ident
+            "scope": self.scope,
+            "ident": f"tenant-{tenant.pk}"
         }
 
     def get_rate(self):
-        user = self.request.user
-        try:
-            plan = user.tenant.subscription.plan_type.lower()
-        except AttributeError:
-            plan = 'free'
-
+        subscription = getattr(self.request, "subscription", None)
+        if subscription:
+            plan = (subscription.plan_type or "free").lower()
+        else:
+            plan = "free"
         return {
-            'free': '20/min',
-            'pro': '100/min',
-            'enterprise': '500/min',
-        }.get(plan, '20/min')
+            "free": "100/min",
+            "pro": "1000/min",
+            "enterprise": "20000/min",
+        }.get(plan, "100/min")

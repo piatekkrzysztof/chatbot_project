@@ -59,12 +59,13 @@ TEMPLATES = [
 ]
 
 REST_FRAMEWORK = {
-    # ...
     "DEFAULT_THROTTLE_CLASSES": [
+        "api.throttles.APIKeyRateThrottle",
         "api.throttles.SubscriptionRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "subscription": "100/min",  # fallback, ale dynamiczne są brane z klasy
+        "chat": "20/min",
+        "subscription": "100/min",
     }
 }
 
