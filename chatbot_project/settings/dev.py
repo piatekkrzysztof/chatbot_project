@@ -1,11 +1,10 @@
 from .base import *
 
-# DEBUG = False
-#
-# ALLOWED_HOSTS = ["*"]
-#
-# CORS_ALLOW_ALL_ORIGINS = True
+DEBUG = True
 
-# STATICFILES_DIRS = [
-#     BASE_DIR / "static",
-# ]
+# tu możesz nadpisywać, np.
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_THROTTLE_CLASSES": [],
+}

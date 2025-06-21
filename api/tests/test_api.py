@@ -1,23 +1,28 @@
+from datetime import timedelta
+
 from rest_framework.test import APITestCase
 from django.urls import reverse
 from accounts.models import Tenant, Subscription
-import datetime
+from django.utils import timezone
 from django.test import override_settings
+import os
+import uuid
 
 
 @override_settings(REST_FRAMEWORK={"DEFAULT_THROTTLE_CLASSES": []})
 class ChatAPITest(APITestCase):
     def setUp(self):
+        print("==== ACTIVE DJANGO SETTINGS MODULE:", os.environ.get("DJANGO_SETTINGS_MODULE"))
         self.tenant = Tenant.objects.create(
             name="Test Client",
             gpt_prompt="Odpowiadaj jak ekspert.",
             owner_email="test@example.com"
         )
         self.subscription = Subscription.objects.create(
-            tenant=Tenant.objects.get(pk=self.tenant.pk),
+            tenant=self.tenant,
             plan_type="pro",
-            start_date=datetime.date.today() - datetime.timedelta(days=1),
-            end_date=datetime.date.today() + datetime.timedelta(days=1),
+            start_date=timezone.now().date() - timedelta(days=2),
+            end_date=timezone.now().date(),
             is_active=True,
         )
         print("ALL subscriptions for tenant:", Subscription.objects.filter(tenant=self.tenant).values())
@@ -27,13 +32,13 @@ class ChatAPITest(APITestCase):
         print("SUBS found:", subs.count(), list(subs.values()))
 
     def test_chat_view_returns_response(self):
-
-        url = reverse("chat")
+        url = reverse('chat')
+        print(url)
         response = self.client.post(
             url,
             {
                 "message": "Cześć!",
-                "conversation_id": 1
+                "conversation_id": str(uuid.uuid4())
             },
             HTTP_X_API_KEY=self.tenant.api_key,
             format="json"

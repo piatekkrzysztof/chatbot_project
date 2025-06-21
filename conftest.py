@@ -12,7 +12,9 @@ from reportlab.pdfgen import canvas
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 # Wczytujemy zmienne środowiskowe z .env.test
-load_dotenv(".env.test")
+load_dotenv(".env.test", override=True)
+print(">>>>> conftest.py loaded! <<<<<")
+print(">>>>> DATABASE_URL from .env.test:", os.environ.get("DATABASE_URL"))
 
 
 
