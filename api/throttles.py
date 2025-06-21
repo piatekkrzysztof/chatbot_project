@@ -42,6 +42,7 @@ class SubscriptionRateThrottle(SimpleRateThrottle):
     scope = "subscription"
 
     def get_cache_key(self, request, view):
+
         tenant = getattr(request, "tenant", None)
         if not tenant:
             api_key = request.headers.get("X-API-KEY")
@@ -58,6 +59,7 @@ class SubscriptionRateThrottle(SimpleRateThrottle):
             .order_by("-end_date")
             .first()
         )
+        print("SET REQUEST.SUBSCRIPTION:", subscription)
         request.subscription = subscription
         return self.cache_format % {
             "scope": self.scope,
