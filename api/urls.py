@@ -29,7 +29,7 @@ urlpatterns = [
     path("documents-upload/", UploadDocumentView.as_view(), name="upload-document"),
     path("documents/<int:pk>/", DocumentDetailView.as_view(), name="document-detail"),
     path("documents/<int:document_id>/chunks/", DocumentChunkListView.as_view(), name="document-chunks"),
-    path("widget/settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
+    # path("widget/settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
     path("widget/faq/", PublicFAQView.as_view(), name="widget-faq"),
     path("billing/create-checkout-session/", CreateCheckoutSessionView.as_view()),
 

@@ -41,7 +41,7 @@ class Tenant(models.Model):
     openai_api_key = models.CharField(max_length=128, blank=True, null=True)
 
     # Widget
-    widget_position = models.CharField(max_length=10, choices=WidgetPosition.choices, default=WidgetPosition.RIGHT)
+    widget_position = models.CharField(max_length=25, choices=WidgetPosition.choices, default=WidgetPosition.RIGHT)
     widget_color = models.CharField(max_length=20, default="#000000")
     widget_title = models.CharField(max_length=100, default="Chatbot")
 
