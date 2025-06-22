@@ -51,7 +51,7 @@ class ChatAPITest(APITestCase):
 
     def test_widget_settings(self):
         url = reverse("widget-settings")
-        response = self.client.get(url, HTTP_X_API_KEY=self.tenant.api_key)
+        response = self.client.get(url, HTTP_X_API_KEY=str(self.tenant.api_key))
         self.assertEqual(response.status_code, 200)
 
 
@@ -69,6 +69,6 @@ class WidgetSettingsTest(APITestCase):
 
     def test_widget_settings(self):
         url = reverse("widget-settings")
-        response = self.client.get(url, HTTP_X_API_KEY=self.tenant.api_key)
+        response = self.client.get(url, HTTP_X_API_KEY=str(self.tenant.api_key))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["widget_title"], "Chatbot Test")
