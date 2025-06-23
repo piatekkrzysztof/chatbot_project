@@ -9,22 +9,42 @@ from .models import Subscription
 from dateutil.relativedelta import relativedelta
 
 
-class TenantMiddleware(MiddlewareMixin):
+class TenantMiddleware:
+    """
+    Middleware wymuszający obecność tenanta dla każdego requestu API,
+    poza ścieżkami rejestracji i logowania.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
     def process_request(self, request):
+        exempt_paths = [
+            "/api/accounts/register/",
+            "/api/accounts/login/",
+        ]
+        # Przepuszczamy tylko register/login bez tenanta
+        if request.path in exempt_paths:
+            return
+
         tenant = None
 
-        # JWT (użytkownik zalogowany)
-        try:
-            jwt_auth = JWTAuthentication()
-            user_auth_tuple = jwt_auth.authenticate(request)
-            if user_auth_tuple:
-                user, _ = user_auth_tuple
-                request.user = user
-                tenant = getattr(user, 'tenant', None)
-        except Exception:
-            pass  # brak JWT = nie przerywamy
+        # 1. Jeśli user jest już zalogowany (force_authenticate albo login przez DRF/JWT)
+        if hasattr(request, "user") and getattr(request.user, "is_authenticated", False):
+            tenant = getattr(request.user, "tenant", None)
 
-        # API Key fallback
+        # 2. Jeśli nie user, to JWT
+        if not tenant:
+            try:
+                jwt_auth = JWTAuthentication()
+                user_auth_tuple = jwt_auth.authenticate(request)
+                if user_auth_tuple:
+                    user, _ = user_auth_tuple
+                    request.user = user
+                    tenant = getattr(user, "tenant", None)
+            except Exception:
+                pass
+
+        # 3. Jeśli nie user, nie JWT, to spróbuj po API Key
         if not tenant:
             api_key = request.headers.get("X-API-Key")
             if api_key:
@@ -33,10 +53,16 @@ class TenantMiddleware(MiddlewareMixin):
                 except Tenant.DoesNotExist:
                     raise AuthenticationFailed("Nieprawidłowy klucz API")
 
+        # 4. Ostatecznie, jeśli nadal brak tenant – blokuj request
         if not tenant:
             raise AuthenticationFailed("Nie rozpoznano tenanta")
 
         request.tenant = tenant
+
+    def __call__(self, request):
+        self.process_request(request)
+        response = self.get_response(request)
+        return response
 
     def get_active_subscription(self, tenant):
         today = timezone.now().date()

@@ -35,9 +35,9 @@ def test_me_view_returns_logged_in_user():
     user = CustomUser.objects.create_user(username="u", email="user@t.com", password="pass", tenant=tenant)
 
     client = APIClient()
-    client.force_authenticate(user=user)
+    client.force_authenticate(user=user, )
 
-    response = client.get("/api/accounts/me/")
+    response = client.get("/api/accounts/me/",HTTP_X_API_KEY=str(tenant.api_key))
     assert response.status_code == 200
     assert response.data["email"] == "user@t.com"
 
