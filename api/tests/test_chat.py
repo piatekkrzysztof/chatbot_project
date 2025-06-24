@@ -33,7 +33,7 @@ def test_chat_view_success(api_client, tenant):
     )
     payload = {
         "message": "Jak mogę skontaktować się z Wami?",
-        "conversation_id": str(conversation.id)
+        "conversation__session_id": str(conversation.session_id)
     }
     response = api_client.post("/api/chat/", payload, format="json")
     assert response.status_code == 200

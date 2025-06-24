@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from api.serializers import ChatRequestSerializer
 from api.throttles import APIKeyRateThrottle
+from api.permissions import IsTenantMember
 from accounts.models import Tenant
 from chat.models import Conversation, ChatMessage, PromptLog, ChatUsageLog
 from api.utils.chat_engine import process_chat_message
@@ -11,6 +12,7 @@ from accounts.models import Subscription
 
 class ChatWithGPTView(APIView):
     throttle_classes = [APIKeyRateThrottle]
+    permission_classes = [IsTenantMember]
 
     def post(self, request):
         print(f"Subscription in view: {request.subscription}")
@@ -24,7 +26,7 @@ class ChatWithGPTView(APIView):
             raise PermissionDenied("Brak uprawnień lub nieprawidłowy klucz API.")
 
         conversation, _ = Conversation.objects.get_or_create(
-            session_id=data["conversation_id"],
+            session_id=data["conversation_session_id"],
             tenant=tenant,
             defaults={
                 "tenant": tenant,
