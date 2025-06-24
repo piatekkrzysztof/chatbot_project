@@ -10,6 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 
 class TenantMiddleware:
+
     """
     Middleware wymuszający obecność tenanta dla każdego requestu API,
     poza ścieżkami rejestracji i logowania.
@@ -18,9 +19,13 @@ class TenantMiddleware:
         self.get_response = get_response
 
     def process_request(self, request):
+        print("### MIDDLEWARE WYWOŁANY ###", request.path, request.headers)
+        print("### X-API-KEY W HEADERACH:", request.headers.get("X-API-Key"))
         exempt_paths = [
             "/api/accounts/register/",
             "/api/accounts/login/",
+
+
         ]
         # Przepuszczamy tylko register/login bez tenanta
         if request.path in exempt_paths:
@@ -29,6 +34,7 @@ class TenantMiddleware:
         tenant = None
 
         # 1. Jeśli user jest już zalogowany (force_authenticate albo login przez DRF/JWT)
+        print("### ALL TENANTS:", list(Tenant.objects.all()))
         if hasattr(request, "user") and getattr(request.user, "is_authenticated", False):
             tenant = getattr(request.user, "tenant", None)
 
@@ -65,6 +71,7 @@ class TenantMiddleware:
         return response
 
     def get_active_subscription(self, tenant):
+
         today = timezone.now().date()
         print(f"Checking subscription for tenant {tenant.name} on {today}")
 

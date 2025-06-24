@@ -19,14 +19,9 @@ class ChatWithGPTView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        api_key = request.headers.get("X-API-KEY")
-        if not api_key:
-            raise PermissionDenied("API key missing.")
-
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-        except Tenant.DoesNotExist:
-            raise PermissionDenied("Invalid API key.")
+        tenant = getattr(request, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Brak uprawnień lub nieprawidłowy klucz API.")
 
         conversation, _ = Conversation.objects.get_or_create(
             session_id=data["conversation_id"],
