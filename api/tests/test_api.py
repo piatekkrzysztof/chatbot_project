@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from rest_framework.test import APITestCase
 from django.urls import reverse
-from accounts.models import Tenant, Subscription
+from accounts.models import Tenant, Subscription, CustomUser
 from django.utils import timezone
 from django.test import override_settings
 import os
@@ -25,6 +25,7 @@ class ChatAPITest(APITestCase):
             end_date=timezone.now().date(),
             is_active=True,
         )
+        self.user=CustomUser.objects.create_user(username="x", email="x@x.com", password="secret", tenant=self.tenant)
         print("ALL subscriptions for tenant:", Subscription.objects.filter(tenant=self.tenant).values())
         print("ALL tenants:", Tenant.objects.all().values())
         print("Tenant for key:", Tenant.objects.get(api_key=self.tenant.api_key))
@@ -34,11 +35,13 @@ class ChatAPITest(APITestCase):
     def test_chat_view_returns_response(self):
         url = reverse('chat')
         print(url)
+        self.client.force_authenticate(user=self.user, )
         response = self.client.post(
             url,
             {
                 "message": "Cześć!",
-                "conversation_id": str(uuid.uuid4())
+                "conversation_session_id": str(uuid.uuid4()),
+                "conversation_id": 1,
             },
             HTTP_X_API_KEY=self.tenant.api_key,
             format="json"

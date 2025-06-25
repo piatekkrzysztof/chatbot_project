@@ -20,6 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
 class ChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField()
     conversation_id = serializers.CharField()
+    conversation_session_id = serializers.UUIDField()
 
 
 class ChatResponseSerializer(serializers.Serializer):
