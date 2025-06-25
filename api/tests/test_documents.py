@@ -53,14 +53,14 @@ def test_list_chunks_for_document(user, tenant, subscribtion):
     user.save()
     tenant.save()
     client.force_authenticate(user=user)
+
     doc = Document.objects.create(name="Doc", tenant=tenant, processed=True)
     for i in range(5):
         DocumentChunk.objects.create(document=doc, content=f"chunk {i}", embedding=[0.1] * 1536)
 
-    client = APIClient()
-    client.force_authenticate(user=user)
     url = reverse("document-chunks", args=[doc.id])
-    res = client.get(url, str(tenant.api_key))
+    res = client.get(url, HTTP_X_API_KEY=str(tenant.api_key))
+
     assert res.status_code == 200
     assert len(res.data) == 5
 
