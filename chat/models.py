@@ -6,6 +6,7 @@ import uuid
 
 
 class Conversation(models.Model):
+    id = models.BigAutoField(primary_key=True)
     session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='conversations')
     user_identifier = models.CharField(max_length=100)
