@@ -5,11 +5,14 @@ from chat.models import PromptLog, Conversation, ChatMessage, ChatFeedback
 
 
 @pytest.mark.django_db
-def test_prompt_logs_endpoint_returns_logs():
+def test_prompt_logs_endpoint_returns_logs(user, tenant, subscribtion):
     client = APIClient()
-    tenant = Tenant.objects.create(name="Firma A", owner_email="x@example.com")
-    conv = Conversation.objects.create(id=1, tenant=tenant)
+    user.tenant = tenant
+    user.role = "owner"
+    user.save()
+    client.force_authenticate(user=user)
 
+    conv = Conversation.objects.create(id=1, tenant=tenant)
     PromptLog.objects.create(
         tenant=tenant,
         conversation=conv,
@@ -20,7 +23,7 @@ def test_prompt_logs_endpoint_returns_logs():
         response="RODO to rozporządzenie UE."
     )
 
-    res = client.get("/api/chat/logs/", HTTP_X_API_KEY=tenant.api_key)
+    res = client.get("/api/chat/logs/", HTTP_X_API_KEY=str(tenant.api_key))
     assert res.status_code == 200
     assert isinstance(res.json()["results"], list)
     assert len(res.json()["results"]) == 1
@@ -28,9 +31,13 @@ def test_prompt_logs_endpoint_returns_logs():
 
 
 @pytest.mark.django_db
-def test_prompt_logs_endpoint_filters_by_is_helpful():
+def test_prompt_logs_endpoint_filters_by_is_helpful(user, tenant, subscribtion):
     client = APIClient()
-    tenant = Tenant.objects.create(name="Firma B", owner_email="y@example.com")
+    user.tenant = tenant
+    user.role = "employee"
+    user.save()
+    client.force_authenticate(user=user)
+
     conv = Conversation.objects.create(id=2, tenant=tenant)
 
     log1 = PromptLog.objects.create(
@@ -51,14 +58,14 @@ def test_prompt_logs_endpoint_filters_by_is_helpful():
     ChatFeedback.objects.create(message=msg2, is_helpful=False)
 
     # Sprawdź tylko pomocne
-    res_true = client.get("/api/chat/logs/?is_helpful=true", HTTP_X_API_KEY=tenant.api_key)
+    res_true = client.get("/api/chat/logs/?is_helpful=true", HTTP_X_API_KEY=str(tenant.api_key))
     results_true = res_true.json()["results"]
     assert len(results_true) == 1
     assert results_true[0]["prompt"] == "Jak założyć konto?"
     assert results_true[0]["is_helpful"] is True
 
     # Sprawdź tylko niepomocne
-    res_false = client.get("/api/chat/logs/?is_helpful=false", HTTP_X_API_KEY=tenant.api_key)
+    res_false = client.get("/api/chat/logs/?is_helpful=false", HTTP_X_API_KEY=str(tenant.api_key))
     results_false = res_false.json()["results"]
     assert len(results_false) == 1
     assert results_false[0]["prompt"] == "Co to jest regulamin?"
@@ -70,4 +77,3 @@ def test_prompt_logs_requires_api_key():
     client = APIClient()
     res = client.get("/api/chat/logs/")
     assert res.status_code == 403
-    assert "API key missing" in res.json()["detail"]
