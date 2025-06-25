@@ -15,6 +15,9 @@ class ChatWithGPTView(APIView):
     permission_classes = [IsTenantMember]
 
     def post(self, request):
+        print(f"[DEBUG widok] request.user: {request.user}")
+        print(f"[DEBUG widok] request.tenant: {getattr(request, 'tenant', None)}")
+        print(f"[VIEW] request.user: {request.user} | request.tenant: {getattr(request, 'tenant', None)}")
         print(f"Subscription in view: {request.subscription}")
         subscription = request.subscription
         serializer = ChatRequestSerializer(data=request.data)
