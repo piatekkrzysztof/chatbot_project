@@ -7,18 +7,25 @@ from chat.models import PromptLog, Conversation
 
 
 @pytest.mark.django_db
-def test_export_prompt_logs_csv():
-    client = APIClient()
-    tenant = Tenant.objects.create(name="Firma",  owner_email="x@example.com")
-    conv = Conversation.objects.create(id=100, tenant=tenant)
+def test_export_prompt_logs_csv(api_client, user, tenant, subscribtion):
+    user.tenant = tenant
+    user.save()
+    api_client.force_authenticate(user=user)
 
+    conv = Conversation.objects.create(id=100, tenant=tenant)
     PromptLog.objects.create(
-        tenant=tenant, conversation=conv,
-        prompt="Co to jest AI?", response="Sztuczna inteligencja",
-        tokens=10, source="faq", model="gpt-3.5-turbo"
+        tenant=tenant,
+        conversation=conv,
+        prompt="Co to jest AI?",
+        response="Sztuczna inteligencja",
+        tokens=10,
+        source="faq",
+        model="gpt-3.5-turbo"
     )
 
-    res = client.get("/api/chat/export/", HTTP_X_API_KEY=tenant.api_key)
+    headers = {"HTTP_X_API_KEY": tenant.api_key}
+    res = api_client.get("/api/chat/export/", **headers)
+
     assert res.status_code == 200
     assert res["Content-Type"] == "text/csv"
     content = res.content.decode("utf-8")
@@ -26,19 +33,21 @@ def test_export_prompt_logs_csv():
 
 
 @pytest.mark.django_db
-def test_import_prompt_logs_csv():
-    client = APIClient()
-    tenant = Tenant.objects.create(name="Firma",  owner_email="x@example.com")
+def test_import_prompt_logs_csv(api_client, user, tenant, subscribtion):
+    user.tenant = tenant
+    user.save()
+    api_client.force_authenticate(user=user)
 
     csv_content = "prompt,response\nCzym jest Python?,Język programowania\n"
     file = io.BytesIO(csv_content.encode("utf-8"))
     file.name = "prompts.csv"
 
-    res = client.post(
+    headers = {"HTTP_X_API_KEY": tenant.api_key}
+    res = api_client.post(
         "/api/chat/import/",
         {"file": file},
         format="multipart",
-        HTTP_X_API_KEY=tenant.api_key
+        **headers
     )
 
     assert res.status_code == 201
@@ -51,10 +60,13 @@ def test_import_prompt_logs_csv():
 
 
 @pytest.mark.django_db
-def test_import_prompt_logs_missing_file():
-    client = APIClient()
-    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+def test_import_prompt_logs_missing_file(api_client, user, tenant, subscribtion):
+    user.tenant = tenant
+    user.save()
+    api_client.force_authenticate(user=user)
 
-    res = client.post("/api/chat/import/", {}, HTTP_X_API_KEY=tenant.api_key)
+    headers = {"HTTP_X_API_KEY": tenant.api_key}
+    res = api_client.post("/api/chat/import/", {}, **headers)
+
     assert res.status_code == 400
     assert "Brak pliku CSV" in res.json()["error"]

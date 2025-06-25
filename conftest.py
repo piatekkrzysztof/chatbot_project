@@ -2,7 +2,7 @@ import os
 import pytest
 import uuid
 from rest_framework.test import APIClient
-from accounts.models import Tenant
+from accounts.models import Tenant, Subscription, CustomUser
 import psycopg2
 from dotenv import load_dotenv
 from django.conf import settings
@@ -10,6 +10,7 @@ from django.core.management import call_command
 import io
 from reportlab.pdfgen import canvas
 from django.core.files.uploadedfile import SimpleUploadedFile
+from datetime import date, timedelta
 
 # Wczytujemy zmienne środowiskowe z .env.test
 load_dotenv(".env.test", override=True)
@@ -30,10 +31,35 @@ def valid_pdf_file():
 
 
 @pytest.fixture
-def tenant():
-    return Tenant.objects.create(name="Firma Testowa",
-                                 api_key=str(uuid.uuid4()),
-                                 owner_email="owner@example.com")
+def tenant(db):
+    return Tenant.objects.create(
+        name="TestTenant",
+        owner_email="test@example.com"
+    )
+
+@pytest.fixture
+def subscribtion(db, tenant):
+    return Subscription.objects.create(
+        tenant=tenant,
+        is_active=True,
+        start_date=date.today() - timedelta(days=1),
+        end_date=date.today() + timedelta(days=30),
+    )
+
+
+@pytest.fixture
+def user(db, tenant):
+    return CustomUser.objects.create_user(
+        username="x", email="x@x.com", password="secret", tenant=tenant
+    )
+
+
+@pytest.fixture
+def api_client(tenant):
+    client = APIClient()
+    client.credentials(HTTP_X_API_KEY=str(tenant.api_key))
+
+    return client
 
 
 @pytest.fixture
