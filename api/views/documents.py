@@ -37,6 +37,7 @@ class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
 
 
 class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
+    queryset = Document.objects.all()
     serializer_class = DocumentSerializer
     permission_classes = [IsTenantMember]
 
@@ -84,10 +85,9 @@ class UploadDocumentView(APIView):
 
 
 class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
+    queryset = DocumentChunk.objects.all()
     serializer_class = DocumentChunkSerializer
     permission_classes = [IsTenantMember]
 
     def get_queryset(self):
-        return super().get_queryset().filter(
-            document_id=self.kwargs["document_id"]
-        ).order_by("created_at")
+        return DocumentChunk.objects.filter(document__tenant=self.request.tenant, document_id=self.kwargs["document_id"])

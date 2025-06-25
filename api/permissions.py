@@ -13,8 +13,13 @@ class IsOwnerOrEmployee(BasePermission):
     """
     Pozwala użytkownikom z rolą 'owner' lub 'employee'.
     """
+
     def has_permission(self, request, view):
-        return bool(request.user and request.user.role in ['owner', 'employee'])
+        return bool(
+            hasattr(request, "user")
+            and hasattr(request.user, "role")
+            and request.user.role in ["owner", "employee"]
+        )
 
 
 class IsTenantMember(BasePermission):
