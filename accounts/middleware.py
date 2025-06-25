@@ -19,6 +19,8 @@ class TenantMiddleware:
         self.get_response = get_response
 
     def process_request(self, request):
+        print(f"[DEBUG middleware] request.user: {request.user}")
+        print(f"[DEBUG middleware] przypisano request.tenant: {getattr(request, 'tenant', None)}")
         print("### MIDDLEWARE WYWOŁANY ###", request.path, request.headers)
         print("### X-API-KEY W HEADERACH:", request.headers.get("X-API-Key"))
         exempt_paths = [
@@ -37,6 +39,9 @@ class TenantMiddleware:
         print("### ALL TENANTS:", list(Tenant.objects.all()))
         if hasattr(request, "user") and getattr(request.user, "is_authenticated", False):
             tenant = getattr(request.user, "tenant", None)
+            if tenant:
+                request.tenant = tenant
+                print(f"[MIDDLEWARE] request.tenant ustawiony: {tenant}")
 
         # 2. Jeśli nie user, to JWT
         if not tenant:
