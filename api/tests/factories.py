@@ -1,3 +1,9 @@
+import pytest
+from rest_framework.test import APIClient
+from accounts.models import Tenant, CustomUser
+from accounts.models import Subscription
+from datetime import date, timedelta
+
 import factory
 import uuid
 from datetime import date, timedelta
@@ -11,7 +17,6 @@ class TenantFactory(factory.django.DjangoModelFactory):
 
     name = factory.Faker("company")
     api_key = factory.LazyFunction(lambda: str(uuid.uuid4()))
-
 
 
 class SubscriptionFactory(factory.django.DjangoModelFactory):
@@ -52,3 +57,11 @@ class ChatMessageFactory(factory.django.DjangoModelFactory):
     conversation = factory.SubFactory(ConversationFactory)
     sender = "user"
     message = factory.Faker("sentence")
+
+
+@pytest.fixture
+def api_client(tenant):
+    client = APIClient()
+    client.credentials(HTTP_X_API_KEY=str(tenant.api_key))
+
+    return client
