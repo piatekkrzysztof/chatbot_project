@@ -1,6 +1,6 @@
 import pytest
 from rest_framework.test import APIClient
-from accounts.models import Tenant
+from accounts.models import Tenant, CustomUser
 from chat.models import Conversation
 import uuid
 from rest_framework.exceptions import AuthenticationFailed
@@ -13,21 +13,30 @@ def tenant(db):
     )
 
 @pytest.fixture
+def user(db, tenant):
+    return CustomUser.objects.create_user(
+        username="x", email="x@x.com", password="secret", tenant=tenant
+    )
+
+@pytest.fixture
 def api_client(tenant):
     client = APIClient()
     client.credentials(HTTP_X_API_KEY=str(tenant.api_key))
+
     return client
 
 @pytest.mark.django_db
-def test_chat_view_success(api_client, tenant):
+def test_chat_view_success(api_client, tenant,user):
     conversation = Conversation.objects.create(
         tenant=tenant,
         user_identifier="test-user"
     )
     payload = {
         "message": "Jak mogę skontaktować się z Wami?",
-        "conversation_id": str(conversation.session_id)
+        "conversation_id": 1,
+        "conversation_session_id": str(conversation.session_id),
     }
+    api_client.force_authenticate(user=user, )
     response = api_client.post("/api/chat/", payload, format="json")
     assert response.status_code == 200
     assert "response" in response.data
