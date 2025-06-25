@@ -142,9 +142,11 @@ def test_chat_view_openai_fallback(api_client, user, tenant,subscribtion):
         "conversation_session_id": str(conversation.session_id),
     }
 
-    with patch("api.utils.chat_engine.process_chat_message") as mock_engine:
-        mock_engine.return_value = "Testowa odpowiedź fallback"
-        api_client.force_authenticate(user=user)
+    with patch("api.views.chat.process_chat_message", return_value={
+        "response": "Testowa odpowiedź fallback",
+        "source": "gpt",
+        "tokens": 0
+    }):
         headers = {"HTTP_X_API_KEY": tenant.api_key}
         response = api_client.post("/api/chat/", payload, format="json", **headers)
 
