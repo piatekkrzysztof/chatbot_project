@@ -102,44 +102,51 @@ def test_chat_view_invalid_payload(api_client):
 
 
 @pytest.mark.django_db
-def test_chat_view_new_conversation():
-    tenant = TenantFactory()
-    SubscriptionFactory(tenant=tenant)
-    user = UserFactory(tenant=tenant)
+def test_chat_view_new_conversation(api_client, user, tenant,subscribtion):
+    user.tenant = tenant
+    user.save()
+    api_client.force_authenticate(user=user)
 
-    client = APIClient()
-    client.force_authenticate(user=user)
-    headers = {"HTTP_X_API_KEY": tenant.api_key}
+    conversation = Conversation.objects.create(
+        tenant=tenant,
+        user_identifier="test-user"
+    )
+
 
     payload = {
         "message": "Cześć, chcę założyć nowe zgłoszenie!",
-        "conversation_session_id": str(uuid.uuid4()),
+        "conversation_id": conversation.id,
+        "conversation_session_id": str(conversation.session_id),
     }
 
-    response = client.post("/api/chat/", payload, format="json", **headers)
+    headers = {"HTTP_X_API_KEY": tenant.api_key}
+    response = api_client.post("/api/chat/", payload, format="json", **headers)
     assert response.status_code == 200
     assert "response" in response.data
 
 
 @pytest.mark.django_db
-def test_chat_view_openai_fallback():
-    tenant = TenantFactory()
-    SubscriptionFactory(tenant=tenant)
-    user = UserFactory(tenant=tenant)
-    conversation = ConversationFactory(tenant=tenant)
+def test_chat_view_openai_fallback(api_client, user, tenant,subscribtion):
+    user.tenant = tenant
+    user.save()
+    api_client.force_authenticate(user=user)
+
+    conversation = Conversation.objects.create(
+        tenant=tenant,
+        user_identifier="test-user"
+    )
 
     payload = {
         "message": "Testowe zapytanie do fallbacku",
-        # "conversation_id": conversation.id,
+        "conversation_id": conversation.id,
         "conversation_session_id": str(conversation.session_id),
     }
 
     with patch("api.utils.chat_engine.process_chat_message") as mock_engine:
         mock_engine.return_value = "Testowa odpowiedź fallback"
-        client = APIClient()
-        client.force_authenticate(user=user)
+        api_client.force_authenticate(user=user)
         headers = {"HTTP_X_API_KEY": tenant.api_key}
-        response = client.post("/api/chat/", payload, format="json", **headers)
+        response = api_client.post("/api/chat/", payload, format="json", **headers)
 
     assert response.status_code == 200
     assert response.data["response"] == "Testowa odpowiedź fallback"
