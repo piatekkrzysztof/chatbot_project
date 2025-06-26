@@ -86,7 +86,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class InvitationCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvitationToken
-        fields = ['email', 'role', 'duration_hours', 'max_uses']
+        fields = ['email', 'role', 'duration', 'max_users']
 
     def create(self, validated_data):
         tenant = self.context['request'].user.tenant
