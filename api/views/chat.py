@@ -11,9 +11,8 @@ from accounts.models import Subscription
 from rest_framework.throttling import ScopedRateThrottle
 
 
-
 class ChatWithGPTView(APIView):
-    throttle_classes = [ APIKeyRateThrottle]
+    throttle_classes = [APIKeyRateThrottle]
     permission_classes = [IsTenantMember]
 
     def post(self, request):
