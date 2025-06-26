@@ -12,6 +12,8 @@ from reportlab.pdfgen import canvas
 from django.core.files.uploadedfile import SimpleUploadedFile
 from datetime import date, timedelta
 
+from chat.models import Conversation
+
 # Wczytujemy zmienne środowiskowe z .env.test
 load_dotenv(".env.test", override=True)
 print(">>>>> conftest.py loaded! <<<<<")
@@ -35,6 +37,13 @@ def tenant(db):
     return Tenant.objects.create(
         name="TestTenant",
         owner_email="test@example.com"
+    )
+
+@pytest.fixture
+def conversation(tenant):
+    return Conversation.objects.create(
+        tenant=tenant,
+        user_identifier="test-user",
     )
 
 @pytest.fixture
