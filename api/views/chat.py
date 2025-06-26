@@ -8,10 +8,12 @@ from accounts.models import Tenant
 from chat.models import Conversation, ChatMessage, PromptLog, ChatUsageLog
 from api.utils.chat_engine import process_chat_message
 from accounts.models import Subscription
+from rest_framework.throttling import ScopedRateThrottle
 
 
 class ChatWithGPTView(APIView):
-    throttle_classes = [APIKeyRateThrottle]
+    throttle_classes = [ScopedRateThrottle, APIKeyRateThrottle]
+    throttle_scope = "chat"
     permission_classes = [IsTenantMember]
 
     def post(self, request):

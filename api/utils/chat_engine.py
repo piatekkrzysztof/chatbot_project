@@ -5,6 +5,9 @@ from chat.models import ChatMessage, ChatUsageLog, PromptLog
 from rag.engine import query_similar_chunks_pgvector
 from openai import OpenAIError
 from openai import ChatCompletion
+from openai import OpenAI
+
+client = OpenAI()
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +15,11 @@ logger = logging.getLogger(__name__)
 def get_openai_response(prompt, model="gpt-3.5-turbo", tenant=None):
     try:
         api_key = tenant.openai_api_key if tenant and tenant.openai_api_key else settings.OPENAI_API_KEY
-        openai.api_key = api_key
+        client = OpenAI(api_key=api_key)
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": prompt}]
         )
 
         return {
