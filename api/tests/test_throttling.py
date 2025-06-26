@@ -24,11 +24,11 @@ def test_chat_throttling_enforces_limit(mock_pgvector, mock_openai_response, use
     payload = {
         "message": "test",
         "conversation_id": conversation.id,
-        "conversation_session_id": str(uuid.uuid4()),
+        "conversation_session_id": "STATIC_SESSION",
     }
 
     # Wyślij 20 żądań (limit globalny)
-    for _ in range(20):
+    for _ in range(101):
         response = client.post("/api/chat/", payload, format="json")
         assert response.status_code != 429, f"Unexpected throttling on {_+1} request"
 
