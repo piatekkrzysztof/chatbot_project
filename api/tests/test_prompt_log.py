@@ -6,7 +6,7 @@ from accounts.models import Tenant
 from documents.models import Document, DocumentChunk
 
 @pytest.mark.django_db
-def test_prompt_log_created_after_rag(monkeypatch):
+def test_prompt_log_created_after_rag(monkeypatch,user, tenant, subscribtion):
     # Mock funkcji get_openai_response
     monkeypatch.setattr("utils.openai_client.get_openai_response", lambda prompt, model: {
         "content": "Odpowiedź testowa",
@@ -18,7 +18,12 @@ def test_prompt_log_created_after_rag(monkeypatch):
         DocumentChunk(content="To jest przykładowy chunk.")
     ])
 
-    tenant = Tenant.objects.create(name="Test Tenant")
+    client = APIClient()
+    user.tenant = tenant
+    user.role = "owner"
+    user.save()
+    tenant.save()
+    client.force_authenticate(user=user)
     document = Document.objects.create(name="Test Doc", tenant=tenant, content="abc")
     client = APIClient()
 
@@ -29,7 +34,7 @@ def test_prompt_log_created_after_rag(monkeypatch):
             "conversation_id": 1
         },
         format="json",
-        HTTP_X_API_KEY=tenant.api_key
+        HTTP_X_API_KEY=str(tenant.api_key)
     )
 
     assert res.status_code == 200
