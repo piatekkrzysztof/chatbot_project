@@ -7,11 +7,13 @@ from accounts.models import Tenant, CustomUser, InvitationToken
 from uuid import UUID
 
 @pytest.mark.django_db
-def test_owner_can_create_invitation():
-    tenant = Tenant.objects.create(name="Org", owner_email="admin@org.com")
-    owner = CustomUser.objects.create_user(username="a", password="b", tenant=tenant, role="owner")
+def test_owner_can_create_invitation(user, tenant, subscribtion):
     client = APIClient()
-    client.force_authenticate(user=owner)
+    user.tenant = tenant
+    user.role = "owner"
+    user.save()
+    tenant.save()
+    client.force_authenticate(user=user)
 
     response = client.post("/api/accounts/invitations/", {
         "email": "new@org.com",
@@ -23,9 +25,14 @@ def test_owner_can_create_invitation():
     assert InvitationToken.objects.filter(email="new@org.com").exists()
 
 @pytest.mark.django_db
-def test_accept_invitation_creates_user():
-    tenant = Tenant.objects.create(name="X", owner_email="admin@x.com")
-    token = InvitationToken.objects.create(tenant=tenant, role="employee", duration_hours=24)
+def test_accept_invitation_creates_user(user, tenant, subscribtion):
+    client = APIClient()
+    user.tenant = tenant
+    user.role = "owner"
+    user.save()
+    tenant.save()
+    client.force_authenticate(user=user)
+    token = InvitationToken.objects.create(tenant=tenant, role="employee")
 
     client = APIClient()
     response = client.post("/api/accounts/accept-invite/", {
@@ -40,14 +47,17 @@ def test_accept_invitation_creates_user():
     assert token.uses == 1
 
 @pytest.mark.django_db
-def test_accept_invitation_fails_with_expired_token():
-    tenant = Tenant.objects.create(name="ExpiredCorp", owner_email="expired@c.com")
+def test_accept_invitation_fails_with_expired_token(user, tenant, subscribtion):
+    client = APIClient()
+    user.tenant = tenant
+    user.role = "owner"
+    user.save()
+    tenant.save()
+    client.force_authenticate(user=user)
     token = InvitationToken.objects.create(
         tenant=tenant,
         role="employee",
-        duration_hours=1,
-        max_uses=1
-    )
+        )
     token.created_at = timezone.now() - timedelta(hours=2)
     token.save()
 
@@ -62,7 +72,7 @@ def test_accept_invitation_fails_with_expired_token():
     assert "Token expired" in str(response.data)
 
 @pytest.mark.django_db
-def test_accept_invitation_fails_with_fake_token():
+def test_accept_invitation_fails_with_fake_token(user, tenant, subscribtion):
     client = APIClient()
     response = client.post("/api/accounts/accept-invite/", {
         "token": "00000000-0000-0000-0000-000000000000",
