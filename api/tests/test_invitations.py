@@ -20,6 +20,7 @@ def test_owner_can_create_invitation(user, tenant, subscribtion):
         "email": "new@org.com",
         "role": "employee",
 
+
     }, HTTP_X_API_KEY=str(tenant.api_key))
     assert response.status_code == 201
     assert InvitationToken.objects.filter(email="new@org.com").exists()
@@ -60,9 +61,11 @@ def test_accept_invitation_fails_with_expired_token(user, tenant, subscribtion):
     token = InvitationToken.objects.create(
         tenant=tenant,
         role="employee",
+        duration="1h"
     )
-    token.expires_at = timezone.now() - timedelta(hours=2)
+    token.created_at = timezone.now() - timedelta(hours=2)
     token.save()
+
 
     client = APIClient()
     response = client.post("/api/accounts/accept-invite/", {
@@ -83,5 +86,5 @@ def test_accept_invitation_fails_with_fake_token(user, tenant, subscribtion):
         "username": "ghost",
         "email": "ghost@x.com",
         "password": "pass"
-    })
+    },HTTP_X_API_KEY=str(tenant.api_key))
     assert response.status_code == 400

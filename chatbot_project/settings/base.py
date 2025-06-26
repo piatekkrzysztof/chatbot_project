@@ -9,6 +9,8 @@ load_dotenv(dotenv_path)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 SECRET_KEY = config("DJANGO_SECRET_KEY")
