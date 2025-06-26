@@ -9,35 +9,23 @@ from chat.models import Client, FAQ
 from api.serializers import PublicFAQSerializer
 
 
+
 class WidgetSettingsAPIView(APIView):
-    throttle_classes = [APIKeyRateThrottle]
+    authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        api_key = request.headers.get("X-API-KEY")
-
-        if not api_key:
-            return Response({"error": "Brak klucza API."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            api_key = str(api_key)  # zapewniamy, że to str
-            uuid_obj = UUID(api_key, version=4)
-        except (ValueError, AttributeError):
-            return Response({"detail": "Invalid API key format."}, status=status.HTTP_400_BAD_REQUEST)
-        except (ValueError, TypeError):
-            return Response({"error": "Nieprawidłowy format klucza API."}, status=status.HTTP_400_BAD_REQUEST)
-
-        tenant = Tenant.objects.filter(api_key=api_key).first()
-        if not tenant:
-            return Response({"error": "Niepoprawny klucz API"}, status=status.HTTP_403_FORBIDDEN)
-
-        settings_data = {
+        print("DEBUG WIDOK: tenant=", getattr(request, "tenant", None))
+        if not getattr(request, "tenant", None):
+            print("DEBUG WIDOK: BRAK TENANTA, ZWRACAM 403!")
+            return Response({"error": "Brak poprawnego klucza API"}, status=403)
+        print("DEBUG WIDOK: TENANT JEST, ZWRACAM 200!")
+        tenant = request.tenant
+        return Response({
             "widget_position": tenant.widget_position,
             "widget_color": tenant.widget_color,
             "widget_title": tenant.widget_title,
-        }
-
-        return Response(settings_data, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
 
 
 class PublicFAQView(APIView):

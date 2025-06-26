@@ -64,21 +64,18 @@ def user(db, tenant):
 
 
 @pytest.fixture
-def api_client(tenant):
-    client = APIClient()
-    client.credentials(HTTP_X_API_KEY=str(tenant.api_key))
-
-    return client
+def api_client():
+    return APIClient()
 
 
-@pytest.fixture
-def api_client(tenant):
-    """
-    Klient DRF z domyślnie ustawionym nagłówkiem X-API-KEY.
-    """
-    client = APIClient()
-    client.credentials(HTTP_X_API_KEY=tenant.api_key)
-    return client
+# @pytest.fixture
+# def api_client(tenant):
+#     """
+#     Klient DRF z domyślnie ustawionym nagłówkiem X-API-KEY.
+#     """
+#     client = APIClient()
+#     client.credentials(HTTP_X_API_KEY=tenant.api_key)
+#     return client
 
 
 @pytest.fixture(autouse=True)
