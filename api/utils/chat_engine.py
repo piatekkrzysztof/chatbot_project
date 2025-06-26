@@ -1,7 +1,7 @@
 import logging
 import openai
 from django.conf import settings
-from chat.models import ChatMessage, ChatUsageLog
+from chat.models import ChatMessage, ChatUsageLog, PromptLog
 from rag.engine import query_similar_chunks_pgvector
 from openai import OpenAIError
 from openai import ChatCompletion
@@ -86,6 +86,7 @@ def process_chat_message(tenant, conversation, message_text):
             model_used="gpt-3.5-turbo",
             source="document"
         )
+
         return {"response": response_text, "source": "document", "tokens": tokens}
 
     # 4. Fallback GPT
@@ -111,6 +112,15 @@ def process_chat_message(tenant, conversation, message_text):
         tokens_used=tokens,
         model_used="gpt-3.5-turbo",
         source="gpt"
+    )
+    PromptLog.objects.create(
+        tenant=tenant,
+        conversation=conversation,
+        prompt=fallback_prompt,
+        response=response_text,
+        source="gpt",
+        tokens=tokens,
+        model="gpt-3.5-turbo"
     )
     return {"response": response_text, "source": "gpt", "tokens": tokens}
 
