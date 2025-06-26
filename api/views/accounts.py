@@ -74,6 +74,8 @@ class AcceptInvitationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+
 class InvitationListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsOwner]
     serializer_class = InvitationCreateSerializer

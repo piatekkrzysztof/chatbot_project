@@ -61,7 +61,7 @@ def test_accept_invitation_fails_with_expired_token(user, tenant, subscribtion):
         tenant=tenant,
         role="employee",
     )
-    token.created_at = timezone.now() - timedelta(hours=2)
+    token.expires_at = timezone.now() - timedelta(hours=2)
     token.save()
 
     client = APIClient()
