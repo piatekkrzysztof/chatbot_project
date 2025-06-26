@@ -18,9 +18,8 @@ def test_owner_can_create_invitation(user, tenant, subscribtion):
     response = client.post("/api/accounts/invitations/", {
         "email": "new@org.com",
         "role": "employee",
-        "duration_hours": 24,
-        "max_uses": 1
-    })
+
+    },HTTP_X_API_KEY = str(tenant.api_key))
     assert response.status_code == 201
     assert InvitationToken.objects.filter(email="new@org.com").exists()
 
@@ -39,8 +38,9 @@ def test_accept_invitation_creates_user(user, tenant, subscribtion):
         "token": str(token.token),
         "username": "newuser",
         "email": "new@x.com",
-        "password": "SafePass123"
-    })
+        "password": "SafePass123",
+         }
+    ,HTTP_X_API_KEY = str(tenant.api_key)                 )
     assert response.status_code == 201
     assert CustomUser.objects.filter(username="newuser").exists()
     token.refresh_from_db()
@@ -67,7 +67,7 @@ def test_accept_invitation_fails_with_expired_token(user, tenant, subscribtion):
         "username": "late",
         "email": "late@corp.com",
         "password": "Abc123456"
-    })
+    },HTTP_X_API_KEY = str(tenant.api_key))
     assert response.status_code == 400
     assert "Token expired" in str(response.data)
 
