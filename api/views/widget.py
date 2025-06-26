@@ -20,7 +20,10 @@ class WidgetSettingsAPIView(APIView):
             return Response({"error": "Brak klucza API."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            UUID(api_key, version=4)
+            api_key = str(api_key)  # zapewniamy, że to str
+            uuid_obj = UUID(api_key, version=4)
+        except (ValueError, AttributeError):
+            return Response({"detail": "Invalid API key format."}, status=status.HTTP_400_BAD_REQUEST)
         except (ValueError, TypeError):
             return Response({"error": "Nieprawidłowy format klucza API."}, status=status.HTTP_400_BAD_REQUEST)
 
