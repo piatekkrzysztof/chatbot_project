@@ -13,7 +13,7 @@ def test_document_upload_dispatches_embedding_task(mock_embedding_task, api_clie
     tenant.save()
     client.force_authenticate(user=user)
 
-    response = api_client.post(
+    response = client.post(
         "/api/documents-upload/",
         {
             "name": "Test",
