@@ -47,6 +47,14 @@ class BaseSubscriptionThrottle(SimpleRateThrottle):
 class APIKeyRateThrottle(BaseSubscriptionThrottle):
     scope = "chat"
 
+    def allow_request(self, request, view):
+        key = self.get_cache_key(request, view)
+        rate = self.get_rate()
+        print(f"THROTTLE DEBUG | cache_key: {key} | rate: {rate}")
+        allowed = super().allow_request(request, view)
+        print(f"THROTTLE DEBUG | allowed: {allowed}")
+        return allowed
+
     def get_cache_key(self, request, view):
         api_key = request.headers.get("X-API-KEY")
         if not api_key:
