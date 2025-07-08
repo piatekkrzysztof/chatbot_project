@@ -40,6 +40,7 @@ class BaseSubscriptionThrottle(SimpleRateThrottle):
         rate = self.get_rate()
         if rate:
             self.num_requests, self.duration = self.parse_rate(rate)
+            self.rate = rate
 
         return super().allow_request(request, view)
 
