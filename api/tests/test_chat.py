@@ -7,8 +7,9 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.request import Request
 from accounts.models import Subscription
 from datetime import date, timedelta
-from .factories import  TenantFactory, UserFactory,SubscriptionFactory, ConversationFactory, ChatMessageFactory
+from .factories import TenantFactory, UserFactory, SubscriptionFactory, ConversationFactory, ChatMessageFactory
 from unittest.mock import patch
+
 
 @pytest.fixture
 def tenant(db):
@@ -16,6 +17,7 @@ def tenant(db):
         name="TestTenant",
         owner_email="test@example.com"
     )
+
 
 @pytest.fixture
 def subscribtion(db, tenant):
@@ -102,7 +104,7 @@ def test_chat_view_invalid_payload(api_client):
 
 
 @pytest.mark.django_db
-def test_chat_view_new_conversation(api_client, user, tenant,subscribtion):
+def test_chat_view_new_conversation(api_client, user, tenant, subscribtion):
     user.tenant = tenant
     user.save()
     api_client.force_authenticate(user=user)
@@ -111,7 +113,6 @@ def test_chat_view_new_conversation(api_client, user, tenant,subscribtion):
         tenant=tenant,
         user_identifier="test-user"
     )
-
 
     payload = {
         "message": "Cześć, chcę założyć nowe zgłoszenie!",
@@ -126,7 +127,7 @@ def test_chat_view_new_conversation(api_client, user, tenant,subscribtion):
 
 
 @pytest.mark.django_db
-def test_chat_view_openai_fallback(api_client, user, tenant,subscribtion):
+def test_chat_view_openai_fallback(api_client, user, tenant, subscribtion):
     user.tenant = tenant
     user.save()
     api_client.force_authenticate(user=user)
@@ -152,3 +153,28 @@ def test_chat_view_openai_fallback(api_client, user, tenant,subscribtion):
 
     assert response.status_code == 200
     assert response.data["response"] == "Testowa odpowiedź fallback"
+
+
+@pytest.mark.django_db
+def test_chat_view_enforces_subscription_limit(user, tenant, conversation, subscribtion):
+    client = APIClient()
+    client.force_authenticate(user=user)
+    client.defaults["HTTP_X_API_KEY"] = str(tenant.api_key)
+
+    subscribtion.plan_type = "free"
+
+    for i in range(20):
+        res = client.post("/api/chat/", {
+            "message": "test",
+            "conversation_id": conversation.id,
+            "conversation_session_id": str(conversation.session_id),
+        }, format="json")
+        assert res.status_code == 200
+
+    # 21st should fail
+    res = client.post("/api/chat/", {
+        "message": "test",
+        "conversation_id": conversation.id,
+        "conversation_session_id": str(conversation.session_id),
+    }, format="json")
+    assert res.status_code == 429
