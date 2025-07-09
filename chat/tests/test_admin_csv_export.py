@@ -7,13 +7,10 @@ from django.http import HttpRequest
 
 
 @pytest.mark.django_db
-def test_promptlog_export_as_csv():
-    tenant = Tenant.objects.create(name="Tenant A", api_key="aaa")
-    conv = Conversation.objects.create(id="c1", tenant=tenant)
-
+def test_promptlog_export_as_csv(tenant, conversation):
     PromptLog.objects.create(
         tenant=tenant,
-        conversation=conv,
+        conversation=conversation,
         model="gpt-3.5-turbo",
         prompt="Jak działa system?",
         response="System działa tak, że...",

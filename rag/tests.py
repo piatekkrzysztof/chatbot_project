@@ -5,9 +5,8 @@ from documents.models import Document, DocumentChunk
 
 
 @pytest.mark.django_db
-def test_query_chunks_with_pgvector(monkeypatch):
+def test_query_chunks_with_pgvector(monkeypatch, tenant):
     from rag.engine import query_similar_chunks_pgvector
-    tenant = Tenant.objects.create(name="T", api_key="key")
     doc = Document.objects.create(name="Doc", tenant=tenant, content="abc")
     for text in ["Witamy w regulaminie", "Polityka prywatności", "Jak zarejestrować konto"]:
         DocumentChunk.objects.create(document=doc, content=text, embedding=[0.0]*1536)
