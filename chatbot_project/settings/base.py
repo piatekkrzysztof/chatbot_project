@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from decouple import config, Csv
 import dj_database_url
+from corsheaders.defaults import default_headers
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -16,6 +17,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = list(default_headers) + ["x-api-key"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -65,6 +67,9 @@ TEMPLATES = [
 ]
 
 REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     "DEFAULT_THROTTLE_CLASSES": [
         "api.throttles.APIKeyRateThrottle",
         "api.throttles.SubscriptionRateThrottle",

@@ -23,7 +23,7 @@ def get_openai_response(prompt, model="gpt-3.5-turbo", tenant=None):
         )
 
         return {
-            "content": response.choices[0].message["content"],
+            "content": response.choices[0].message.content,
             "tokens": response.usage.total_tokens,
         }
 

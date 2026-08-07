@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
 from .models import Tenant, CustomUser, InvitationToken, Client, Subscription
 
 
@@ -10,9 +11,16 @@ class TenantAdmin(admin.ModelAdmin):
 
 
 @admin.register(CustomUser)
-class CustomUserAdmin(admin.ModelAdmin):
-    list_display = ("username", "email", "tenant", "role")
+class CustomUserAdmin(UserAdmin):
+    model = CustomUser
+    list_display = ("username", "email", "tenant", "role", "is_staff")
     list_filter = ("role", "tenant")
+    fieldsets = UserAdmin.fieldsets + (
+        ("Tenant", {"fields": ("tenant", "role")}),
+    )
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        ("Tenant", {"fields": ("tenant", "role")}),
+    )
 
 
 admin.site.register(Client)

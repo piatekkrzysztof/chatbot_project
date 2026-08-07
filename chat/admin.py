@@ -1,8 +1,15 @@
 import csv
 
 from django.contrib import admin
-from chat.models import PromptLog, ChatFeedback, Chat
+from chat.models import PromptLog, ChatFeedback, Chat, FAQ
 from django.http import HttpResponse
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ("tenant", "question")
+    list_filter = ("tenant",)
+    search_fields = ("question", "answer")
 
 
 @admin.register(PromptLog)

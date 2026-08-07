@@ -14,3 +14,4 @@ chroma_db/
 staticfiles/
 .idea/
 .vscode/
+documents/test_*.pdf

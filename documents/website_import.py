@@ -33,7 +33,6 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     """
     Pobiera stronę WWW, zapisuje jako Document, generuje embeddingi.
     """
-    print(repr(tasks.generate_embeddings_for_document))
     text = fetch_text_from_url(url)
 
     document = Document.objects.create(

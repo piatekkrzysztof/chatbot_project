@@ -51,6 +51,8 @@ class MeView(APIView):
     def get(self, request):
         user = request.user
         data = UserSerializer(user).data
+        data["tenant_api_key"] = str(user.tenant.api_key)
+        data["tenant_name"] = user.tenant.name
         return Response(data)
 
 
@@ -80,6 +82,3 @@ class InvitationListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsOwner]
     serializer_class = InvitationCreateSerializer
     queryset = InvitationToken.objects.all()
-
-
-"acc"
