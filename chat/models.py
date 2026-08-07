@@ -91,6 +91,29 @@ class PromptLog(models.Model):
         return f"[{self.model}] ({self.source}) {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 
+class ContactRequest(models.Model):
+    """
+    Prośba o kontakt zostawiona przez odwiedzającego, gdy bot nie potrafił pomóc.
+    Bez tego rozmowa kończy się ślepym zaułkiem, a firma traci zapytanie.
+    """
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="contact_requests")
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="contact_requests",
+    )
+    name = models.CharField(max_length=100, blank=True)
+    contact = models.CharField(max_length=200, help_text="E-mail lub telefon")
+    message = models.TextField(blank=True)
+    handled = models.BooleanField(default=False, verbose_name="Obsłużone")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Kontakt od {self.contact} ({self.tenant.name})"
+
+
 class ChatFeedback(models.Model):
     message = models.OneToOneField(ChatMessage, on_delete=models.CASCADE, related_name="feedback")
     is_helpful = models.BooleanField()
