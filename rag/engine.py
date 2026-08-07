@@ -6,8 +6,17 @@ from pgvector.django import L2Distance
 client = OpenAI()
 
 
-def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5):
-    # Pobieramy embedding zapytania
+def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5, max_distance: float = None):
+    """
+    Zwraca fragmenty dokumentów podobne do zapytania.
+
+    Bez progu odległości zapytanie zawsze oddaje `top_k` najbliższych wektorów,
+    nawet gdy nie mają nic wspólnego z pytaniem — dlatego odcinamy te powyżej
+    `max_distance`, żeby dało się odróżnić trafienie od jego braku.
+    """
+    if max_distance is None:
+        max_distance = settings.RAG_MAX_DISTANCE
+
     embedding_response = client.embeddings.create(
         input=query,
         model=settings.OPENAI_EMBEDDING_MODEL
@@ -18,6 +27,7 @@ def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5):
         DocumentChunk.objects
         .filter(document__tenant_id=tenant_id)
         .annotate(distance=L2Distance("embedding", query_embedding))
+        .filter(distance__lte=max_distance)
         .order_by("distance")[:top_k]
     )
 

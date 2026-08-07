@@ -13,6 +13,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
 from .views.chat_logs import PromptLogListView
+from .views.analytics import TenantAnalyticsView
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -37,6 +38,7 @@ urlpatterns = [
     path("widget/chat/", PublicChatView.as_view(), name="widget-chat"),
     path("widget/chat/stream/", PublicChatStreamView.as_view(), name="widget-chat-stream"),
     path("widget-settings/mine/", TenantWidgetSettingsView.as_view(), name="widget-settings-mine"),
+    path("analytics/", TenantAnalyticsView.as_view(), name="analytics"),
     path("billing/create-checkout-session/", CreateCheckoutSessionView.as_view()),
 
 ]

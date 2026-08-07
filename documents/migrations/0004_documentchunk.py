@@ -9,6 +9,8 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('documents', '0003_document_file_document_processed_and_more'),
+        # rozszerzenie pgvector musi istnieć, zanim powstanie kolumna vector
+        ('documents', '0005_enable_pgvector'),
     ]
 
     operations = [

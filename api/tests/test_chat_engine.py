@@ -131,6 +131,42 @@ def test_model_error_returns_friendly_message(mock_gpt, mock_chunks):
     assert result["tokens"] == 0
 
 
+@pytest.mark.django_db
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector", return_value=[])
+@patch("api.utils.chat_engine.get_openai_response")
+def test_unrelated_question_is_not_counted_as_faq_coverage(mock_gpt, mock_chunks):
+    """
+    Istnienie wpisów FAQ nie może samo w sobie oznaczać pokrycia — inaczej
+    raport luk w wiedzy byłby pusty u każdego klienta, który dodał jedno FAQ.
+    """
+    mock_gpt.return_value = {"content": "Nie wiem.", "tokens": 5}
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    FAQ.objects.create(tenant=tenant, question="Czy naprawiacie rowery elektryczne?", answer="Tak")
+    conversation = Conversation.objects.create(tenant=tenant)
+
+    result = process_chat_message(
+        tenant, conversation, "Czy organizujecie wycieczki po Bieszczadach?"
+    )
+
+    assert result["source"] == "gpt"
+
+
+@pytest.mark.django_db
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector", return_value=[])
+@patch("api.utils.chat_engine.get_openai_response")
+def test_matching_question_is_counted_as_faq_coverage(mock_gpt, mock_chunks):
+    mock_gpt.return_value = {"content": "Tak.", "tokens": 5}
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    FAQ.objects.create(tenant=tenant, question="Czy naprawiacie rowery elektryczne?", answer="Tak")
+    conversation = Conversation.objects.create(tenant=tenant)
+
+    result = process_chat_message(
+        tenant, conversation, "Czy naprawiacie rowery elektryczne?"
+    )
+
+    assert result["source"] == "faq"
+
+
 @patch("api.utils.chat_engine.OpenAI")
 def test_get_openai_response_success(mock_openai):
     mock_client = MagicMock()

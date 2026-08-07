@@ -1,13 +1,15 @@
 from .base import *
 
+# Osobna baza od testowej (chatbot_test_db). Współdzielenie jednej sprawiało,
+# że praca w przeglądarce zostawiała dane psujące testy i odwrotnie.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "chatbot_test_db",
-        "USER": "postgres",
-        "PASSWORD": "wojaki123",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": os.getenv("DEV_DB_NAME", "chatbot_dev_db"),
+        "USER": os.getenv("DEV_DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DEV_DB_PASSWORD", "wojaki123"),
+        "HOST": os.getenv("DEV_DB_HOST", "localhost"),
+        "PORT": os.getenv("DEV_DB_PORT", "5432"),
     }
 }
 

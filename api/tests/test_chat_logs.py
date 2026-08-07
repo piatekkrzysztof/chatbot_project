@@ -70,13 +70,7 @@ def test_prompt_logs_endpoint_filters_by_is_helpful(user, tenant, subscribtion):
 
 
 @pytest.mark.django_db
-def test_prompt_logs_requires_api_key(tenant,user,subscribtion):
-    client = APIClient()
-    user.tenant = tenant
-    user.role = "employee"
-    user.save()
-    tenant.save()
-    client.force_authenticate(user=user)
-    client = APIClient()
-    res = client.get("/api/chat/logs/",HTTP_X_API_KEY=str(tenant.api_key))
-    assert res.status_code == 403
+def test_prompt_logs_require_logged_in_user(tenant, user, subscribtion):
+    """Historia rozmów to dane panelu — sam klucz API bez logowania nie daje dostępu."""
+    res = APIClient().get("/api/chat/logs/", HTTP_X_API_KEY=str(tenant.api_key))
+    assert res.status_code == 401

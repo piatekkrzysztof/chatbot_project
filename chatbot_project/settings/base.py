@@ -118,6 +118,13 @@ OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-s
 # Ile ostatnich wiadomości konwersacji trafia do modelu jako kontekst
 CHAT_HISTORY_LIMIT = int(os.getenv("CHAT_HISTORY_LIMIT", "10"))
 
+# Próg odległości L2 dla wyszukiwania fragmentów — powyżej uznajemy, że dokument
+# nie odpowiada na pytanie. Bez tego zawsze zwracane są "jakieś" fragmenty.
+RAG_MAX_DISTANCE = float(os.getenv("RAG_MAX_DISTANCE", "1.15"))
+
+# Minimalne podobieństwo pytania do wpisu FAQ (rapidfuzz, 0-100), by uznać trafienie
+FAQ_MATCH_THRESHOLD = int(os.getenv("FAQ_MATCH_THRESHOLD", "65"))
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.hostinger.com'
 EMAIL_PORT = 465

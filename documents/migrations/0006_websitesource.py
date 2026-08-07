@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('accounts', '0006_tenant_gpt_prompt'),
-        ('documents', '0005_enable_pgvector'),
+        ('documents', '0004_documentchunk'),
     ]
 
     operations = [

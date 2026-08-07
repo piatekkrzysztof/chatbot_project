@@ -225,3 +225,11 @@ class PublicFAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
         fields = ["question", "answer"]
+
+
+class FAQSerializer(serializers.ModelSerializer):
+    """Wersja do zarządzania z panelu — z id, żeby dało się edytować i usuwać."""
+    class Meta:
+        model = FAQ
+        fields = ["id", "question", "answer"]
+        read_only_fields = ["id"]
