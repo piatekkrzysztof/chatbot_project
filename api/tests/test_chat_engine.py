@@ -1,51 +1,134 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from accounts.models import Tenant
-from chat.models import Conversation
-from api.utils.chat_engine import process_chat_message
-from unittest.mock import patch
-from api.utils.chat_engine import get_openai_response
 from openai import OpenAIError
+
+from accounts.models import Tenant
+from chat.models import Conversation, ChatMessage, FAQ
+from api.utils.chat_engine import (
+    process_chat_message,
+    get_openai_response,
+    build_chat_messages,
+    build_history_messages,
+)
+
+
+def make_chunk(content, doc_name):
+    chunk = MagicMock()
+    chunk.content = content
+    chunk.document.name = doc_name
+    return chunk
 
 
 @pytest.mark.django_db
-def test_regulamin_fallback_used():
-    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com", regulamin="Mój regulamin.")
-    conversation = Conversation.objects.create(id=1, tenant=tenant)
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector", return_value=[])
+def test_regulamin_lands_in_system_prompt(mock_chunks):
+    tenant = Tenant.objects.create(
+        name="Firma", owner_email="x@example.com", regulamin="Mój regulamin."
+    )
+    conversation = Conversation.objects.create(tenant=tenant)
 
-    result = process_chat_message(tenant, conversation, "regulamin")
-    assert result["response"] == "Mój regulamin."
+    messages, _, _ = build_chat_messages(tenant, conversation, "jaki jest regulamin?")
+
+    assert messages[0]["role"] == "system"
+    assert "Mój regulamin." in messages[0]["content"]
+
+
+@pytest.mark.django_db
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector", return_value=[])
+def test_faq_lands_in_system_prompt(mock_chunks):
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    FAQ.objects.create(tenant=tenant, question="Godziny otwarcia?", answer="9-17")
+    conversation = Conversation.objects.create(tenant=tenant)
+
+    messages, _, faqs = build_chat_messages(tenant, conversation, "kiedy otwarte?")
+
+    assert "Godziny otwarcia?" in messages[0]["content"]
+    assert "9-17" in messages[0]["content"]
+    assert len(faqs) == 1
+
+
+@pytest.mark.django_db
+def test_history_is_passed_in_order():
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    conversation = Conversation.objects.create(tenant=tenant)
+    ChatMessage.objects.create(conversation=conversation, sender="user", message="Cześć")
+    ChatMessage.objects.create(conversation=conversation, sender="bot", message="Dzień dobry")
+    ChatMessage.objects.create(conversation=conversation, sender="user", message="Ile kosztuje?")
+
+    history = build_history_messages(conversation)
+
+    assert history == [
+        {"role": "user", "content": "Cześć"},
+        {"role": "assistant", "content": "Dzień dobry"},
+        {"role": "user", "content": "Ile kosztuje?"},
+    ]
+
+
+@pytest.mark.django_db
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector", return_value=[])
+@patch("api.utils.chat_engine.get_openai_response")
+def test_current_message_is_last(mock_gpt, mock_chunks):
+    mock_gpt.return_value = {"content": "ok", "tokens": 1}
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    conversation = Conversation.objects.create(tenant=tenant)
+
+    process_chat_message(tenant, conversation, "Nowe pytanie")
+
+    messages = mock_gpt.call_args.args[0]
+    assert messages[-1] == {"role": "user", "content": "Nowe pytanie"}
 
 
 @pytest.mark.django_db
 @patch("api.utils.chat_engine.query_similar_chunks_pgvector")
 @patch("api.utils.chat_engine.get_openai_response")
-def test_rag_fallback_used(mock_gpt, mock_chunks):
-    mock_chunks.return_value = [MagicMock(content="fragment 1"), MagicMock(content="fragment 2")]
+def test_document_source_returns_citations(mock_gpt, mock_chunks):
+    mock_chunks.return_value = [
+        make_chunk("fragment 1", "cennik.pdf"),
+        make_chunk("fragment 2", "cennik.pdf"),
+        make_chunk("fragment 3", "regulamin.pdf"),
+    ]
     mock_gpt.return_value = {"content": "Odpowiedź RAG", "tokens": 123}
 
     tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
-    conversation = Conversation.objects.create(id=2, tenant=tenant)
+    conversation = Conversation.objects.create(tenant=tenant)
 
     result = process_chat_message(tenant, conversation, "Pytanie o dokumenty")
+
     assert result["response"] == "Odpowiedź RAG"
     assert result["tokens"] == 123
     assert result["source"] == "document"
+    assert result["sources"] == ["cennik.pdf", "regulamin.pdf"]
 
 
 @pytest.mark.django_db
 @patch("api.utils.chat_engine.query_similar_chunks_pgvector", side_effect=Exception("Błąd"))
 @patch("api.utils.chat_engine.get_openai_response")
-def test_gpt_fallback_used(mock_gpt, mock_chunks):
+def test_gpt_fallback_when_retrieval_fails(mock_gpt, mock_chunks):
     mock_gpt.return_value = {"content": "Odpowiedź GPT fallback", "tokens": 99}
 
     tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
-    conversation = Conversation.objects.create(id=3, tenant=tenant)
+    conversation = Conversation.objects.create(tenant=tenant)
 
     result = process_chat_message(tenant, conversation, "Pytanie ogólne")
+
     assert result["response"] == "Odpowiedź GPT fallback"
-    assert result["tokens"] == 99
     assert result["source"] == "gpt"
+    assert result["sources"] == []
+
+
+@pytest.mark.django_db
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector", return_value=[])
+@patch("api.utils.chat_engine.get_openai_response", side_effect=Exception("boom"))
+def test_model_error_returns_friendly_message(mock_gpt, mock_chunks):
+    from api.utils.chat_engine import FALLBACK_MESSAGE
+
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    conversation = Conversation.objects.create(tenant=tenant)
+
+    result = process_chat_message(tenant, conversation, "Pytanie")
+
+    assert result["response"] == FALLBACK_MESSAGE
+    assert result["tokens"] == 0
 
 
 @patch("api.utils.chat_engine.OpenAI")
@@ -57,7 +140,7 @@ def test_get_openai_response_success(mock_openai):
         usage=MagicMock(total_tokens=12)
     )
 
-    res = get_openai_response("Hello")
+    res = get_openai_response([{"role": "user", "content": "Hello"}])
     assert res["content"] == "Hi"
     assert res["tokens"] == 12
 
@@ -68,9 +151,5 @@ def test_get_openai_response_handles_failure(mock_openai):
     mock_openai.return_value = mock_client
     mock_client.chat.completions.create.side_effect = OpenAIError("API error")
 
-    try:
-        get_openai_response("Hello")
-    except OpenAIError:
-        assert True  # wyjątek złapany poprawnie
-    else:
-        assert False, "OpenAIError powinien zostać rzucony"
+    with pytest.raises(OpenAIError):
+        get_openai_response([{"role": "user", "content": "Hello"}])

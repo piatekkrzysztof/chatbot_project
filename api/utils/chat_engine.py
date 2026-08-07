@@ -1,145 +1,251 @@
+import json
 import logging
-import openai
-from django.conf import settings
-from chat.models import ChatMessage, ChatUsageLog, PromptLog
-from rag.engine import query_similar_chunks_pgvector
-from openai import OpenAIError
-from openai import ChatCompletion
-from openai import OpenAI
 
-client = OpenAI()
+import openai
+from openai import OpenAI
+from django.conf import settings
+
+from chat.models import ChatMessage, ChatUsageLog, PromptLog, FAQ
+from rag.engine import query_similar_chunks_pgvector
 
 logger = logging.getLogger(__name__)
 
-
-def get_openai_response(prompt, model="gpt-3.5-turbo", tenant=None):
-    try:
-        api_key = tenant.openai_api_key if tenant and tenant.openai_api_key else settings.OPENAI_API_KEY
-        client = OpenAI(api_key=api_key)
-
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        return {
-            "content": response.choices[0].message.content,
-            "tokens": response.usage.total_tokens,
-        }
-
-    except openai.OpenAIError as e:
-        logger.exception("Błąd w OpenAI: %s", e)
-        raise
+FALLBACK_MESSAGE = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
+MAX_FAQ_IN_PROMPT = 20
 
 
-def process_chat_message(tenant, conversation, message_text):
+def get_client(tenant=None):
+    api_key = tenant.openai_api_key if tenant and tenant.openai_api_key else settings.OPENAI_API_KEY
+    return OpenAI(api_key=api_key)
+
+
+def build_system_prompt(tenant, chunks, faqs):
     """
-    Procesuje wiadomość użytkownika w ramach jednej konwersacji.
-    Wykonuje fallbacki: regulamin -> RAG -> GPT
+    Buduje wiadomość systemową: kim jest bot, co wie o firmie i jak ma się zachowywać.
+    Wiedza (dokumenty + FAQ) trafia tutaj, żeby historia rozmowy pozostała czysta.
     """
-    user_message = message_text.strip().lower()
+    parts = [
+        f"Jesteś asystentem firmy {tenant.name}. Odpowiadasz klientom na stronie internetowej.",
+        "Odpowiadaj po polsku, zwięźle i konkretnie, w uprzejmym tonie.",
+        "Opieraj się wyłącznie na wiedzy podanej niżej. Jeśli nie znasz odpowiedzi, "
+        "powiedz to wprost i zaproponuj kontakt z firmą — nie zmyślaj.",
+    ]
 
-    # 1. Regulamin
-    if user_message in ["regulamin", "regulamin."]:
-        response_text = tenant.regulamin or "Brak regulaminu."
-        ChatMessage.objects.create(
-            conversation=conversation,
-            sender="bot",
-            message=response_text,
-            source="manual"
+    if tenant.gpt_prompt:
+        parts.append(f"\nO firmie:\n{tenant.gpt_prompt.strip()}")
+
+    if faqs:
+        faq_text = "\n\n".join(f"P: {f.question}\nO: {f.answer}" for f in faqs)
+        parts.append(f"\nNajczęstsze pytania i odpowiedzi:\n{faq_text}")
+
+    if chunks:
+        docs_text = "\n\n---\n\n".join(
+            f"[Źródło: {chunk.document.name}]\n{chunk.content}" for chunk in chunks
         )
-        return {"response": response_text, "source": "manual", "tokens": 0}
+        parts.append(f"\nFragmenty dokumentów firmy:\n{docs_text}")
 
-    # 2. Zapisz wiadomość użytkownika
-    ChatMessage.objects.create(
-        conversation=conversation,
-        sender="user",
-        message=message_text,
-        source="manual"
+    if tenant.regulamin:
+        parts.append(f"\nRegulamin:\n{tenant.regulamin.strip()}")
+
+    return "\n".join(parts)
+
+
+def build_history_messages(conversation, limit=None):
+    """
+    Ostatnie wiadomości konwersacji w formacie OpenAI, od najstarszej do najnowszej.
+    Bez tego bot nie rozumie pytań odnoszących się do wcześniejszej części rozmowy.
+    """
+    limit = limit or settings.CHAT_HISTORY_LIMIT
+    # id rozstrzyga remis, gdy kilka wiadomości ma identyczny timestamp
+    recent = (
+        ChatMessage.objects
+        .filter(conversation=conversation)
+        .order_by("-timestamp", "-id")[:limit]
     )
+    messages = []
+    for msg in reversed(list(recent)):
+        if msg.sender == "user":
+            messages.append({"role": "user", "content": msg.message})
+        elif msg.sender == "bot":
+            messages.append({"role": "assistant", "content": msg.message})
+    return messages
 
-    # 3. Fallback RAG
+
+def collect_sources(chunks):
+    """Unikalne nazwy dokumentów, z których pochodzi kontekst — do pokazania użytkownikowi."""
+    seen, sources = set(), []
+    for chunk in chunks:
+        name = chunk.document.name
+        if name not in seen:
+            seen.add(name)
+            sources.append(name)
+    return sources
+
+
+def build_chat_messages(tenant, conversation, message_text):
+    """
+    Składa komplet wiadomości do modelu: system (wiedza) + historia + bieżące pytanie.
+    Zwraca też chunki, żeby wywołujący mógł zbudować listę źródeł.
+    """
     try:
         chunks = query_similar_chunks_pgvector(tenant.id, message_text, top_k=5)
     except Exception as e:
         logger.exception("Błąd podczas pobierania chunków: %s", e)
         chunks = []
 
-    if chunks:
-        prompt = build_prompt_from_chunks(message_text, chunks)
-        try:
-            gpt_response = get_openai_response(prompt)
-            response_text = gpt_response["content"]
-            tokens = gpt_response["tokens"]
-        except Exception:
-            response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
-            tokens = 0
+    faqs = list(FAQ.objects.filter(tenant=tenant).order_by("id")[:MAX_FAQ_IN_PROMPT])
 
-        ChatMessage.objects.create(
-            conversation=conversation,
-            sender="bot",
-            message=response_text,
-            source="document",
-            token_count=tokens
-        )
-        ChatUsageLog.objects.create(
-            tenant=tenant,
-            conversation=conversation,
-            tokens_used=tokens,
-            model_used="gpt-3.5-turbo",
-            source="document"
-        )
+    messages = [{"role": "system", "content": build_system_prompt(tenant, chunks, faqs)}]
+    messages.extend(build_history_messages(conversation))
+    messages.append({"role": "user", "content": message_text})
 
-        return {"response": response_text, "source": "document", "tokens": tokens}
+    return messages, chunks, faqs
 
-    # 4. Fallback GPT
+
+def get_openai_response(messages, model=None, tenant=None):
+    model = model or settings.OPENAI_CHAT_MODEL
     try:
-        fallback_prompt = build_prompt_without_docs(tenant, message_text)
-        gpt_response = get_openai_response(fallback_prompt)
-        response_text = gpt_response["content"]
-        tokens = gpt_response["tokens"]
-    except Exception:
-        response_text = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
-        tokens = 0
+        response = get_client(tenant).chat.completions.create(
+            model=model,
+            messages=messages,
+        )
+        return {
+            "content": response.choices[0].message.content,
+            "tokens": response.usage.total_tokens,
+        }
+    except openai.OpenAIError as e:
+        logger.exception("Błąd w OpenAI: %s", e)
+        raise
 
+
+def determine_source(chunks, faqs):
+    if chunks:
+        return "document"
+    if faqs:
+        return "faq"
+    return "gpt"
+
+
+def persist_exchange(tenant, conversation, response_text, source, tokens, model, prompt_text):
+    """Zapisuje odpowiedź bota wraz z logami zużycia i promptu."""
     ChatMessage.objects.create(
         conversation=conversation,
         sender="bot",
         message=response_text,
-        source="gpt",
-        token_count=tokens
+        source=source,
+        token_count=tokens,
     )
     ChatUsageLog.objects.create(
         tenant=tenant,
         conversation=conversation,
         tokens_used=tokens,
-        model_used="gpt-3.5-turbo",
-        source="gpt"
+        model_used=model,
+        source=source,
     )
     PromptLog.objects.create(
         tenant=tenant,
         conversation=conversation,
-        prompt=fallback_prompt,
+        prompt=prompt_text,
         response=response_text,
-        source="gpt",
+        source=source,
         tokens=tokens,
-        model="gpt-3.5-turbo"
+        model=model,
     )
-    return {"response": response_text, "source": "gpt", "tokens": tokens}
 
 
-def build_prompt_from_chunks(user_message, chunks):
+def process_chat_message(tenant, conversation, message_text):
     """
-    Tworzy prompt do GPT na podstawie znalezionych chunków.
+    Procesuje wiadomość użytkownika w ramach konwersacji: zapisuje pytanie,
+    buduje kontekst (dokumenty + FAQ + historia), odpytuje model i zapisuje odpowiedź.
     """
-    sources = "\n\n".join(chunk.content for chunk in chunks)
-    return f"Użytkownik zapytał: '{user_message}'\n\nZnane informacje:\n{sources}"
+    model = settings.OPENAI_CHAT_MODEL
+
+    ChatMessage.objects.create(
+        conversation=conversation,
+        sender="user",
+        message=message_text,
+        source="manual",
+    )
+
+    messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
+    source = determine_source(chunks, faqs)
+
+    try:
+        gpt_response = get_openai_response(messages, model=model, tenant=tenant)
+        response_text = gpt_response["content"]
+        tokens = gpt_response["tokens"]
+    except Exception:
+        response_text = FALLBACK_MESSAGE
+        tokens = 0
+
+    persist_exchange(
+        tenant, conversation, response_text, source, tokens, model,
+        prompt_text=message_text,
+    )
+
+    return {
+        "response": response_text,
+        "source": source,
+        "tokens": tokens,
+        "sources": collect_sources(chunks),
+    }
 
 
-def build_prompt_without_docs(tenant, user_message):
+def _sse(payload):
+    """Pojedyncze zdarzenie Server-Sent Events."""
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def stream_chat_message(tenant, conversation, message_text):
     """
-    Tworzy domyślny prompt do GPT bez dokumentów.
-    Uwzględnia gpt_prompt jako kontekst biznesowy firmy.
+    Wariant strumieniowy: oddaje odpowiedź token po tokenie jako SSE,
+    a po zakończeniu strumienia zapisuje ją tak samo jak wersja synchroniczna.
     """
-    prompt_prefix = tenant.gpt_prompt.strip() if tenant.gpt_prompt else f"Klient: {tenant.name}"
-    return f"{prompt_prefix}\n\nPytanie: {user_message}"
+    model = settings.OPENAI_CHAT_MODEL
+
+    ChatMessage.objects.create(
+        conversation=conversation,
+        sender="user",
+        message=message_text,
+        source="manual",
+    )
+
+    messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
+    source = determine_source(chunks, faqs)
+
+    pieces = []
+    tokens = 0
+
+    try:
+        stream = get_client(tenant).chat.completions.create(
+            model=model,
+            messages=messages,
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+        for event in stream:
+            if getattr(event, "usage", None):
+                tokens = event.usage.total_tokens
+            if event.choices and event.choices[0].delta.content:
+                piece = event.choices[0].delta.content
+                pieces.append(piece)
+                yield _sse({"type": "delta", "content": piece})
+    except Exception as e:
+        logger.exception("Błąd podczas streamowania odpowiedzi: %s", e)
+        if not pieces:
+            pieces.append(FALLBACK_MESSAGE)
+            yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
+
+    response_text = "".join(pieces)
+
+    persist_exchange(
+        tenant, conversation, response_text, source, tokens, model,
+        prompt_text=message_text,
+    )
+
+    yield _sse({
+        "type": "done",
+        "source": source,
+        "tokens": tokens,
+        "sources": collect_sources(chunks),
+    })
