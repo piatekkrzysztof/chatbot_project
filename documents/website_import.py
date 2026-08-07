@@ -46,7 +46,7 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     return document
 
 
-def discover_links_recursively(base_url: str, max_depth: int = 2) -> set[str]:
+def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int = 20) -> set[str]:
     """
     Heurystyczny crawler: podąża za linkami wewnętrznymi w obrębie jednej domeny.
     """
@@ -54,7 +54,7 @@ def discover_links_recursively(base_url: str, max_depth: int = 2) -> set[str]:
     to_visit = [(base_url, 0)]
     base_domain = urlparse(base_url).netloc
 
-    while to_visit:
+    while to_visit and len(visited) < max_pages:
         current_url, depth = to_visit.pop()
         if current_url in visited or depth > max_depth:
             continue

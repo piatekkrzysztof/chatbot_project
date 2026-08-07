@@ -13,6 +13,11 @@ DATABASES = {
 
 DEBUG = True
 
+# Bez lokalnego Redis/Celery workera zadania wykonują się synchronicznie,
+# w tym samym procesie co request — .delay() nie próbuje łączyć się z brokerem.
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+
 # tu możesz nadpisywać, np.
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

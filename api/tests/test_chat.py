@@ -3,7 +3,6 @@ from rest_framework.test import APIClient
 from accounts.models import Tenant, CustomUser
 from chat.models import Conversation
 import uuid
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.request import Request
 from accounts.models import Subscription
 from datetime import date, timedelta
@@ -79,8 +78,8 @@ def test_chat_view_invalid_api_key():
         "message": "Test",
         "conversation_id": str(uuid.uuid4())
     }
-    with pytest.raises(AuthenticationFailed):
-        client.post("/api/chat/", payload, format="json")
+    response = client.post("/api/chat/", payload, format="json")
+    assert response.status_code == 401
 
 
 @pytest.mark.django_db
@@ -90,8 +89,8 @@ def test_chat_view_missing_api_key():
         "message": "Test",
         "conversation_id": str(uuid.uuid4())
     }
-    with pytest.raises(AuthenticationFailed):
-        client.post("/api/chat/", payload, format="json")
+    response = client.post("/api/chat/", payload, format="json")
+    assert response.status_code == 401
 
 
 @pytest.mark.django_db

@@ -1,7 +1,7 @@
 import csv
 
 from django.contrib import admin
-from chat.models import PromptLog, ChatFeedback, Chat, FAQ
+from chat.models import PromptLog, ChatFeedback, FAQ
 from django.http import HttpResponse
 
 
@@ -58,4 +58,3 @@ class ChatFeedbackAdmin(admin.ModelAdmin):
     list_filter = ("is_helpful",)
 
 
-admin.site.register(Chat)

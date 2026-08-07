@@ -4,7 +4,7 @@ from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.website_import import discover_links_recursively
 from documents.utils.embedding_generator import generate_embeddings_for_document as _generate_embeddings
 from documents.website_import import import_website_as_document
-import trafilatura
+from trafilatura.sitemaps import sitemap_search
 
 
 @shared_task
@@ -38,6 +38,9 @@ def generate_embeddings_for_document(document_id):
     _generate_embeddings(document)
 
 
+MAX_PAGES_PER_CRAWL = 20
+
+
 @shared_task
 def crawl_and_import_website_source(source_id):
     try:
@@ -45,11 +48,11 @@ def crawl_and_import_website_source(source_id):
         url = source.url
         tenant = source.tenant
 
-        # pobierz wszystkie podstrony z sitemap
+        # pobierz podstrony z sitemap (ograniczone do rozsądnej liczby, sitemapa bywa ogromna)
 
-        urls = trafilatura.sitemaps.sitemap_search(source.url) or []
+        urls = (sitemap_search(source.url) or [])[:MAX_PAGES_PER_CRAWL]
         if not urls:
-            urls = discover_links_recursively(source.url, max_depth=2)
+            urls = discover_links_recursively(source.url, max_depth=2, max_pages=MAX_PAGES_PER_CRAWL)
 
         if not urls:
             urls = [url]  # fallback – tylko główna strona

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Tenant, CustomUser, InvitationToken, Client, Subscription
+from .models import Tenant, CustomUser, InvitationToken, Subscription
 
 
 @admin.register(Tenant)
@@ -23,7 +23,6 @@ class CustomUserAdmin(UserAdmin):
     )
 
 
-admin.site.register(Client)
 admin.site.register(Subscription)
 
 

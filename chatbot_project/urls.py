@@ -38,4 +38,5 @@ urlpatterns = [
     path('sentry-debug/', trigger_error),
 ]
 
-# urlpatterns += static('/static/', document_root=os.path.join(settings.BASE_DIR, 'widget', 'static'))
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
