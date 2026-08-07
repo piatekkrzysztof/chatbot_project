@@ -1,23 +1,18 @@
-import os
-import pytest
-import uuid
-from rest_framework.test import APIClient
-from accounts.models import Tenant, Subscription, CustomUser
-import psycopg2
-from dotenv import load_dotenv
-from django.conf import settings
-from django.core.management import call_command
 import io
-from reportlab.pdfgen import canvas
-from django.core.files.uploadedfile import SimpleUploadedFile
+import uuid
 from datetime import date, timedelta
 
+import pytest
+from dotenv import load_dotenv
+from django.core.files.uploadedfile import SimpleUploadedFile
+from reportlab.pdfgen import canvas
+from rest_framework.test import APIClient
+
+from accounts.models import Tenant, Subscription, CustomUser
 from chat.models import Conversation
 
-# Wczytujemy zmienne środowiskowe z .env.test
+# Zmienne środowiskowe na czas testów (m.in. klucze API)
 load_dotenv(".env.test", override=True)
-print(">>>>> conftest.py loaded! <<<<<")
-print(">>>>> DATABASE_URL from .env.test:", os.environ.get("DATABASE_URL"))
 
 
 
@@ -85,42 +80,9 @@ def mock_celery_tasks(monkeypatch):
     monkeypatch.setattr("documents.tasks.generate_embeddings_for_document.delay", lambda *a, **kw: None)
 
 
-@pytest.fixture(scope="session")
-def django_db_setup():
-    # Nadpisujemy konfigurację bazy danych tylko na czas testów
-    settings.DATABASES["default"] = {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["PGDATABASE"],
-        "USER": os.environ["PGUSER"],
-        "PASSWORD": os.environ["PGPASSWORD"],
-        "HOST": os.environ["PGHOST"],
-        "PORT": os.environ.get("PGPORT", "5432"),
-        "ATOMIC_REQUESTS": True,
-    }
-
-
-@pytest.fixture(scope="session", autouse=True)
-def ensure_pgvector_installed(django_db_setup):
-    """
-    Tworzy rozszerzenie pgvector w testowej bazie, jeśli nie istnieje.
-    """
-    conn = psycopg2.connect(
-        dbname=os.environ["PGDATABASE"],
-        user=os.environ["PGUSER"],
-        password=os.environ["PGPASSWORD"],
-        host=os.environ["PGHOST"],
-        port=os.environ.get("PGPORT", "5432"),
-    )
-    conn.autocommit = True
-    with conn.cursor() as cur:
-        cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-    conn.close()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def run_migrations(django_db_setup, django_db_blocker):
-    """
-    Wykonuje migracje po przygotowaniu połączenia i instalacji rozszerzenia.
-    """
-    with django_db_blocker.unblock():
-        call_command("migrate")
+# Baza testowa jest tworzona i usuwana przez pytest-django (prefiks "test_"),
+# odizolowana od bazy deweloperskiej. Wcześniej conftest podmieniał
+# settings.DATABASES już po nawiązaniu połączenia przez Django — ustawienie się
+# zmieniało, ale połączenie nadal wskazywało bazę z dev.py, więc testy pisały po
+# danych deweloperskich. Rozszerzenie pgvector zakłada migracja
+# documents/0005_enable_pgvector.

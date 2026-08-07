@@ -113,12 +113,7 @@ def test_document_detail_view_response_fields(user, tenant, subscribtion):
 
 
 @pytest.mark.django_db
-def test_missing_api_key_returns_403_on_upload(user, tenant, subscribtion):
-    client = APIClient()
-    user.tenant = tenant
-    user.role = "owner"
-    user.save()
-    tenant.save()
-    client.force_authenticate(user=user)
+def test_upload_requires_logged_in_user(user, tenant, subscribtion):
+    """Sam klucz API nie wystarcza — upload wymaga zalogowanego użytkownika (JWT)."""
     response = APIClient().post("/api/documents-upload/", HTTP_X_API_KEY=str(tenant.api_key))
-    assert response.status_code == 403
+    assert response.status_code == 401

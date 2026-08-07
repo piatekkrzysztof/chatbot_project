@@ -3,7 +3,10 @@ services:
     name: chatbot-backend
     runtime: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn chatbot_project.wsgi:application"
+    # Workery wątkowe, nie synchroniczne: odpowiedzi czatu lecą strumieniem (SSE)
+    # i trzymają połączenie przez cały czas generowania. Przy domyślnym workerze
+    # synchronicznym kilka równoczesnych rozmów zablokowałoby cały serwer.
+    startCommand: "gunicorn chatbot_project.wsgi:application --worker-class gthread --threads 8 --timeout 300"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.1

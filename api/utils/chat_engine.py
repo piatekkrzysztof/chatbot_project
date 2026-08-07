@@ -3,6 +3,7 @@ import logging
 
 import openai
 from openai import OpenAI
+from rapidfuzz import fuzz
 from django.conf import settings
 
 from chat.models import ChatMessage, ChatUsageLog, PromptLog, FAQ
@@ -118,10 +119,28 @@ def get_openai_response(messages, model=None, tenant=None):
         raise
 
 
-def determine_source(chunks, faqs):
+def faq_matches_question(faqs, message_text):
+    """
+    Czy któryś wpis FAQ faktycznie dotyczy zadanego pytania.
+
+    Samo istnienie wpisów FAQ nic nie mówi — bez tego sprawdzenia każda odpowiedź
+    u klienta z jednym wpisem FAQ byłaby liczona jako pokryta, a raport
+    "pytania bez pokrycia" zostawałby pusty na zawsze.
+    """
+    threshold = settings.FAQ_MATCH_THRESHOLD
+    return any(
+        fuzz.token_set_ratio(message_text, faq.question) >= threshold
+        for faq in faqs
+    )
+
+
+def determine_source(chunks, faqs, message_text):
+    """
+    Skąd realnie pochodzi pokrycie odpowiedzi — sterruje raportem luk w wiedzy.
+    """
     if chunks:
         return "document"
-    if faqs:
+    if faq_matches_question(faqs, message_text):
         return "faq"
     return "gpt"
 
@@ -168,7 +187,7 @@ def process_chat_message(tenant, conversation, message_text):
     )
 
     messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
-    source = determine_source(chunks, faqs)
+    source = determine_source(chunks, faqs, message_text)
 
     try:
         gpt_response = get_openai_response(messages, model=model, tenant=tenant)
@@ -211,7 +230,7 @@ def stream_chat_message(tenant, conversation, message_text):
     )
 
     messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
-    source = determine_source(chunks, faqs)
+    source = determine_source(chunks, faqs, message_text)
 
     pieces = []
     tokens = 0
