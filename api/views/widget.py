@@ -7,8 +7,9 @@ from uuid import UUID
 from rest_framework.exceptions import PermissionDenied
 from chat.models import FAQ, Conversation
 from api.serializers import PublicFAQSerializer, ChatRequestSerializer
-from api.utils.chat_engine import process_chat_message
+from api.utils.chat_engine import process_chat_message, stream_chat_message
 from api.permissions import IsOwnerOrEmployee
+from django.http import StreamingHttpResponse
 
 
 
@@ -85,6 +86,48 @@ class PublicChatView(APIView):
             subscription.increment_usage()
 
         return Response(result)
+
+
+class PublicChatStreamView(APIView):
+    """
+    Strumieniowa wersja PublicChatView — odpowiedź leci token po tokenie (SSE),
+    dzięki czemu użytkownik widzi ją od razu zamiast czekać na całość.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        if not getattr(request, "tenant", None):
+            raise PermissionDenied("Nieprawidłowy klucz API")
+
+        serializer = ChatRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        tenant = request.tenant
+
+        conversation, _ = Conversation.objects.get_or_create(
+            session_id=data["conversation_session_id"],
+            tenant=tenant,
+            defaults={
+                "tenant": tenant,
+                "user_identifier": request.META.get("REMOTE_ADDR", "unknown"),
+                "source": "widget",
+            }
+        )
+
+        # Limit odliczamy z góry — po rozpoczęciu strumienia nie da się już odrzucić żądania.
+        subscription = getattr(request, "subscription", None)
+        if subscription:
+            subscription.increment_usage()
+
+        response = StreamingHttpResponse(
+            stream_chat_message(tenant, conversation, data["message"].strip()),
+            content_type="text/event-stream",
+        )
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"  # wyłącza buforowanie na nginx/proxy
+        return response
 
 
 class TenantWidgetSettingsView(APIView):

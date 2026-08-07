@@ -17,8 +17,16 @@ def conversation(tenant):
     )
 
 
+@mock.patch("api.utils.chat_engine.query_similar_chunks_pgvector", return_value=[])
+@mock.patch("api.utils.chat_engine.get_openai_response")
 @pytest.mark.django_db
-def test_prompt_log_created_for_document_source(user, tenant, conversation,subscribtion):
+def test_prompt_log_records_raw_user_question(mock_gpt, mock_chunks, user, tenant, conversation, subscribtion):
+    """
+    PromptLog.prompt ma trzymać samo pytanie użytkownika — to ono trafia
+    do panelu w zakładce Konwersacje, nie cały zbudowany prompt z fragmentami.
+    """
+    mock_gpt.return_value = {"content": "Embedding to reprezentacja wektorowa.", "tokens": 42}
+
     client = APIClient()
     user.tenant = tenant
     user.save()
@@ -30,19 +38,18 @@ def test_prompt_log_created_for_document_source(user, tenant, conversation,subsc
         "conversation_session_id": str(uuid.uuid4()),
     }
 
-    headers = {"HTTP_X_API_KEY": str(tenant.api_key)}
+    response = client.post(
+        "/api/chat/", payload, format="json", HTTP_X_API_KEY=str(tenant.api_key)
+    )
+    assert response.status_code == 200
 
-    with pytest.raises(AssertionError):  # zakładamy, że fallback nie nastąpi i test padnie jeśli tak
-        response = client.post("/api/chat/", payload, format="json", **headers)
-        assert response.status_code == 200
-
-        log = PromptLog.objects.last()
-        assert log is not None
-        assert log.prompt == payload["message"]
-        assert log.source in ["faq", "document", "gpt"]
-        assert log.tokens >= 0
-        assert log.model
-        assert log.response
+    log = PromptLog.objects.last()
+    assert log is not None
+    assert log.prompt == payload["message"]
+    assert log.response == "Embedding to reprezentacja wektorowa."
+    assert log.source in ["faq", "document", "gpt"]
+    assert log.tokens == 42
+    assert log.model
 
 
 def test_prompt_log_invalid_data(user, tenant, subscribtion):

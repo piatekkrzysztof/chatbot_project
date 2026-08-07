@@ -7,7 +7,6 @@ from django.conf import settings
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 CHUNK_SIZE = 500  # znaków
-EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 def split_text(text: str, max_chars: int = 1500) -> list[str]:
@@ -21,7 +20,7 @@ def generate_embeddings_for_document(document):
     # Tworzenie embeddingów
     for chunk in chunks:
         response = client.embeddings.create(
-            model=EMBEDDING_MODEL,
+            model=settings.OPENAI_EMBEDDING_MODEL,
             input=chunk
         )
         embedding = response.data[0].embedding

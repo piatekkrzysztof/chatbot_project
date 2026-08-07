@@ -104,7 +104,7 @@ class SubscriptionMiddleware(MiddlewareMixin):
     # Dokładne ścieżki (nie prefiksy!) — endpointy wysyłające wiadomość do AI.
     # Prefiksowe dopasowanie złapałoby też /api/chat/logs/, /api/chat/feedback/ itd.,
     # które są JWT-owymi endpointami panelu, nie publicznym czatem po X-API-Key.
-    CHAT_PATHS = ('/api/chat/', '/api/widget/chat/')
+    CHAT_PATHS = ('/api/chat/', '/api/widget/chat/', '/api/widget/chat/stream/')
 
     def process_request(self, request):
         # Obsługujemy tylko endpointy czatu (panel + publiczny widget)
