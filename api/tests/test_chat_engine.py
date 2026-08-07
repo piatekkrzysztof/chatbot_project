@@ -53,7 +53,7 @@ def test_get_openai_response_success(mock_openai):
     mock_client = MagicMock()
     mock_openai.return_value = mock_client
     mock_client.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message={"content": "Hi"})],
+        choices=[MagicMock(message=MagicMock(content="Hi"))],
         usage=MagicMock(total_tokens=12)
     )
 

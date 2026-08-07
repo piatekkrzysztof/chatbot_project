@@ -3,7 +3,6 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from accounts.models import Tenant
 from documents.utils.pdf_parser import extract_text_from_pdf
 from api.serializers import DocumentSerializer
 from documents.models import Document, DocumentChunk
@@ -50,14 +49,9 @@ class UploadDocumentView(APIView):
     permission_classes=[IsOwnerOrEmployee]
 
     def post(self, request):
-        api_key = request.headers.get("X-API-KEY")
-        if not api_key:
-            return Response({"error": "Missing API Key"}, status=403)
-
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-        except Tenant.DoesNotExist:
-            return Response({"error": "Invalid API Key"}, status=403)
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response({"error": "Brak tenanta."}, status=403)
 
         file = request.data.get("file")
         name = request.data.get("name") or file.name if file else "Untitled"

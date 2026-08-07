@@ -19,15 +19,13 @@ class TenantMiddleware:
         self.get_response = get_response
 
     def process_request(self, request):
-        print(f"[DEBUG middleware] request.user: {request.user}")
-        print(f"[DEBUG middleware] przypisano request.tenant: {getattr(request, 'tenant', None)}")
-        print("### MIDDLEWARE WYWOŁANY ###", request.path, request.headers)
-        print("### X-API-KEY W HEADERACH:", request.headers.get("X-API-Key"))
+        # Middleware dotyczy tylko API — /admin/, statyki itd. mają własną autoryzację.
+        if not request.path.startswith("/api/"):
+            return
+
         exempt_paths = [
             "/api/accounts/register/",
             "/api/accounts/login/",
-
-
         ]
         # Przepuszczamy tylko register/login bez tenanta
         if request.path in exempt_paths:
@@ -36,12 +34,10 @@ class TenantMiddleware:
         tenant = None
 
         # 1. Jeśli user jest już zalogowany (force_authenticate albo login przez DRF/JWT)
-        print("### ALL TENANTS:", list(Tenant.objects.all()))
         if hasattr(request, "user") and getattr(request.user, "is_authenticated", False):
             tenant = getattr(request.user, "tenant", None)
             if tenant:
                 request.tenant = tenant
-                print(f"[MIDDLEWARE] request.tenant ustawiony: {tenant}")
 
         # 2. Jeśli nie user, to JWT
         if not tenant:
@@ -78,7 +74,6 @@ class TenantMiddleware:
     def get_active_subscription(self, tenant):
 
         today = timezone.now().date()
-        print(f"Checking subscription for tenant {tenant.name} on {today}")
 
         try:
             subscription = Subscription.objects.get(
@@ -87,14 +82,10 @@ class TenantMiddleware:
                 start_date__lte=today,
                 end_date__gte=today
             )
-            print(f"Active subscription found: {subscription.id} "
-                  f"({subscription.start_date} to {subscription.end_date})")
             return subscription
         except Subscription.DoesNotExist:
-            print("No active subscription found")
             return None
         except Subscription.MultipleObjectsReturned:
-            print("Multiple active subscriptions found! Using first")
             return Subscription.objects.filter(
                 tenant=tenant,
                 is_active=True,
@@ -107,9 +98,11 @@ import time
 
 
 class SubscriptionMiddleware(MiddlewareMixin):
+    CHAT_PATH_PREFIXES = ('/api/chat/', '/api/widget/chat/')
+
     def process_request(self, request):
-        # Obsługujemy tylko endpoint /api/chat/
-        if not request.path.startswith('/api/chat/'):
+        # Obsługujemy tylko endpointy czatu (panel + publiczny widget)
+        if not request.path.startswith(self.CHAT_PATH_PREFIXES):
             return None
 
         api_key = request.headers.get('X-API-KEY')

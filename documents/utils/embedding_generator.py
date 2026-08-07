@@ -1,16 +1,8 @@
 import textwrap
 from documents.models import Document
-import chromadb
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 from documents.models import DocumentChunk
 from openai import OpenAI
 from django.conf import settings
-
-chroma_client = chromadb.Client()
-embedding_function = OpenAIEmbeddingFunction(
-    api_key=settings.OPENAI_API_KEY,
-    model_name="text-embedding-3-small"
-)
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 

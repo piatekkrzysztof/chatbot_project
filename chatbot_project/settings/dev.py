@@ -15,8 +15,9 @@ DEBUG = True
 
 # tu możesz nadpisywać, np.
 REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [],
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     "DEFAULT_THROTTLE_CLASSES": [
         "api.throttles.APIKeyRateThrottle",
         "api.throttles.SubscriptionRateThrottle",
