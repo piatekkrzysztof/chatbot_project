@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
-from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ
+from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ, ContactRequest
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.validators import validate_document_limit
 
@@ -225,6 +225,21 @@ class PublicFAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
         fields = ["question", "answer"]
+
+
+class ContactRequestCreateSerializer(serializers.Serializer):
+    """Dane zostawiane przez odwiedzającego w widgecie — bez pól technicznych."""
+    name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    contact = serializers.CharField(max_length=200)
+    message = serializers.CharField(required=False, allow_blank=True)
+    conversation_session_id = serializers.UUIDField(required=False)
+
+
+class ContactRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactRequest
+        fields = ["id", "name", "contact", "message", "handled", "created_at"]
+        read_only_fields = ["id", "name", "contact", "message", "created_at"]
 
 
 class FAQSerializer(serializers.ModelSerializer):

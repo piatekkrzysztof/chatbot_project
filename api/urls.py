@@ -14,6 +14,7 @@ from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
 from .views.chat_logs import PromptLogListView
 from .views.analytics import TenantAnalyticsView
+from .views.contact import PublicContactRequestView
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -37,6 +38,7 @@ urlpatterns = [
     path("widget/faq/", PublicFAQView.as_view(), name="widget-faq"),
     path("widget/chat/", PublicChatView.as_view(), name="widget-chat"),
     path("widget/chat/stream/", PublicChatStreamView.as_view(), name="widget-chat-stream"),
+    path("widget/contact/", PublicContactRequestView.as_view(), name="widget-contact"),
     path("widget-settings/mine/", TenantWidgetSettingsView.as_view(), name="widget-settings-mine"),
     path("analytics/", TenantAnalyticsView.as_view(), name="analytics"),
     path("billing/create-checkout-session/", CreateCheckoutSessionView.as_view()),
