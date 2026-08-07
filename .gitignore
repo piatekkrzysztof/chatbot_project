@@ -1,17 +1,30 @@
-chatbot_project/.env
-db.sqlite3.
-# .gitignore
+# Środowisko
 .venv/
 venv/
+.env
+chatbot_project/.env
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+
+# Baza i dane lokalne
 *.sqlite3
 db.sqlite3
 chroma_db/
-.env
+
+# Pliki wgrywane przez użytkowników
+media/
+
+# Django
 staticfiles/
+
+# IDE
 .idea/
 .vscode/
+
+# Artefakty testów manualnych
 documents/test_*.pdf

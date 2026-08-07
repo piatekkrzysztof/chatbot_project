@@ -3,7 +3,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
 from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ
-from documents.models import Document, DocumentChunk
+from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.validators import validate_document_limit
 
 
@@ -168,6 +168,13 @@ class DocumentChunkSerializer(serializers.ModelSerializer):
         model = DocumentChunk
         fields = ["id", "content", "created_at"]
         read_only_fields = fields
+
+
+class WebsiteSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WebsiteSource
+        fields = ["id", "name", "url", "is_active", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class PromptLogSerializer(serializers.ModelSerializer):

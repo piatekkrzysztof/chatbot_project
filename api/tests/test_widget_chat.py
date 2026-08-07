@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import pytest
 from rest_framework.test import APIClient
-from rest_framework.exceptions import AuthenticationFailed
 
 from accounts.models import Tenant, Subscription
 
@@ -57,10 +56,10 @@ def test_widget_chat_invalid_api_key():
         "conversation_id": "x",
         "conversation_session_id": str(uuid.uuid4()),
     }
-    with pytest.raises(AuthenticationFailed):
-        client.post(
-            "/api/widget/chat/", payload, format="json", HTTP_X_API_KEY=str(uuid.uuid4())
-        )
+    response = client.post(
+        "/api/widget/chat/", payload, format="json", HTTP_X_API_KEY=str(uuid.uuid4())
+    )
+    assert response.status_code == 401
 
 
 @pytest.mark.django_db

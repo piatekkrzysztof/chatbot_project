@@ -5,14 +5,15 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from documents.utils.pdf_parser import extract_text_from_pdf
 from api.serializers import DocumentSerializer
-from documents.models import Document, DocumentChunk
+from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.utils.embedding_generator import generate_embeddings_for_document
-from documents.tasks import embed_document_task
+from documents.tasks import embed_document_task, crawl_and_import_website_source
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
 from rest_framework import status
 from rest_framework.generics import ListAPIView
-from api.serializers import DocumentChunkSerializer
+from rest_framework.exceptions import ValidationError
+from api.serializers import DocumentChunkSerializer, WebsiteSourceSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from api.permissions import *
 
@@ -85,3 +86,22 @@ class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
 
     def get_queryset(self):
         return DocumentChunk.objects.filter(document__tenant=self.request.tenant, document_id=self.kwargs["document_id"])
+
+
+class WebsiteSourceViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
+    queryset = WebsiteSource.objects.all()
+    serializer_class = WebsiteSourceSerializer
+    permission_classes = [IsOwnerOrEmployee]
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("-created_at")
+
+    def perform_create(self, serializer):
+        tenant = self.request.tenant
+        url = serializer.validated_data["url"]
+
+        if WebsiteSource.objects.filter(tenant=tenant, url=url).exists():
+            raise ValidationError({"url": "Ten adres URL został już dodany."})
+
+        source = serializer.save(tenant=tenant)
+        crawl_and_import_website_source.delay(source.id)

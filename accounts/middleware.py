@@ -1,6 +1,6 @@
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, APIException
 from accounts.models import Tenant
 from django.http import JsonResponse
 from django.utils import timezone
@@ -67,7 +67,10 @@ class TenantMiddleware:
         request.tenant = tenant
 
     def __call__(self, request):
-        self.process_request(request)
+        try:
+            self.process_request(request)
+        except APIException as exc:
+            return JsonResponse({"detail": str(exc.detail)}, status=exc.status_code)
         response = self.get_response(request)
         return response
 
@@ -98,11 +101,14 @@ import time
 
 
 class SubscriptionMiddleware(MiddlewareMixin):
-    CHAT_PATH_PREFIXES = ('/api/chat/', '/api/widget/chat/')
+    # Dokładne ścieżki (nie prefiksy!) — endpointy wysyłające wiadomość do AI.
+    # Prefiksowe dopasowanie złapałoby też /api/chat/logs/, /api/chat/feedback/ itd.,
+    # które są JWT-owymi endpointami panelu, nie publicznym czatem po X-API-Key.
+    CHAT_PATHS = ('/api/chat/', '/api/widget/chat/')
 
     def process_request(self, request):
         # Obsługujemy tylko endpointy czatu (panel + publiczny widget)
-        if not request.path.startswith(self.CHAT_PATH_PREFIXES):
+        if request.path not in self.CHAT_PATHS:
             return None
 
         api_key = request.headers.get('X-API-KEY')

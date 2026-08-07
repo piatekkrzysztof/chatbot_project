@@ -25,7 +25,7 @@ app.autodiscover_tasks()
 
 app.conf.beat_schedule = {
     "crawl-active-website-sources-every-12h": {
-        "task": "documents.tasks.website_scheduler.crawl_all_active_sources",
+        "task": "documents.tasks.crawl_all_active_sources",
         "schedule": crontab(minute=0, hour="*/12"),  # co 12h
     },
 }

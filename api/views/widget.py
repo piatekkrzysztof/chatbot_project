@@ -12,6 +12,18 @@ from api.permissions import IsOwnerOrEmployee
 
 
 
+def serialize_widget_branding(tenant, request):
+    return {
+        "widget_position": tenant.widget_position,
+        "widget_color": tenant.widget_color,
+        "widget_title": tenant.widget_title,
+        "branding_mode": tenant.branding_mode,
+        "widget_footer_text": tenant.widget_footer_text,
+        "widget_logo": request.build_absolute_uri(tenant.widget_logo.url) if tenant.widget_logo else None,
+        "widget_avatar": request.build_absolute_uri(tenant.widget_avatar.url) if tenant.widget_avatar else None,
+    }
+
+
 class WidgetSettingsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
@@ -19,12 +31,7 @@ class WidgetSettingsAPIView(APIView):
     def get(self, request):
         if not getattr(request, "tenant", None):
             return Response({"error": "Brak poprawnego klucza API"}, status=403)
-        tenant = request.tenant
-        return Response({
-            "widget_position": tenant.widget_position,
-            "widget_color": tenant.widget_color,
-            "widget_title": tenant.widget_title,
-        }, status=status.HTTP_200_OK)
+        return Response(serialize_widget_branding(request.tenant, request), status=status.HTTP_200_OK)
 
 
 class PublicFAQView(APIView):
@@ -89,21 +96,24 @@ class TenantWidgetSettingsView(APIView):
     permission_classes = [IsOwnerOrEmployee]
 
     def get(self, request):
-        tenant = request.user.tenant
-        return Response({
-            "widget_position": tenant.widget_position,
-            "widget_color": tenant.widget_color,
-            "widget_title": tenant.widget_title,
-        })
+        return Response(serialize_widget_branding(request.user.tenant, request))
 
     def patch(self, request):
         tenant = request.user.tenant
-        for field in ("widget_position", "widget_color", "widget_title"):
+        text_fields = ("widget_position", "widget_color", "widget_title", "branding_mode", "widget_footer_text")
+        changed_fields = []
+
+        for field in text_fields:
             if field in request.data:
                 setattr(tenant, field, request.data[field])
-        tenant.save(update_fields=["widget_position", "widget_color", "widget_title"])
-        return Response({
-            "widget_position": tenant.widget_position,
-            "widget_color": tenant.widget_color,
-            "widget_title": tenant.widget_title,
-        })
+                changed_fields.append(field)
+
+        for file_field in ("widget_logo", "widget_avatar"):
+            if file_field in request.FILES:
+                setattr(tenant, file_field, request.FILES[file_field])
+                changed_fields.append(file_field)
+
+        if changed_fields:
+            tenant.save(update_fields=changed_fields)
+
+        return Response(serialize_widget_branding(tenant, request))

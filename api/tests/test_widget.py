@@ -2,7 +2,6 @@ import pytest
 from rest_framework.test import APIClient
 from accounts.models import Tenant
 import uuid
-from rest_framework.exceptions import AuthenticationFailed
 from django.core.exceptions import ValidationError
 
 
@@ -23,21 +22,25 @@ def test_widget_settings_success(api_client, tenant, user, subscribtion, ):
     assert response.json() == {
         "widget_position": "right",
         "widget_color": "#00ff00",
-        "widget_title": "Zapytaj nas!"
+        "widget_title": "Zapytaj nas!",
+        "branding_mode": "smart",
+        "widget_footer_text": "",
+        "widget_logo": None,
+        "widget_avatar": None,
     }
 
 
 @pytest.mark.django_db
 def test_widget_settings_invalid_key(api_client, tenant, user, subscribtion):
     api_client.force_authenticate(user=user)
-    with pytest.raises(AuthenticationFailed):
-        api_client.get("/api/widget-settings/", HTTP_X_API_KEY=str(uuid.uuid4()))
+    response = api_client.get("/api/widget-settings/", HTTP_X_API_KEY=str(uuid.uuid4()))
+    assert response.status_code == 401
 
 @pytest.mark.django_db
 def test_widget_settings_missing_key(api_client, tenant, user, subscribtion):
     api_client.force_authenticate(user=user)
-    with pytest.raises(AuthenticationFailed):
-        api_client.get("/api/widget-settings/")
+    response = api_client.get("/api/widget-settings/")
+    assert response.status_code == 401
 
 @pytest.mark.django_db
 def test_widget_settings_invalid_uuid_format(api_client, tenant, user, subscribtion):
