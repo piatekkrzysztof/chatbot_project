@@ -19,15 +19,22 @@ def test_widget_settings_success(api_client, tenant, user, subscribtion, ):
     response = api_client.get("/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key))
 
     assert response.status_code == 200
-    assert response.json() == {
-        "widget_position": "right",
-        "widget_color": "#00ff00",
-        "widget_title": "Zapytaj nas!",
-        "branding_mode": "smart",
-        "widget_footer_text": "",
-        "widget_logo": None,
-        "widget_avatar": None,
-        "privacy_policy_url": "",
+    data = response.json()
+
+    # Wartości, o które temu testowi faktycznie chodzi
+    assert data["widget_position"] == "right"
+    assert data["widget_color"] == "#00ff00"
+    assert data["widget_title"] == "Zapytaj nas!"
+    assert data["branding_mode"] == "smart"
+
+    # Pełen zestaw kluczy trzymany osobno: widget czyta tę odpowiedź wprost,
+    # więc usunięcie pola psuje osadzone czaty u wszystkich klientów naraz.
+    # Porównanie całego słownika mieszało te dwie sprawy i wywracało się przy
+    # każdym nowym polu, nie mówiąc, czy to regresja, czy tylko brak aktualizacji.
+    assert set(data) == {
+        "widget_position", "widget_color", "widget_title", "branding_mode",
+        "widget_footer_text", "widget_logo", "widget_avatar",
+        "privacy_policy_url", "widget_welcome_message", "widget_suggested_questions",
     }
 
 
