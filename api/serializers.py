@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -93,6 +94,33 @@ class InvitationCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         tenant = self.context['request'].user.tenant
         return InvitationToken.objects.create(tenant=tenant, **validated_data)
+
+
+class InvitationReadSerializer(serializers.ModelSerializer):
+    """
+    Zaproszenie widziane z panelu — z gotowym linkiem do skopiowania.
+
+    Sam e-mail nie wystarcza: wysyłka bywa zablokowana albo wiadomość ląduje
+    w spamie, a wtedy właściciel nie ma jak przekazać zaproszenia inaczej.
+    """
+    accept_url = serializers.SerializerMethodField()
+    expires_at = serializers.DateTimeField(read_only=True)
+    is_valid = serializers.BooleanField(read_only=True)
+    seats_left = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InvitationToken
+        fields = [
+            'id', 'email', 'role', 'duration', 'max_users', 'users',
+            'seats_left', 'token', 'accept_url', 'expires_at', 'is_valid',
+            'created_at',
+        ]
+
+    def get_accept_url(self, obj):
+        return f"{settings.FRONTEND_URL.rstrip('/')}/invite/accept/{obj.token}"
+
+    def get_seats_left(self, obj):
+        return max(obj.max_users - obj.users, 0)
 
 
 class AcceptInvitationSerializer(serializers.Serializer):

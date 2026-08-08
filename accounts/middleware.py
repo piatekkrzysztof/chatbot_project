@@ -23,12 +23,21 @@ class TenantMiddleware:
         if not request.path.startswith("/api/"):
             return
 
+        # Ścieżki dostępne zanim ktokolwiek ma konto lub klucz API.
         exempt_paths = [
             "/api/accounts/register/",
             "/api/accounts/login/",
+            # Zapraszany dopiero zakłada konto — nie ma jeszcze ani tokenu JWT,
+            # ani klucza API, więc bez tego wyjątku każde zaproszenie kończyło
+            # się odmową "Nie rozpoznano tenanta".
+            "/api/accounts/accept-invite/",
         ]
-        # Przepuszczamy tylko register/login bez tenanta
         if request.path in exempt_paths:
+            return
+
+        # Podgląd zaproszenia ma token w adresie, więc nie da się go dopasować
+        # dokładnie; sam token jest tu jednocześnie danymi uwierzytelniającymi.
+        if request.path.startswith("/api/accounts/invitations/") and request.path.endswith("/preview/"):
             return
 
         tenant = None
