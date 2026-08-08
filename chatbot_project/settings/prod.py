@@ -119,10 +119,10 @@ STORAGES = {
     },
 }
 
-# Stripe
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_DEFAULT_PRICE_ID = os.getenv("STRIPE_DEFAULT_PRICE_ID")
+# Klucze Stripe definiuje base.py — tutaj nie powtarzamy.
+# STRIPE_DEFAULT_PRICE_ID zniknęło razem z drugą implementacją checkoutu:
+# jedna cena dla wszystkich planów sprawiała, że kupiony plan zależał od tego,
+# którędy klient przyszedł. Ceny są teraz per plan w STRIPE_PRICE_IDS.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 

@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
+from accounts.plans import PLANS, PRO
 from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ, ContactRequest
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.validators import validate_document_limit
@@ -42,9 +43,12 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
     use_trial = serializers.BooleanField(default=True)
+    # Bez tego rejestracja kupowała zawsze ten sam plan, niezależnie od wyboru
+    plan = serializers.ChoiceField(choices=list(PLANS), default=PRO)
 
     def create(self, validated_data):
         use_trial = validated_data.pop("use_trial")
+        plan = validated_data.pop("plan")
 
         tenant = Tenant.objects.create(
             name=validated_data['company_name'],
@@ -65,6 +69,7 @@ class RegisterSerializer(serializers.Serializer):
             "user": user,
             "use_trial": use_trial,
             "tenant": tenant,
+            "plan": plan,
         }
 
     def validate_email(self, value):

@@ -156,6 +156,20 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# Klucze Stripe w ustawieniach wspólnych, nie tylko produkcyjnych: inaczej
+# każde odwołanie do płatności poza produkcją kończyło się AttributeError,
+# bo settings w ogóle nie miało tych atrybutów.
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+# Identyfikatory cen ze Stripe, po jednym na plan z accounts/plans.py.
+# W zmiennych, a nie w kodzie, bo cennik dopracowuje się częściej niż logikę.
+STRIPE_PRICE_IDS = {
+    "basic": os.getenv("STRIPE_PRICE_BASIC", ""),
+    "pro": os.getenv("STRIPE_PRICE_PRO", ""),
+    "enterprise": os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
+}
+
 OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
 # Bot obsługi klienta ma odtwarzać wiedzę firmy, nie tworzyć. Domyślna temperatura

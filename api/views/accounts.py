@@ -19,7 +19,7 @@ from rest_framework.exceptions import PermissionDenied
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
 from api.permissions import *
-from api.utils.stripe import create_checkout_session
+from api.views.stripe import create_checkout_session
 from drf_spectacular.utils import extend_schema
 
 from api.schemas import (
@@ -49,7 +49,9 @@ class ClientRegisterView(APIView):
                 status=status.HTTP_201_CREATED,
             )
         else:
-            checkout_url = create_checkout_session(tenant)
+            checkout_url = create_checkout_session(
+                tenant, plan_code=result["plan"], email=tenant.owner_email
+            )
             return Response(
                 {"checkout_url": checkout_url},
                 status=status.HTTP_201_CREATED,
