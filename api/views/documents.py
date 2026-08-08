@@ -8,6 +8,7 @@ from api.serializers import DocumentSerializer
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.utils.embedding_generator import generate_embeddings_for_document
 from documents.tasks import embed_document_task, crawl_and_import_website_source
+from documents.utils.queue import enqueue
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
 from rest_framework import status
@@ -74,7 +75,7 @@ class UploadDocumentView(APIView):
             document.save()
 
         # Embeddingi już przez Celery (async)
-        embed_document_task.delay(document.id)
+        enqueue(embed_document_task, document.id)
 
         return Response({"message": "Uploaded successfully."}, status=201)
 
@@ -104,4 +105,4 @@ class WebsiteSourceViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
             raise ValidationError({"url": "Ten adres URL został już dodany."})
 
         source = serializer.save(tenant=tenant)
-        crawl_and_import_website_source.delay(source.id)
+        enqueue(crawl_and_import_website_source, source.id)

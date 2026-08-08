@@ -60,3 +60,22 @@ def test_add_form_opens(client, admin_user, app_label, model_name):
     response = client.get(url)
     # 403 jest w porządku, gdy model celowo nie pozwala na dodawanie
     assert response.status_code in (200, 403)
+
+
+@pytest.mark.django_db
+def test_adding_document_through_admin_works(client, admin_user, tenant, valid_pdf_file):
+    """
+    Samo otwarcie formularza niczego nie dowodzi — zapis uruchamia sygnał
+    post_save, który zleca zadania w tle. To właśnie tam produkcja zwracała 500.
+    """
+    client.force_login(admin_user)
+
+    response = client.post(
+        reverse("admin:documents_document_add"),
+        {"tenant": tenant.id, "name": "z-admina.pdf", "content": "", "file": valid_pdf_file},
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    from documents.models import Document
+    assert Document.objects.filter(name="z-admina.pdf").exists()

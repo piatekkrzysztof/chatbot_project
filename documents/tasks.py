@@ -5,6 +5,7 @@ from documents.utils.text_extraction import extract_text, UnsupportedFileType
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.website_import import discover_links_recursively
 from documents.utils.embedding_generator import generate_embeddings_for_document as _generate_embeddings
+from documents.utils.queue import enqueue
 from documents.website_import import import_website_as_document
 from trafilatura.sitemaps import sitemap_search
 
@@ -84,4 +85,4 @@ def crawl_and_import_website_source(source_id):
 def crawl_all_active_sources():
     sources = WebsiteSource.objects.filter(is_active=True)
     for source in sources:
-        crawl_and_import_website_source.delay(source.id)
+        enqueue(crawl_and_import_website_source, source.id)
