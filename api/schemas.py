@@ -170,3 +170,32 @@ class CheckoutRequestSerializer(serializers.Serializer):
 
 class CheckoutResponseSerializer(serializers.Serializer):
     checkout_url = serializers.URLField()
+
+
+class CurrentSubscriptionSerializer(serializers.Serializer):
+    plan = serializers.CharField(allow_null=True)
+    name = serializers.CharField(allow_null=True)
+    in_catalogue = serializers.BooleanField(
+        help_text="Czy bieżący plan pochodzi z aktualnego cennika."
+    )
+    is_active = serializers.BooleanField()
+    used = serializers.IntegerField()
+    limit = serializers.IntegerField()
+    renews_at = serializers.DateField(allow_null=True)
+
+
+class PlanSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    name = serializers.CharField()
+    price_pln = serializers.IntegerField()
+    message_limit = serializers.IntegerField()
+    white_label = serializers.BooleanField()
+    available = serializers.BooleanField(
+        help_text="Czy plan ma skonfigurowaną cenę w Stripe i da się go kupić."
+    )
+    current = serializers.BooleanField()
+
+
+class BillingOverviewSerializer(serializers.Serializer):
+    current = CurrentSubscriptionSerializer()
+    plans = PlanSerializer(many=True)

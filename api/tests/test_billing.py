@@ -242,3 +242,81 @@ class TestCheckout:
         # Odnowienia dotyczą subskrypcji, nie sesji — bez tych metadanych
         # nie dałoby się powiązać kolejnych płatności z firmą
         assert create.call_args.kwargs["subscription_data"]["metadata"]["tenant_id"] == str(tenant.id)
+
+
+@pytest.mark.django_db
+class TestCennikWPanelu:
+    URL = "/api/billing/plans/"
+
+    def test_panel_dostaje_ceny_z_backendu(self, user, tenant, subscribtion):
+        """
+        Panel nie ma własnej kopii cennika — inaczej rozjechałby się z tym,
+        co naprawdę obowiązuje przy zakupie.
+        """
+        dane = owner_client(user, tenant).get(self.URL).json()
+
+        kody = {p["code"] for p in dane["plans"]}
+        assert kody == set(PLANS)
+        basic = next(p for p in dane["plans"] if p["code"] == "basic")
+        assert basic["price_pln"] == 99
+        assert basic["message_limit"] == 1_000
+        assert basic["white_label"] is False
+
+    def test_plan_bez_ceny_w_stripe_jest_oznaczony_jako_niedostepny(
+        self, user, tenant, subscribtion, settings
+    ):
+        """Zanim wpiszesz ceny, panel ma to pokazać zamiast prowadzić w ślepy zaułek."""
+        settings.STRIPE_PRICE_IDS = {"basic": "price_x", "pro": "", "enterprise": ""}
+
+        dane = owner_client(user, tenant).get(self.URL).json()
+
+        dostepnosc = {p["code"]: p["available"] for p in dane["plans"]}
+        assert dostepnosc == {"basic": True, "pro": False, "enterprise": False}
+
+    def test_biezacy_plan_i_zuzycie(self, user, tenant, subscribtion):
+        subscribtion.plan_type = "pro"
+        subscribtion.message_limit = 5_000
+        subscribtion.current_message_count = 120
+        subscribtion.save()
+
+        biezacy = owner_client(user, tenant).get(self.URL).json()["current"]
+
+        assert biezacy["plan"] == "pro"
+        assert biezacy["in_catalogue"] is True
+        assert biezacy["used"] == 120
+        assert biezacy["limit"] == 5_000
+
+    def test_plan_spoza_cennika_nie_znika_z_widoku(self, user, tenant, subscribtion):
+        """Na produkcji jest subskrypcja "Prymium" — klient ma zobaczyć swój plan."""
+        subscribtion.plan_type = "Prymium"
+        subscribtion.save()
+
+        biezacy = owner_client(user, tenant).get(self.URL).json()["current"]
+
+        assert biezacy["name"] == "Prymium"
+        assert biezacy["in_catalogue"] is False
+
+    def test_cennik_wymaga_zalogowania(self, tenant):
+        assert APIClient().get(self.URL).status_code in (401, 403)
+
+
+@pytest.mark.django_db
+def test_adresy_powrotu_maja_odpowiedniki_w_panelu(user, tenant, subscribtion, settings):
+    """
+    Stripe odsyła klienta pod adresy podane w sesji. Literówka albo brak strony
+    kończy się czterysta czwórką tuż po zapłaceniu — najgorszy możliwy moment.
+    Trasy w panelu: app/(admin)/platnosc/sukces i .../anulowano.
+    """
+    settings.STRIPE_PRICE_IDS = {"pro": "price_test", "basic": "", "enterprise": ""}
+
+    class FakeSession:
+        url = "https://checkout.stripe.test/s"
+
+    with patch("stripe.checkout.Session.create", return_value=FakeSession()) as create:
+        owner_client(user, tenant).post(
+            "/api/billing/create-checkout-session/", {"plan_type": "pro"}, format="json"
+        )
+
+    kwargs = create.call_args.kwargs
+    assert "/platnosc/sukces" in kwargs["success_url"]
+    assert "/platnosc/anulowano" in kwargs["cancel_url"]
