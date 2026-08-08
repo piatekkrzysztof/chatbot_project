@@ -25,7 +25,10 @@ def extract_text_from_document(document_id):
         if not doc.file:
             return
 
-        doc.content = extract_text(doc.file.path)
+        # Otwieramy przez magazyn, nie przez ścieżkę na dysku: .path istnieje
+        # tylko dla FileSystemStorage i na S3/R2 rzuca NotImplementedError.
+        with doc.file.open("rb") as handle:
+            doc.content = extract_text(handle, filename=doc.file.name)
         doc.processed = True
         doc.save()
     except UnsupportedFileType as e:

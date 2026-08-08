@@ -77,16 +77,47 @@ X_FRAME_OPTIONS = "DENY"
 # Redis/Celery
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-
+# Magazyn wgrywanych plików: logotypy i awatary widgetu oraz dokumenty klientów.
+#
+# Dysk kontenera na Renderze jest ulotny — znika przy każdym wdrożeniu. Wcześniej
+# stało tu DEFAULT_FILE_STORAGE, które Django 5.1 usunęło i po cichu ignorowało,
+# więc pliki mimo pozorów lądowały właśnie na tym dysku. Teraz decyduje STORAGES,
+# a wybór zależy od tego, czy podano dane dostępowe.
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "eu-central-1")
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "auto")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
+# Adres API magazynu. Puste = Amazon S3. Cloudflare R2, Backblaze B2 i MinIO
+# mówią tym samym protokołem, więc wystarczy wskazać ich endpoint.
+AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL") or None
+
+# Publiczny adres, spod którego serwowane są pliki. Przy R2 to domena
+# r2.dev albo własna subdomena podpięta do kubełka.
+AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN") or None
+
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
+# Pliki są publiczne (logo widgetu ładuje przeglądarka odwiedzającego), więc
+# adresy nie mogą wygasać — podpisane linki psułyby się po kilku godzinach.
 AWS_QUERYSTRING_AUTH = False
+
+USE_OBJECT_STORAGE = bool(
+    AWS_STORAGE_BUCKET_NAME and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+)
+
+STORAGES = {
+    "default": {
+        "BACKEND": (
+            "storages.backends.s3boto3.S3Boto3Storage"
+            if USE_OBJECT_STORAGE
+            else "django.core.files.storage.FileSystemStorage"
+        )
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+    },
+}
 
 # Stripe
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")

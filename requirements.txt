@@ -44,6 +44,10 @@ lxml_html_clean>=0.1
 beautifulsoup4>=4.8,<4.13
 requests==2.32.3
 
+# Magazyn wgranych plików (S3, Cloudflare R2, Backblaze B2 — ten sam protokół).
+# Bez tego pliki lądują na dysku kontenera, który Render kasuje przy wdrożeniu.
+django-storages[s3]==1.14.6
+
 # Płatności
 stripe<=8.5.0
 
