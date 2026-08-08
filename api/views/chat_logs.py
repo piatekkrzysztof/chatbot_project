@@ -5,8 +5,14 @@ from chat.models import PromptLog, Tenant, ChatFeedback, ChatMessage
 from api.serializers import PromptLogSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from api.permissions import IsTenantMember
+from drf_spectacular.utils import extend_schema
 
 
+@extend_schema(
+    tags=["Panel — czat"],
+    summary="Historia pytań i odpowiedzi",
+    description="Zawiera identyfikator rozmowy, którym posługuje się usuwanie danych na żądanie.",
+)
 class PromptLogListView(TenantQuerysetMixin, ListAPIView):
     queryset = PromptLog.objects.all()
     serializer_class = PromptLogSerializer

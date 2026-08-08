@@ -3,8 +3,17 @@ from rest_framework.response import Response
 from rest_framework import status
 from api.serializers import ChatFeedbackSerializer
 from api.permissions import IsTenantMember
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import ErrorSerializer, StatusSerializer
 
 
+@extend_schema(
+    tags=["Panel — czat"],
+    summary="Oceń odpowiedź bota",
+    request=ChatFeedbackSerializer,
+    responses={200: StatusSerializer, 400: ErrorSerializer},
+)
 class SubmitFeedbackView(APIView):
     permission_classes = [IsTenantMember]
 

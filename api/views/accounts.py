@@ -20,8 +20,20 @@ from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
 from api.permissions import *
 from api.utils.stripe import create_checkout_session
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import (
+    AcceptInvitationRequestSerializer, ErrorSerializer,
+    InvitationPreviewSerializer, MeSerializer, MessageSerializer,
+)
 
 
+@extend_schema(
+    tags=["Konto"],
+    summary="Rejestracja nowej firmy",
+    request=RegisterSerializer,
+    responses={201: MessageSerializer, 400: ErrorSerializer},
+)
 class ClientRegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -44,11 +56,24 @@ class ClientRegisterView(APIView):
             )
 
 
+@extend_schema(
+    tags=["Konto"],
+    summary="Logowanie",
+    description=(
+        "W polu `username` można podać zarówno nazwę użytkownika, jak i adres e-mail."
+    ),
+)
 class LoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = []
 
 
+@extend_schema(
+    tags=["Konto"],
+    summary="Dane zalogowanego użytkownika",
+    description="Zawiera klucz API firmy, potrzebny do osadzenia widgetu.",
+    responses={200: MeSerializer},
+)
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -60,6 +85,16 @@ class MeView(APIView):
         return Response(data)
 
 
+@extend_schema(
+    tags=["Panel — zespół"],
+    summary="Zaproś osobę do zespołu",
+    description=(
+        "Tworzy zaproszenie i próbuje wysłać e-mail. Pole `email_sent` mówi, czy "
+        "wysyłka się powiodła — link z `accept_url` działa niezależnie od niej."
+    ),
+    request=InvitationCreateSerializer,
+    responses={201: InvitationReadSerializer},
+)
 class CreateInvitationView(generics.CreateAPIView):
     serializer_class = InvitationCreateSerializer
     permission_classes = [IsOwner]
@@ -86,6 +121,13 @@ class CreateInvitationView(generics.CreateAPIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    tags=["Konto"],
+    summary="Przyjmij zaproszenie i załóż konto",
+    description="Dostępne bez uwierzytelnienia — zapraszany nie ma jeszcze konta.",
+    request=AcceptInvitationRequestSerializer,
+    responses={201: MessageSerializer, 400: ErrorSerializer},
+)
 class AcceptInvitationView(APIView):
     # Zapraszany jeszcze nie ma konta, więc nie może być uwierzytelniony
     authentication_classes = []
@@ -99,6 +141,12 @@ class AcceptInvitationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    tags=["Konto"],
+    summary="Sprawdź ważność zaproszenia",
+    description="Wołane przez stronę rejestracji, zanim pokaże formularz.",
+    responses={200: InvitationPreviewSerializer, 404: ErrorSerializer},
+)
 class InvitationPreviewView(APIView):
     """
     Czy zaproszenie jest jeszcze ważne — sprawdzane przez stronę rejestracji,
@@ -125,12 +173,14 @@ class InvitationPreviewView(APIView):
         })
 
 
+@extend_schema(tags=["Panel — zespół"], summary="Lista zaproszeń")
 class InvitationListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsOwner]
     serializer_class = InvitationReadSerializer
     queryset = InvitationToken.objects.all().order_by("-created_at")
 
 
+@extend_schema(tags=["Panel — zespół"], summary="Cofnij zaproszenie")
 class InvitationRevokeView(generics.DestroyAPIView):
     """Cofnięcie zaproszenia — link przestaje działać od razu."""
     permission_classes = [IsOwner]

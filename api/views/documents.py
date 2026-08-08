@@ -1,5 +1,8 @@
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import DocumentUploadSerializer, ErrorSerializer
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -37,6 +40,7 @@ class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
         return Response(data)
 
 
+@extend_schema(tags=["Panel — baza wiedzy"])
 class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
@@ -46,6 +50,13 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         return super().get_queryset().order_by("-uploaded_at")
 
 
+@extend_schema(
+    tags=["Panel — baza wiedzy"],
+    summary="Wgraj dokument",
+    description="PDF, DOCX, TXT lub MD. Treść trafia do wyszukiwania po przetworzeniu.",
+    request={"multipart/form-data": DocumentUploadSerializer},
+    responses={201: DocumentSerializer, 400: ErrorSerializer},
+)
 class UploadDocumentView(APIView):
     parser_classes = [MultiPartParser]
     permission_classes=[IsOwnerOrEmployee]
@@ -80,6 +91,7 @@ class UploadDocumentView(APIView):
         return Response({"message": "Uploaded successfully."}, status=201)
 
 
+@extend_schema(tags=["Panel — baza wiedzy"], summary="Fragmenty dokumentu w wyszukiwaniu")
 class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
     queryset = DocumentChunk.objects.all()
     serializer_class = DocumentChunkSerializer
@@ -89,6 +101,7 @@ class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
         return DocumentChunk.objects.filter(document__tenant=self.request.tenant, document_id=self.kwargs["document_id"])
 
 
+@extend_schema(tags=["Panel — baza wiedzy"])
 class WebsiteSourceViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     queryset = WebsiteSource.objects.all()
     serializer_class = WebsiteSourceSerializer

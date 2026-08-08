@@ -11,6 +11,11 @@ from api.serializers import PublicFAQSerializer, ChatRequestSerializer
 from api.utils.chat_engine import process_chat_message, stream_chat_message
 from api.permissions import IsOwnerOrEmployee
 from django.http import StreamingHttpResponse
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+
+from api.schemas import (
+    ErrorSerializer, PublicChatResponseSerializer, WidgetBrandingSerializer,
+)
 
 
 
@@ -29,6 +34,18 @@ def serialize_widget_branding(tenant, request):
     }
 
 
+@extend_schema(
+    tags=["Widget"],
+    summary="Wygląd widgetu",
+    description=(
+        "Branding okna czatu dla podanego klucza API. Wołane przez widget przy "
+        "starcie, zanim odwiedzający cokolwiek napisze."
+    ),
+    responses={
+        200: WidgetBrandingSerializer,
+        403: OpenApiResponse(description="Brak lub nieprawidłowy klucz API."),
+    },
+)
 class WidgetSettingsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
@@ -39,6 +56,12 @@ class WidgetSettingsAPIView(APIView):
         return Response(serialize_widget_branding(request.tenant, request), status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    tags=["Widget"],
+    summary="FAQ firmy",
+    description="Lista pytań i odpowiedzi skonfigurowanych przez firmę.",
+    responses={200: PublicFAQSerializer(many=True)},
+)
 class PublicFAQView(APIView):
     authentication_classes = []  # brak JWT
     permission_classes = []  # walidacja przez API key (X-API-KEY), wykonana w TenantMiddleware
@@ -52,6 +75,21 @@ class PublicFAQView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(
+    tags=["Widget"],
+    summary="Zadaj pytanie botowi",
+    description=(
+        "Wysyła wiadomość odwiedzającego i zwraca całą odpowiedź naraz. "
+        "Rozmowę wiąże `conversation_session_id` — ten sam identyfikator w kolejnych "
+        "żądaniach daje botowi pamięć kontekstu. Zużywa jedną wiadomość z limitu planu."
+    ),
+    request=ChatRequestSerializer,
+    responses={
+        200: PublicChatResponseSerializer,
+        403: OpenApiResponse(response=ErrorSerializer, description="Nieprawidłowy klucz API."),
+        429: OpenApiResponse(description="Wyczerpany limit wiadomości w planie."),
+    },
+)
 class PublicChatView(APIView):
     """
     Publiczny endpoint czatu dla osadzalnego widgetu — autoryzacja przez
@@ -92,6 +130,22 @@ class PublicChatView(APIView):
         return Response(result)
 
 
+@extend_schema(
+    tags=["Widget"],
+    summary="Zadaj pytanie botowi (strumieniowo)",
+    description=(
+        "To samo co `/widget/chat/`, ale odpowiedź leci token po tokenie jako "
+        "Server-Sent Events (`text/event-stream`). Każde zdarzenie to JSON: "
+        "`{\"type\": \"delta\", \"content\": \"...\"}` w trakcie, a na koniec "
+        "`{\"type\": \"done\", \"source\": ..., \"tokens\": ..., \"sources\": [...]}`."
+    ),
+    request=ChatRequestSerializer,
+    responses={
+        (200, "text/event-stream"): OpenApiResponse(description="Strumień zdarzeń SSE."),
+        403: OpenApiResponse(response=ErrorSerializer, description="Nieprawidłowy klucz API."),
+        429: OpenApiResponse(description="Wyczerpany limit wiadomości w planie."),
+    },
+)
 class PublicChatStreamView(APIView):
     """
     Strumieniowa wersja PublicChatView — odpowiedź leci token po tokenie (SSE),
@@ -134,6 +188,12 @@ class PublicChatStreamView(APIView):
         return response
 
 
+@extend_schema(
+    tags=["Panel — widget"],
+    summary="Branding widgetu (odczyt i zapis)",
+    request=WidgetBrandingSerializer,
+    responses={200: WidgetBrandingSerializer},
+)
 class TenantWidgetSettingsView(APIView):
     """
     Uwierzytelniony (JWT) branding widgetu dla panelu klienta —

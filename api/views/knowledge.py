@@ -2,8 +2,21 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import IsOwnerOrEmployee
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import KnowledgeSerializer
 
 
+@extend_schema(
+    tags=["Panel — baza wiedzy"],
+    summary="Opis działalności i regulamin",
+    description=(
+        "Opis działalności to główne źródło wiedzy bota. Bez niego bot odmawia "
+        "odpowiedzi nawet na pytanie, czym firma się zajmuje."
+    ),
+    request=KnowledgeSerializer,
+    responses={200: KnowledgeSerializer},
+)
 class TenantKnowledgeView(APIView):
     """
     Wiedza firmy wpisywana wprost: opis działalności i regulamin.

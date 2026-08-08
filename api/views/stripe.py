@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import CheckoutRequestSerializer, CheckoutResponseSerializer, ErrorSerializer
 
 # stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -13,6 +16,12 @@ PRICE_IDS = {
 }
 
 
+@extend_schema(
+    tags=["Panel — płatności"],
+    summary="Rozpocznij płatność za plan",
+    request=CheckoutRequestSerializer,
+    responses={200: CheckoutResponseSerializer, 400: ErrorSerializer},
+)
 class CreateCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
 

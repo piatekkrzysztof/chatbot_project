@@ -6,6 +6,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import IsTenantMember
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import AnalyticsSerializer
 from chat.models import Conversation, ChatMessage, PromptLog, FAQ
 from documents.models import Document, DocumentChunk, WebsiteSource
 
@@ -38,6 +41,15 @@ def knowledge_summary(tenant):
     }
 
 
+@extend_schema(
+    tags=["Panel — analityka"],
+    summary="Podsumowanie działania chatbota",
+    description=(
+        "Liczby rozmów i pytań, pokrycie odpowiedzi materiałami firmy, zużycie "
+        "planu oraz lista pytań, na które bot nie miał pokrycia."
+    ),
+    responses={200: AnalyticsSerializer},
+)
 class TenantAnalyticsView(APIView):
     """
     Podsumowanie aktywności chatbota dla panelu klienta: ile rozmów, ile pytań,
