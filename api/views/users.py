@@ -1,10 +1,12 @@
 from rest_framework import viewsets, permissions
+from drf_spectacular.utils import extend_schema
 from accounts.models import CustomUser
 from api.serializers import UserSerializer
 from rest_framework.exceptions import PermissionDenied
 from api.utils.mixins import TenantQuerysetMixin
 
 
+@extend_schema(tags=["Panel — zespół"])
 class UserViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]

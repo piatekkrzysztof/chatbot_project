@@ -20,18 +20,13 @@ DEBUG = True
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
-# tu możesz nadpisywać, np.
+# Modyfikujemy odziedziczoną konfigurację zamiast podmieniać cały słownik.
+# Przepisany w całości gubił po cichu każdy klucz dodany później w base —
+# tak zniknęło kiedyś JWT, a potem klasa schematu OpenAPI.
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ],
+    **REST_FRAMEWORK,
     "DEFAULT_THROTTLE_CLASSES": [
-        "api.throttles.APIKeyRateThrottle",
-        "api.throttles.SubscriptionRateThrottle",
+        *REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"],
         "rest_framework.throttling.ScopedRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {
-        "chat": "20/min",
-        "subscription": "100/min",
-    }
 }

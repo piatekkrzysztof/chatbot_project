@@ -1,4 +1,5 @@
 from django.conf import settings
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -116,9 +117,11 @@ class InvitationReadSerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
+    @extend_schema_field(serializers.URLField())
     def get_accept_url(self, obj):
         return f"{settings.FRONTEND_URL.rstrip('/')}/invite/accept/{obj.token}"
 
+    @extend_schema_field(serializers.IntegerField())
     def get_seats_left(self, obj):
         return max(obj.max_users - obj.users, 0)
 
@@ -179,9 +182,11 @@ class DocumentSerializer(serializers.ModelSerializer):
         validate_document_limit(tenant)
         return attrs
 
+    @extend_schema_field(serializers.IntegerField())
     def get_chunk_count(self, obj):
         return obj.chunks.count()
 
+    @extend_schema_field(serializers.ChoiceField(choices=['ready', 'processed_no_chunks', 'processing']))
     def get_status(self, obj):
         if obj.processed:
             if obj.chunks.exists():
@@ -189,6 +194,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             return "processed_no_chunks"
         return "processing"
 
+    @extend_schema_field(serializers.CharField())
     def get_preview(self, obj):
         return obj.content[:500] if obj.content else ""
 
@@ -222,6 +228,7 @@ class PromptLogSerializer(serializers.ModelSerializer):
             "tokens", "source", "model", "created_at", "is_helpful"
         ]
 
+    @extend_schema_field(serializers.BooleanField(allow_null=True))
     def get_is_helpful(self, obj):
         msg = ChatMessage.objects.filter(
             conversation=obj.conversation,

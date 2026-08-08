@@ -6,6 +6,9 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import ErrorSerializer, MessageSerializer, PublicContactRequestSerializer
 
 from api.permissions import IsOwnerOrEmployee
 from api.serializers import ContactRequestCreateSerializer, ContactRequestSerializer
@@ -41,6 +44,13 @@ def notify_owner(contact_request):
         logger.warning("Nie udało się wysłać powiadomienia o kontakcie: %s", e)
 
 
+@extend_schema(
+    tags=["Widget"],
+    summary="Zostaw kontakt do siebie",
+    description="Używane, gdy bot nie potrafi pomóc i proponuje kontakt z firmą.",
+    request=PublicContactRequestSerializer,
+    responses={201: MessageSerializer, 400: ErrorSerializer},
+)
 class PublicContactRequestView(APIView):
     """
     Odwiedzający zostawia kontakt, gdy bot nie potrafił pomóc.
@@ -76,6 +86,7 @@ class PublicContactRequestView(APIView):
         return Response({"status": "ok"}, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(tags=["Panel — zapytania"])
 class ContactRequestViewSet(TenantQuerysetMixin,
                             mixins.ListModelMixin,
                             mixins.UpdateModelMixin,

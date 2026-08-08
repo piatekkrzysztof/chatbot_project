@@ -10,8 +10,16 @@ from chat.models import PromptLog, Tenant, Conversation
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
 from api.permissions import IsTenantMember, IsOwnerOrEmployee
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+
+from api.schemas import ErrorSerializer, MessageSerializer
 
 
+@extend_schema(
+    tags=["Panel — czat"],
+    summary="Pobierz historię rozmów jako CSV",
+    responses={(200, "text/csv"): OpenApiResponse(description="Plik CSV z logami rozmów.")},
+)
 class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
     serializer_class = None
     permission_classes = [IsTenantMember]
@@ -50,6 +58,14 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
         return response
 
 
+@extend_schema(
+    tags=["Panel — czat"],
+    summary="Wgraj historię rozmów z pliku CSV",
+    request={"multipart/form-data": {"type": "object", "properties": {
+        "file": {"type": "string", "format": "binary"}
+    }}},
+    responses={201: MessageSerializer, 400: ErrorSerializer},
+)
 class ImportPromptLogsCSVView(APIView):
     parser_classes = [MultiPartParser]
     permission_classes = [IsOwnerOrEmployee]

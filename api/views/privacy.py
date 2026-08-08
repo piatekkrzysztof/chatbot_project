@@ -4,9 +4,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import IsOwnerOrEmployee
+from drf_spectacular.utils import extend_schema
+
+from api.schemas import ErasureResultSerializer, ErrorSerializer, PrivacySettingsSerializer
 from chat.models import ChatUsageLog, ContactRequest, Conversation, PromptLog
 
 
+@extend_schema(
+    tags=["Panel — RODO"],
+    summary="Okres przechowywania danych i polityka prywatności",
+    request=PrivacySettingsSerializer,
+    responses={200: PrivacySettingsSerializer, 400: ErrorSerializer},
+)
 class TenantPrivacySettingsView(APIView):
     """
     Ustawienia RODO należące do klienta: jak długo trzymamy rozmowy i dokąd
@@ -56,6 +65,15 @@ class TenantPrivacySettingsView(APIView):
         return Response(self._serialize(tenant))
 
 
+@extend_schema(
+    tags=["Panel — RODO"],
+    summary="Usuń wszystkie dane jednej rozmowy",
+    description=(
+        "Realizacja prawa do bycia zapomnianym. Kasuje rozmowę, jej wiadomości "
+        "oraz logi i zapytania kontaktowe z nią powiązane. Nieodwracalne."
+    ),
+    responses={200: ErasureResultSerializer, 404: ErrorSerializer},
+)
 class ConversationEraseView(APIView):
     """
     Usunięcie wszystkich danych jednej rozmowy — realizacja prawa do bycia

@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from drf_spectacular.utils import extend_schema
 
 from api.permissions import IsOwnerOrEmployee
 from api.serializers import FAQSerializer
@@ -6,6 +7,7 @@ from api.utils.mixins import TenantQuerysetMixin
 from chat.models import FAQ
 
 
+@extend_schema(tags=["Panel — baza wiedzy"])
 class FAQViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     """
     Zarządzanie FAQ z panelu klienta. Wpisy trafiają do kontekstu asystenta,

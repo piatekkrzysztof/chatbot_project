@@ -126,3 +126,4 @@ websocket-client==1.8.0
 websockets==15.0.1
 wrapt==1.17.2
 zipp==3.21.0
+drf-spectacular==0.28.0

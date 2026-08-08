@@ -10,6 +10,13 @@ from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitat
     InvitationListView, InvitationPreviewView, InvitationRevokeView
 from .views.stripe import CreateCheckoutSessionView
 from rest_framework_simplejwt.views import TokenRefreshView
+from drf_spectacular.utils import extend_schema
+
+# TokenRefreshView pochodzi z biblioteki, więc opisujemy go tutaj zamiast
+# dekorować cudzą klasę w jej module
+TokenRefreshView = extend_schema(
+    tags=["Konto"], summary="Odśwież token dostępu"
+)(TokenRefreshView)
 from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
 from .views.chat_logs import PromptLogListView

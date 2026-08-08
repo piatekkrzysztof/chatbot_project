@@ -4,6 +4,9 @@ from rest_framework.exceptions import PermissionDenied
 from api.serializers import ChatRequestSerializer
 from api.throttles import APIKeyRateThrottle
 from api.permissions import IsTenantMember
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+
+from api.schemas import PublicChatResponseSerializer
 from accounts.models import Tenant
 from chat.models import Conversation, ChatMessage, PromptLog, ChatUsageLog
 from chat.privacy import visitor_identifier
@@ -12,6 +15,13 @@ from accounts.models import Subscription
 from rest_framework.throttling import ScopedRateThrottle
 
 
+@extend_schema(
+    tags=["Panel — czat"],
+    summary="Zadaj pytanie botowi z panelu",
+    description="Odpowiednik endpointu widgetu, ale dla zalogowanego użytkownika.",
+    request=ChatRequestSerializer,
+    responses={200: PublicChatResponseSerializer, 429: OpenApiResponse(description="Limit planu wyczerpany.")},
+)
 class ChatWithGPTView(APIView):
     throttle_classes = [APIKeyRateThrottle]
     permission_classes = [IsTenantMember]

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "corsheaders",
     "api",
     "accounts",
@@ -78,7 +79,42 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "chat": "20/min",
         "subscription": "100/min",
-    }
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Sm-art Chatbot API",
+    "DESCRIPTION": (
+        "API chatbota SaaS. Dwa rozłączne obszary:\n\n"
+        "**Widget** (`/api/widget/...`, `/api/widget-settings/`) — wołany z przeglądarki "
+        "odwiedzającego stronę klienta, uwierzytelniany nagłówkiem `X-API-Key` "
+        "z kluczem firmy. Bez logowania.\n\n"
+        "**Panel** (reszta) — wołany przez zalogowanego właściciela lub pracownika, "
+        "uwierzytelniany tokenem JWT z `/api/accounts/login/`.\n\n"
+        "Klucz API firmy jest publiczny — trafia do kodu osadzanego na stronie klienta. "
+        "Nie daje dostępu do panelu ani do danych rozmów, tylko do zadawania pytań "
+        "i odczytu ustawień widgetu."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # "role" występuje w kilku serializerach z tym samym zestawem wartości —
+    # bez tego generator nadaje im losowo wyglądające nazwy typu Role94aEnum
+    "ENUM_NAME_OVERRIDES": {
+        "RoleEnum": "accounts.models.UserRole.choices",
+    },
+    # Endpointy widgetu nie używają JWT, więc automatyczne wykrywanie oznaczałoby
+    # je jako wymagające logowania — opisujemy klucz API jawnie.
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "ApiKeyAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-API-Key",
+                "description": "Klucz API firmy, widoczny w panelu w zakładce Widget.",
+            }
+        }
+    },
 }
 
 SIMPLE_JWT = {
