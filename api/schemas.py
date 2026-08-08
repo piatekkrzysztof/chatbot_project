@@ -34,6 +34,8 @@ class WidgetBrandingSerializer(serializers.Serializer):
     widget_logo = serializers.URLField(allow_null=True)
     widget_avatar = serializers.URLField(allow_null=True)
     privacy_policy_url = serializers.CharField(allow_blank=True)
+    widget_welcome_message = serializers.CharField(allow_blank=True)
+    widget_suggested_questions = serializers.ListField(child=serializers.CharField())
 
 
 class PublicChatResponseSerializer(serializers.Serializer):

@@ -31,6 +31,8 @@ def serialize_widget_branding(tenant, request):
         # RODO wymaga poinformowania odwiedzającego o przetwarzaniu jego danych
         # w momencie ich zbierania — czyli w oknie czatu, nie tylko w regulaminie.
         "privacy_policy_url": tenant.privacy_policy_url or "",
+        "widget_welcome_message": tenant.widget_welcome_message or "",
+        "widget_suggested_questions": tenant.suggested_questions(),
     }
 
 
@@ -207,7 +209,10 @@ class TenantWidgetSettingsView(APIView):
 
     def patch(self, request):
         tenant = request.user.tenant
-        text_fields = ("widget_position", "widget_color", "widget_title", "branding_mode", "widget_footer_text")
+        text_fields = (
+            "widget_position", "widget_color", "widget_title", "branding_mode",
+            "widget_footer_text", "widget_welcome_message", "widget_suggested_questions",
+        )
         changed_fields = []
 
         for field in text_fields:

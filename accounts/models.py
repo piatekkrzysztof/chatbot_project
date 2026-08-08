@@ -54,6 +54,31 @@ class Tenant(models.Model):
     widget_avatar = models.FileField(upload_to="widget_branding/", null=True, blank=True)
     widget_footer_text = models.CharField(max_length=100, blank=True, default="")
 
+    # Puste okno czatu z samym polem tekstowym nie podpowiada, o co można zapytać,
+    # więc odwiedzający najczęściej je zamyka. Powitanie i gotowe pytania dają
+    # pierwszy krok bez wymyślania go samemu.
+    widget_welcome_message = models.TextField(
+        blank=True,
+        default="",
+        help_text="Pierwsza wiadomość bota. Puste = okno otwiera się bez powitania.",
+    )
+    widget_suggested_questions = models.TextField(
+        blank=True,
+        default="",
+        help_text="Propozycje pytań startowych, po jednym w wierszu (pokazujemy do 4).",
+    )
+
+    MAX_SUGGESTED_QUESTIONS = 4
+
+    def suggested_questions(self):
+        """Pytania startowe jako lista, bez pustych wierszy."""
+        lines = [
+            line.strip()
+            for line in (self.widget_suggested_questions or "").splitlines()
+            if line.strip()
+        ]
+        return lines[: self.MAX_SUGGESTED_QUESTIONS]
+
     # Email
     owner_email = models.EmailField(blank=True, null=True)
 
