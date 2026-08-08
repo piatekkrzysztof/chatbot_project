@@ -12,7 +12,30 @@ def _csv(name):
     return [item.strip() for item in os.getenv(name, "").split(",") if item.strip()]
 
 
-ALLOWED_HOSTS = _csv("DJANGO_ALLOWED_HOSTS")
+def _origins(name):
+    """
+    Lista adresów pochodzenia. Ukośnik na końcu czyni z adresu ścieżkę, czego
+    django-cors-headers nie przyjmuje i przerywa wdrożenie — a kopiując URL
+    z paska przeglądarki bardzo łatwo go zabrać ze sobą.
+    """
+    return [origin.rstrip("/") for origin in _csv(name)]
+
+
+def _hosts(name):
+    """
+    Lista nazw hostów. ALLOWED_HOSTS oczekuje samej nazwy — schemat lub ukośnik
+    nie pasuje do niczego i objawia się błędem 400 na każdym żądaniu, co wygląda
+    jak awaria aplikacji, a jest literówką w konfiguracji.
+    """
+    hosts = []
+    for value in _csv(name):
+        host = value.split("://")[-1].strip("/")
+        if host:
+            hosts.append(host)
+    return hosts
+
+
+ALLOWED_HOSTS = _hosts("DJANGO_ALLOWED_HOSTS")
 
 # Render sam podaje hostname usługi — dopisujemy go automatycznie, żeby wdrożenie
 # nie wymagało ręcznego ustawiania DJANGO_ALLOWED_HOSTS (jego brak daje 400 na
@@ -30,7 +53,7 @@ CORS_ALLOW_ALL_ORIGINS = False
 # nie tego serwera. FRONTEND_URL i tak musi być poprawny (linki w zaproszeniach),
 # więc dokładamy go automatycznie: łatwo tu przez pomyłkę wpisać adres backendu,
 # co nic nie daje i objawia się zablokowanymi zapytaniami widgetu.
-CORS_ALLOWED_ORIGINS = _csv("DJANGO_CORS_ALLOWED_ORIGINS")
+CORS_ALLOWED_ORIGINS = _origins("DJANGO_CORS_ALLOWED_ORIGINS")
 if FRONTEND_URL:
     frontend_origin = FRONTEND_URL.rstrip("/")
     if frontend_origin not in CORS_ALLOWED_ORIGINS:
