@@ -1,0 +1,15 @@
+# Zależności potrzebne wyłącznie do testów.
+# Produkcja instaluje tylko requirements.txt.
+#
+# Brak tych pakietów w requirements.txt sprawiał, że CI padało z kodem 4:
+# conftest.py importuje reportlab na poziomie modułu, więc bez niego pytest
+# nie potrafił nawet zebrać testów. Lokalnie działało, bo były w venv.
+
+-r requirements.txt
+
+pytest==8.3.5
+pytest-django==4.11.1
+pytest-mock==3.14.1
+factory-boy==3.3.3
+Faker==37.4.0
+reportlab==4.3.1
