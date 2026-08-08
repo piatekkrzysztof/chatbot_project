@@ -9,8 +9,12 @@ from api.serializers import RegisterSerializer, UserSerializer, AcceptInvitation
 from rest_framework_simplejwt.views import TokenObtainPairView
 from api.serializers import CustomTokenObtainPairSerializer
 
+import logging
+
 from rest_framework import generics, permissions
-from api.serializers import InvitationCreateSerializer
+from api.serializers import InvitationCreateSerializer, InvitationReadSerializer
+
+logger = logging.getLogger(__name__)
 from rest_framework.exceptions import PermissionDenied
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
@@ -60,14 +64,33 @@ class CreateInvitationView(generics.CreateAPIView):
     serializer_class = InvitationCreateSerializer
     permission_classes = [IsOwner]
 
-    def perform_create(self, serializer):
-        if self.request.user.role != 'owner':
-            raise PermissionDenied("Only owners can invite users.")
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         invitation = serializer.save()
-        send_invitation_email(invitation)
+
+        # Nieudana wysyłka nie może przekreślać zaproszenia: token jest już
+        # zapisany, a panel i tak pokazuje link do skopiowania. Wcześniej błąd
+        # SMTP kończył się pięćsetką mimo poprawnie utworzonego zaproszenia.
+        try:
+            send_invitation_email(invitation)
+            email_sent = True
+        except Exception:
+            logger.exception(
+                "Nie udało się wysłać zaproszenia na %s", invitation.email
+            )
+            email_sent = False
+
+        data = InvitationReadSerializer(invitation).data
+        data["email_sent"] = email_sent
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class AcceptInvitationView(APIView):
+    # Zapraszany jeszcze nie ma konta, więc nie może być uwierzytelniony
+    authentication_classes = []
+    permission_classes = []
+
     def post(self, request):
         serializer = AcceptInvitationSerializer(data=request.data)
         if serializer.is_valid():
@@ -76,9 +99,42 @@ class AcceptInvitationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class InvitationPreviewView(APIView):
+    """
+    Czy zaproszenie jest jeszcze ważne — sprawdzane przez stronę rejestracji,
+    zanim pokaże formularz. Bez tego zapraszany wypełnia dane, żeby dopiero
+    przy zapisie dowiedzieć się, że link wygasł.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, token):
+        invitation = InvitationToken.objects.filter(token=token).first()
+        if invitation is None:
+            return Response(
+                {"detail": "Nieprawidłowy link zaproszenia."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response({
+            "company": invitation.tenant.name,
+            "email": invitation.email,
+            "role": invitation.role,
+            "is_valid": invitation.is_valid(),
+            "expires_at": invitation.expires_at,
+        })
 
 
 class InvitationListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsOwner]
-    serializer_class = InvitationCreateSerializer
-    queryset = InvitationToken.objects.all()
+    serializer_class = InvitationReadSerializer
+    queryset = InvitationToken.objects.all().order_by("-created_at")
+
+
+class InvitationRevokeView(generics.DestroyAPIView):
+    """Cofnięcie zaproszenia — link przestaje działać od razu."""
+    permission_classes = [IsOwner]
+    serializer_class = InvitationReadSerializer
+
+    def get_queryset(self):
+        return InvitationToken.objects.filter(tenant=self.request.user.tenant)

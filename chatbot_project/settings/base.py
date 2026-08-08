@@ -95,6 +95,14 @@ DATABASES = {
 
 AUTH_USER_MODEL = "accounts.CustomUser"
 
+# Formularz logowania prosi o e-mail, a Django domyślnie sprawdza username.
+# Zwykły ModelBackend zostaje na końcu, żeby logowanie nazwą użytkownika
+# (i panel /admin/) działało tak jak dotąd.
+AUTHENTICATION_BACKENDS = [
+    "accounts.auth_backends.EmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

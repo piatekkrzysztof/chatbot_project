@@ -7,7 +7,7 @@ from .views.widget import (
 )
 from .views.feedback import SubmitFeedbackView
 from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
-    InvitationListView
+    InvitationListView, InvitationPreviewView, InvitationRevokeView
 from .views.stripe import CreateCheckoutSessionView
 from rest_framework_simplejwt.views import TokenRefreshView
 from .routers import router
@@ -33,6 +33,14 @@ urlpatterns = [
     path('accounts/invitations/', CreateInvitationView.as_view(), name='invite-user'),
     path("accounts/invitations/list/", InvitationListView.as_view(), name="list-invitations"),
     path('accounts/accept-invite/', AcceptInvitationView.as_view(), name='accept-invite'),
+    path(
+        'accounts/invitations/<uuid:token>/preview/',
+        InvitationPreviewView.as_view(), name='invitation-preview',
+    ),
+    path(
+        'accounts/invitations/<int:pk>/',
+        InvitationRevokeView.as_view(), name='invitation-revoke',
+    ),
     path("documents-upload/", UploadDocumentView.as_view(), name="upload-document"),
     path("documents/<int:pk>/", DocumentDetailView.as_view(), name="document-detail"),
     path("documents/<int:document_id>/chunks/", DocumentChunkListView.as_view(), name="document-chunks"),
