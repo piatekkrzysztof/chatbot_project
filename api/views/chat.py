@@ -6,6 +6,7 @@ from api.throttles import APIKeyRateThrottle
 from api.permissions import IsTenantMember
 from accounts.models import Tenant
 from chat.models import Conversation, ChatMessage, PromptLog, ChatUsageLog
+from chat.privacy import visitor_identifier
 from api.utils.chat_engine import process_chat_message
 from accounts.models import Subscription
 from rest_framework.throttling import ScopedRateThrottle
@@ -30,7 +31,7 @@ class ChatWithGPTView(APIView):
             tenant=tenant,
             defaults={
                 "tenant": tenant,
-                "user_identifier": request.META.get("REMOTE_ADDR", "unknown")
+                "user_identifier": visitor_identifier(request)
             }
         )
 

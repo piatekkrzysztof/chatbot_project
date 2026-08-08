@@ -28,4 +28,9 @@ app.conf.beat_schedule = {
         "task": "documents.tasks.crawl_all_active_sources",
         "schedule": crontab(minute=0, hour="*/12"),  # co 12h
     },
+    # RODO: dane rozmów muszą znikać po okresie retencji ustawionym przez klienta
+    "purge-expired-conversations-daily": {
+        "task": "chat.tasks.purge_expired_conversations",
+        "schedule": crontab(minute=30, hour=3),
+    },
 }

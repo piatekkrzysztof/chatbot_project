@@ -15,6 +15,8 @@ from api.views.documents import UploadDocumentView, DocumentDetailView, Document
 from .views.chat_logs import PromptLogListView
 from .views.analytics import TenantAnalyticsView
 from .views.contact import PublicContactRequestView
+from .views.knowledge import TenantKnowledgeView
+from .views.privacy import ConversationEraseView, TenantPrivacySettingsView
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -40,6 +42,13 @@ urlpatterns = [
     path("widget/chat/stream/", PublicChatStreamView.as_view(), name="widget-chat-stream"),
     path("widget/contact/", PublicContactRequestView.as_view(), name="widget-contact"),
     path("widget-settings/mine/", TenantWidgetSettingsView.as_view(), name="widget-settings-mine"),
+    path("knowledge/", TenantKnowledgeView.as_view(), name="tenant-knowledge"),
+    path("privacy/", TenantPrivacySettingsView.as_view(), name="tenant-privacy"),
+    path(
+        "privacy/conversations/<uuid:session_id>/",
+        ConversationEraseView.as_view(),
+        name="conversation-erase",
+    ),
     path("analytics/", TenantAnalyticsView.as_view(), name="analytics"),
     path("billing/create-checkout-session/", CreateCheckoutSessionView.as_view()),
 

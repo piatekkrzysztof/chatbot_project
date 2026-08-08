@@ -20,6 +20,17 @@ def get_client(tenant=None):
     return OpenAI(api_key=api_key)
 
 
+def has_company_knowledge(tenant, chunks, faqs):
+    """
+    Czy do tej odpowiedzi bot ma jakąkolwiek wiedzę o firmie.
+
+    Liczy się wszystko, co realnie trafia do promptu — opis firmy, regulamin,
+    dopasowane fragmenty dokumentów i wpisy FAQ. Pusto oznacza, że model
+    odpowiadałby wyłącznie z własnych domysłów.
+    """
+    return bool(tenant.gpt_prompt or tenant.regulamin or chunks or faqs)
+
+
 def build_system_prompt(tenant, chunks, faqs):
     """
     Buduje wiadomość systemową: kim jest bot, co wie o firmie i jak ma się zachowywać.
@@ -28,9 +39,27 @@ def build_system_prompt(tenant, chunks, faqs):
     parts = [
         f"Jesteś asystentem firmy {tenant.name}. Odpowiadasz klientom na stronie internetowej.",
         "Odpowiadaj po polsku, zwięźle i konkretnie, w uprzejmym tonie.",
-        "Opieraj się wyłącznie na wiedzy podanej niżej. Jeśli nie znasz odpowiedzi, "
-        "powiedz to wprost i zaproponuj kontakt z firmą — nie zmyślaj.",
+        # Sama instrukcja "nie zmyślaj" nie wystarcza: model odmawia przy pytaniach
+        # o ceny czy godziny, ale na "czym zajmuje się wasza firma?" wnioskuje profil
+        # działalności z samej nazwy i podaje go jako fakt. Dlatego ta klasa pytań
+        # jest tu wymieniona wprost.
+        "Opieraj się wyłącznie na wiedzy podanej niżej. Jeśli odpowiedź nie wynika "
+        "z niej wprost, powiedz że nie masz tej informacji i zaproponuj kontakt z firmą.",
+        "Nigdy nie zgaduj na podstawie nazwy firmy ani ogólnej wiedzy o branży. "
+        "Dotyczy to zwłaszcza pytań o to, czym firma się zajmuje, co oferuje, "
+        "jakie ma ceny, godziny otwarcia i zasady — o tym wypowiadasz się tylko wtedy, "
+        "gdy wynika to z wiedzy podanej niżej.",
     ]
+
+    if not has_company_knowledge(tenant, chunks, faqs):
+        # Bez tego bloku model dostaje pusty prompt z samą nazwą firmy i wypełnia
+        # lukę własnymi domysłami — na stronie klienta wygląda to jak wymyślona oferta.
+        parts.append(
+            "\nUWAGA: nie masz żadnych informacji o tej firmie. Na każde pytanie "
+            "dotyczące jej działalności, oferty lub zasad odpowiedz wprost, że nie "
+            "posiadasz tych informacji, i poproś o kontakt z firmą. Możesz jedynie "
+            "uprzejmie się przywitać i podtrzymać rozmowę."
+        )
 
     if tenant.gpt_prompt:
         parts.append(f"\nO firmie:\n{tenant.gpt_prompt.strip()}")
@@ -109,6 +138,7 @@ def get_openai_response(messages, model=None, tenant=None):
         response = get_client(tenant).chat.completions.create(
             model=model,
             messages=messages,
+            temperature=settings.OPENAI_TEMPERATURE,
         )
         return {
             "content": response.choices[0].message.content,
@@ -239,6 +269,7 @@ def stream_chat_message(tenant, conversation, message_text):
         stream = get_client(tenant).chat.completions.create(
             model=model,
             messages=messages,
+            temperature=settings.OPENAI_TEMPERATURE,
             stream=True,
             stream_options={"include_usage": True},
         )

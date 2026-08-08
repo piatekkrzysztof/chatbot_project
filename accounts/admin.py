@@ -5,7 +5,11 @@ from .models import Tenant, CustomUser, InvitationToken, Subscription
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display = ("name", "gpt_prompt", "subscription_status", "current_token_usage", "token_limit")
+    list_display = (
+        "name", "gpt_prompt", "subscription_status", "current_token_usage",
+        "token_limit", "data_retention_days",
+    )
+    list_filter = ("data_retention_days",)
     search_fields = ("name",)
     readonly_fields = ("api_key", "created_at")
 

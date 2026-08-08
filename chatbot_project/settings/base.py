@@ -113,6 +113,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+
+# Bot obsługi klienta ma odtwarzać wiedzę firmy, nie tworzyć. Domyślna temperatura
+# 1.0 sprzyja uzupełnianiu luk własnymi domysłami — przy pustym kontekście model
+# potrafił opisać profil firmy zgadnięty z jej nazwy.
+OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.2"))
 OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
 # Ile ostatnich wiadomości konwersacji trafia do modelu jako kontekst

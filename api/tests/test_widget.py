@@ -27,6 +27,7 @@ def test_widget_settings_success(api_client, tenant, user, subscribtion, ):
         "widget_footer_text": "",
         "widget_logo": None,
         "widget_avatar": None,
+        "privacy_policy_url": "",
     }
 
 
