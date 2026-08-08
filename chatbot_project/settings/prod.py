@@ -25,7 +25,18 @@ if RENDER_HOST and RENDER_HOST not in ALLOWED_HOSTS:
 CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS if host != "*"]
 
 CORS_ALLOW_ALL_ORIGINS = False
+
+# CORS dotyczy stron, które odpytują to API z przeglądarki — czyli frontendu,
+# nie tego serwera. FRONTEND_URL i tak musi być poprawny (linki w zaproszeniach),
+# więc dokładamy go automatycznie: łatwo tu przez pomyłkę wpisać adres backendu,
+# co nic nie daje i objawia się zablokowanymi zapytaniami widgetu.
 CORS_ALLOWED_ORIGINS = _csv("DJANGO_CORS_ALLOWED_ORIGINS")
+if FRONTEND_URL:
+    frontend_origin = FRONTEND_URL.rstrip("/")
+    if frontend_origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(frontend_origin)
+    if frontend_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(frontend_origin)
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
