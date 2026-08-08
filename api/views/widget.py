@@ -1,7 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from accounts.models import Tenant
+from accounts.models import BrandingMode, Tenant
+from accounts.plans import allows_white_label, get_plan
 from api.throttles import APIKeyRateThrottle
 from uuid import UUID
 from rest_framework.exceptions import PermissionDenied
@@ -209,6 +210,20 @@ class TenantWidgetSettingsView(APIView):
 
     def patch(self, request):
         tenant = request.user.tenant
+
+        # Biała etykieta to główny wyróżnik płatnych planów. Bez tej blokady
+        # klient Basic ustawiał sobie własny branding zwykłym żądaniem PATCH,
+        # bo ograniczenie istniało wyłącznie w cenniku.
+        if request.data.get("branding_mode") == BrandingMode.WHITE_LABEL:
+            subscription = getattr(tenant, "subscription", None)
+            plan_code = subscription.plan_type if subscription else None
+            if not allows_white_label(plan_code):
+                plan = get_plan(plan_code)
+                raise PermissionDenied(
+                    f"Własny branding nie jest dostępny w planie "
+                    f"{plan.name if plan else plan_code}. Przejdź na wyższy plan."
+                )
+
         text_fields = (
             "widget_position", "widget_color", "widget_title", "branding_mode",
             "widget_footer_text", "widget_welcome_message", "widget_suggested_questions",

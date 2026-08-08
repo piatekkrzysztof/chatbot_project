@@ -31,6 +31,9 @@ class TenantMiddleware:
             # ani klucza API, więc bez tego wyjątku każde zaproszenie kończyło
             # się odmową "Nie rozpoznano tenanta".
             "/api/accounts/accept-invite/",
+            # Stripe woła nas z własnych serwerów: nie ma tokenu ani klucza API.
+            # Tożsamość potwierdza podpis zdarzenia, sprawdzany w samym widoku.
+            "/api/billing/webhook/",
         ]
         if request.path in exempt_paths:
             return
