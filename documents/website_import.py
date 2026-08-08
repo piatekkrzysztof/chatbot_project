@@ -5,6 +5,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from documents.models import Document
+from documents.utils.queue import enqueue
 from documents import tasks
 
 
@@ -42,7 +43,7 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
         source="website"
     )
 
-    tasks.generate_embeddings_for_document.delay(document.id)
+    enqueue(tasks.generate_embeddings_for_document, document.id)
     return document
 
 
