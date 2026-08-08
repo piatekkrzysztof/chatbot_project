@@ -1,7 +1,7 @@
 from .base import *
 import os
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
+
+from chatbot_project.observability import init_sentry
 
 
 
@@ -95,12 +95,6 @@ STRIPE_DEFAULT_PRICE_ID = os.getenv("STRIPE_DEFAULT_PRICE_ID")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
+# Zgłaszanie błędów włącza się tylko na serwerze — patrz observability.py
 SENTRY_DSN = os.getenv("SENTRY_DSN")
-
-if SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[DjangoIntegration()],
-        traces_sample_rate=0.1,  # ogranicz śledzenie zapytań
-        send_default_pii=True,  # pozwala przesłać np. user.id, IP
-    )
+init_sentry()
