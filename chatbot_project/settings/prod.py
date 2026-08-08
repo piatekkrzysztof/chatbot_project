@@ -7,10 +7,25 @@ from sentry_sdk.integrations.django import DjangoIntegration
 
 DEBUG = False
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+def _csv(name):
+    """Lista z zmiennej środowiskowej, bez pustych wpisów po rozdzieleniu."""
+    return [item.strip() for item in os.getenv(name, "").split(",") if item.strip()]
+
+
+ALLOWED_HOSTS = _csv("DJANGO_ALLOWED_HOSTS")
+
+# Render sam podaje hostname usługi — dopisujemy go automatycznie, żeby wdrożenie
+# nie wymagało ręcznego ustawiania DJANGO_ALLOWED_HOSTS (jego brak daje 400 na
+# każdym żądaniu, co wygląda jak awaria aplikacji, a jest tylko konfiguracją).
+RENDER_HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_HOST and RENDER_HOST not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_HOST)
+
+# Wymagane przez Django 4+, żeby logowanie do /admin/ po HTTPS działało
+CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS if host != "*"]
 
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "").split(",")
+CORS_ALLOWED_ORIGINS = _csv("DJANGO_CORS_ALLOWED_ORIGINS")
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 

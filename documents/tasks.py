@@ -1,10 +1,14 @@
+import logging
+
 from celery import shared_task
-import textract
+from documents.utils.text_extraction import extract_text, UnsupportedFileType
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.website_import import discover_links_recursively
 from documents.utils.embedding_generator import generate_embeddings_for_document as _generate_embeddings
 from documents.website_import import import_website_as_document
 from trafilatura.sitemaps import sitemap_search
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -20,13 +24,13 @@ def extract_text_from_document(document_id):
         if not doc.file:
             return
 
-        text = textract.process(doc.file.path).decode('utf-8')
-        doc.content = text
+        doc.content = extract_text(doc.file.path)
         doc.processed = True
         doc.save()
+    except UnsupportedFileType as e:
+        logger.warning("Dokument %s: %s", document_id, e)
     except Exception as e:
-        # TODO: log to Sentry
-        print(f"❌ Błąd przetwarzania dokumentu {document_id}: {e}")
+        logger.exception("Błąd przetwarzania dokumentu %s: %s", document_id, e)
 
 
 @shared_task
