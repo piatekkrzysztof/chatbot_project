@@ -83,6 +83,12 @@ CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 # stało tu DEFAULT_FILE_STORAGE, które Django 5.1 usunęło i po cichu ignorowało,
 # więc pliki mimo pozorów lądowały właśnie na tym dysku. Teraz decyduje STORAGES,
 # a wybór zależy od tego, czy podano dane dostępowe.
+#
+# Przedrostek AWS_ nie oznacza, że korzystamy z Amazona — takie nazwy ustawień
+# czyta django-storages, niezależnie od dostawcy. S3 to protokół, który Amazon
+# nazwał, a reszta rynku zaimplementowała; Cloudflare R2, Backblaze B2 i MinIO
+# obsługuje ten sam backend. O tym, do kogo faktycznie idą pliki, decyduje
+# wyłącznie AWS_S3_ENDPOINT_URL poniżej.
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "auto")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
