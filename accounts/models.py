@@ -96,24 +96,30 @@ class InvitationToken(models.Model):
     max_users = models.PositiveIntegerField(default=1)
     users = models.PositiveIntegerField(default=0)
 
+    DURATION_DELTAS = {
+        InvitationDuration.ONE_HOUR: timedelta(hours=1),
+        InvitationDuration.TWELVE_HOURS: timedelta(hours=12),
+        InvitationDuration.ONE_DAY: timedelta(days=1),
+        InvitationDuration.ONE_WEEK: timedelta(days=7),
+    }
+
     @property
     def expires_at(self):
-        delta = {
-            "1h": timedelta(hours=1),
-            "12h": timedelta(hours=12),
-            "1d": timedelta(days=1),
-            "7d": timedelta(days=7),
-        }.get(self.duration, timedelta(days=1))
+        """
+        Termin ważności. None dla niezapisanego zaproszenia — created_at
+        uzupełnia się dopiero przy zapisie, a formularz dodawania w adminie
+        wyświetla to pole zanim to nastąpi.
+        """
+        if not self.created_at:
+            return None
+        delta = self.DURATION_DELTAS.get(self.duration, timedelta(days=1))
         return self.created_at + delta
 
     def is_valid(self):
-        delta = {
-            "1h": timedelta(hours=1),
-            "12h": timedelta(hours=12),
-            "1d": timedelta(days=1),
-            "7d": timedelta(days=7),
-        }.get(self.duration, timedelta(days=1))
-        return self.created_at + delta > timezone.now() and self.users < self.max_users
+        expires_at = self.expires_at
+        if expires_at is None:
+            return False
+        return expires_at > timezone.now() and self.users < self.max_users
 
     def use(self):
         self.users += 1
