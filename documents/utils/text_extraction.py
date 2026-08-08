@@ -5,8 +5,14 @@ Zastępuje textract, który ciągnął nierozwiązywalne zależności (m.in. wad
 specyfikator `extract-msg <=0.29.*` oraz przypięcia kolidujące z beautifulsoup4
 i chardet używanymi w projekcie). Obsługiwane formaty pokrywamy bibliotekami,
 które i tak są w zależnościach.
+
+Funkcja przyjmuje zarówno ścieżkę, jak i otwarty plik. Wariant z plikiem jest
+tym, którego używa produkcja: FieldFile.path istnieje wyłącznie dla magazynu
+na dysku i na S3 czy R2 rzuca NotImplementedError. Bez tego przetwarzanie
+dokumentów przestałoby działać w momencie przepięcia magazynu na zewnętrzny.
 """
 import os
+from pathlib import Path
 
 import docx2txt
 
@@ -19,20 +25,33 @@ class UnsupportedFileType(Exception):
     pass
 
 
-def extract_text(path: str) -> str:
-    """Zwraca tekst pliku albo rzuca UnsupportedFileType dla nieobsługiwanego formatu."""
-    extension = os.path.splitext(path)[1].lower()
+def extract_text(source, filename: str | None = None) -> str:
+    """
+    Zwraca tekst dokumentu albo rzuca UnsupportedFileType.
+
+    `source` to ścieżka na dysku albo otwarty plik binarny. Przy pliku format
+    rozpoznajemy po `filename`, a gdy go nie podano — po atrybucie `name`,
+    który mają zarówno pliki Django, jak i zwykłe uchwyty.
+    """
+    if isinstance(source, (str, Path)):
+        with open(source, "rb") as handle:
+            return _extract(handle, filename or str(source))
+
+    return _extract(source, filename or getattr(source, "name", ""))
+
+
+def _extract(handle, name: str) -> str:
+    extension = os.path.splitext(name or "")[1].lower()
 
     if extension == ".pdf":
-        with open(path, "rb") as handle:
-            return extract_text_from_pdf(handle)
+        return extract_text_from_pdf(handle)
 
     if extension == ".docx":
-        return (docx2txt.process(path) or "").strip()
+        # docx2txt czyta archiwum zip, więc przyjmuje też obiekt pliku
+        return (docx2txt.process(handle) or "").strip()
 
     if extension in (".txt", ".md"):
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            return handle.read().strip()
+        return handle.read().decode("utf-8", errors="replace").strip()
 
     raise UnsupportedFileType(
         f"Nieobsługiwany format pliku: {extension or 'brak rozszerzenia'}. "
