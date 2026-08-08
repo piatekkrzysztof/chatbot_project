@@ -9,7 +9,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.plans import PLANS, get_plan
-from api.schemas import CheckoutRequestSerializer, CheckoutResponseSerializer, ErrorSerializer
+from api.schemas import (
+    BillingOverviewSerializer, CheckoutRequestSerializer,
+    CheckoutResponseSerializer, ErrorSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,54 @@ def create_checkout_session(tenant, plan_code, email=None):
         },
     )
     return session.url
+
+
+@extend_schema(
+    tags=["Panel — płatności"],
+    summary="Cennik i bieżąca subskrypcja",
+    description=(
+        "Katalog planów wraz ze stanem subskrypcji firmy. Panel bierze ceny "
+        "stąd, a nie z własnej kopii — inaczej cennik rozjechałby się z tym, "
+        "co naprawdę obowiązuje przy zakupie."
+    ),
+    responses={200: BillingOverviewSerializer},
+)
+class BillingOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = request.user.tenant
+        subscription = getattr(tenant, "subscription", None)
+        biezacy = subscription.plan_type if subscription else None
+        biezacy_plan = get_plan(biezacy)
+
+        return Response({
+            "current": {
+                "plan": biezacy,
+                # Plan spoza cennika (subskrypcje sprzed katalogu) pokazujemy
+                # pod jego własną nazwą, zamiast udawać, że go nie ma
+                "name": biezacy_plan.name if biezacy_plan else biezacy,
+                "in_catalogue": biezacy_plan is not None,
+                "is_active": bool(subscription and subscription.is_active),
+                "used": subscription.current_message_count if subscription else 0,
+                "limit": subscription.message_limit if subscription else 0,
+                "renews_at": subscription.end_date if subscription else None,
+            },
+            "plans": [
+                {
+                    "code": plan.code,
+                    "name": plan.name,
+                    "price_pln": plan.price_pln,
+                    "message_limit": plan.message_limit,
+                    "white_label": plan.white_label,
+                    # Bez identyfikatora ceny w Stripe nie da się kupić —
+                    # panel ma to pokazać zamiast prowadzić w ślepy zaułek
+                    "available": bool(settings.STRIPE_PRICE_IDS.get(plan.code)),
+                    "current": plan.code == biezacy,
+                }
+                for plan in PLANS.values()
+            ],
+        })
 
 
 @extend_schema(

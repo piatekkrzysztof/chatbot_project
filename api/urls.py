@@ -8,7 +8,7 @@ from .views.widget import (
 from .views.feedback import SubmitFeedbackView
 from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
     InvitationListView, InvitationPreviewView, InvitationRevokeView
-from .views.stripe import CreateCheckoutSessionView
+from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
 from .views.stripe_webhook import stripe_webhook
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.utils import extend_schema
@@ -66,6 +66,7 @@ urlpatterns = [
         name="conversation-erase",
     ),
     path("analytics/", TenantAnalyticsView.as_view(), name="analytics"),
+    path("billing/plans/", BillingOverviewView.as_view(), name="billing-plans"),
     path("billing/create-checkout-session/", CreateCheckoutSessionView.as_view()),
     # Trasy brakowało w ogóle — Stripe nie miał dokąd wysyłać zdarzeń,
     # więc kod webhooka nigdy się nie wykonał
