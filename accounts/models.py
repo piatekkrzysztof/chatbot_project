@@ -57,6 +57,19 @@ class Tenant(models.Model):
     # Email
     owner_email = models.EmailField(blank=True, null=True)
 
+    # RODO — rozmowy odwiedzających to dane osobowe (treść pytań, adres IP, kontakty
+    # zostawione w formularzu). Administratorem jest firma-klient, my przetwarzamy
+    # w jej imieniu, więc okres przechowywania musi być jej decyzją, nie naszą.
+    data_retention_days = models.PositiveIntegerField(
+        default=90,
+        help_text="Po ilu dniach automatycznie usuwać rozmowy i logi. 0 = nie usuwaj.",
+    )
+    privacy_policy_url = models.URLField(
+        blank=True,
+        default="",
+        help_text="Link do polityki prywatności pokazywany w widgecie.",
+    )
+
     # Subskrypcje
     subscription_plan = models.CharField(max_length=100, blank=True, null=True)
     stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)

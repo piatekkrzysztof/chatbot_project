@@ -6,10 +6,36 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import IsTenantMember
-from chat.models import Conversation, ChatMessage, PromptLog
+from chat.models import Conversation, ChatMessage, PromptLog, FAQ
+from documents.models import Document, DocumentChunk, WebsiteSource
 
 
 UNANSWERED_LIMIT = 20
+
+
+def knowledge_summary(tenant):
+    """
+    Czym bot realnie dysponuje, odpowiadając klientom.
+
+    Bez żadnego z tych źródeł bot odmawia odpowiedzi na każde pytanie o firmę —
+    celowo, żeby nie zmyślał. Panel musi to pokazać wprost, inaczej właściciel
+    widzi tylko bota, który "nic nie umie", i nie wie, że brakuje mu materiałów.
+    """
+    documents = Document.objects.filter(tenant=tenant).count()
+    chunks = DocumentChunk.objects.filter(document__tenant=tenant).count()
+    faqs = FAQ.objects.filter(tenant=tenant).count()
+    websites = WebsiteSource.objects.filter(tenant=tenant).count()
+    has_description = bool(tenant.gpt_prompt and tenant.gpt_prompt.strip())
+
+    return {
+        "has_description": has_description,
+        "documents": documents,
+        "indexed_chunks": chunks,
+        "faqs": faqs,
+        "websites": websites,
+        # Dokument bez fragmentów jeszcze się nie przetworzył i nie liczy się jako wiedza
+        "is_empty": not (has_description or chunks or faqs),
+    }
 
 
 class TenantAnalyticsView(APIView):
@@ -45,6 +71,7 @@ class TenantAnalyticsView(APIView):
         subscription = getattr(tenant, "subscription", None)
 
         return Response({
+            "knowledge": knowledge_summary(tenant),
             "conversations": {
                 "total": conversations.count(),
                 "last_7d": conversations.filter(started_at__gte=last_7d).count(),

@@ -6,6 +6,7 @@ from api.throttles import APIKeyRateThrottle
 from uuid import UUID
 from rest_framework.exceptions import PermissionDenied
 from chat.models import FAQ, Conversation
+from chat.privacy import visitor_identifier
 from api.serializers import PublicFAQSerializer, ChatRequestSerializer
 from api.utils.chat_engine import process_chat_message, stream_chat_message
 from api.permissions import IsOwnerOrEmployee
@@ -22,6 +23,9 @@ def serialize_widget_branding(tenant, request):
         "widget_footer_text": tenant.widget_footer_text,
         "widget_logo": request.build_absolute_uri(tenant.widget_logo.url) if tenant.widget_logo else None,
         "widget_avatar": request.build_absolute_uri(tenant.widget_avatar.url) if tenant.widget_avatar else None,
+        # RODO wymaga poinformowania odwiedzającego o przetwarzaniu jego danych
+        # w momencie ich zbierania — czyli w oknie czatu, nie tylko w regulaminie.
+        "privacy_policy_url": tenant.privacy_policy_url or "",
     }
 
 
@@ -75,7 +79,7 @@ class PublicChatView(APIView):
             tenant=tenant,
             defaults={
                 "tenant": tenant,
-                "user_identifier": request.META.get("REMOTE_ADDR", "unknown"),
+                "user_identifier": visitor_identifier(request),
                 "source": "widget",
             }
         )
@@ -111,7 +115,7 @@ class PublicChatStreamView(APIView):
             tenant=tenant,
             defaults={
                 "tenant": tenant,
-                "user_identifier": request.META.get("REMOTE_ADDR", "unknown"),
+                "user_identifier": visitor_identifier(request),
                 "source": "widget",
             }
         )

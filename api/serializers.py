@@ -19,7 +19,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField()
-    conversation_id = serializers.CharField()
+    # Konwersację identyfikuje wyłącznie session_id — widoki nigdy nie sięgały po nic
+    # innego. Wcześniejsze, wymagane `conversation_id` nie było przez nie odczytywane,
+    # więc widget wysyłał tę samą wartość dwa razy, żeby przejść walidację.
     conversation_session_id = serializers.UUIDField()
 
 
@@ -179,11 +181,16 @@ class WebsiteSourceSerializer(serializers.ModelSerializer):
 
 class PromptLogSerializer(serializers.ModelSerializer):
     is_helpful = serializers.SerializerMethodField()
+    # Identyfikator, którym posługuje się usuwanie danych na żądanie — samo
+    # conversation_id to klucz techniczny, którego nie da się nigdzie użyć.
+    conversation_session_id = serializers.CharField(
+        source="conversation.session_id", read_only=True, default=None
+    )
 
     class Meta:
         model = PromptLog
         fields = [
-            "id", "conversation_id", "prompt", "response",
+            "id", "conversation_id", "conversation_session_id", "prompt", "response",
             "tokens", "source", "model", "created_at", "is_helpful"
         ]
 
