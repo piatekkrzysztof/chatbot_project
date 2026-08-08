@@ -56,3 +56,42 @@ jobs:
 
       - name: Testy
         run: pytest -q
+
+  zaleznosci-produkcyjne:
+    name: Zależności produkcyjne
+    runs-on: ubuntu-latest
+
+    # Testy instalują requirements-dev.txt, więc pakiet brakujący w
+    # requirements.txt potrafi wejść ubocznie z zależności deweloperskiej
+    # i cały suite przechodzi mimo to. Tak przepadło kiedyś lxml_html_clean:
+    # 231 testów na zielono, a gunicorn nie wstawał na produkcji, bo aplikacji
+    # WSGI nie dawało się zaimportować. To zadanie instaluje dokładnie to,
+    # co instaluje Render, i sprawdza, czy aplikacja w ogóle się podnosi.
+    env:
+      DJANGO_ENV: prod
+      DJANGO_SECRET_KEY: ci-secret-key-not-used-outside-ci
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/nieuzywana
+      DJANGO_ALLOWED_HOSTS: example.com
+      OPENAI_API_KEY: not-used-nothing-is-called
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalacja wyłącznie zależności produkcyjnych
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Kontrola konfiguracji Django
+        run: python manage.py check
+
+      - name: Aplikacja WSGI się importuje (to uruchamia gunicorn)
+        run: python -c "from chatbot_project.wsgi import application"
+
+      - name: Celery się ładuje (worker i beat)
+        run: python -c "from chatbot_project.celery import app"
