@@ -28,3 +28,4 @@ staticfiles/
 
 # Artefakty testów manualnych
 documents/test_*.pdf
+backups/
