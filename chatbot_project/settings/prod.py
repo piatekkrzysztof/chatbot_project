@@ -75,7 +75,25 @@ SECURE_REFERRER_POLICY = "strict-origin"
 X_FRAME_OPTIONS = "DENY"
 
 # Redis/Celery
-CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "")
+CELERY_BROKER_URL = REDIS_URL or "redis://localhost:6379/0"
+
+# Liczniki limitów żądań trzymamy w Redisie, nie w pamięci procesu.
+#
+# Domyślny LocMemCache jest lokalny dla procesu, a gunicorn działa tu w czterech
+# (WEB_CONCURRENCY=4). Każdy prowadził własny licznik, więc realny limit był
+# czterokrotnie wyższy od ustawionego i zerował się przy każdym wdrożeniu —
+# czyli zabezpieczenie przed nadużyciem liczyło cztery razy mniej, niż sądziliśmy.
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+    USE_SHARED_CACHE = True
+else:
+    USE_SHARED_CACHE = False
 
 # Magazyn wgrywanych plików: logotypy i awatary widgetu oraz dokumenty klientów.
 #
