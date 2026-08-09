@@ -246,6 +246,14 @@ class PromptLogSerializer(serializers.ModelSerializer):
 
 
 class ChatFeedbackSerializer(serializers.Serializer):
+    """
+    Ocena pojedynczej odpowiedzi bota.
+
+    Wiadomości szukamy wyłącznie w obrębie firmy z żądania. Wcześniej zapytanie
+    obejmowało wszystkie firmy, więc znając sam identyfikator dało się ocenić
+    cudzą rozmowę — a przy publicznym endpoincie dla widgetu byłby to zapis
+    między tenantami i sposób na sprawdzanie, jakie identyfikatory istnieją.
+    """
     message_id = serializers.IntegerField()
     is_helpful = serializers.BooleanField(required=True)
 
@@ -255,10 +263,16 @@ class ChatFeedbackSerializer(serializers.Serializer):
         return data
 
     def validate_message_id(self, value):
-        try:
-            message = ChatMessage.objects.get(id=value, sender="bot")
-        except ChatMessage.DoesNotExist:
+        tenant = self.context.get("tenant")
+        if tenant is None:
+            raise serializers.ValidationError("Brak kontekstu firmy.")
+
+        message = ChatMessage.objects.filter(
+            id=value, sender="bot", conversation__tenant=tenant
+        ).first()
+        if message is None:
             raise serializers.ValidationError("Nie znaleziono wiadomości od bota.")
+
         self.context["message"] = message
         return value
 

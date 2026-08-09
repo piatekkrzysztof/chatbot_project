@@ -5,7 +5,7 @@ from .views.widget import (
     WidgetSettingsAPIView, PublicFAQView, PublicChatView,
     PublicChatStreamView, TenantWidgetSettingsView,
 )
-from .views.feedback import SubmitFeedbackView
+from .views.feedback import PublicFeedbackView, SubmitFeedbackView
 from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
     InvitationListView, InvitationPreviewView, InvitationRevokeView
 from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
@@ -57,6 +57,7 @@ urlpatterns = [
     path("widget/chat/", PublicChatView.as_view(), name="widget-chat"),
     path("widget/chat/stream/", PublicChatStreamView.as_view(), name="widget-chat-stream"),
     path("widget/contact/", PublicContactRequestView.as_view(), name="widget-contact"),
+    path("widget/feedback/", PublicFeedbackView.as_view(), name="widget-feedback"),
     path("widget-settings/mine/", TenantWidgetSettingsView.as_view(), name="widget-settings-mine"),
     path("knowledge/", TenantKnowledgeView.as_view(), name="tenant-knowledge"),
     path("privacy/", TenantPrivacySettingsView.as_view(), name="tenant-privacy"),
