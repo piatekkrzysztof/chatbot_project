@@ -1,5 +1,6 @@
 from rest_framework.throttling import SimpleRateThrottle
 from accounts.models import Tenant, Subscription
+from accounts.plans import rate_for
 from django.core.cache import cache as default_cache
 import time
 
@@ -73,11 +74,8 @@ class APIKeyRateThrottle(BaseSubscriptionThrottle):
             return None
 
     def get_plan_rate(self, plan):
-        return {
-            "free": "20/min",
-            "pro": "100/min",
-            "enterprise": "500/min",
-        }.get(plan, "20/min")
+        # Stawki pochodzą z katalogu planów — patrz accounts/plans.py
+        return rate_for(plan)
 
 
 class SubscriptionRateThrottle(BaseSubscriptionThrottle):
@@ -110,8 +108,11 @@ class SubscriptionRateThrottle(BaseSubscriptionThrottle):
         }
 
     def get_plan_rate(self, plan):
-        return {
-            "free": "100/min",
-            "pro": "1000/min",
-            "enterprise": "20000/min",
-        }.get(plan, "100/min")
+        """
+        Limit dla ruchu panelu, luźniejszy niż czatu: jedno otwarcie strony
+        to kilka żądań, a właściciel klikający po panelu nie może się o nie
+        obijać. Skala bierze się z tego samego katalogu, żeby stawki nie
+        rozjechały się z cennikiem.
+        """
+        na_minute = int(rate_for(plan).split("/")[0])
+        return f"{na_minute * 10}/min"

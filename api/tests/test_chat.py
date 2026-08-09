@@ -1,4 +1,8 @@
+from unittest import mock
+
 import pytest
+
+from accounts.plans import PLANS
 from rest_framework.test import APIClient
 from accounts.models import Tenant, CustomUser
 from chat.models import Conversation
@@ -154,15 +158,33 @@ def test_chat_view_openai_fallback(api_client, user, tenant, subscribtion):
     assert response.data["response"] == "Testowa odpowiedź fallback"
 
 
+@mock.patch("api.utils.chat_engine.get_openai_response")
+@mock.patch("api.utils.chat_engine.query_similar_chunks_pgvector")
 @pytest.mark.django_db
-def test_chat_view_enforces_subscription_limit(user, tenant, conversation, subscribtion):
+def test_chat_view_enforces_subscription_limit(
+    mock_chunks, mock_openai, user, tenant, conversation, subscribtion
+):
+    """
+    Bez mocków ten test wykonywał tyle realnych wywołań OpenAI, ile wynosi
+    limit — płatnych i trwających w sumie ponad minutę. Skutek nie był tylko
+    kosztowy: throttling liczy żądania w oknie 60 sekund, więc przy tak wolnej
+    pętli najstarsze zdążały wypaść z okna i limit nie zapinał się na końcu.
+    Test wywracał się zależnie od kolejności uruchomienia.
+    """
+    mock_chunks.return_value = []
+    mock_openai.return_value = {"content": "OK", "tokens": 10}
+
     client = APIClient()
     client.force_authenticate(user=user)
     client.defaults["HTTP_X_API_KEY"] = str(tenant.api_key)
 
-    subscribtion.plan_type = "free"
+    # Liczba żądań bierze się z katalogu planów, nie ze sztywnej stałej
+    # Zapis jest konieczny: throttle czyta subskrypcję z bazy
+    subscribtion.plan_type = "basic"
+    subscribtion.save()
+    limit = PLANS["basic"].rate_per_minute
 
-    for i in range(20):
+    for i in range(limit):
         res = client.post("/api/chat/", {
             "message": "test",
             "conversation_id": conversation.id,
@@ -170,7 +192,7 @@ def test_chat_view_enforces_subscription_limit(user, tenant, conversation, subsc
         }, format="json")
         assert res.status_code == 200
 
-    # 21st should fail
+    # kolejne żądanie ponad limit ma zostać odrzucone
     res = client.post("/api/chat/", {
         "message": "test",
         "conversation_id": conversation.id,

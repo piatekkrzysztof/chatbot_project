@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 from django.core.cache import cache
 from rest_framework.test import APIRequestFactory
 from rest_framework.throttling import SimpleRateThrottle
+from accounts.plans import PLANS, rate_for
 from api.throttles import APIKeyRateThrottle, BaseSubscriptionThrottle
 from types import SimpleNamespace
 
@@ -16,7 +17,14 @@ cache.clear()
 @pytest.mark.django_db
 def test_chat_throttling_enforces_limit(mock_pgvector, mock_openai_response, user, tenant, conversation, subscribtion):
     client = APIClient()
-    subscribtion.plan_type = "free"
+    # Stawka pochodzi z katalogu planów — test nie może jej powtarzać własną
+    # liczbą, bo wtedy czerwieni się przy każdej zmianie cennika zamiast
+    # sprawdzać, czy limit w ogóle działa.
+    # Zapis jest konieczny: throttle czyta subskrypcję z bazy, więc bez niego
+    # test sprawdzałby plan z fikstury, a nie ten, który ustawia.
+    subscribtion.plan_type = "basic"
+    subscribtion.save()
+    limit = PLANS["basic"].rate_per_minute
     user.tenant = tenant
     user.save()
     client.force_authenticate(user=user)
@@ -35,36 +43,27 @@ def test_chat_throttling_enforces_limit(mock_pgvector, mock_openai_response, use
         "conversation_session_id": str(conversation.session_id),
     }
 
-    # Wyślij 20 żądań (limit globalny)
-    for _ in range(20):
+    for numer in range(limit):
         response = client.post("/api/chat/", payload, format="json")
-        print(response.status_code, response.data)
-        assert response.status_code != 429, f"Unexpected throttling on {_ + 1} request"
-
-    # 21. żądanie powinno zostać odrzucone
+        assert response.status_code != 429, f"Limit zadziałał za wcześnie, przy {numer + 1}"
 
     response = client.post("/api/chat/", payload, format="json")
-    print(response.status_code, response.data)
-    assert response.status_code == 429, "Throttling not enforced after limit exceeded"
+    assert response.status_code == 429, f"Limit {limit}/min nie zadziałał po przekroczeniu"
 
 
 @pytest.mark.parametrize("plan,expected_rate", [
-    ("free", "20/min"),
-    ("pro", "100/min"),
-    ("enterprise", "500/min"),
-    (None, "20/min"),
-])
+    (kod, rate_for(kod)) for kod in PLANS
+] + [(None, rate_for(None))])
 def test_get_rate_by_plan(plan, expected_rate):
-    class DummyThrottle(BaseSubscriptionThrottle):
-        def get_plan_rate(self, plan):
-            return {
-                "free": "20/min",
-                "pro": "100/min",
-                "enterprise": "500/min",
-            }.get(plan, "20/min")
-
-    throttle = DummyThrottle()
+    """
+    Sprawdzamy prawdziwy throttle, nie atrapę. Wcześniej test definiował własną
+    klasę z powtórzoną mapą stawek — przechodził więc również wtedy, gdy
+    produkcyjna mapa rozjechała się z cennikiem, co dokładnie się stało: plan
+    "basic" nie pasował do niczego i dostawał limit darmowy.
+    """
+    throttle = APIKeyRateThrottle()
     throttle.request = SimpleNamespace(subscription=SimpleNamespace(plan_type=plan))
+
     assert throttle.get_rate() == expected_rate
 
 

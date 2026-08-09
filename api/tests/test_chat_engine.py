@@ -167,10 +167,12 @@ def test_matching_question_is_counted_as_faq_coverage(mock_gpt, mock_chunks):
     assert result["source"] == "faq"
 
 
-@patch("api.utils.chat_engine.OpenAI")
-def test_get_openai_response_success(mock_openai):
+# Podmieniamy get_client, a nie klasę OpenAI: to jedyny szew, przez który
+# testowany kod sięga po klienta, i to jego pilnuje bezpiecznik w conftest.
+@patch("api.utils.chat_engine.get_client")
+def test_get_openai_response_success(mock_get_client):
     mock_client = MagicMock()
-    mock_openai.return_value = mock_client
+    mock_get_client.return_value = mock_client
     mock_client.chat.completions.create.return_value = MagicMock(
         choices=[MagicMock(message=MagicMock(content="Hi"))],
         usage=MagicMock(total_tokens=12)
@@ -181,10 +183,10 @@ def test_get_openai_response_success(mock_openai):
     assert res["tokens"] == 12
 
 
-@patch("api.utils.chat_engine.OpenAI")
-def test_get_openai_response_handles_failure(mock_openai):
+@patch("api.utils.chat_engine.get_client")
+def test_get_openai_response_handles_failure(mock_get_client):
     mock_client = MagicMock()
-    mock_openai.return_value = mock_client
+    mock_get_client.return_value = mock_client
     mock_client.chat.completions.create.side_effect = OpenAIError("API error")
 
     with pytest.raises(OpenAIError):
