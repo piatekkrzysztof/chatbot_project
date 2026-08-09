@@ -52,6 +52,14 @@ class PublicChatResponseSerializer(serializers.Serializer):
         child=serializers.CharField(),
         help_text="Nazwy dokumentów, które trafiły do kontekstu odpowiedzi.",
     )
+    message_id = serializers.IntegerField(
+        help_text="Identyfikator odpowiedzi — potrzebny, by ją ocenić kciukiem."
+    )
+
+
+class ChatFeedbackRequestSerializer(serializers.Serializer):
+    message_id = serializers.IntegerField(help_text="Z pola `message_id` odpowiedzi czatu.")
+    is_helpful = serializers.BooleanField(help_text="true = kciuk w górę.")
 
 
 class PublicContactRequestSerializer(serializers.Serializer):

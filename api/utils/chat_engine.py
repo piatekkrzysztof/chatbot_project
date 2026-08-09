@@ -176,8 +176,13 @@ def determine_source(chunks, faqs, message_text):
 
 
 def persist_exchange(tenant, conversation, response_text, source, tokens, model, prompt_text):
-    """Zapisuje odpowiedź bota wraz z logami zużycia i promptu."""
-    ChatMessage.objects.create(
+    """
+    Zapisuje odpowiedź bota wraz z logami zużycia i promptu.
+
+    Zwraca zapisaną wiadomość, bo widget potrzebuje jej identyfikatora,
+    żeby dało się tę konkretną odpowiedź ocenić kciukiem.
+    """
+    wiadomosc = ChatMessage.objects.create(
         conversation=conversation,
         sender="bot",
         message=response_text,
@@ -200,6 +205,8 @@ def persist_exchange(tenant, conversation, response_text, source, tokens, model,
         tokens=tokens,
         model=model,
     )
+
+    return wiadomosc
 
 
 def process_chat_message(tenant, conversation, message_text):
@@ -227,7 +234,7 @@ def process_chat_message(tenant, conversation, message_text):
         response_text = FALLBACK_MESSAGE
         tokens = 0
 
-    persist_exchange(
+    wiadomosc = persist_exchange(
         tenant, conversation, response_text, source, tokens, model,
         prompt_text=message_text,
     )
@@ -237,6 +244,7 @@ def process_chat_message(tenant, conversation, message_text):
         "source": source,
         "tokens": tokens,
         "sources": collect_sources(chunks),
+        "message_id": wiadomosc.id,
     }
 
 
@@ -288,7 +296,7 @@ def stream_chat_message(tenant, conversation, message_text):
 
     response_text = "".join(pieces)
 
-    persist_exchange(
+    wiadomosc = persist_exchange(
         tenant, conversation, response_text, source, tokens, model,
         prompt_text=message_text,
     )
@@ -298,4 +306,5 @@ def stream_chat_message(tenant, conversation, message_text):
         "source": source,
         "tokens": tokens,
         "sources": collect_sources(chunks),
+        "message_id": wiadomosc.id,
     })
