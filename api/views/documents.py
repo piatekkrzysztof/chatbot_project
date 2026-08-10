@@ -1,8 +1,9 @@
 from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
-from api.schemas import DocumentUploadSerializer, ErrorSerializer
+from api.schemas import DocumentUploadSerializer, ErrorSerializer, MessageSerializer
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -123,3 +124,23 @@ class WebsiteSourceViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
 
         source = serializer.save(tenant=tenant)
         enqueue(crawl_and_import_website_source, source.id)
+
+    @extend_schema(
+        tags=["Panel — baza wiedzy"],
+        summary="Odśwież treść ze strony teraz",
+        description=(
+            "Ręczne pobranie treści, niezależne od częstotliwości z planu. "
+            "Plan Start nie ma automatycznego odświeżania, więc to jedyny "
+            "sposób, żeby bot dowiedział się o zmianach na stronie."
+        ),
+        request=None,
+        responses={202: MessageSerializer},
+    )
+    @action(detail=True, methods=["post"])
+    def recrawl(self, request, pk=None):
+        source = self.get_object()
+        enqueue(crawl_and_import_website_source, source.id)
+        return Response(
+            {"message": "Odświeżanie rozpoczęte. Potrwa chwilę."},
+            status=status.HTTP_202_ACCEPTED,
+        )
