@@ -21,7 +21,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ChatRequestSerializer(serializers.Serializer):
-    message = serializers.CharField()
+    # Bez ograniczenia długości odwiedzający mógł wkleić dowolnie duży tekst,
+    # za którego tokeny wejściowe płacimy my. Realne pytanie mieści się
+    # w kilkuset znakach; limit siedzi w ustawieniach, bo zależy od kosztów.
+    message = serializers.CharField(max_length=settings.MAX_WIADOMOSC_ZNAKOW)
     # Konwersację identyfikuje wyłącznie session_id — widoki nigdy nie sięgały po nic
     # innego. Wcześniejsze, wymagane `conversation_id` nie było przez nie odczytywane,
     # więc widget wysyłał tę samą wartość dwa razy, żeby przejść walidację.

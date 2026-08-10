@@ -79,6 +79,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "chat": "20/min",
         "subscription": "100/min",
+        # Nadpisywane przez LIMIT_ODWIEDZAJACEGO; wpis musi istnieć, bo DRF
+        # sprawdza obecność scope'u przy starcie
+        "visitor": "20/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -180,6 +183,28 @@ OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-s
 
 # Ile ostatnich wiadomości konwersacji trafia do modelu jako kontekst
 CHAT_HISTORY_LIMIT = int(os.getenv("CHAT_HISTORY_LIMIT", "10"))
+
+# Sufity kosztu pojedynczej wiadomości. Bez nich prompt rósł z wielkością
+# regulaminu klienta, a odpowiedź nie miała żadnego ograniczenia długości —
+# jedno pytanie potrafiło kosztować wielokrotnie więcej niż typowe.
+# Wejście przycinamy sami (api/utils/tokens.py), wyjście ogranicza model.
+OPENAI_MAX_INPUT_TOKENS = int(os.getenv("OPENAI_MAX_INPUT_TOKENS", "6000"))
+OPENAI_MAX_OUTPUT_TOKENS = int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "600"))
+
+# Najdłuższe sensowne pytanie odwiedzającego. Powyżej tego to albo wklejony
+# dokument, albo próba nabicia nam kosztu na tokenach wejściowych.
+MAX_WIADOMOSC_ZNAKOW = int(os.getenv("MAX_WIADOMOSC_ZNAKOW", "2000"))
+
+# Ile serwerów pośredniczących stoi przed aplikacją i dopisuje się do
+# X-Forwarded-For. Na Renderze ruch idzie przez Cloudflare i load balancer,
+# więc 2; lokalnie 0. Wartość jest krytyczna: przy 0 za proxy wszyscy
+# odwiedzający wyglądają jak jeden adres, a limit per IP zablokowałby wszystkich
+# naraz. Ostrzega o tym django-check (accounts/checks.py).
+TRUSTED_PROXY_DEPTH = int(os.getenv("TRUSTED_PROXY_DEPTH", "0"))
+
+# Limit zapytań pojedynczego odwiedzającego. Chroni przed jednym natrętnym
+# rozmówcą, który sam wyczerpałby miesięczny pakiet klienta.
+LIMIT_ODWIEDZAJACEGO = os.getenv("LIMIT_ODWIEDZAJACEGO", "20/hour")
 
 # Próg odległości L2 dla wyszukiwania fragmentów — powyżej uznajemy, że dokument
 # nie odpowiada na pytanie. Bez tego zawsze zwracane są "jakieś" fragmenty.

@@ -10,7 +10,7 @@ from api.schemas import PublicChatResponseSerializer
 from accounts.models import Tenant
 from chat.models import Conversation, ChatMessage, PromptLog, ChatUsageLog
 from chat.privacy import visitor_identifier
-from api.utils.chat_engine import process_chat_message
+from api.utils.chat_engine import process_chat_message, split_billing
 from accounts.models import Subscription
 from rest_framework.throttling import ScopedRateThrottle
 
@@ -49,6 +49,9 @@ class ChatWithGPTView(APIView):
 
         result = process_chat_message(tenant, conversation, user_message)
 
-        subscription.increment_usage()
+        # Awaria modelu nie zjada limitu, za który klient zapłacił
+        payload, billable = split_billing(result)
+        if billable:
+            subscription.increment_usage()
 
-        return Response(result)
+        return Response(payload)
