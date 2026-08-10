@@ -188,6 +188,30 @@ class DocumentUploadSerializer(serializers.Serializer):
     name = serializers.CharField(required=False)
 
 
+class PublicPlanSerializer(serializers.Serializer):
+    """Plan w cenniku dla strony sprzedażowej — bez danych o firmie."""
+    code = serializers.CharField()
+    name = serializers.CharField()
+    price_pln = serializers.IntegerField()
+    price_pln_yearly = serializers.IntegerField(help_text="Cena miesięczna przy płatności rocznej.")
+    message_limit = serializers.IntegerField()
+    knowledge_base_mb = serializers.IntegerField()
+    max_bots = serializers.IntegerField()
+    max_domains = serializers.IntegerField()
+    max_seats = serializers.IntegerField()
+    branding = serializers.ChoiceField(choices=["wymagany", "usuwalny", "wlasny"])
+
+
+class PakietSerializer(serializers.Serializer):
+    wiadomosci = serializers.IntegerField()
+    cena_pln = serializers.IntegerField()
+
+
+class PublicPricingSerializer(serializers.Serializer):
+    plans = PublicPlanSerializer(many=True)
+    pakiet = PakietSerializer()
+
+
 class CheckoutRequestSerializer(serializers.Serializer):
     plan_type = serializers.ChoiceField(choices=["start", "grow", "pro"])
 

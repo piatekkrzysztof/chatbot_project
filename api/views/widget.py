@@ -349,6 +349,9 @@ class WidgetDomainViewSet(viewsets.ModelViewSet):
     """
     serializer_class = WidgetDomainSerializer
     permission_classes = [IsOwnerOrEmployee]
+    # Bez tego generator schematu nie potrafi wywnioskować typu identyfikatora
+    # w ścieżce, bo queryset zależy od zalogowanego użytkownika
+    queryset = WidgetDomain.objects.none()
     http_method_names = ["get", "delete", "head", "options"]
 
     def get_queryset(self):

@@ -23,6 +23,8 @@ SCIEZKI_WIDGETU = (
     "/api/widget/feedback/",
     "/api/widget/contact/",
     "/api/widget/faq/",
+    # Strona sprzedażowa może stać pod innym adresem niż panel
+    "/api/billing/cennik/",
 )
 
 
