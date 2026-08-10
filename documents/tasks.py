@@ -6,6 +6,11 @@ from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.website_import import discover_links_recursively
 from documents.utils.embedding_generator import generate_embeddings_for_document as _generate_embeddings
 from documents.utils.queue import enqueue
+from datetime import timedelta
+
+from django.utils import timezone
+
+from accounts.plans import recrawl_days_for
 from documents.website_import import import_website_as_document
 from trafilatura.sitemaps import sitemap_search
 
@@ -80,12 +85,38 @@ def crawl_and_import_website_source(source_id):
 
         print(f"✅ Zakończono crawling {url} (source_id={source_id})")
 
+        WebsiteSource.objects.filter(pk=source_id).update(last_crawled_at=timezone.now())
+
     except WebsiteSource.DoesNotExist:
         print(f"❌ Nie znaleziono WebsiteSource z ID {source_id}")
 
 
 @shared_task
 def crawl_all_active_sources():
-    sources = WebsiteSource.objects.filter(is_active=True)
-    for source in sources:
+    """
+    Cykliczne odświeżanie treści ze stron klientów.
+
+    Zadanie chodzi często, ale to nie ono decyduje o częstotliwości — decyduje
+    plan każdej firmy. Wcześniej każdy przebieg pobierał wszystkie źródła
+    niezależnie od planu, choć cennik obiecuje odświeżanie ręczne, tygodniowe
+    albo dzienne. Każdy przebieg to ruch na stronie klienta i przeliczenie
+    embeddingów, więc różnica jest realna, nie tylko cennikowa.
+    """
+    teraz = timezone.now()
+    zlecone = 0
+
+    for source in WebsiteSource.objects.filter(is_active=True).select_related("tenant"):
+        subskrypcja = getattr(source.tenant, "subscription", None)
+        co_ile_dni = recrawl_days_for(getattr(subskrypcja, "plan_type", None))
+
+        # None: plan bez automatycznego odświeżania — czeka na ręczne zlecenie
+        if co_ile_dni is None:
+            continue
+
+        if source.last_crawled_at and source.last_crawled_at > teraz - timedelta(days=co_ile_dni):
+            continue
+
         enqueue(crawl_and_import_website_source, source.id)
+        zlecone += 1
+
+    return zlecone

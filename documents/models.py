@@ -49,6 +49,9 @@ class WebsiteSource(models.Model):
     url = models.URLField()
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Bez tej daty zadanie cykliczne pobierało wszystkie źródła przy każdym
+    # przebiegu, niezależnie od planu — a cennik obiecuje różną częstotliwość.
+    last_crawled_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ("tenant", "url")

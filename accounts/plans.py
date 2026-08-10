@@ -50,6 +50,10 @@ class Plan:
     max_bots: int
     max_domains: int
     max_seats: int
+    # Co ile dni odświeżamy treści pobrane ze stron klienta. None oznacza
+    # wyłącznie ręczne odświeżanie — każdy przebieg to pobranie podstron
+    # i przeliczenie embeddingów, więc na najniższym planie decyduje klient.
+    recrawl_days: int | None
     # Limit żądań na minutę. To zabezpieczenie przed nadużyciem, nie element
     # cennika — komercyjnie plany różni miesięczny limit wiadomości. Wartości
     # są celowo hojne, żeby nigdy nie trafić w prawdziwego odwiedzającego:
@@ -63,19 +67,19 @@ PLANS = {
         START, "Start", 149, 119, 2_000,
         branding=BRANDING_WYMAGANY,
         knowledge_base_mb=5, max_bots=1, max_domains=1, max_seats=1,
-        rate_per_minute=60,
+        recrawl_days=None, rate_per_minute=60,
     ),
     GROW: Plan(
         GROW, "Grow", 349, 279, 8_000,
         branding=BRANDING_USUWALNY,
         knowledge_base_mb=25, max_bots=3, max_domains=3, max_seats=3,
-        rate_per_minute=150,
+        recrawl_days=7, rate_per_minute=150,
     ),
     PRO: Plan(
         PRO, "Pro", 899, 719, 25_000,
         branding=BRANDING_WLASNY,
         knowledge_base_mb=100, max_bots=10, max_domains=10, max_seats=10,
-        rate_per_minute=500,
+        recrawl_days=1, rate_per_minute=500,
     ),
 }
 
@@ -154,6 +158,18 @@ def allows_hiding_branding(plan_code):
     żeby widget nie reklamował cudzej firmy, jeszcze bez własnego logo.
     """
     return branding_level(plan_code) in (BRANDING_USUWALNY, BRANDING_WLASNY)
+
+
+def recrawl_days_for(plan_code):
+    """
+    Co ile dni odświeżać treści ze stron klienta. None = tylko ręcznie.
+
+    Plan spoza katalogu traktujemy jak najniższy: automatyczne pobieranie
+    kosztuje nas ruch i embeddingi przy każdym przebiegu, więc przy
+    niepewności nie robimy tego z własnej inicjatywy.
+    """
+    plan = get_plan(plan_code)
+    return plan.recrawl_days if plan else None
 
 
 def message_limit_for(plan_code, default=2_000):
