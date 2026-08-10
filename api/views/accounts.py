@@ -19,6 +19,12 @@ from rest_framework.exceptions import PermissionDenied
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
 from api.permissions import *
+from datetime import timedelta
+
+from django.utils import timezone
+
+from accounts.models import Subscription
+from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
 from api.views.stripe import create_checkout_session
 from drf_spectacular.utils import extend_schema
 
@@ -26,6 +32,25 @@ from api.schemas import (
     AcceptInvitationRequestSerializer, ErrorSerializer,
     InvitationPreviewSerializer, MeSerializer, MessageSerializer,
 )
+
+
+def zalozenie_okresu_probnego(tenant):
+    """
+    Subskrypcja próbna dla świeżo założonego konta.
+
+    Limity z najniższego planu: klient ma poznać produkt, nie dostać go za
+    darmo. Data końca zamyka okres sama, bez zadania w tle — wygasłą
+    subskrypcję odrzuca to samo sprawdzenie dat co w płatnych planach.
+    """
+    dzisiaj = timezone.now().date()
+    return Subscription.objects.create(
+        tenant=tenant,
+        plan_type=PLAN_PROBNY,
+        start_date=dzisiaj,
+        end_date=dzisiaj + timedelta(days=OKRES_PROBNY_DNI),
+        is_active=True,
+        message_limit=message_limit_for(PLAN_PROBNY),
+    )
 
 
 @extend_schema(
@@ -44,8 +69,12 @@ class ClientRegisterView(APIView):
         use_trial = result["use_trial"]
 
         if use_trial:
+            # Subskrypcja musi powstać już teraz. SubscriptionMiddleware wymaga
+            # jej dla /api/widget/chat/, więc bez tego klient skonfigurowałby
+            # bota, wkleił kod na stronę i zobaczył odmowę zamiast odpowiedzi.
+            zalozenie_okresu_probnego(tenant)
             return Response(
-                {"detail": "Tenant zarejestrowany w trybie trial."},
+                {"detail": "Konto założone w okresie próbnym."},
                 status=status.HTTP_201_CREATED,
             )
         else:
