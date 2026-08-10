@@ -427,3 +427,81 @@ class TestPublicznegoCennika:
         dane = APIClient().get(self.URL).json()
 
         assert dane["pakiet"] == {"wiadomosci": 1000, "cena_pln": 39}
+
+
+@pytest.mark.django_db
+class TestRejestracjiZOkresemProbnym:
+    """
+    Rejestracja bez karty musi dać działającego bota.
+
+    SubscriptionMiddleware wymaga rekordu subskrypcji dla /api/widget/chat/,
+    a rejestracja próbna go nie tworzyła — klient konfigurowałby wszystko,
+    wkleił kod na stronę i zobaczył odmowę zamiast odpowiedzi.
+    """
+    URL = "/api/accounts/register/"
+
+    def zarejestruj(self, email="nowy@example.com"):
+        return APIClient().post(
+            self.URL,
+            {
+                "company_name": "Nowa Firma",
+                "email": email,
+                "password": "tajneHaslo123",
+                "use_trial": True,
+            },
+            format="json",
+        )
+
+    def test_konto_powstaje(self):
+        from accounts.models import Tenant
+
+        response = self.zarejestruj()
+
+        assert response.status_code == 201
+        assert Tenant.objects.filter(name="Nowa Firma").exists()
+
+    def test_powstaje_subskrypcja_probna(self):
+        from accounts.models import Subscription, Tenant
+
+        self.zarejestruj()
+        tenant = Tenant.objects.get(name="Nowa Firma")
+
+        subskrypcja = Subscription.objects.get(tenant=tenant)
+        assert subskrypcja.is_active
+        assert subskrypcja.plan_type == "start"
+        assert subskrypcja.message_limit == PLANS["start"].message_limit
+
+    def test_okres_probny_ma_date_konca(self):
+        from datetime import date, timedelta
+
+        from accounts.models import Subscription, Tenant
+
+        self.zarejestruj()
+        subskrypcja = Subscription.objects.get(tenant__name="Nowa Firma")
+
+        assert subskrypcja.end_date == date.today() + timedelta(days=14)
+
+    def test_widget_odpowiada_zaraz_po_rejestracji(self, mocker):
+        """
+        Sedno poprawki: sprawdzamy nie stan bazy, tylko to, czy bot faktycznie
+        odpowiada. Wcześniej ten sam scenariusz kończył się odmową 403.
+        """
+        import uuid
+
+        from accounts.models import Tenant
+
+        mocker.patch(
+            "api.utils.chat_engine.get_openai_response",
+            return_value={"content": "Dzień dobry!", "tokens": 5},
+        )
+        self.zarejestruj()
+        tenant = Tenant.objects.get(name="Nowa Firma")
+
+        response = APIClient().post(
+            "/api/widget/chat/",
+            {"message": "Dzień dobry", "conversation_session_id": str(uuid.uuid4())},
+            format="json",
+            HTTP_X_API_KEY=str(tenant.api_key),
+        )
+
+        assert response.status_code == 200, response.data

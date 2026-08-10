@@ -79,6 +79,12 @@ PLANS = {
     ),
 }
 
+# Okres próbny. Rejestracja bez podania karty musi dać działającego bota —
+# inaczej klient konfiguruje wszystko, wkleja kod na stronę i dostaje odmowę.
+# Limity bierze z najniższego planu: ma poznać produkt, nie dostać go za darmo.
+OKRES_PROBNY_DNI = 14
+PLAN_PROBNY = START
+
 # Pakiet doliczany po wyczerpaniu limitu. Kupowany świadomie, nie automatycznie:
 # auto-doładowanie ma być domyślnie wyłączone, żeby klient nigdy nie zobaczył
 # rachunku, na który się nie zgodził.
