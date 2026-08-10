@@ -7,6 +7,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from documents.utils.pdf_parser import extract_text_from_pdf
+from documents.validators import sprawdz_limit_bazy_wiedzy
 from api.serializers import DocumentSerializer
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.utils.embedding_generator import generate_embeddings_for_document
@@ -72,18 +73,21 @@ class UploadDocumentView(APIView):
         if not file:
             return Response({"error": "No file provided."}, status=400)
 
-        # Wstępny zapis
+        # Treść wyodrębniamy przed zapisem, bo bez niej nie da się sprawdzić
+        # limitu bazy wiedzy — a dokument zapisany i zaraz usunięty zostawiałby
+        # plik w magazynie i zadanie embeddingów w kolejce.
+        text = ""
+        if file.name.lower().endswith(".pdf"):
+            text = extract_text_from_pdf(file)
+
+        sprawdz_limit_bazy_wiedzy(tenant, text)
+
         document = Document.objects.create(
             tenant=tenant,
             name=name,
-            file=file
+            file=file,
+            content=text,
         )
-
-        # Odczyt treści PDF
-        if file.name.lower().endswith(".pdf"):
-            text = extract_text_from_pdf(file)
-            document.content = text
-            document.save()
 
         # Embeddingi już przez Celery (async)
         enqueue(embed_document_task, document.id)

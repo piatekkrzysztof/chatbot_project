@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from accounts.models import BrandingMode, Tenant
-from accounts.plans import allows_white_label, get_plan
+from accounts.plans import allows_hiding_branding, allows_white_label, get_plan
 from api.throttles import APIKeyRateThrottle, VisitorRateThrottle
 from uuid import UUID
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -20,6 +20,20 @@ from api.schemas import (
     ErrorSerializer, PublicChatResponseSerializer, WidgetBrandingSerializer,
 )
 
+
+
+def _wlaczone(wartosc):
+    """
+    Wartość logiczna z formularza albo z JSON-a.
+
+    Panel wysyła ustawienia jako multipart, bo w tym samym żądaniu lecą logo
+    i awatar — a wtedy `true` zamienia się w napis "true". Django odrzuca taki
+    napis wyjątkiem (uznaje wyłącznie "True", "1"), więc przypisanie go wprost
+    do pola logicznego kończyło zapis błędem 500 zamiast zapisać ustawienie.
+    """
+    if isinstance(wartosc, str):
+        return wartosc.strip().lower() in ("true", "1", "on", "yes")
+    return bool(wartosc)
 
 
 def serialize_widget_branding(tenant, request):
@@ -43,6 +57,7 @@ def serialize_widget_branding(tenant, request):
         "widget_languages": tenant.languages(),
         "widget_language_mode": tenant.widget_language_mode,
         "widget_default_language": tenant.default_language(),
+        "widget_hide_branding": tenant.widget_hide_branding,
         "widget_proactive_enabled": tenant.widget_proactive_enabled,
         "widget_proactive_delay_seconds": tenant.widget_proactive_delay_seconds,
         "widget_proactive_text": tenant.proactive_text_for(lang_strony),
@@ -238,27 +253,46 @@ class TenantWidgetSettingsView(APIView):
         # Biała etykieta to główny wyróżnik płatnych planów. Bez tej blokady
         # klient Basic ustawiał sobie własny branding zwykłym żądaniem PATCH,
         # bo ograniczenie istniało wyłącznie w cenniku.
+        subscription = getattr(tenant, "subscription", None)
+        plan_code = subscription.plan_type if subscription else None
+        plan = get_plan(plan_code)
+        nazwa_planu = plan.name if plan else plan_code
+
         if request.data.get("branding_mode") == BrandingMode.WHITE_LABEL:
-            subscription = getattr(tenant, "subscription", None)
-            plan_code = subscription.plan_type if subscription else None
             if not allows_white_label(plan_code):
-                plan = get_plan(plan_code)
                 raise PermissionDenied(
                     f"Własny branding nie jest dostępny w planie "
-                    f"{plan.name if plan else plan_code}. Przejdź na wyższy plan."
+                    f"{nazwa_planu}. Przejdź na wyższy plan."
+                )
+
+        # Ukrycie stopki to niższy próg niż własna marka i osobna pozycja
+        # w cenniku — bez tej bramki klient planu Start wyłączyłby ją
+        # zwykłym żądaniem PATCH, tak jak wcześniej było z białą etykietą.
+        if _wlaczone(request.data.get("widget_hide_branding")):
+            if not allows_hiding_branding(plan_code):
+                raise PermissionDenied(
+                    f"Ukrycie stopki nie jest dostępne w planie "
+                    f"{nazwa_planu}. Przejdź na wyższy plan."
                 )
 
         text_fields = (
             "widget_position", "widget_color", "widget_title", "branding_mode",
             "widget_footer_text", "widget_welcome_message", "widget_suggested_questions",
             "widget_languages", "widget_language_mode", "widget_default_language",
-            "widget_proactive_enabled", "widget_proactive_delay_seconds",
+            "widget_proactive_delay_seconds",
         )
+        # Osobno, bo z formularza przychodzą jako napisy "true"/"false"
+        bool_fields = ("widget_proactive_enabled", "widget_hide_branding")
         changed_fields = []
 
         for field in text_fields:
             if field in request.data:
                 setattr(tenant, field, request.data[field])
+                changed_fields.append(field)
+
+        for field in bool_fields:
+            if field in request.data:
+                setattr(tenant, field, _wlaczone(request.data[field]))
                 changed_fields.append(field)
 
         # Teksty zaczepki przychodzą jako słownik (JSON) albo jako string

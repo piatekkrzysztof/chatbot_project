@@ -5,6 +5,8 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 
+from accounts.plans import PROGI_ALERTOW
+
 
 class WidgetPosition(models.TextChoices):
     RIGHT = "right", "Right"
@@ -91,6 +93,15 @@ class Tenant(models.Model):
     widget_logo = models.FileField(upload_to="widget_branding/", null=True, blank=True)
     widget_avatar = models.FileField(upload_to="widget_branding/", null=True, blank=True)
     widget_footer_text = models.CharField(max_length=100, blank=True, default="")
+
+    # Środkowy próg brandingu z cennika. Klient planu Grow kupuje przede
+    # wszystkim to, żeby jego widget nie reklamował cudzej firmy — własne logo
+    # i nazwa to potrzeba dopiero na Pro. Bez tego pola Grow nie różnił się
+    # od Start niczym poza limitem wiadomości.
+    widget_hide_branding = models.BooleanField(
+        default=False,
+        help_text='Ukryć stopkę "Powered by Sm-art" (plan Grow i wyżej).',
+    )
 
     # Puste okno czatu z samym polem tekstowym nie podpowiada, o co można zapytać,
     # więc odwiedzający najczęściej je zamyka. Powitanie i gotowe pytania dają
@@ -344,6 +355,35 @@ class Subscription(models.Model):
         verbose_name="Start cyklu rozliczeniowego"
     )
 
+    # Najwyższy próg zużycia, o którym już powiadomiliśmy w tym cyklu.
+    # Bez tego pola alert leciałby przy każdej kolejnej wiadomości powyżej progu,
+    # a klient nauczyłby się je ignorować dokładnie wtedy, gdy zaczynają być ważne.
+    alert_threshold_sent = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Ostatnio wysłany próg alertu (%)",
+    )
+
+    def usage_percent(self):
+        """Zużycie limitu w procentach. Bez limitu nie ma czego liczyć."""
+        if not self.message_limit:
+            return 0
+        return int(self.current_message_count / self.message_limit * 100)
+
+    def prog_do_powiadomienia(self):
+        """
+        Najwyższy przekroczony próg, o którym jeszcze nie powiadomiliśmy.
+
+        Zwraca None, gdy nie ma o czym informować. Bierzemy najwyższy, a nie
+        kolejny: przy skokowym zużyciu klient dostanie jedną wiadomość
+        "wyczerpałeś limit", a nie trzy pod rząd.
+        """
+        procent = self.usage_percent()
+        przekroczone = [
+            prog for prog in PROGI_ALERTOW
+            if procent >= prog and prog > self.alert_threshold_sent
+        ]
+        return max(przekroczone) if przekroczone else None
+
     # Metody walidacyjne
     def has_message_quota(self):
         """Czy firma ma dostępne wiadomości w bieżącym cyklu"""
@@ -353,7 +393,13 @@ class Subscription(models.Model):
         """Resetuj licznik na początku nowego cyklu"""
         self.current_message_count = 0
         self.billing_cycle_start = timezone.now().date()
-        self.save(update_fields=['current_message_count', 'billing_cycle_start'])
+        # Bez wyzerowania progu klient nie dostałby już nigdy żadnego alertu:
+        # w nowym cyklu zużycie startuje od zera, więc nic nie przekroczyłoby
+        # progu zapamiętanego z poprzedniego miesiąca.
+        self.alert_threshold_sent = 0
+        self.save(update_fields=[
+            'current_message_count', 'billing_cycle_start', 'alert_threshold_sent',
+        ])
 
     def increment_usage(self):
         """Atomowe zwiększenie licznika wiadomości"""
@@ -363,3 +409,16 @@ class Subscription(models.Model):
             current_message_count=models.F('current_message_count') + 1
         )
         self.refresh_from_db()
+
+        # Milczące wyczerpanie limitu wygląda dla klienta jak awaria chatbota:
+        # widget przestaje odpowiadać, a on dowiaduje się o tym od odwiedzających.
+        prog = self.prog_do_powiadomienia()
+        if prog:
+            from accounts.tasks import powiadom_o_zuzyciu
+            from documents.utils.queue import enqueue
+
+            # Zapisujemy próg przed wysyłką, nie po. Awaria poczty nie może
+            # zamienić jednego alertu w alert przy każdej kolejnej wiadomości.
+            self.alert_threshold_sent = prog
+            self.save(update_fields=['alert_threshold_sent'])
+            enqueue(powiadom_o_zuzyciu, self.pk, prog)

@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.plans import PLANS, get_plan
+from accounts.plans import BRANDING_WLASNY, PLANS, get_plan
 from api.schemas import (
     BillingOverviewSerializer, CheckoutRequestSerializer,
     CheckoutResponseSerializer, ErrorSerializer,
@@ -99,8 +99,16 @@ class BillingOverviewView(APIView):
                     "code": plan.code,
                     "name": plan.name,
                     "price_pln": plan.price_pln,
+                    "price_pln_yearly": plan.price_pln_yearly,
                     "message_limit": plan.message_limit,
-                    "white_label": plan.white_label,
+                    "branding": plan.branding,
+                    # Zostawiamy dla zgodności z panelem, który pyta o białą
+                    # etykietę wprost; poziom brandingu jest teraz trzystopniowy
+                    "white_label": plan.branding == BRANDING_WLASNY,
+                    "knowledge_base_mb": plan.knowledge_base_mb,
+                    "max_bots": plan.max_bots,
+                    "max_domains": plan.max_domains,
+                    "max_seats": plan.max_seats,
                     # Bez identyfikatora ceny w Stripe nie da się kupić —
                     # panel ma to pokazać zamiast prowadzić w ślepy zaułek
                     "available": bool(settings.STRIPE_PRICE_IDS.get(plan.code)),

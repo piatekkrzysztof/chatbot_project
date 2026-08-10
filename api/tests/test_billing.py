@@ -14,7 +14,9 @@ import pytest
 from rest_framework.test import APIClient
 
 from accounts.models import Subscription
-from accounts.plans import PLANS, allows_white_label, get_plan
+from accounts.plans import (
+    PLANS, allows_hiding_branding, allows_white_label, get_plan,
+)
 from api.views.stripe_webhook import activate_subscription
 
 
@@ -40,10 +42,68 @@ class TestKatalogPlanow:
 
         assert limity == sorted(limity)
 
-    def test_basic_nie_ma_bialej_etykiety(self):
-        assert allows_white_label("basic") is False
+    def test_branding_rosnie_wraz_z_planem(self):
+        """
+        Badanie rozdziela trzy progi, nie dwa: START reklamuje nas w stopce,
+        GROW pozwala ją ukryć, dopiero PRO daje własną markę.
+        """
+        assert allows_white_label("start") is False
+        assert allows_white_label("grow") is False
         assert allows_white_label("pro") is True
-        assert allows_white_label("enterprise") is True
+
+        assert allows_hiding_branding("start") is False
+        assert allows_hiding_branding("grow") is True
+        assert allows_hiding_branding("pro") is True
+
+    @pytest.mark.parametrize("kod,cena,cena_roczna,wiadomosci,baza_mb,boty,miejsca", [
+        ("start", 149, 119, 2_000, 5, 1, 1),
+        ("grow", 349, 279, 8_000, 25, 3, 3),
+        ("pro", 899, 719, 25_000, 100, 10, 10),
+    ])
+    def test_cennik_zgodny_z_badaniem(
+        self, kod, cena, cena_roczna, wiadomosci, baza_mb, boty, miejsca
+    ):
+        """
+        Liczby pochodzą z badania rynku (sierpień 2026) i są argumentem
+        sprzedażowym, nie dowolnym ustawieniem: ChatBotXL bierze 149 zł za
+        500 wiadomości, więc nasz START za tę samą cenę daje ich cztery razy
+        więcej. Cicha zmiana którejkolwiek z nich psuje pozycjonowanie.
+        """
+        plan = PLANS[kod]
+
+        assert plan.price_pln == cena
+        assert plan.price_pln_yearly == cena_roczna
+        assert plan.message_limit == wiadomosci
+        assert plan.knowledge_base_mb == baza_mb
+        assert plan.max_bots == boty
+        assert plan.max_domains == boty
+        assert plan.max_seats == miejsca
+
+    def test_cena_roczna_to_rabat_okolo_dwudziestu_procent(self):
+        for plan in PLANS.values():
+            rabat = 1 - plan.price_pln_yearly / plan.price_pln
+
+            assert 0.18 <= rabat <= 0.22, f"{plan.code}: rabat {rabat:.0%}"
+
+    def test_limity_rosna_wraz_z_cena(self):
+        """Wyższy plan musi dawać więcej pod każdym względem — inaczej cennik kłamie."""
+        kolejne = [PLANS["start"], PLANS["grow"], PLANS["pro"]]
+
+        for nizszy, wyzszy in zip(kolejne, kolejne[1:]):
+            assert wyzszy.price_pln > nizszy.price_pln
+            assert wyzszy.message_limit > nizszy.message_limit
+            assert wyzszy.knowledge_base_mb > nizszy.knowledge_base_mb
+            assert wyzszy.max_seats > nizszy.max_seats
+            assert wyzszy.rate_per_minute > nizszy.rate_per_minute
+
+    def test_stare_kody_planow_nadal_dzialaja(self):
+        """
+        Subskrypcje kupione przed zmianą cennika trzymają w bazie stary kod.
+        Bez mapowania trafiłyby w gałąź "plan nierozpoznany" i dostały
+        zaniżone limity, choć klient zapłacił.
+        """
+        assert get_plan("basic").code == "start"
+        assert get_plan("enterprise").code == "pro"
 
     def test_nieznany_plan_nie_odbiera_uprawnien(self):
         """
@@ -59,21 +119,21 @@ class TestKatalogPlanow:
 class TestAktywacjaPoPlatnosci:
     def test_platnosc_podnosi_limit_ktory_egzekwuje_middleware(self, tenant, subscribtion):
         """Sedno naprawy: zapłata musi zmienić Subscription, nie tylko Tenant."""
-        activate_subscription(tenant, "enterprise")
+        activate_subscription(tenant, "pro")
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
-        assert subskrypcja.plan_type == "enterprise"
-        assert subskrypcja.message_limit == 20_000
+        assert subskrypcja.plan_type == "pro"
+        assert subskrypcja.message_limit == 25_000
         assert subskrypcja.is_active is True
 
     def test_subskrypcja_powstaje_gdy_jej_nie_bylo(self, tenant):
         """Rejestracja od razu z płatnością — nie ma jeszcze czego aktualizować."""
         assert not Subscription.objects.filter(tenant=tenant).exists()
 
-        activate_subscription(tenant, "basic")
+        activate_subscription(tenant, "start")
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
-        assert subskrypcja.message_limit == 1_000
+        assert subskrypcja.message_limit == 2_000
 
     def test_stan_na_tenancie_jest_zsynchronizowany(self, tenant, subscribtion):
         activate_subscription(tenant, "pro")
@@ -83,11 +143,11 @@ class TestAktywacjaPoPlatnosci:
         assert tenant.subscription_plan == "pro"
 
     def test_zmiana_planu_nadpisuje_limit(self, tenant, subscribtion):
-        activate_subscription(tenant, "basic")
-        activate_subscription(tenant, "enterprise")
+        activate_subscription(tenant, "start")
+        activate_subscription(tenant, "pro")
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
-        assert subskrypcja.message_limit == 20_000
+        assert subskrypcja.message_limit == 25_000
 
 
 @pytest.mark.django_db
@@ -128,7 +188,7 @@ class TestWebhook:
 
         assert response.status_code == 400
         subscribtion.refresh_from_db()
-        assert subscribtion.plan_type != "enterprise"
+        assert subscribtion.plan_type != "pro"
 
     def test_nieudana_platnosc_wstrzymuje_subskrypcje(self, tenant, subscribtion):
         with patch("stripe.Webhook.construct_event",
@@ -159,9 +219,9 @@ class TestWebhook:
 class TestBlokadaBialejEtykiety:
     URL = "/api/widget-settings/mine/"
 
-    def test_basic_nie_wlaczy_wlasnego_brandingu(self, user, tenant, subscribtion):
+    def test_start_nie_wlaczy_wlasnego_brandingu(self, user, tenant, subscribtion):
         """Ograniczenie istniało wyłącznie w cenniku — PATCH-em dało się je obejść."""
-        subscribtion.plan_type = "basic"
+        subscribtion.plan_type = "start"
         subscribtion.save()
 
         response = owner_client(user, tenant).patch(
@@ -184,9 +244,9 @@ class TestBlokadaBialejEtykiety:
         tenant.refresh_from_db()
         assert tenant.branding_mode == "white_label"
 
-    def test_basic_moze_zmieniac_pozostale_ustawienia(self, user, tenant, subscribtion):
+    def test_start_moze_zmieniac_pozostale_ustawienia(self, user, tenant, subscribtion):
         """Blokada dotyczy tylko brandingu — reszta panelu ma działać normalnie."""
-        subscribtion.plan_type = "basic"
+        subscribtion.plan_type = "start"
         subscribtion.save()
 
         response = owner_client(user, tenant).patch(
@@ -214,7 +274,7 @@ class TestCheckout:
         Zanim wpiszesz ceny ze Stripe, zakup ma się kończyć zrozumiałym
         komunikatem, a nie pięćsetką z wnętrza biblioteki.
         """
-        settings.STRIPE_PRICE_IDS = {"basic": "", "pro": "", "enterprise": ""}
+        settings.STRIPE_PRICE_IDS = {"start": "", "grow": "", "pro": ""}
 
         response = owner_client(user, tenant).post(
             self.URL, {"plan_type": "pro"}, format="json"
@@ -225,7 +285,7 @@ class TestCheckout:
 
     def test_sesja_niesie_tenant_id_w_metadanych(self, user, tenant, subscribtion, settings):
         """Bez tego webhook nie ma po czym rozpoznać, kto zapłacił."""
-        settings.STRIPE_PRICE_IDS = {"pro": "price_test", "basic": "", "enterprise": ""}
+        settings.STRIPE_PRICE_IDS = {"pro": "price_test", "start": "", "grow": ""}
 
         class FakeSession:
             url = "https://checkout.stripe.test/sesja"
@@ -257,21 +317,22 @@ class TestCennikWPanelu:
 
         kody = {p["code"] for p in dane["plans"]}
         assert kody == set(PLANS)
-        basic = next(p for p in dane["plans"] if p["code"] == "basic")
-        assert basic["price_pln"] == 99
-        assert basic["message_limit"] == 1_000
-        assert basic["white_label"] is False
+        start = next(p for p in dane["plans"] if p["code"] == "start")
+        assert start["price_pln"] == 149
+        assert start["price_pln_yearly"] == 119
+        assert start["message_limit"] == 2_000
+        assert start["white_label"] is False
 
     def test_plan_bez_ceny_w_stripe_jest_oznaczony_jako_niedostepny(
         self, user, tenant, subscribtion, settings
     ):
         """Zanim wpiszesz ceny, panel ma to pokazać zamiast prowadzić w ślepy zaułek."""
-        settings.STRIPE_PRICE_IDS = {"basic": "price_x", "pro": "", "enterprise": ""}
+        settings.STRIPE_PRICE_IDS = {"start": "price_x", "grow": "", "pro": ""}
 
         dane = owner_client(user, tenant).get(self.URL).json()
 
         dostepnosc = {p["code"]: p["available"] for p in dane["plans"]}
-        assert dostepnosc == {"basic": True, "pro": False, "enterprise": False}
+        assert dostepnosc == {"start": True, "grow": False, "pro": False}
 
     def test_biezacy_plan_i_zuzycie(self, user, tenant, subscribtion):
         subscribtion.plan_type = "pro"
@@ -307,7 +368,7 @@ def test_adresy_powrotu_maja_odpowiedniki_w_panelu(user, tenant, subscribtion, s
     kończy się czterysta czwórką tuż po zapłaceniu — najgorszy możliwy moment.
     Trasy w panelu: app/(admin)/platnosc/sukces i .../anulowano.
     """
-    settings.STRIPE_PRICE_IDS = {"pro": "price_test", "basic": "", "enterprise": ""}
+    settings.STRIPE_PRICE_IDS = {"pro": "price_test", "start": "", "grow": ""}
 
     class FakeSession:
         url = "https://checkout.stripe.test/s"

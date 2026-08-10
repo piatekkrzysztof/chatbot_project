@@ -5,9 +5,9 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts.models import CustomUser, Tenant, InvitationToken
 from accounts.plans import PLANS, PRO
+from accounts.seats import sprawdz_limit_miejsc
 from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ, ContactRequest
 from documents.models import Document, DocumentChunk, WebsiteSource
-from documents.validators import validate_document_limit
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -102,6 +102,9 @@ class InvitationCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         tenant = self.context['request'].user.tenant
+        # Wcześnie, żeby właściciel dowiedział się teraz, a nie po tym, jak
+        # pracownik kliknie w link i zobaczy błąd
+        sprawdz_limit_miejsc(tenant)
         return InvitationToken.objects.create(tenant=tenant, **validated_data)
 
 
@@ -149,6 +152,11 @@ class AcceptInvitationSerializer(serializers.Serializer):
         if not invitation.is_valid():
             raise serializers.ValidationError("Token expired or used up.")
 
+        # Ponownie, bo między wystawieniem zaproszenia a jego przyjęciem mogą
+        # minąć dni — w tym czasie miejsca mogły się zapełnić albo firma mogła
+        # zejść na niższy plan
+        sprawdz_limit_miejsc(invitation.tenant)
+
         attrs['invitation'] = invitation
         return attrs
 
@@ -184,11 +192,6 @@ class DocumentSerializer(serializers.ModelSerializer):
             "status",
             "preview",
         ]
-
-    def validate(self, attrs):
-        tenant = self.context["request"].user.tenant
-        validate_document_limit(tenant)
-        return attrs
 
     @extend_schema_field(serializers.IntegerField())
     def get_chunk_count(self, obj):
