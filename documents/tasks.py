@@ -46,7 +46,7 @@ def extract_text_from_document(document_id):
 def generate_embeddings_for_document(document_id):
     document = Document.objects.select_related("tenant").get(id=document_id)
     if not document.content:
-        print(f"⚠️ Dokument {document.id} nie zawiera treści.")
+        logger.warning("Dokument %s nie zawiera treści — pomijam embeddingi.", document.id)
         return
     _generate_embeddings(document)
 
@@ -81,14 +81,14 @@ def crawl_and_import_website_source(source_id):
             try:
                 import_website_as_document(tenant=tenant, url=suburl, name=suburl)
             except Exception as e:
-                print(f"⚠️ Błąd podczas importu {suburl}: {e}")
+                logger.warning("Błąd podczas importu %s: %s", suburl, e)
 
-        print(f"✅ Zakończono crawling {url} (source_id={source_id})")
+        logger.info("Zakończono pobieranie %s (source_id=%s)", url, source_id)
 
         WebsiteSource.objects.filter(pk=source_id).update(last_crawled_at=timezone.now())
 
     except WebsiteSource.DoesNotExist:
-        print(f"❌ Nie znaleziono WebsiteSource z ID {source_id}")
+        logger.error("Nie znaleziono źródła WWW o id %s", source_id)
 
 
 @shared_task
