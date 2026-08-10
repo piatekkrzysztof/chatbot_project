@@ -1,3 +1,4 @@
+from api.views.widget import WidgetDomainViewSet
 from rest_framework import routers
 from .views.documents import DocumentsViewSet, WebsiteSourceViewSet
 from .views.contact import ContactRequestViewSet
@@ -11,3 +12,4 @@ router.register(r'users', UserViewSet, basename='users')
 router.register(r'website-sources', WebsiteSourceViewSet, basename='website-sources')
 router.register(r'faq', FAQViewSet, basename='faq')
 router.register(r'contact-requests', ContactRequestViewSet, basename='contact-requests')
+router.register(r"widget-domains", WidgetDomainViewSet, basename="widget-domain")

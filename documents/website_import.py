@@ -45,7 +45,9 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
         tenant=tenant,
         name=name,
         content=text,
-        source="website"
+        source="website",
+        # Strona jest publiczna, więc bot może podać do niej link jako źródło
+        source_url=url,
     )
 
     enqueue(tasks.generate_embeddings_for_document, document.id)

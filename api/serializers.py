@@ -3,7 +3,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from accounts.models import CustomUser, Tenant, InvitationToken
+from accounts.models import CustomUser, Tenant, InvitationToken, WidgetDomain
 from accounts.plans import PLANS, PRO
 from accounts.seats import sprawdz_limit_miejsc
 from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ, ContactRequest
@@ -214,6 +214,14 @@ class DocumentChunkSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentChunk
         fields = ["id", "content", "created_at"]
+        read_only_fields = fields
+
+
+class WidgetDomainSerializer(serializers.ModelSerializer):
+    """Witryna, na której wykryto działający widget."""
+    class Meta:
+        model = WidgetDomain
+        fields = ["id", "host", "first_seen", "last_seen"]
         read_only_fields = fields
 
 

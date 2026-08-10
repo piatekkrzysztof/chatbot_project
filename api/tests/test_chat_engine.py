@@ -12,10 +12,13 @@ from api.utils.chat_engine import (
 )
 
 
-def make_chunk(content, doc_name):
+def make_chunk(content, doc_name, source_url=""):
     chunk = MagicMock()
     chunk.content = content
     chunk.document.name = doc_name
+    # Pusty adres to nie brak danych, tylko domyślny stan wgranego pliku —
+    # linkujemy wyłącznie treści, które i tak są publiczne
+    chunk.document.source_url = source_url
     return chunk
 
 
@@ -97,7 +100,53 @@ def test_document_source_returns_citations(mock_gpt, mock_chunks):
     assert result["response"] == "Odpowiedź RAG"
     assert result["tokens"] == 123
     assert result["source"] == "document"
-    assert result["sources"] == ["cennik.pdf", "regulamin.pdf"]
+    assert result["sources"] == [
+        {"name": "cennik.pdf", "url": ""},
+        {"name": "regulamin.pdf", "url": ""},
+    ]
+
+
+@pytest.mark.django_db
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector")
+@patch("api.utils.chat_engine.get_openai_response")
+def test_strona_www_dostaje_klikalny_adres(mock_gpt, mock_chunks):
+    """
+    Treść zaimportowana z witryny klienta jest publiczna, więc bot może podać
+    do niej link. Odwiedzający może sprawdzić odpowiedź u źródła.
+    """
+    mock_chunks.return_value = [
+        make_chunk("fragment", "Cennik usług", "https://firma.pl/cennik"),
+    ]
+    mock_gpt.return_value = {"content": "Odpowiedź", "tokens": 10}
+
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    conversation = Conversation.objects.create(tenant=tenant)
+
+    result = process_chat_message(tenant, conversation, "Ile kosztuje?")
+
+    assert result["sources"] == [
+        {"name": "Cennik usług", "url": "https://firma.pl/cennik"},
+    ]
+
+
+@pytest.mark.django_db
+@patch("api.utils.chat_engine.query_similar_chunks_pgvector")
+@patch("api.utils.chat_engine.get_openai_response")
+def test_wgrany_plik_nie_dostaje_adresu(mock_gpt, mock_chunks):
+    """
+    Sedno decyzji o prywatności. Link do wgranego dokumentu oznaczałby, że każdy
+    odwiedzający pobierze cennik wewnętrzny czy procedury, które klient wgrał
+    wyłącznie po to, żeby bot z nich korzystał.
+    """
+    mock_chunks.return_value = [make_chunk("fragment", "procedury_wewnetrzne.pdf")]
+    mock_gpt.return_value = {"content": "Odpowiedź", "tokens": 10}
+
+    tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
+    conversation = Conversation.objects.create(tenant=tenant)
+
+    result = process_chat_message(tenant, conversation, "Jak wygląda procedura?")
+
+    assert result["sources"][0]["url"] == ""
 
 
 @pytest.mark.django_db

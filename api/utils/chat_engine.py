@@ -132,13 +132,25 @@ def build_history_messages(conversation, limit=None):
 
 
 def collect_sources(chunks):
-    """Unikalne nazwy dokumentów, z których pochodzi kontekst — do pokazania użytkownikowi."""
+    """
+    Źródła odpowiedzi — do pokazania odwiedzającemu pod wiadomością bota.
+
+    Każde źródło to nazwa i adres. Adres bywa pusty i to nie jest brak danych,
+    tylko decyzja: wypełniamy go wyłącznie dla stron zaimportowanych z witryny
+    klienta, bo tylko one są i tak publiczne. Link do wgranego pliku oznaczałby,
+    że każdy odwiedzający pobierze dokument, który klient wgrał wyłącznie po to,
+    żeby bot z niego korzystał.
+    """
     seen, sources = set(), []
     for chunk in chunks:
         name = chunk.document.name
-        if name not in seen:
-            seen.add(name)
-            sources.append(name)
+        if name in seen:
+            continue
+        seen.add(name)
+        sources.append({
+            "name": name,
+            "url": chunk.document.source_url or "",
+        })
     return sources
 
 
