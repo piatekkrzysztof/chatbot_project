@@ -42,6 +42,18 @@ class WidgetBrandingSerializer(serializers.Serializer):
     )
 
 
+class ChatSourceSerializer(serializers.Serializer):
+    """Pojedyncze źródło odpowiedzi pokazywane odwiedzającemu."""
+    name = serializers.CharField(help_text="Nazwa dokumentu albo tytuł strony.")
+    url = serializers.CharField(
+        allow_blank=True,
+        help_text=(
+            "Publiczny adres źródła. Pusty dla wgranych plików — link do "
+            "dokumentu firmy udostępniłby go każdemu odwiedzającemu."
+        ),
+    )
+
+
 class PublicChatResponseSerializer(serializers.Serializer):
     response = serializers.CharField(help_text="Odpowiedź bota.")
     source = serializers.ChoiceField(
@@ -52,9 +64,9 @@ class PublicChatResponseSerializer(serializers.Serializer):
         ),
     )
     tokens = serializers.IntegerField()
-    sources = serializers.ListField(
-        child=serializers.CharField(),
-        help_text="Nazwy dokumentów, które trafiły do kontekstu odpowiedzi.",
+    sources = ChatSourceSerializer(
+        many=True,
+        help_text="Materiały, które trafiły do kontekstu odpowiedzi.",
     )
     message_id = serializers.IntegerField(
         help_text="Identyfikator odpowiedzi — potrzebny, by ją ocenić kciukiem."
@@ -177,7 +189,7 @@ class DocumentUploadSerializer(serializers.Serializer):
 
 
 class CheckoutRequestSerializer(serializers.Serializer):
-    plan_type = serializers.ChoiceField(choices=["pro", "enterprise"])
+    plan_type = serializers.ChoiceField(choices=["start", "grow", "pro"])
 
 
 class CheckoutResponseSerializer(serializers.Serializer):

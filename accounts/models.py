@@ -422,3 +422,35 @@ class Subscription(models.Model):
             self.alert_threshold_sent = prog
             self.save(update_fields=['alert_threshold_sent'])
             enqueue(powiadom_o_zuzyciu, self.pk, prog)
+
+
+class WidgetDomain(models.Model):
+    """
+    Witryna, na której klient osadził widget.
+
+    Cennik obiecuje 1, 3 albo 10 domen, ale dotąd nic nie wiedziało, gdzie
+    widgety faktycznie działają. Rejestrujemy je same, przy pierwszym zapytaniu
+    z danej witryny — klient nie musi niczego konfigurować, a my zyskujemy
+    dwie rzeczy: policzalny limit oraz ochronę klucza API. Klucz jest widoczny
+    w kodzie strony klienta, więc bez tej listy każdy mógł go skopiować
+    i zużywać cudzy limit na własnej stronie.
+
+    Adres bierzemy z nagłówka Origin, którego przeglądarka nie pozwala podrobić
+    z poziomu strony. Nie z parametru w zapytaniu — ten byłby tylko deklaracją.
+    """
+    tenant = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE, related_name="widget_domains"
+    )
+    host = models.CharField(
+        max_length=255,
+        help_text="Nazwa hosta bez schematu i bez www, np. sklep.pl",
+    )
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("tenant", "host")
+        ordering = ["host"]
+
+    def __str__(self):
+        return f"{self.host} ({self.tenant.name})"

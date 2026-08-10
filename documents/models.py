@@ -12,6 +12,19 @@ class Document(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     source = models.CharField(max_length=50, blank=True, null=True)
 
+    # Adres, pod którym treść jest publicznie dostępna — wypełniany wyłącznie
+    # dla stron zaimportowanych z witryny klienta. Bot podaje go odwiedzającemu
+    # jako klikalne źródło odpowiedzi.
+    #
+    # Wgrane pliki zostają bez adresu celowo. Link do dokumentu firmy oznaczałby,
+    # że każdy odwiedzający pobierze cennik wewnętrzny czy procedury, które
+    # klient wgrał wyłącznie po to, żeby bot z nich korzystał.
+    source_url = models.URLField(
+        blank=True,
+        default="",
+        help_text="Publiczny adres źródła. Pusty dla wgranych plików.",
+    )
+
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
 

@@ -1,16 +1,18 @@
 import json
 
+from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from accounts.models import BrandingMode, Tenant
+from accounts.models import BrandingMode, Tenant, WidgetDomain
+from accounts.domains import limit_domen, zarejestruj_domene
 from accounts.plans import allows_hiding_branding, allows_white_label, get_plan
 from api.throttles import APIKeyRateThrottle, VisitorRateThrottle
 from uuid import UUID
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from chat.models import FAQ, Conversation
 from chat.privacy import visitor_identifier
-from api.serializers import PublicFAQSerializer, ChatRequestSerializer
+from api.serializers import PublicFAQSerializer, ChatRequestSerializer, WidgetDomainSerializer
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
 from api.permissions import IsOwnerOrEmployee
 from django.http import StreamingHttpResponse
@@ -85,6 +87,12 @@ class WidgetSettingsAPIView(APIView):
     def get(self, request):
         if not getattr(request, "tenant", None):
             return Response({"error": "Brak poprawnego klucza API"}, status=403)
+
+        # To jedyne zapytanie widgetu niosące prawdziwy adres witryny klienta:
+        # samo okno czatu działa w ramce na naszej domenie, więc jego Origin
+        # wskazywałby nas, nie klienta. Stąd rejestr domen siedzi właśnie tutaj.
+        zarejestruj_domene(request.tenant, request.headers.get("Origin"))
+
         return Response(serialize_widget_branding(request.tenant, request), status=status.HTTP_200_OK)
 
 
@@ -322,3 +330,35 @@ class TenantWidgetSettingsView(APIView):
             tenant.save(update_fields=changed_fields)
 
         return Response(serialize_widget_branding(tenant, request))
+
+
+@extend_schema(
+    tags=["Panel — widget"],
+    summary="Witryny, na których działa widget",
+    description=(
+        "Lista witryn wykrytych po nagłówku Origin, wraz z limitem planu. "
+        "Usunięcie zwalnia miejsce — witryna zarejestruje się ponownie, gdy "
+        "widget znów z niej zapyta."
+    ),
+)
+class WidgetDomainViewSet(viewsets.ModelViewSet):
+    """
+    Podgląd i usuwanie witryn. Bez dodawania ręcznego: rejestrują się same
+    przy pierwszym zapytaniu, a wpis dodany z palca i tak nie dałby dostępu
+    witrynie, która o widget nie prosi.
+    """
+    serializer_class = WidgetDomainSerializer
+    permission_classes = [IsOwnerOrEmployee]
+    http_method_names = ["get", "delete", "head", "options"]
+
+    def get_queryset(self):
+        return WidgetDomain.objects.filter(tenant=self.request.user.tenant)
+
+    def list(self, request, *args, **kwargs):
+        tenant = request.user.tenant
+        domeny = self.get_queryset()
+        return Response({
+            "domains": WidgetDomainSerializer(domeny, many=True).data,
+            "limit": limit_domen(tenant),
+            "used": domeny.count(),
+        })
