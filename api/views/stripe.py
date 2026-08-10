@@ -8,10 +8,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.plans import BRANDING_WLASNY, PLANS, get_plan
+from accounts.plans import (
+    BRANDING_WLASNY, PAKIET_CENA_PLN, PAKIET_WIADOMOSCI, PLANS, get_plan,
+)
 from api.schemas import (
     BillingOverviewSerializer, CheckoutRequestSerializer,
-    CheckoutResponseSerializer, ErrorSerializer,
+    CheckoutResponseSerializer, ErrorSerializer, PublicPricingSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -135,3 +137,41 @@ class CreateCheckoutSessionView(APIView):
             email=request.user.email,
         )
         return Response({"checkout_url": checkout_url})
+
+
+@extend_schema(
+    tags=["Publiczne"],
+    summary="Cennik dla strony sprzedażowej",
+    responses={200: PublicPricingSerializer},
+    description=(
+        "Publiczny katalog planów — bez subskrypcji i bez logowania. "
+        "Strona sprzedażowa bierze ceny stąd, żeby nie trzymać ich własnej "
+        "kopii, która rozjedzie się przy pierwszej zmianie cennika."
+    ),
+)
+class PublicPricingView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        return Response({
+            "plans": [
+                {
+                    "code": plan.code,
+                    "name": plan.name,
+                    "price_pln": plan.price_pln,
+                    "price_pln_yearly": plan.price_pln_yearly,
+                    "message_limit": plan.message_limit,
+                    "knowledge_base_mb": plan.knowledge_base_mb,
+                    "max_bots": plan.max_bots,
+                    "max_domains": plan.max_domains,
+                    "max_seats": plan.max_seats,
+                    "branding": plan.branding,
+                }
+                for plan in PLANS.values()
+            ],
+            "pakiet": {
+                "wiadomosci": PAKIET_WIADOMOSCI,
+                "cena_pln": PAKIET_CENA_PLN,
+            },
+        })

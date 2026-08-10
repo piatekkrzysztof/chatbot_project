@@ -34,6 +34,9 @@ class TenantMiddleware:
             # Stripe woła nas z własnych serwerów: nie ma tokenu ani klucza API.
             # Tożsamość potwierdza podpis zdarzenia, sprawdzany w samym widoku.
             "/api/billing/webhook/",
+            # Cennik czyta strona sprzedażowa, zanim ktokolwiek założy konto —
+            # z definicji nie ma jeszcze ani tenanta, ani klucza API.
+            "/api/billing/cennik/",
         ]
         if request.path in exempt_paths:
             return

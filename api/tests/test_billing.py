@@ -381,3 +381,49 @@ def test_adresy_powrotu_maja_odpowiedniki_w_panelu(user, tenant, subscribtion, s
     kwargs = create.call_args.kwargs
     assert "/platnosc/sukces" in kwargs["success_url"]
     assert "/platnosc/anulowano" in kwargs["cancel_url"]
+
+
+@pytest.mark.django_db
+class TestPublicznegoCennika:
+    """
+    Cennik dla strony sprzedażowej. Czyta go ktoś, kto nie ma jeszcze konta,
+    więc nie ma ani tenanta, ani klucza API — a TenantMiddleware domyślnie
+    odrzuca wszystko pod /api/. To ten sam wzorzec, który wcześniej blokował
+    zaproszenia i webhook Stripe'a.
+    """
+    URL = "/api/billing/cennik/"
+
+    def test_dziala_bez_logowania(self):
+        response = APIClient().get(self.URL)
+
+        assert response.status_code == 200
+
+    def test_zawiera_wszystkie_plany_z_katalogu(self):
+        dane = APIClient().get(self.URL).json()
+
+        assert [p["code"] for p in dane["plans"]] == list(PLANS)
+
+    def test_ceny_zgadzaja_sie_z_katalogiem(self):
+        """
+        Strona sprzedażowa nie może mieć własnej kopii cen — rozjechałaby się
+        z tym, co klient realnie zapłaci przy zakupie.
+        """
+        dane = APIClient().get(self.URL).json()
+
+        for pozycja in dane["plans"]:
+            plan = PLANS[pozycja["code"]]
+            assert pozycja["price_pln"] == plan.price_pln
+            assert pozycja["price_pln_yearly"] == plan.price_pln_yearly
+            assert pozycja["message_limit"] == plan.message_limit
+
+    def test_nie_zdradza_niczego_o_firmach(self):
+        """Endpoint jest publiczny — nie może wyciekać stanem subskrypcji."""
+        dane = APIClient().get(self.URL).json()
+
+        assert "current" not in dane
+        assert all("available" not in p for p in dane["plans"])
+
+    def test_zawiera_pakiet_dodatkowy(self):
+        dane = APIClient().get(self.URL).json()
+
+        assert dane["pakiet"] == {"wiadomosci": 1000, "cena_pln": 39}
