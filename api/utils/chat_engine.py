@@ -6,6 +6,9 @@ from openai import OpenAI
 from rapidfuzz import fuzz
 from django.conf import settings
 
+from accounts.models import WIDGET_LANGUAGE_ADVERBS
+from api.utils.language import jezyk_odpowiedzi
+from api.utils.tokens import przytnij_do_budzetu
 from chat.models import ChatMessage, ChatUsageLog, PromptLog, FAQ
 from rag.engine import query_similar_chunks_pgvector
 
@@ -31,14 +34,40 @@ def has_company_knowledge(tenant, chunks, faqs):
     return bool(tenant.gpt_prompt or tenant.regulamin or chunks or faqs)
 
 
-def build_system_prompt(tenant, chunks, faqs):
+def language_instruction(tenant, message=None):
+    """
+    W jakim języku bot ma odpowiadać.
+
+    Prompt miał wcześniej zaszyte "odpowiadaj po polsku", więc anglojęzyczny
+    odwiedzający dostawał polską odpowiedź na angielskie pytanie.
+
+    Instrukcja wskazuje zawsze JEDEN język, nigdy listy dozwolonych. Wersje
+    opisujące listę wypadały na modelu niestabilnie: albo lustrzanie dopasowywał
+    język pytania i ignorował listę klienta, albo zwijał wszystko do domyślnego
+    i ignorował zezwolenie. Wybór należy więc do kodu (api.utils.language),
+    a model dostaje gotową decyzję.
+    """
+    domyslny = tenant.default_language()
+    if tenant.uses_fixed_language() or not message:
+        kod = domyslny
+    else:
+        kod = jezyk_odpowiedzi(message, tenant.languages(), domyslny)
+    forma = WIDGET_LANGUAGE_ADVERBS[kod]
+    return f"Odpowiadaj wyłącznie {forma}, niezależnie od języka pytania."
+
+
+def build_system_prompt(tenant, chunks, faqs, message=None):
     """
     Buduje wiadomość systemową: kim jest bot, co wie o firmie i jak ma się zachowywać.
     Wiedza (dokumenty + FAQ) trafia tutaj, żeby historia rozmowy pozostała czysta.
+
+    `message` to bieżące pytanie odwiedzającego — potrzebne wyłącznie do
+    ustalenia języka odpowiedzi. Bez niego prompt wychodzi w języku domyślnym.
     """
     parts = [
         f"Jesteś asystentem firmy {tenant.name}. Odpowiadasz klientom na stronie internetowej.",
-        "Odpowiadaj po polsku, zwięźle i konkretnie, w uprzejmym tonie.",
+        "Odpowiadaj zwięźle i konkretnie, w uprzejmym tonie.",
+        language_instruction(tenant, message),
         # Sama instrukcja "nie zmyślaj" nie wystarcza: model odmawia przy pytaniach
         # o ceny czy godziny, ale na "czym zajmuje się wasza firma?" wnioskuje profil
         # działalności z samej nazwy i podaje go jako fakt. Dlatego ta klasa pytań
@@ -58,7 +87,8 @@ def build_system_prompt(tenant, chunks, faqs):
             "\nUWAGA: nie masz żadnych informacji o tej firmie. Na każde pytanie "
             "dotyczące jej działalności, oferty lub zasad odpowiedz wprost, że nie "
             "posiadasz tych informacji, i poproś o kontakt z firmą. Możesz jedynie "
-            "uprzejmie się przywitać i podtrzymać rozmowę."
+            "uprzejmie się przywitać i podtrzymać rozmowę. Samą odmowę napisz "
+            "w języku wskazanym wyżej, nie zawsze po polsku."
         )
 
     if tenant.gpt_prompt:
@@ -125,9 +155,13 @@ def build_chat_messages(tenant, conversation, message_text):
 
     faqs = list(FAQ.objects.filter(tenant=tenant).order_by("id")[:MAX_FAQ_IN_PROMPT])
 
-    messages = [{"role": "system", "content": build_system_prompt(tenant, chunks, faqs)}]
+    messages = [{"role": "system", "content": build_system_prompt(tenant, chunks, faqs, message_text)}]
     messages.extend(build_history_messages(conversation))
     messages.append({"role": "user", "content": message_text})
+
+    # Sufit kosztu wejścia. Bez tego prompt rósł z wielkością regulaminu klienta
+    # i liczbą wpisów FAQ, a płacimy za każdy token przy każdej wiadomości.
+    messages = przytnij_do_budzetu(messages, settings.OPENAI_MAX_INPUT_TOKENS)
 
     return messages, chunks, faqs
 
@@ -139,6 +173,7 @@ def get_openai_response(messages, model=None, tenant=None):
             model=model,
             messages=messages,
             temperature=settings.OPENAI_TEMPERATURE,
+            max_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
         )
         return {
             "content": response.choices[0].message.content,
@@ -226,6 +261,10 @@ def process_chat_message(tenant, conversation, message_text):
     messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
     source = determine_source(chunks, faqs, message_text)
 
+    # Nieudane wywołanie modelu nie może kosztować klienta wiadomości z planu.
+    # Wcześniej widok naliczał bezwarunkowo, więc awaria po naszej stronie
+    # zjadała limit, za który klient zapłacił, i zwracała komunikat o błędzie.
+    billable = True
     try:
         gpt_response = get_openai_response(messages, model=model, tenant=tenant)
         response_text = gpt_response["content"]
@@ -233,6 +272,7 @@ def process_chat_message(tenant, conversation, message_text):
     except Exception:
         response_text = FALLBACK_MESSAGE
         tokens = 0
+        billable = False
 
     wiadomosc = persist_exchange(
         tenant, conversation, response_text, source, tokens, model,
@@ -245,7 +285,21 @@ def process_chat_message(tenant, conversation, message_text):
         "tokens": tokens,
         "sources": collect_sources(chunks),
         "message_id": wiadomosc.id,
+        # Zdejmowane przez widok — to informacja rozliczeniowa, nie treść dla widgetu
+        "billable": billable,
     }
+
+
+def split_billing(result):
+    """
+    Rozdziela wynik na treść dla klienta i informację rozliczeniową.
+
+    Celowo bez mutowania wejścia: `result.pop(...)` w widoku wyglądał niewinnie,
+    ale zjadał pole ze słownika współdzielonego przez kolejne wywołania i przez
+    to gubił naliczenia.
+    """
+    payload = {klucz: wartosc for klucz, wartosc in result.items() if klucz != "billable"}
+    return payload, bool(result.get("billable"))
 
 
 def _sse(payload):
@@ -253,10 +307,16 @@ def _sse(payload):
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def stream_chat_message(tenant, conversation, message_text):
+def stream_chat_message(tenant, conversation, message_text, on_billable=None):
     """
     Wariant strumieniowy: oddaje odpowiedź token po tokenie jako SSE,
     a po zakończeniu strumienia zapisuje ją tak samo jak wersja synchroniczna.
+
+    `on_billable` wywołujemy dopiero wtedy, gdy odwiedzający realnie dostał
+    treść od modelu. Rozliczenie musi dziać się tutaj, w generatorze: widok
+    kończy się, zanim strumień zostanie skonsumowany, więc nie ma jak sprawdzić
+    wyniku po fakcie. Sam limit jest egzekwowany wcześniej, w middleware —
+    to dwie różne rzeczy i wcześniej były mylone.
     """
     model = settings.OPENAI_CHAT_MODEL
 
@@ -278,6 +338,7 @@ def stream_chat_message(tenant, conversation, message_text):
             model=model,
             messages=messages,
             temperature=settings.OPENAI_TEMPERATURE,
+            max_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
             stream=True,
             stream_options={"include_usage": True},
         )
@@ -295,6 +356,13 @@ def stream_chat_message(tenant, conversation, message_text):
             yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
 
     response_text = "".join(pieces)
+
+    # Urwany strumień też się liczy: odwiedzający zobaczył treść od modelu,
+    # a my zapłaciliśmy za tokeny. Nie liczy się wyłącznie sama awaria,
+    # po której poszedł jedynie komunikat zastępczy.
+    billable = bool(pieces) and response_text != FALLBACK_MESSAGE
+    if billable and on_billable:
+        on_billable()
 
     wiadomosc = persist_exchange(
         tenant, conversation, response_text, source, tokens, model,

@@ -35,6 +35,9 @@ def test_widget_settings_success(api_client, tenant, user, subscribtion, ):
         "widget_position", "widget_color", "widget_title", "branding_mode",
         "widget_footer_text", "widget_logo", "widget_avatar",
         "privacy_policy_url", "widget_welcome_message", "widget_suggested_questions",
+        "widget_languages", "widget_language_mode", "widget_default_language",
+        "widget_proactive_enabled", "widget_proactive_delay_seconds",
+        "widget_proactive_text", "widget_proactive_texts",
     }
 
 

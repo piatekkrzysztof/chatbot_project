@@ -8,9 +8,10 @@ liczniki szły do pamięci procesu, więc przy czterech procesach gunicorna real
 limit był czterokrotnie wyższy od deklarowanego.
 """
 import pytest
+from django.test import override_settings
 
 from accounts.plans import PLANS, rate_for
-from api.checks import per_process_rate_limits
+from api.checks import per_process_rate_limits, trusted_proxy_depth
 from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle
 
 
@@ -72,3 +73,25 @@ class TestOstrzezenieOLicznikach:
         settings.USE_SHARED_CACHE = False
 
         assert per_process_rate_limits(None) == []
+
+
+class TestOstrzezeniaOProxy:
+    """
+    Zła wartość TRUSTED_PROXY_DEPTH jest groźniejsza niż brak limitu: przy 0
+    za proxy wszyscy odwiedzający zlewają się w jeden adres, więc limit na
+    odwiedzającego zablokowałby widget wszystkim klientom naraz. Ostrzeżenie
+    ma się pojawić w logu wdrożenia, zanim to nastąpi.
+    """
+
+    @override_settings(DEBUG=False, TRUSTED_PROXY_DEPTH=0)
+    def test_ostrzega_na_produkcji_bez_konfiguracji(self):
+        assert [w.id for w in trusted_proxy_depth(None)] == ["api.W002"]
+
+    @override_settings(DEBUG=False, TRUSTED_PROXY_DEPTH=2)
+    def test_milczy_gdy_skonfigurowane(self):
+        assert trusted_proxy_depth(None) == []
+
+    @override_settings(DEBUG=True, TRUSTED_PROXY_DEPTH=0)
+    def test_milczy_lokalnie(self):
+        """Lokalnie nie ma proxy, więc 0 jest poprawną wartością."""
+        assert trusted_proxy_depth(None) == []

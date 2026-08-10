@@ -68,8 +68,10 @@ def test_widget_chat_enforces_subscription_limit(tenant, subscribtion):
     subscribtion.message_limit = 3
     subscribtion.save()
 
+    # billable=True odwzorowuje udaną odpowiedź modelu — bez tego pola widok
+    # uznaje wywołanie za nieudane i słusznie nie nalicza wiadomości
     with patch("api.views.widget.process_chat_message", return_value={
-        "response": "ok", "source": "gpt", "tokens": 0,
+        "response": "ok", "source": "gpt", "tokens": 0, "billable": True,
     }):
         for _ in range(3):
             res = client.post(

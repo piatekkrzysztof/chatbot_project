@@ -125,7 +125,7 @@ def test_stream_counts_against_message_limit(mock_client, mock_chunks, tenant, s
     mock_client.return_value.chat.completions.create.return_value = make_openai_stream(["ok"])
 
     client = APIClient()
-    client.post(
+    response = client.post(
         "/api/widget/chat/stream/",
         {
             "message": "Pytanie",
@@ -135,6 +135,9 @@ def test_stream_counts_against_message_limit(mock_client, mock_chunks, tenant, s
         format="json",
         HTTP_X_API_KEY=str(tenant.api_key),
     )
+    # Wiadomość nalicza się dopiero, gdy odwiedzający realnie dostanie treść,
+    # więc strumień trzeba skonsumować tak, jak robi to przeglądarka
+    b"".join(response.streaming_content)
 
     subscribtion.refresh_from_db()
     assert subscribtion.current_message_count == 1

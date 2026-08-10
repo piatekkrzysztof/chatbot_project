@@ -1,8 +1,13 @@
+import hashlib
+import time
+
+from django.conf import settings
+from django.core.cache import cache as default_cache
 from rest_framework.throttling import SimpleRateThrottle
+
 from accounts.models import Tenant, Subscription
 from accounts.plans import rate_for
-from django.core.cache import cache as default_cache
-import time
+from chat.privacy import client_ip
 
 
 class BaseSubscriptionThrottle(SimpleRateThrottle):
@@ -76,6 +81,43 @@ class APIKeyRateThrottle(BaseSubscriptionThrottle):
     def get_plan_rate(self, plan):
         # Stawki pochodzą z katalogu planów — patrz accounts/plans.py
         return rate_for(plan)
+
+
+class VisitorRateThrottle(SimpleRateThrottle):
+    """
+    Limit na pojedynczego odwiedzającego stronę klienta.
+
+    Limity per tenant chronią nas przed klientem, ale nie chronią klienta przed
+    jednym natrętnym rozmówcą: bez tego ktoś siedzący na stronie salonu mógł sam
+    wyczerpać cały miesięczny pakiet, za który klient zapłacił.
+
+    Klucz łączy firmę z adresem odwiedzającego — ten sam adres na dwóch różnych
+    stronach to dwa niezależne liczniki, bo limity należą do klientów, nie do nas.
+    """
+    scope = "visitor"
+
+    def get_rate(self):
+        return getattr(settings, "LIMIT_ODWIEDZAJACEGO", "20/hour")
+
+    def get_cache_key(self, request, view):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            # Bez rozpoznanej firmy żądanie i tak zostanie odrzucone wyżej
+            return None
+
+        adres = client_ip(request)
+        if not adres:
+            # Nie potrafimy odróżnić odwiedzającego — wpuszczamy. Limit, który
+            # przy niepewności blokuje, zablokowałby wszystkich naraz.
+            return None
+
+        # W kluczu cache trzymamy skrót, nie sam adres: to dane osobowe, a do
+        # zliczania wystarczy wartość stała dla danego odwiedzającego.
+        odcisk = hashlib.sha256(
+            f"{settings.SECRET_KEY}:{tenant.pk}:{adres}".encode()
+        ).hexdigest()[:32]
+
+        return self.cache_format % {"scope": self.scope, "ident": odcisk}
 
 
 class SubscriptionRateThrottle(BaseSubscriptionThrottle):

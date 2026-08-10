@@ -28,6 +28,44 @@ class InvitationDuration(models.TextChoices):
     ONE_DAY = "1d", "1 Day"
     ONE_WEEK = "7d", "7 Days"
 
+# Języki, w których widget może odpowiadać. Celowo krótka lista: badanie rynku
+# wskazuje PL/EN jako wymóg podstawowy, a UA/DE jako kolejny krok. Każdy dodany
+# język to nie tylko tłumaczenie odpowiedzi, ale też obietnica obsługi po
+# eskalacji do człowieka — dlatego decyduje o niej klient, nie model.
+WIDGET_LANGUAGES = {
+    "pl": "polski",
+    "en": "angielski",
+    "uk": "ukraiński",
+    "de": "niemiecki",
+    "ru": "rosyjski",
+    "cs": "czeski",
+}
+
+# Forma używana w promptcie. Osobna, bo "odpowiadaj w języku polski" to
+# widocznie zła polszczyzna, a prompt jest najważniejszym tekstem w produkcie.
+WIDGET_LANGUAGE_ADVERBS = {
+    "pl": "po polsku",
+    "en": "po angielsku",
+    "uk": "po ukraińsku",
+    "de": "po niemiecku",
+    "ru": "po rosyjsku",
+    "cs": "po czesku",
+}
+
+
+class LanguageMode(models.TextChoices):
+    """
+    Jak bot dobiera język odpowiedzi.
+
+    FIXED to nie to samo co AUTO z jednym zaznaczonym językiem, choć efekt bywa
+    ten sam: FIXED jest decyzją klienta ("obsługuję wyłącznie polski"), więc
+    zaznaczenie kolejnych języków go nie zmienia, dopóki klient sam nie przełączy
+    trybu.
+    """
+    FIXED = "fixed", "Zawsze jeden język"
+    AUTO = "auto", "Dopasuj do języka pytania"
+
+
 def generate_api_key():
     return uuid.uuid4()
 
@@ -78,6 +116,115 @@ class Tenant(models.Model):
             if line.strip()
         ]
         return lines[: self.MAX_SUGGESTED_QUESTIONS]
+
+    # Języki, w których bot może odpowiadać. Prompt miał zaszyte "odpowiadaj po
+    # polsku", więc anglojęzyczny odwiedzający dostawał polską odpowiedź na
+    # angielskie pytanie. Język pytania rozpoznajemy w kodzie (api.utils.language),
+    # ale wyłącznie w obrębie tej listy — inaczej bot odpowiadałby w dowolnym
+    # języku świata, także takim, którego firma nie obsłuży przy eskalacji.
+    widget_languages = models.CharField(
+        max_length=64,
+        default="pl",
+        help_text="Kody języków po przecinku, np. pl,en. Używane tylko w trybie 'auto'.",
+    )
+    widget_language_mode = models.CharField(
+        max_length=10,
+        choices=LanguageMode.choices,
+        default=LanguageMode.AUTO,
+        help_text="Czy bot trzyma się jednego języka, czy dopasowuje go do pytania.",
+    )
+    # Osobne pole, bo wcześniej rolę domyślnego pełnił pierwszy element listy —
+    # a listę klient zaznacza checkboxami, więc o domyślnym języku decydowała
+    # kolejność klikania. Klient nie miał na to wpływu ani tego nie widział.
+    widget_default_language = models.CharField(
+        max_length=5,
+        choices=[(kod, nazwa) for kod, nazwa in WIDGET_LANGUAGES.items()],
+        default="pl",
+        help_text=(
+            "W trybie 'jeden język' — język odpowiedzi. W trybie 'auto' — język "
+            "zapasowy, gdy pytanie przyjdzie w języku spoza listy."
+        ),
+    )
+
+    def languages(self):
+        """Dozwolone języki. Zawsze co najmniej jeden."""
+        kody = [
+            kod.strip().lower()
+            for kod in (self.widget_languages or "").replace(";", ",").split(",")
+            if kod.strip()
+        ]
+        znane = [kod for kod in kody if kod in WIDGET_LANGUAGES]
+        # Bez tego zabezpieczenia literówka w konfiguracji zostawiłaby bota
+        # bez jakiegokolwiek języka i model wybierałby go sobie sam
+        return znane or [self.default_language()]
+
+    def default_language(self):
+        """Język zapasowy. Literówka w konfiguracji nie może zostawić bota bez języka."""
+        if self.widget_default_language in WIDGET_LANGUAGES:
+            return self.widget_default_language
+        return "pl"
+
+    def uses_fixed_language(self):
+        return self.widget_language_mode == LanguageMode.FIXED
+
+    # Wiadomość proaktywna — zaczepka pokazywana sama z siebie, zanim odwiedzający
+    # cokolwiek napisze. Celowo gotowy tekst, nie odpowiedź modelu: nie zużywa
+    # limitu planu ani pieniędzy za API, a dopiero reakcja na nią jest normalną,
+    # płatną wiadomością. Dzięki temu może działać u wszystkich klientów.
+    widget_proactive_enabled = models.BooleanField(
+        default=False,
+        help_text="Czy pokazywać zaczepkę odwiedzającemu, który nie zaczął rozmowy.",
+    )
+    widget_proactive_delay_seconds = models.PositiveIntegerField(
+        default=30,
+        help_text="Po ilu sekundach na stronie pokazać zaczepkę.",
+    )
+    # Słownik kod języka -> tekst. Języka nie da się tu wykryć z wiadomości,
+    # bo wiadomości jeszcze nie ma — widget bierze go z atrybutu lang strony
+    # klienta, czyli z jej wersji językowej.
+    widget_proactive_texts = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Teksty zaczepki per język, np. {"pl": "Pomóc w czymś?"}.',
+    )
+
+    MAX_PROACTIVE_TEXT = 200
+
+    def proactive_texts(self):
+        """Teksty zaczepki, bez pustych i obciętych do rozsądnej długości."""
+        surowe = self.widget_proactive_texts or {}
+        if not isinstance(surowe, dict):
+            return {}
+        return {
+            kod: str(tekst).strip()[: self.MAX_PROACTIVE_TEXT]
+            for kod, tekst in surowe.items()
+            if kod in WIDGET_LANGUAGES and str(tekst).strip()
+        }
+
+    def proactive_text_for(self, kod_jezyka=None):
+        """
+        Zaczepka dla danej wersji językowej strony.
+
+        Kolejność: dokładne dopasowanie, potem język domyślny firmy, na końcu
+        cokolwiek uzupełnionego — pusty wynik oznacza brak zaczepki.
+        """
+        teksty = self.proactive_texts()
+        if not teksty:
+            return ""
+        # "en-GB" z atrybutu lang ma trafić na "en"
+        kod = (kod_jezyka or "").strip().lower().replace("_", "-").split("-")[0]
+        for kandydat in (kod, self.default_language()):
+            if kandydat in teksty:
+                return teksty[kandydat]
+        return next(iter(teksty.values()))
+
+    def language_names(self):
+        """Nazwy dozwolonych języków — do pokazania w panelu."""
+        return [WIDGET_LANGUAGES[kod] for kod in self.languages()]
+
+    def language_adverbs(self):
+        """Formy "po polsku", "po angielsku" — do wstawienia w prompt."""
+        return [WIDGET_LANGUAGE_ADVERBS[kod] for kod in self.languages()]
 
     # Email
     owner_email = models.EmailField(blank=True, null=True)

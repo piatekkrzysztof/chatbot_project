@@ -1,15 +1,17 @@
+import json
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from accounts.models import BrandingMode, Tenant
 from accounts.plans import allows_white_label, get_plan
-from api.throttles import APIKeyRateThrottle
+from api.throttles import APIKeyRateThrottle, VisitorRateThrottle
 from uuid import UUID
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from chat.models import FAQ, Conversation
 from chat.privacy import visitor_identifier
 from api.serializers import PublicFAQSerializer, ChatRequestSerializer
-from api.utils.chat_engine import process_chat_message, stream_chat_message
+from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
 from api.permissions import IsOwnerOrEmployee
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -21,6 +23,10 @@ from api.schemas import (
 
 
 def serialize_widget_branding(tenant, request):
+    # Wersja językowa strony klienta, przekazana przez embed.js z atrybutu
+    # <html lang>. Zaczepkę wybieramy po stronie serwera, bo widget i tak nie
+    # ma po czym rozpoznać języka — odwiedzający jeszcze nic nie napisał.
+    lang_strony = request.GET.get("lang", "")
     return {
         "widget_position": tenant.widget_position,
         "widget_color": tenant.widget_color,
@@ -34,6 +40,14 @@ def serialize_widget_branding(tenant, request):
         "privacy_policy_url": tenant.privacy_policy_url or "",
         "widget_welcome_message": tenant.widget_welcome_message or "",
         "widget_suggested_questions": tenant.suggested_questions(),
+        "widget_languages": tenant.languages(),
+        "widget_language_mode": tenant.widget_language_mode,
+        "widget_default_language": tenant.default_language(),
+        "widget_proactive_enabled": tenant.widget_proactive_enabled,
+        "widget_proactive_delay_seconds": tenant.widget_proactive_delay_seconds,
+        "widget_proactive_text": tenant.proactive_text_for(lang_strony),
+        # Panel potrzebuje kompletu, żeby dało się edytować wszystkie wersje
+        "widget_proactive_texts": tenant.proactive_texts(),
     }
 
 
@@ -102,6 +116,9 @@ class PublicChatView(APIView):
     """
     authentication_classes = []
     permission_classes = []
+    # Limit per firma chroni nas, limit per odwiedzający chroni klienta przed
+    # jednym rozmówcą wyczerpującym mu cały miesięczny pakiet
+    throttle_classes = [VisitorRateThrottle]
 
     def post(self, request):
         if not getattr(request, "tenant", None):
@@ -127,10 +144,12 @@ class PublicChatView(APIView):
 
         result = process_chat_message(tenant, conversation, data["message"].strip())
 
-        if subscription:
+        # Awaria modelu nie zjada limitu, za który klient zapłacił
+        payload, billable = split_billing(result)
+        if billable and subscription:
             subscription.increment_usage()
 
-        return Response(result)
+        return Response(payload)
 
 
 @extend_schema(
@@ -156,6 +175,7 @@ class PublicChatStreamView(APIView):
     """
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [VisitorRateThrottle]
 
     def post(self, request):
         if not getattr(request, "tenant", None):
@@ -177,13 +197,17 @@ class PublicChatStreamView(APIView):
             }
         )
 
-        # Limit odliczamy z góry — po rozpoczęciu strumienia nie da się już odrzucić żądania.
+        # Naliczamy dopiero, gdy odwiedzający realnie dostanie treść od modelu.
+        # Wcześniej limit schodził z góry, więc awaria po naszej stronie
+        # kosztowała klienta wiadomość. Samego limitu to nie osłabia — sprawdza
+        # go SubscriptionMiddleware, zanim ten widok w ogóle się wykona.
         subscription = getattr(request, "subscription", None)
-        if subscription:
-            subscription.increment_usage()
 
         response = StreamingHttpResponse(
-            stream_chat_message(tenant, conversation, data["message"].strip()),
+            stream_chat_message(
+                tenant, conversation, data["message"].strip(),
+                on_billable=subscription.increment_usage if subscription else None,
+            ),
             content_type="text/event-stream",
         )
         response["Cache-Control"] = "no-cache"
@@ -227,6 +251,8 @@ class TenantWidgetSettingsView(APIView):
         text_fields = (
             "widget_position", "widget_color", "widget_title", "branding_mode",
             "widget_footer_text", "widget_welcome_message", "widget_suggested_questions",
+            "widget_languages", "widget_language_mode", "widget_default_language",
+            "widget_proactive_enabled", "widget_proactive_delay_seconds",
         )
         changed_fields = []
 
@@ -234,6 +260,24 @@ class TenantWidgetSettingsView(APIView):
             if field in request.data:
                 setattr(tenant, field, request.data[field])
                 changed_fields.append(field)
+
+        # Teksty zaczepki przychodzą jako słownik (JSON) albo jako string
+        # z formularza multipart — panel wysyła branding razem z plikami.
+        if "widget_proactive_texts" in request.data:
+            surowe = request.data["widget_proactive_texts"]
+            if isinstance(surowe, str):
+                try:
+                    surowe = json.loads(surowe)
+                except ValueError:
+                    raise ValidationError(
+                        {"widget_proactive_texts": "Nieprawidłowy JSON."}
+                    )
+            if not isinstance(surowe, dict):
+                raise ValidationError(
+                    {"widget_proactive_texts": "Oczekiwano obiektu kod języka → tekst."}
+                )
+            tenant.widget_proactive_texts = surowe
+            changed_fields.append("widget_proactive_texts")
 
         for file_field in ("widget_logo", "widget_avatar"):
             if file_field in request.FILES:

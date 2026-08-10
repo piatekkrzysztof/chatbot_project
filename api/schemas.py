@@ -36,6 +36,10 @@ class WidgetBrandingSerializer(serializers.Serializer):
     privacy_policy_url = serializers.CharField(allow_blank=True)
     widget_welcome_message = serializers.CharField(allow_blank=True)
     widget_suggested_questions = serializers.ListField(child=serializers.CharField())
+    widget_languages = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Kody języków, w których bot odpowiada. Pierwszy jest domyślny.",
+    )
 
 
 class PublicChatResponseSerializer(serializers.Serializer):

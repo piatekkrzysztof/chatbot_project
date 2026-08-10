@@ -20,6 +20,7 @@ TokenRefreshView = extend_schema(
 )(TokenRefreshView)
 from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
+from api.views.diagnostyka import DiagnostykaAdresuView
 from .views.chat_logs import PromptLogListView
 from .views.analytics import TenantAnalyticsView
 from .views.contact import PublicContactRequestView
@@ -59,6 +60,7 @@ urlpatterns = [
     path("widget/contact/", PublicContactRequestView.as_view(), name="widget-contact"),
     path("widget/feedback/", PublicFeedbackView.as_view(), name="widget-feedback"),
     path("widget-settings/mine/", TenantWidgetSettingsView.as_view(), name="widget-settings-mine"),
+    path("diagnostyka/adres/", DiagnostykaAdresuView.as_view(), name="diagnostyka-adres"),
     path("knowledge/", TenantKnowledgeView.as_view(), name="tenant-knowledge"),
     path("privacy/", TenantPrivacySettingsView.as_view(), name="tenant-privacy"),
     path(
