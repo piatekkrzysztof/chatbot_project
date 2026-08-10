@@ -6,15 +6,30 @@ zapisywało się jako dowolny tekst ("pro", "Prymium"). Nic nie łączyło zakup
 z faktycznym limitem: webhook Stripe ustawiał plan na Tenant, a limity
 egzekwował zupełnie inny model.
 
-Ceny podane brutto w złotych, dla czytelności — rozliczenie i tak prowadzi
-Stripe po stronie swoich cenników. Identyfikatory cen trzymamy w zmiennych
-środowiskowych, żeby zmiana cennika nie wymagała wdrożenia kodu.
+Ceny i limity pochodzą z badania rynku (sierpień 2026). Punkt odniesienia:
+ChatBotXL Standard to 149 zł za 500 wiadomości, więc nasz START za tę samą
+cenę daje czterokrotnie większy limit — to główny argument sprzedażowy.
+
+Ceny podane w złotych netto. Rozliczenie prowadzi Stripe po stronie swoich
+cenników; identyfikatory cen trzymamy w zmiennych środowiskowych, żeby zmiana
+cennika nie wymagała wdrożenia kodu.
 """
 from dataclasses import dataclass
 
-BASIC = "basic"
+START = "start"
+GROW = "grow"
 PRO = "pro"
-ENTERPRISE = "enterprise"
+
+# Poziomy brandingu. Trzy, nie dwa: badanie rozdziela "usuwalne Powered by"
+# od pełnej białej etykiety, bo to dwa różne progi cenowe. Klient z GROW chce
+# przede wszystkim, żeby widget nie reklamował cudzej firmy; własne logo
+# i nazwa to potrzeba dopiero na PRO.
+BRANDING_WYMAGANY = "wymagany"      # stopka Sm-art widoczna, bez zmian
+BRANDING_USUWALNY = "usuwalny"      # można ukryć stopkę, ale marka zostaje nasza
+BRANDING_WLASNY = "wlasny"          # pełna biała etykieta: logo, nazwa, kolory
+
+# Kolejność od najsłabszego do najmocniejszego — pozwala porównywać poziomy
+POZIOMY_BRANDINGU = (BRANDING_WYMAGANY, BRANDING_USUWALNY, BRANDING_WLASNY)
 
 
 @dataclass(frozen=True)
@@ -22,10 +37,19 @@ class Plan:
     code: str
     name: str
     price_pln: int
+    # Cena miesięczna przy płatności rocznej (-20%). Trzymamy obie, bo klient
+    # porównuje je na stronie cennika, a rabat nie jest tu do wyliczenia
+    # z zaokrągleń w drugą stronę.
+    price_pln_yearly: int
     message_limit: int
-    # Biała etykieta to główny wyróżnik płatnych planów: w Basic widget
-    # występuje wyłącznie w brandingu Sm-art.
-    white_label: bool
+    branding: str
+    # Limity pojemnościowe z badania. Nie wszystkie mają dziś egzekwowanie
+    # w kodzie — trzymamy je tu mimo to, żeby cennik i produkt nie rozjechały
+    # się w momencie, w którym zaczniemy je sprawdzać.
+    knowledge_base_mb: int
+    max_bots: int
+    max_domains: int
+    max_seats: int
     # Limit żądań na minutę. To zabezpieczenie przed nadużyciem, nie element
     # cennika — komercyjnie plany różni miesięczny limit wiadomości. Wartości
     # są celowo hojne, żeby nigdy nie trafić w prawdziwego odwiedzającego:
@@ -35,9 +59,45 @@ class Plan:
 
 
 PLANS = {
-    BASIC: Plan(BASIC, "Basic", 99, 1_000, white_label=False, rate_per_minute=60),
-    PRO: Plan(PRO, "Pro", 199, 5_000, white_label=True, rate_per_minute=150),
-    ENTERPRISE: Plan(ENTERPRISE, "Enterprise", 399, 20_000, white_label=True, rate_per_minute=500),
+    START: Plan(
+        START, "Start", 149, 119, 2_000,
+        branding=BRANDING_WYMAGANY,
+        knowledge_base_mb=5, max_bots=1, max_domains=1, max_seats=1,
+        rate_per_minute=60,
+    ),
+    GROW: Plan(
+        GROW, "Grow", 349, 279, 8_000,
+        branding=BRANDING_USUWALNY,
+        knowledge_base_mb=25, max_bots=3, max_domains=3, max_seats=3,
+        rate_per_minute=150,
+    ),
+    PRO: Plan(
+        PRO, "Pro", 899, 719, 25_000,
+        branding=BRANDING_WLASNY,
+        knowledge_base_mb=100, max_bots=10, max_domains=10, max_seats=10,
+        rate_per_minute=500,
+    ),
+}
+
+# Pakiet doliczany po wyczerpaniu limitu. Kupowany świadomie, nie automatycznie:
+# auto-doładowanie ma być domyślnie wyłączone, żeby klient nigdy nie zobaczył
+# rachunku, na który się nie zgodził.
+PAKIET_WIADOMOSCI = 1_000
+PAKIET_CENA_PLN = 39
+
+# Progi powiadomień o zużyciu limitu. Ostatni to nie ostrzeżenie, tylko
+# informacja, że bot przestał odpowiadać — i musi dotrzeć natychmiast.
+PROGI_ALERTOW = (80, 95, 100)
+
+# Nazwy planów sprzed zmiany cennika. Subskrypcje w bazie trzymają kod planu
+# jako tekst, więc bez tej mapy klient kupiony na "basic" trafiłby po zmianie
+# w gałąź "plan nierozpoznany" i dostał domyślne, zaniżone limity.
+STARE_KODY = {
+    "basic": START,
+    "enterprise": PRO,
+    # "pro" istniał wcześniej i istnieje nadal, ale oznacza teraz wyższy plan.
+    # Klient dostanie hojniejszy limit niż kupił — świadomie, bo odwrotna
+    # pomyłka odcięłaby działającego klienta od chatbota.
 }
 
 # Plan nierozpoznany: subskrypcja sprzed katalogu, brak subskrypcji albo
@@ -56,24 +116,41 @@ def get_plan(code):
     """
     if not code:
         return None
-    return PLANS.get(str(code).strip().lower())
+    znormalizowany = str(code).strip().lower()
+    znormalizowany = STARE_KODY.get(znormalizowany, znormalizowany)
+    return PLANS.get(znormalizowany)
 
 
-def allows_white_label(plan_code):
+def branding_level(plan_code):
     """
-    Czy plan pozwala na własny branding widgetu.
+    Poziom brandingu przysługujący planowi.
 
-    Plan spoza katalogu traktujemy jako uprawniony. Odwrotna decyzja
-    odebrałaby białą etykietę klientom, którzy mają ją dziś ustawioną,
-    tylko dlatego, że ich plan nazywa się inaczej niż w cenniku.
+    Plan spoza katalogu dostaje najwyższy poziom. Odwrotna decyzja odebrałaby
+    białą etykietę klientom, którzy mają ją dziś ustawioną, tylko dlatego,
+    że ich plan nazywa się inaczej niż w cenniku.
     """
     plan = get_plan(plan_code)
     if plan is None:
-        return True
-    return plan.white_label
+        return BRANDING_WLASNY
+    return plan.branding
 
 
-def message_limit_for(plan_code, default=1_000):
+def allows_white_label(plan_code):
+    """Czy plan pozwala ustawić własną markę widgetu (logo, nazwa, kolory)."""
+    return branding_level(plan_code) == BRANDING_WLASNY
+
+
+def allows_hiding_branding(plan_code):
+    """
+    Czy plan pozwala ukryć stopkę "Powered by Sm-art".
+
+    Osobno od białej etykiety, bo to niższy próg: GROW kupuje się właśnie po to,
+    żeby widget nie reklamował cudzej firmy, jeszcze bez własnego logo.
+    """
+    return branding_level(plan_code) in (BRANDING_USUWALNY, BRANDING_WLASNY)
+
+
+def message_limit_for(plan_code, default=2_000):
     plan = get_plan(plan_code)
     return plan.message_limit if plan else default
 

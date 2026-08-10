@@ -22,9 +22,9 @@ def test_chat_throttling_enforces_limit(mock_pgvector, mock_openai_response, use
     # sprawdzać, czy limit w ogóle działa.
     # Zapis jest konieczny: throttle czyta subskrypcję z bazy, więc bez niego
     # test sprawdzałby plan z fikstury, a nie ten, który ustawia.
-    subscribtion.plan_type = "basic"
+    subscribtion.plan_type = "start"
     subscribtion.save()
-    limit = PLANS["basic"].rate_per_minute
+    limit = PLANS["start"].rate_per_minute
     user.tenant = tenant
     user.save()
     client.force_authenticate(user=user)

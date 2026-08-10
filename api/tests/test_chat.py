@@ -180,9 +180,9 @@ def test_chat_view_enforces_subscription_limit(
 
     # Liczba żądań bierze się z katalogu planów, nie ze sztywnej stałej
     # Zapis jest konieczny: throttle czyta subskrypcję z bazy
-    subscribtion.plan_type = "basic"
+    subscribtion.plan_type = "start"
     subscribtion.save()
-    limit = PLANS["basic"].rate_per_minute
+    limit = PLANS["start"].rate_per_minute
 
     for i in range(limit):
         res = client.post("/api/chat/", {

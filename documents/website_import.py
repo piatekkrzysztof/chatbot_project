@@ -5,6 +5,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from documents.models import Document
+from documents.validators import sprawdz_limit_bazy_wiedzy
 from documents.utils.queue import enqueue
 from documents import tasks
 
@@ -35,6 +36,10 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     Pobiera stronę WWW, zapisuje jako Document, generuje embeddingi.
     """
     text = fetch_text_from_url(url)
+
+    # Ten sam limit co przy uploadzie. Bez tego dałoby się go obejść, dodając
+    # stronę zamiast dokumentu — a crawler potrafi zaciągnąć dziesiątki podstron.
+    sprawdz_limit_bazy_wiedzy(tenant, text)
 
     document = Document.objects.create(
         tenant=tenant,

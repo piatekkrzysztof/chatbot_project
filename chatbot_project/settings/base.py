@@ -168,10 +168,21 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 # Identyfikatory cen ze Stripe, po jednym na plan z accounts/plans.py.
 # W zmiennych, a nie w kodzie, bo cennik dopracowuje się częściej niż logikę.
 STRIPE_PRICE_IDS = {
-    "basic": os.getenv("STRIPE_PRICE_BASIC", ""),
+    "start": os.getenv("STRIPE_PRICE_START", ""),
+    "grow": os.getenv("STRIPE_PRICE_GROW", ""),
     "pro": os.getenv("STRIPE_PRICE_PRO", ""),
-    "enterprise": os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
 }
+
+# Ceny roczne (rabat 20%) to w Stripe osobne pozycje cennika, nie modyfikator
+# ceny miesięcznej — stąd druga mapa zamiast przeliczania w kodzie.
+STRIPE_PRICE_IDS_ROCZNE = {
+    "start": os.getenv("STRIPE_PRICE_START_ROCZNY", ""),
+    "grow": os.getenv("STRIPE_PRICE_GROW_ROCZNY", ""),
+    "pro": os.getenv("STRIPE_PRICE_PRO_ROCZNY", ""),
+}
+
+# Pakiet doliczany po wyczerpaniu limitu (1000 wiadomości za 39 zł)
+STRIPE_PRICE_PAKIET = os.getenv("STRIPE_PRICE_PAKIET", "")
 
 OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
