@@ -136,9 +136,18 @@ class ConversationCountsSerializer(serializers.Serializer):
     last_30d = serializers.IntegerField()
 
 
+class DailyQuestionCountSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    count = serializers.IntegerField()
+
+
 class QuestionCountsSerializer(serializers.Serializer):
     total = serializers.IntegerField()
     last_7d = serializers.IntegerField()
+    daily = DailyQuestionCountSerializer(
+        many=True,
+        help_text="Liczba pytań w każdym z ostatnich 7 dni kalendarzowych.",
+    )
 
 
 class AnswerSourcesSerializer(serializers.Serializer):
@@ -160,6 +169,7 @@ class UnansweredSerializer(serializers.Serializer):
 
 
 class AnalyticsSerializer(serializers.Serializer):
+    tenant_name = serializers.CharField()
     knowledge = KnowledgeSummarySerializer()
     conversations = ConversationCountsSerializer()
     questions = QuestionCountsSerializer()

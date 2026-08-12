@@ -217,6 +217,10 @@ TRUSTED_PROXY_DEPTH = int(os.getenv("TRUSTED_PROXY_DEPTH", "0"))
 # rozmówcą, który sam wyczerpałby miesięczny pakiet klienta.
 LIMIT_ODWIEDZAJACEGO = os.getenv("LIMIT_ODWIEDZAJACEGO", "20/hour")
 
+# Statystyki panelu nie muszą przeliczać całej historii przy każdym odświeżeniu.
+# Krótki cache zachowuje praktycznie bieżące dane, a odciąża bazę i przyspiesza UI.
+ANALYTICS_CACHE_SECONDS = int(os.getenv("ANALYTICS_CACHE_SECONDS", "15"))
+
 # Próg odległości L2 dla wyszukiwania fragmentów — powyżej uznajemy, że dokument
 # nie odpowiada na pytanie. Bez tego zawsze zwracane są "jakieś" fragmenty.
 RAG_MAX_DISTANCE = float(os.getenv("RAG_MAX_DISTANCE", "1.15"))

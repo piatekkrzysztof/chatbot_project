@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from chat.models import Conversation, ChatMessage, PromptLog, FAQ
@@ -34,6 +37,36 @@ def test_analytics_counts_only_own_tenant(user, tenant, subscribtion):
 
 
 @pytest.mark.django_db
+def test_analytics_returns_daily_question_counts(user, tenant, subscribtion):
+    conversation = Conversation.objects.create(tenant=tenant, user_identifier="a")
+    ChatMessage.objects.create(
+        conversation=conversation,
+        sender="user",
+        message="Dzisiaj",
+    )
+    two_days_ago_message = ChatMessage.objects.create(
+        conversation=conversation,
+        sender="user",
+        message="Dwa dni temu",
+    )
+    ChatMessage.objects.filter(pk=two_days_ago_message.pk).update(
+        timestamp=timezone.now() - timedelta(days=2),
+    )
+
+    client = auth_client(user, tenant)
+    daily = client.get(
+        "/api/analytics/",
+        HTTP_X_API_KEY=str(tenant.api_key),
+    ).json()["questions"]["daily"]
+
+    assert len(daily) == 7
+    assert daily[-1]["date"] == timezone.localdate().isoformat()
+    assert daily[-1]["count"] == 1
+    assert daily[-3]["count"] == 1
+    assert sum(day["count"] for day in daily) == 2
+
+
+@pytest.mark.django_db
 def test_analytics_reports_unanswered_questions(user, tenant, subscribtion):
     conversation = Conversation.objects.create(tenant=tenant, user_identifier="a")
     PromptLog.objects.create(
@@ -66,6 +99,18 @@ def test_analytics_reports_plan_usage(user, tenant, subscribtion):
     data = client.get("/api/analytics/", HTTP_X_API_KEY=str(tenant.api_key)).json()
 
     assert data["usage"] == {"used": 7, "limit": 100, "plan": "pro"}
+
+
+@pytest.mark.django_db
+def test_analytics_includes_tenant_name(user, tenant, subscribtion):
+    client = auth_client(user, tenant)
+
+    data = client.get(
+        "/api/analytics/",
+        HTTP_X_API_KEY=str(tenant.api_key),
+    ).json()
+
+    assert data["tenant_name"] == tenant.name
 
 
 @pytest.mark.django_db
