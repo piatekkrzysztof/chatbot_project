@@ -16,6 +16,12 @@ class Conversation(models.Model):
 
     class Meta:
         ordering = ['-last_message_at']
+        indexes = [
+            models.Index(
+                fields=["tenant", "started_at"],
+                name="conv_tenant_started_idx",
+            ),
+        ]
 
     def __str__(self):
         return f"Conversation {self.id} ({self.tenant.name})"
@@ -44,6 +50,14 @@ class ChatMessage(models.Model):
     # Rozszerzenia
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='gpt')
     token_count = models.PositiveIntegerField(default=0, help_text="Liczba tokenów tej wiadomości (jeśli dotyczy)")
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["sender", "timestamp"],
+                name="msg_sender_time_idx",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.sender.title()}: {self.message[:50]}"
@@ -86,6 +100,12 @@ class PromptLog(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["tenant", "source", "-created_at"],
+                name="prompt_tenant_src_time_idx",
+            ),
+        ]
 
     def __str__(self):
         return f"[{self.model}] ({self.source}) {self.created_at.strftime('%Y-%m-%d %H:%M')}"

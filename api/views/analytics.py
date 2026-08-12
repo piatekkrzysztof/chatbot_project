@@ -1,6 +1,9 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
-from django.db.models import Count
+from django.conf import settings
+from django.core.cache import cache
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,8 +27,12 @@ def knowledge_summary(tenant):
     celowo, żeby nie zmyślał. Panel musi to pokazać wprost, inaczej właściciel
     widzi tylko bota, który "nic nie umie", i nie wie, że brakuje mu materiałów.
     """
-    documents = Document.objects.filter(tenant=tenant).count()
-    chunks = DocumentChunk.objects.filter(document__tenant=tenant).count()
+    document_stats = Document.objects.filter(tenant=tenant).aggregate(
+        documents=Count("id", distinct=True),
+        chunks=Count("chunks"),
+    )
+    documents = document_stats["documents"]
+    chunks = document_stats["chunks"]
     faqs = FAQ.objects.filter(tenant=tenant).count()
     websites = WebsiteSource.objects.filter(tenant=tenant).count()
     has_description = bool(tenant.gpt_prompt and tenant.gpt_prompt.strip())
@@ -60,13 +67,50 @@ class TenantAnalyticsView(APIView):
 
     def get(self, request):
         tenant = request.user.tenant
+        cache_key = f"tenant-analytics:v2:{tenant.pk}"
+        use_shared_cache = getattr(settings, "USE_SHARED_CACHE", False)
+        if use_shared_cache:
+            cached_payload = cache.get(cache_key)
+            if cached_payload is not None:
+                return Response(cached_payload)
+
         now = timezone.now()
         last_7d = now - timedelta(days=7)
         last_30d = now - timedelta(days=30)
+        today = timezone.localdate()
+        first_chart_day = today - timedelta(days=6)
+        chart_start = timezone.make_aware(
+            datetime.combine(first_chart_day, time.min),
+            timezone.get_current_timezone(),
+        )
 
         conversations = Conversation.objects.filter(tenant=tenant)
-        messages = ChatMessage.objects.filter(conversation__tenant=tenant)
+        messages = ChatMessage.objects.filter(
+            conversation__tenant=tenant,
+            sender="user",
+        )
         logs = PromptLog.objects.filter(tenant=tenant)
+
+        conversation_counts = conversations.aggregate(
+            total=Count("id"),
+            last_7d=Count("id", filter=Q(started_at__gte=last_7d)),
+            last_30d=Count("id", filter=Q(started_at__gte=last_30d)),
+        )
+        question_counts = messages.aggregate(
+            total=Count("id"),
+            last_7d=Count("id", filter=Q(timestamp__gte=last_7d)),
+        )
+
+        daily_question_counts = {
+            row["day"]: row["count"]
+            for row in (
+                messages.filter(timestamp__gte=chart_start)
+                .annotate(day=TruncDate("timestamp"))
+                .values("day")
+                .annotate(count=Count("id"))
+                .order_by("day")
+            )
+        }
 
         # Skąd pochodziły odpowiedzi — 'gpt' oznacza brak trafienia w dokumenty i FAQ
         by_source = {
@@ -82,16 +126,22 @@ class TenantAnalyticsView(APIView):
 
         subscription = getattr(tenant, "subscription", None)
 
-        return Response({
+        payload = {
+            "tenant_name": tenant.name,
             "knowledge": knowledge_summary(tenant),
-            "conversations": {
-                "total": conversations.count(),
-                "last_7d": conversations.filter(started_at__gte=last_7d).count(),
-                "last_30d": conversations.filter(started_at__gte=last_30d).count(),
-            },
+            "conversations": conversation_counts,
             "questions": {
-                "total": messages.filter(sender="user").count(),
-                "last_7d": messages.filter(sender="user", timestamp__gte=last_7d).count(),
+                **question_counts,
+                "daily": [
+                    {
+                        "date": (first_chart_day + timedelta(days=offset)).isoformat(),
+                        "count": daily_question_counts.get(
+                            first_chart_day + timedelta(days=offset),
+                            0,
+                        ),
+                    }
+                    for offset in range(7)
+                ],
             },
             "answer_sources": {
                 "document": by_source.get("document", 0),
@@ -111,4 +161,13 @@ class TenantAnalyticsView(APIView):
                 }
                 for row in unanswered
             ],
-        })
+        }
+
+        if use_shared_cache:
+            cache.set(
+                cache_key,
+                payload,
+                timeout=getattr(settings, "ANALYTICS_CACHE_SECONDS", 15),
+            )
+
+        return Response(payload)
