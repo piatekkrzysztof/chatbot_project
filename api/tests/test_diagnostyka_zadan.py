@@ -77,8 +77,10 @@ class TestWerdyktu:
         )
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
 
-        assert "ZADANIA CYKLICZNE NIE DZIAŁAJĄ" in odp.data["werdykt"]
-        assert "celery-beat" in odp.data["werdykt"]
+        # Werdykt musi nazwać, KTÓRY sygnał leży — inaczej przy dwóch
+        # zadaniach cyklicznych nie wiadomo, gdzie szukać.
+        assert "NIE DZIAŁA: pobieranie stron" in odp.data["werdykt"]
+        assert "celery-worker" in odp.data["werdykt"]
 
     def test_zalegle_rozmowy_zdradzaja_ze_czyszczenie_rodo_nie_chodzi(self):
         tenant = Tenant.objects.create(name="Firma", data_retention_days=30)
@@ -93,7 +95,7 @@ class TestWerdyktu:
         )
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
 
-        assert "ZADANIA CYKLICZNE NIE DZIAŁAJĄ" in odp.data["werdykt"]
+        assert "NIE DZIAŁA: czyszczenie RODO" in odp.data["werdykt"]
         czyszczenie = odp.data["slady_w_danych"]["czyszczenie_rodo"]
         assert czyszczenie["wniosek"] == "nie-dziala"
         assert czyszczenie["zaleglych_rozmow"] == 1
@@ -178,13 +180,31 @@ class TestWerdyktu:
         assert "SSLError" in pobieranie["przyklad_bledu"]
         assert "nie zaplecza" in pobieranie["opis"]
 
+    def test_swieze_pobranie_przy_mlodej_bazie_nie_kaze_dodawac_zrodel(self):
+        """Odczyt z produkcji 14.08: strony pobrane minutę wcześniej, a werdykt
+        kazał „dodać źródło WWW i sprawdzić za dwanaście godzin". Komunikat
+        o braku danych był zaszyty pod pobieranie, a odpaliła go retencja.
+        Diagnostyka, która myli sygnały, kieruje w złe miejsce."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com",
+            is_active=True, last_crawled_at=timezone.now() - timedelta(minutes=1),
+        )
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+        werdykt = odp.data["werdykt"]
+
+        assert "dodaj źródło WWW" not in werdykt
+        assert "Potwierdzone: pobieranie stron" in werdykt
+        assert "czyszczenie RODO" in werdykt
+
     def test_bez_zrodel_www_nie_udajemy_ze_wiemy(self):
         """Brak danych to nie to samo co dowód sprawności."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
 
         assert odp.data["slady_w_danych"]["pobieranie_stron"]["wniosek"] == "brak-danych"
-        assert "Nie ma jeszcze danych" in odp.data["werdykt"]
+        assert "Nie da się jeszcze potwierdzić" in odp.data["werdykt"]
+        assert "pobieranie stron" in odp.data["werdykt"]
 
 
 @pytest.mark.django_db
