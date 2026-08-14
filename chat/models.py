@@ -127,6 +127,13 @@ class ContactRequest(models.Model):
     handled = models.BooleanField(default=False, verbose_name="Obsłużone")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Czy firma została powiadomiona. Wysyłka szła dotąd z fail_silently=True
+    # opakowanym dodatkowo w try/except — awaria poczty nie zostawiała żadnego
+    # śladu. Klient nie dostawał maila i nie miał jak się dowiedzieć, że go
+    # nie dostał; zapytanie leżało w panelu, do którego nikt nie zaglądał.
+    powiadomiono_at = models.DateTimeField(null=True, blank=True)
+    blad_powiadomienia = models.TextField(blank=True, default="")
+
     class Meta:
         ordering = ["-created_at"]
 
