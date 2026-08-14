@@ -52,6 +52,13 @@ class WebsiteSource(models.Model):
     # Bez tej daty zadanie cykliczne pobierało wszystkie źródła przy każdym
     # przebiegu, niezależnie od planu — a cennik obiecuje różną częstotliwość.
     last_crawled_at = models.DateTimeField(null=True, blank=True)
+    # Kiedy ostatnio PRÓBOWALIŚMY, niezależnie od wyniku. Bez tego nieudane
+    # pobranie jest nieodróżnialne od takiego, którego nigdy nie zlecono:
+    # w obu przypadkach last_crawled_at zostaje puste.
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    # Treść ostatniego błędu. Klient musi wiedzieć, że import jego strony
+    # się nie powiódł i dlaczego — inaczej ma bota bez wiedzy i bez wyjaśnienia.
+    last_error = models.TextField(blank=True, default="")
 
     class Meta:
         unique_together = ("tenant", "url")

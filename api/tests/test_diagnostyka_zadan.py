@@ -148,6 +148,36 @@ class TestWerdyktu:
         assert "ŻADEN WORKER NIE ODPOWIADA" in odp.data["werdykt"]
         assert "celery-worker" in odp.data["werdykt"]
 
+    def test_nigdy_nie_probowano_to_nie_to_samo_co_awaria(self):
+        """Znalezione na produkcji: po uruchomieniu workera źródła nadal miały
+        puste last_crawled_at, bo nikt nie zlecił zadania. Werdykt krzyczał
+        „nie działa", choć zaplecze było już sprawne — i wysyłał do naprawiania
+        czegoś, co nie było zepsute."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+        )
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        assert odp.data["slady_w_danych"]["pobieranie_stron"]["wniosek"] == "nie-probowano"
+        assert "nie zostało jeszcze zlecone" in odp.data["werdykt"]
+
+    def test_zapisany_blad_wskazuje_na_crawler_a_nie_na_zaplecze(self):
+        """Gdy próba była i się nie udała, wina leży gdzie indziej niż
+        w Renderze — werdykt musi kierować do crawlera, nie do usług."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+            last_attempt_at=timezone.now() - timedelta(minutes=5),
+            last_error="SSLError: certificate verify failed",
+        )
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        pobieranie = odp.data["slady_w_danych"]["pobieranie_stron"]
+        assert pobieranie["wniosek"] == "nie-dziala"
+        assert "SSLError" in pobieranie["przyklad_bledu"]
+        assert "nie zaplecza" in pobieranie["opis"]
+
     def test_bez_zrodel_www_nie_udajemy_ze_wiemy(self):
         """Brak danych to nie to samo co dowód sprawności."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
