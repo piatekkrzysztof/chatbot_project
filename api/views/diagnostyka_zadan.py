@@ -193,15 +193,40 @@ def _slad_retencji(teraz):
 
 
 def _werdykt(broker, pobieranie, retencja):
-    """Jedno zdanie, od którego można zacząć działać."""
-    slady = [pobieranie["wniosek"], retencja["wniosek"]]
+    """
+    Jedno zdanie, od którego można zacząć działać.
 
-    if "nie-dziala" in slady:
+    Składane z obu sygnałów osobno, a nie z jednej wspólnej gałęzi. Wcześniej
+    komunikat „brak danych" był zaszyty pod pobieranie stron, więc gdy danych
+    brakowało retencji, werdykt kazał dodać źródło WWW — komuś, kto miał trzy
+    i właśnie je pobrał. Diagnostyka, która myli sygnały, kieruje w złe miejsce.
+    """
+    sygnaly = (("pobieranie stron", pobieranie), ("czyszczenie RODO", retencja))
+
+    # 1. Awarie mają pierwszeństwo i muszą wskazywać właściwą przyczynę:
+    #    stare pobieranie to zegar, zaległe rozmowy to zadanie czyszczące,
+    #    zapisany błąd crawlera to ani jedno, ani drugie.
+    zepsute = [(nazwa, s) for nazwa, s in sygnaly if s["wniosek"] == "nie-dziala"]
+    if zepsute:
+        nazwa, sygnal = zepsute[0]
+        if sygnal.get("przyklad_bledu"):
+            return (
+                f"POBIERANIE STRON KOŃCZY SIĘ BŁĘDEM. {sygnal['przyklad_bledu']} "
+                "To usterka crawlera albo samej strony — usługi na Renderze działają, "
+                "więc nie ma tam czego naprawiać."
+            )
         return (
-            "ZADANIA CYKLICZNE NIE DZIAŁAJĄ. Ślady w danych pokazują, że harmonogram "
-            "nie był wykonywany. Sprawdź w Render, czy usługi celery-worker i "
-            "celery-beat istnieją i są uruchomione — render.yaml je deklaruje, ale "
-            "usługi zakładane ręcznie nie powstają z tego pliku."
+            f"NIE DZIAŁA: {nazwa}. {sygnal['opis']} Sprawdź w Render, czy usługa "
+            "celery-worker istnieje i jest uruchomiona — plik render.yaml ją "
+            "deklaruje, ale usługi zakładane ręcznie nie powstają z tego pliku."
+        )
+
+    if pobieranie["wniosek"] == "nie-probowano":
+        return (
+            f"Zaplecze działa (worker odpowiada: {broker['odpowiedzialo_workerow']}), ale "
+            "żadnego źródła WWW nie próbowano jeszcze pobrać. To nie jest awaria — "
+            "zadanie po prostu nie zostało jeszcze zlecone. Kliknij „Odśwież teraz” "
+            "przy źródłach w panelu albo poczekaj na najbliższy przebieg harmonogramu."
         )
 
     if not broker["broker_osiagalny"]:
@@ -217,25 +242,25 @@ def _werdykt(broker, pobieranie, retencja):
             "i nikt ich nie odbiera. Uruchom usługę celery-worker."
         )
 
-    if "nie-probowano" in slady:
+    # 2. Nic nie jest zepsute. Zostaje pytanie, ile z tego umiemy potwierdzić —
+    #    i tu trzeba nazwać konkretny sygnał, a nie mówić ogólnie „brak danych".
+    potwierdzone = [nazwa for nazwa, s in sygnaly if s["wniosek"] == "dziala"]
+    niepotwierdzone = [nazwa for nazwa, s in sygnaly if s["wniosek"] == "brak-danych"]
+
+    if not niepotwierdzone:
         return (
-            f"Zaplecze działa (worker odpowiada: {broker['odpowiedzialo_workerow']}), ale "
-            "żadnego źródła WWW nie próbowano jeszcze pobrać. To nie jest awaria — "
-            "zadanie po prostu nie zostało jeszcze zlecone. Kliknij „Odśwież teraz” "
-            "przy źródłach w panelu albo poczekaj na najbliższy przebieg harmonogramu."
+            f"Wszystko działa. Worker odpowiada ({broker['odpowiedzialo_workerow']}), "
+            "strony są pobierane zgodnie z harmonogramem, retencja jest dotrzymana."
         )
 
-    if "brak-danych" in slady:
-        return (
-            f"Worker odpowiada ({broker['odpowiedzialo_workerow']}), broker działa. "
-            "Nie ma jeszcze danych, po których dałoby się potwierdzić harmonogram — "
-            "dodaj źródło WWW i sprawdź ponownie po dwunastu godzinach."
-        )
-
-    return (
-        f"Wszystko działa. Worker odpowiada ({broker['odpowiedzialo_workerow']}), "
-        "strony są pobierane zgodnie z harmonogramem, retencja jest dotrzymana."
+    czesci = [f"Zaplecze działa (worker odpowiada: {broker['odpowiedzialo_workerow']})."]
+    if potwierdzone:
+        czesci.append(f"Potwierdzone: {', '.join(potwierdzone)}.")
+    czesci.append(
+        f"Nie da się jeszcze potwierdzić: {', '.join(niepotwierdzone)} — "
+        + " ".join(s["opis"] for nazwa, s in sygnaly if s["wniosek"] == "brak-danych")
     )
+    return " ".join(czesci)
 
 
 @extend_schema(
