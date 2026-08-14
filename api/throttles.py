@@ -21,12 +21,41 @@ class BaseSubscriptionThrottle(SimpleRateThrottle):
         self.num_requests = None
         self.duration = None
 
+    def _subskrypcja(self):
+        """
+        Subskrypcja żądania — z middleware albo dociągnięta z bazy.
+
+        SubscriptionMiddleware ustawia ją wyłącznie na trzech ścieżkach czatu.
+        Na całej reszcie panelu było więc pusto i throttle brał plan "free",
+        czyli klient planu Pro chodził po panelu na stawce darmowej. Limit
+        z cennika obowiązywał tylko tam, gdzie akurat przeszedł middleware.
+
+        Wynik zapisujemy na żądaniu, bo get_cache_key obu klas throttle robi
+        dokładnie to samo zapytanie — w sumie wychodzi ich mniej, nie więcej.
+        """
+        subskrypcja = getattr(self.request, "subscription", None)
+        if subskrypcja is not None:
+            return subskrypcja
+
+        tenant = getattr(self.request, "tenant", None)
+        if tenant is None:
+            return None
+
+        subskrypcja = (
+            Subscription.objects
+            .filter(tenant=tenant, is_active=True)
+            .order_by("-end_date")
+            .first()
+        )
+        self.request.subscription = subskrypcja
+        return subskrypcja
+
     def get_rate(self):
         """Dynamicznie ustala rate na podstawie requestu"""
         if not hasattr(self, 'request'):
             return "100/min"  # Domyślny limit bezpieczeństwa
 
-        subscription = getattr(self.request, "subscription", None)
+        subscription = self._subskrypcja()
         if subscription:
             plan = (subscription.plan_type or "free").lower()
         else:
