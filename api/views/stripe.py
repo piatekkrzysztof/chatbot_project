@@ -108,7 +108,6 @@ class BillingOverviewView(APIView):
                     # etykietę wprost; poziom brandingu jest teraz trzystopniowy
                     "white_label": plan.branding == BRANDING_WLASNY,
                     "knowledge_base_mb": plan.knowledge_base_mb,
-                    "max_bots": plan.max_bots,
                     "max_domains": plan.max_domains,
                     "max_seats": plan.max_seats,
                     # Bez identyfikatora ceny w Stripe nie da się kupić —
@@ -163,7 +162,6 @@ class PublicPricingView(APIView):
                     "price_pln_yearly": plan.price_pln_yearly,
                     "message_limit": plan.message_limit,
                     "knowledge_base_mb": plan.knowledge_base_mb,
-                    "max_bots": plan.max_bots,
                     "max_domains": plan.max_domains,
                     "max_seats": plan.max_seats,
                     "branding": plan.branding,

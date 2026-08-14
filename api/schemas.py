@@ -206,7 +206,6 @@ class PublicPlanSerializer(serializers.Serializer):
     price_pln_yearly = serializers.IntegerField(help_text="Cena miesięczna przy płatności rocznej.")
     message_limit = serializers.IntegerField()
     knowledge_base_mb = serializers.IntegerField()
-    max_bots = serializers.IntegerField()
     max_domains = serializers.IntegerField()
     max_seats = serializers.IntegerField()
     branding = serializers.ChoiceField(choices=["wymagany", "usuwalny", "wlasny"])

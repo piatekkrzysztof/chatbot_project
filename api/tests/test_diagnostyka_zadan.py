@@ -227,3 +227,108 @@ class TestOdpornosci:
 
         assert odp.status_code == 200
         assert odp.data["broker_i_workery"]["broker_osiagalny"] is False
+
+
+@pytest.mark.django_db
+class TestPoziomu:
+    """Poziom steruje kolorem w panelu, więc musi się zgadzać z treścią
+    werdyktu. Dwie definicje powagi — tu i w przeglądarce — rozjechałyby się."""
+
+    def test_awaria_gdy_slady_pokazuja_usterke(self):
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com",
+            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=50),
+        )
+        assert odpytaj(zaloguj(tenant), BROKER_OK).data["poziom"] == "awaria"
+
+    def test_awaria_gdy_brak_workera(self):
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com",
+            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=2),
+        )
+        assert odpytaj(zaloguj(tenant), BROKER_BRAK_WORKERA).data["poziom"] == "awaria"
+
+    def test_uwaga_gdy_czegos_nie_da_sie_potwierdzic(self):
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com",
+            is_active=True, last_crawled_at=timezone.now() - timedelta(minutes=5),
+        )
+        assert odpytaj(zaloguj(tenant), BROKER_OK).data["poziom"] == "uwaga"
+
+    def test_ok_dopiero_gdy_oba_sygnaly_potwierdzone(self):
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=30)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com",
+            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=1),
+        )
+        blisko = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
+        Conversation.objects.filter(pk=blisko.pk).update(
+            started_at=timezone.now() - timedelta(days=27)
+        )
+        assert odpytaj(zaloguj(tenant), BROKER_OK).data["poziom"] == "ok"
+
+
+@pytest.mark.django_db
+class TestIzolacjiKlientow:
+    """Endpoint jest dostępny dla każdego właściciela konta, nie tylko dla nas.
+    Klient nie może zobaczyć w nim danych innej firmy — ani liczby jej źródeł,
+    ani tym bardziej adresu jej strony w treści błędu."""
+
+    def test_nie_widac_zrodel_innej_firmy(self):
+        obcy = Tenant.objects.create(name="Konkurencja", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=obcy, name="tajny-projekt.pl", url="https://tajny-projekt.pl",
+            is_active=True, last_attempt_at=timezone.now(),
+            last_error="SSLError: sekret w komunikacie",
+        )
+        moj = Tenant.objects.create(name="Moja firma", data_retention_days=90)
+        odp = odpytaj(zaloguj(moj), BROKER_OK)
+
+        pobieranie = odp.data["slady_w_danych"]["pobieranie_stron"]
+        assert pobieranie["aktywnych_zrodel"] == 0
+        assert "tajny-projekt" not in str(odp.data)
+        assert "sekret" not in str(odp.data)
+
+    def test_nie_widac_zaleglych_rozmow_innej_firmy(self):
+        obcy = Tenant.objects.create(name="Konkurencja", data_retention_days=30)
+        stara = Conversation.objects.create(tenant=obcy, user_identifier="gosc")
+        Conversation.objects.filter(pk=stara.pk).update(
+            started_at=timezone.now() - timedelta(days=90)
+        )
+        moj = Tenant.objects.create(name="Moja firma", data_retention_days=30)
+        odp = odpytaj(zaloguj(moj), BROKER_OK)
+
+        assert odp.data["slady_w_danych"]["czyszczenie_rodo"]["zaleglych_rozmow"] == 0
+
+
+@pytest.mark.django_db
+class TestSpojnosciWerdyktuIPoziomu:
+    def test_brak_workera_wygrywa_z_nieprobowanym(self):
+        """Wyłapane na żywo: werdykt oznajmiał „zaplecze działa (worker
+        odpowiada: 0)" — zdanie wewnętrznie sprzeczne, w dodatku niezgodne
+        z polem poziom, które w tej samej sytuacji zwracało awarię."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+        )
+        odp = odpytaj(zaloguj(tenant), BROKER_BRAK_WORKERA)
+
+        assert odp.data["poziom"] == "awaria"
+        assert "Zaplecze działa" not in odp.data["werdykt"]
+        assert "ŻADEN WORKER NIE ODPOWIADA" in odp.data["werdykt"]
+
+    @pytest.mark.parametrize("broker", [BROKER_PADL, BROKER_BRAK_WORKERA])
+    def test_poziom_awaria_zawsze_ma_werdykt_o_awarii(self, broker):
+        """Kolor i treść muszą mówić to samo — inaczej panel pokazuje
+        czerwony pasek z uspokajającym zdaniem."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        WebsiteSource.objects.create(
+            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+        )
+        odp = odpytaj(zaloguj(tenant), broker)
+
+        assert odp.data["poziom"] == "awaria"
+        assert odp.data["werdykt"].split(".")[0].isupper() or "NIE" in odp.data["werdykt"]

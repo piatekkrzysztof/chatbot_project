@@ -43,11 +43,13 @@ class Plan:
     price_pln_yearly: int
     message_limit: int
     branding: str
-    # Limity pojemnościowe z badania. Nie wszystkie mają dziś egzekwowanie
-    # w kodzie — trzymamy je tu mimo to, żeby cennik i produkt nie rozjechały
-    # się w momencie, w którym zaczniemy je sprawdzać.
+    # Limity pojemnościowe z badania. Każdy z nich ma egzekwowanie w kodzie —
+    # pole bez pilnującej go reguły to obietnica, o której nikt nie pamięta.
+    #
+    # Dlatego nie ma tu max_bots. Cennik obiecywał 1, 3 i 10 botów, a modelu
+    # wielu botów nigdy nie zbudowano; limit szedł w odpowiedzi API i nikt go
+    # nie sprawdzał, bo nie było czego. Wróci razem z funkcją, nie przed nią.
     knowledge_base_mb: int
-    max_bots: int
     max_domains: int
     max_seats: int
     # Co ile dni odświeżamy treści pobrane ze stron klienta. None oznacza
@@ -66,19 +68,19 @@ PLANS = {
     START: Plan(
         START, "Start", 149, 119, 2_000,
         branding=BRANDING_WYMAGANY,
-        knowledge_base_mb=5, max_bots=1, max_domains=1, max_seats=1,
+        knowledge_base_mb=5, max_domains=1, max_seats=1,
         recrawl_days=None, rate_per_minute=60,
     ),
     GROW: Plan(
         GROW, "Grow", 349, 279, 8_000,
         branding=BRANDING_USUWALNY,
-        knowledge_base_mb=25, max_bots=3, max_domains=3, max_seats=3,
+        knowledge_base_mb=25, max_domains=3, max_seats=3,
         recrawl_days=7, rate_per_minute=150,
     ),
     PRO: Plan(
         PRO, "Pro", 899, 719, 25_000,
         branding=BRANDING_WLASNY,
-        knowledge_base_mb=100, max_bots=10, max_domains=10, max_seats=10,
+        knowledge_base_mb=100, max_domains=10, max_seats=10,
         recrawl_days=1, rate_per_minute=500,
     ),
 }
