@@ -79,11 +79,43 @@ def _slad_pobierania(teraz):
 
     ostatnie = aktywne.exclude(last_crawled_at=None).order_by("-last_crawled_at").first()
     if ostatnie is None:
+        # Rozróżniamy dwie sytuacje, które wyglądają identycznie w polu
+        # last_crawled_at, a wymagają czegoś innego: zadanie nigdy nie ruszyło
+        # (nikt go nie zlecił) kontra ruszyło i się wywróciło.
+        z_bledem = list(aktywne.exclude(last_error="").values_list("name", "last_error")[:3])
+        probowane = aktywne.exclude(last_attempt_at=None).count()
+
+        if z_bledem:
+            nazwa, tresc = z_bledem[0]
+            return {
+                "aktywnych_zrodel": liczba,
+                "ostatnie_pobranie": None,
+                "zrodel_z_bledem": len(z_bledem),
+                "przyklad_bledu": f"{nazwa}: {tresc[:200]}",
+                "wniosek": "nie-dziala",
+                "opis": (
+                    f"Pobieranie było próbowane i zakończyło się błędem. "
+                    f"To usterka crawlera albo samej strony, nie zaplecza."
+                ),
+            }
+
+        if probowane == 0:
+            return {
+                "aktywnych_zrodel": liczba,
+                "ostatnie_pobranie": None,
+                "wniosek": "nie-probowano",
+                "opis": (
+                    f"Jest {liczba} aktywnych źródeł i żadnego nie próbowano jeszcze pobrać. "
+                    f"Zadanie nigdy nie zostało zlecone — kliknij „Odśwież teraz” w panelu "
+                    f"albo poczekaj na najbliższy przebieg harmonogramu."
+                ),
+            }
+
         return {
             "aktywnych_zrodel": liczba,
             "ostatnie_pobranie": None,
             "wniosek": "nie-dziala",
-            "opis": f"Jest {liczba} aktywnych źródeł i żadne nie zostało ani razu pobrane.",
+            "opis": f"Próbowano pobrać {probowane} źródeł, żadne się nie udało i nie zapisano błędu.",
         }
 
     godzin = (teraz - ostatnie.last_crawled_at).total_seconds() / 3600
@@ -183,6 +215,14 @@ def _werdykt(broker, pobieranie, retencja):
         return (
             "BROKER DZIAŁA, ALE ŻADEN WORKER NIE ODPOWIADA. Kolejka przyjmuje zadania "
             "i nikt ich nie odbiera. Uruchom usługę celery-worker."
+        )
+
+    if "nie-probowano" in slady:
+        return (
+            f"Zaplecze działa (worker odpowiada: {broker['odpowiedzialo_workerow']}), ale "
+            "żadnego źródła WWW nie próbowano jeszcze pobrać. To nie jest awaria — "
+            "zadanie po prostu nie zostało jeszcze zlecone. Kliknij „Odśwież teraz” "
+            "przy źródłach w panelu albo poczekaj na najbliższy przebieg harmonogramu."
         )
 
     if "brak-danych" in slady:

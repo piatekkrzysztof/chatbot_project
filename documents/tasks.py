@@ -56,6 +56,10 @@ MAX_PAGES_PER_CRAWL = 20
 
 @shared_task
 def crawl_and_import_website_source(source_id):
+    # Znacznik próby stawiamy PRZED pracą, nie po. Dzięki temu zadanie, które
+    # wywali się w połowie, zostawia ślad — inaczej nieudane pobranie wygląda
+    # dokładnie tak samo jak takie, którego nigdy nie zlecono.
+    WebsiteSource.objects.filter(pk=source_id).update(last_attempt_at=timezone.now())
     try:
         source = WebsiteSource.objects.select_related("tenant").get(id=source_id)
         url = source.url
@@ -85,10 +89,21 @@ def crawl_and_import_website_source(source_id):
 
         logger.info("Zakończono pobieranie %s (source_id=%s)", url, source_id)
 
-        WebsiteSource.objects.filter(pk=source_id).update(last_crawled_at=timezone.now())
+        WebsiteSource.objects.filter(pk=source_id).update(
+            last_crawled_at=timezone.now(), last_error=""
+        )
 
     except WebsiteSource.DoesNotExist:
         logger.error("Nie znaleziono źródła WWW o id %s", source_id)
+    except Exception as blad:
+        # Wcześniej łapaliśmy wyłącznie DoesNotExist, więc każdy inny błąd —
+        # nieosiągalna strona, timeout, certyfikat, błąd parsowania — wywalał
+        # zadanie i nie zostawiał śladu nigdzie poza logiem workera. Klient
+        # widział bota bez wiedzy i nie miał jak dojść dlaczego.
+        logger.exception("Nie udało się pobrać źródła WWW %s", source_id)
+        WebsiteSource.objects.filter(pk=source_id).update(
+            last_error=f"{type(blad).__name__}: {str(blad)[:500]}"
+        )
 
 
 @shared_task
