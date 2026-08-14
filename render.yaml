@@ -57,18 +57,27 @@ services:
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
 
-  # Odbiera zadania zlecane z żądań: przetwarzanie wgranych dokumentów,
-  # liczenie embeddingów, pobieranie stron WWW.
+  # Jedna usługa robi obie rzeczy: odbiera zadania z kolejki ORAZ pełni rolę
+  # zegara (flaga --beat). Tak stoi na produkcji od 14.08.2026.
+  #
+  # Rozdzielenie na dwie usługi jest solidniejsze — restart workera nie
+  # restartuje wtedy zegara — ale Render liczy każdą usługę osobno, a przy
+  # obecnej skali (dwa zadania cykliczne na dobę) nie ma to znaczenia.
+  # Gdy pojawi się realny ruch, warto wrócić do dwóch usług.
+  #
+  # PRZY WARIANCIE Z --beat MUSI BYĆ DOKŁADNIE JEDNA INSTANCJA. Druga oznacza
+  # dwa zegary, czyli podwójne pobieranie stron u każdego klienta i podwójne
+  # czyszczenie RODO.
   #
   # Build tylko instaluje zależności. Migracje i pliki statyczne robi proces
-  # web — to on jest właścicielem schematu. Gdy wszystkie trzy usługi puszczały
-  # ./build.sh, każde wdrożenie uruchamiało `migrate` trzykrotnie równolegle
-  # i `collectstatic` w procesach, które statyków w ogóle nie serwują.
+  # web — to on jest właścicielem schematu. Gdy wszystkie usługi puszczały
+  # ./build.sh, każde wdrożenie uruchamiało `migrate` równolegle w kilku
+  # procesach i `collectstatic` tam, gdzie statyków się nie serwuje.
   - type: worker
     name: celery-worker
     runtime: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "celery -A chatbot_project worker --loglevel=info --concurrency=2"
+    startCommand: "celery -A chatbot_project worker --beat --loglevel=info --concurrency=2"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.1
@@ -94,35 +103,6 @@ services:
       - key: EMAIL_HOST_USER
         sync: false
       - key: EMAIL_HOST_PASSWORD
-        sync: false
-
-  # Wyłącznie zegar: co dwanaście godzin zleca pobranie stron WWW, a raz
-  # na dobę czyszczenie rozmów po okresie retencji (RODO). Sam niczego nie
-  # wykonuje — bez działającego celery-worker zlecenia trafiają do kolejki
-  # i tam zostają.
-  #
-  # Musi być dokładnie jedna instancja. Dwie oznaczają podwójne uruchomienia
-  # każdego zadania, w tym podwójne pobieranie stron u każdego klienta.
-  - type: worker
-    name: celery-beat
-    runtime: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "celery -A chatbot_project beat --loglevel=info"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.1
-      - key: REDIS_URL
-        fromService:
-          name: chatbot-redis
-          type: redis
-          # Bez `property` Render odrzuca blueprint. Dla Redisa dozwolone są
-          # connectionString, host i port — Celery potrzebuje pełnego adresu.
-          property: connectionString
-      - key: DJANGO_SETTINGS_MODULE
-        value: chatbot_project.settings.prod
-      - key: DJANGO_SECRET_KEY
-        sync: false
-      - key: DATABASE_URL
         sync: false
 
   - type: redis
