@@ -313,8 +313,14 @@ class ContactRequestCreateSerializer(serializers.Serializer):
 class ContactRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactRequest
-        fields = ["id", "name", "contact", "message", "handled", "created_at"]
-        read_only_fields = ["id", "name", "contact", "message", "created_at"]
+        # blad_powiadomienia wychodzi do panelu celowo: zapisywanie błędu,
+        # którego nikt nie widzi, jest tym samym co jego brak. Właściciel musi
+        # wiedzieć, że o tym zapytaniu nie dostał maila — inaczej czeka na
+        # powiadomienie, które nigdy nie przyszło.
+        fields = ["id", "name", "contact", "message", "handled", "created_at",
+                  "powiadomiono_at", "blad_powiadomienia"]
+        read_only_fields = ["id", "name", "contact", "message", "created_at",
+                            "powiadomiono_at", "blad_powiadomienia"]
 
 
 class FAQSerializer(serializers.ModelSerializer):
