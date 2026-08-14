@@ -66,9 +66,15 @@ def _stan_brokera():
         }
 
 
-def _slad_pobierania(teraz):
-    """Czy strony WWW faktycznie były ostatnio pobierane."""
-    aktywne = WebsiteSource.objects.filter(is_active=True)
+def _slad_pobierania(teraz, tenant):
+    """
+    Czy strony WWW faktycznie były ostatnio pobierane.
+
+    Zawężone do jednego klienta. Endpoint jest dostępny dla każdego
+    właściciela konta, a nie tylko dla nas — bez tego filtra klient widziałby
+    liczbę źródeł innych firm, a w przykładzie błędu nawet cudzy adres strony.
+    """
+    aktywne = WebsiteSource.objects.filter(is_active=True, tenant=tenant)
     liczba = aktywne.count()
     if not liczba:
         return {
@@ -134,7 +140,7 @@ def _slad_pobierania(teraz):
     }
 
 
-def _slad_retencji(teraz):
+def _slad_retencji(teraz, tenant_zadania):
     """
     Czy w bazie zalegają rozmowy starsze, niż pozwala polityka klienta.
 
@@ -145,7 +151,9 @@ def _slad_retencji(teraz):
     klientow_z_zaleglosciami = 0
     ktokolwiek_dobil_do_progu = False
 
-    for tenant in Tenant.objects.filter(data_retention_days__gt=0).only("id", "data_retention_days"):
+    # Tylko własne dane klienta — z tego samego powodu co przy pobieraniu.
+    klienci = Tenant.objects.filter(pk=tenant_zadania.pk, data_retention_days__gt=0)
+    for tenant in klienci.only("id", "data_retention_days"):
         prog = teraz - timedelta(days=tenant.data_retention_days)
         # Doba zapasu: zadanie chodzi o 3:30, więc chwilowa zaległość
         # z ostatnich godzin jest normalna, a nie objawem awarii.
@@ -192,6 +200,26 @@ def _slad_retencji(teraz):
     }
 
 
+def _poziom(broker, pobieranie, retencja):
+    """
+    Powaga stanu w jednym słowie, wyliczana po stronie serwera.
+
+    Panel mógłby to wywnioskować sam z pozostałych pól, ale wtedy istniałyby
+    dwie definicje tego, co znaczy „awaria" — tu i w przeglądarce — i prędzej
+    czy później by się rozjechały. Kolejność warunków musi odpowiadać
+    kolejności w _werdykt, żeby kolor zgadzał się z treścią.
+    """
+    slady = [pobieranie["wniosek"], retencja["wniosek"]]
+
+    if "nie-dziala" in slady:
+        return "awaria"
+    if not broker["broker_osiagalny"] or broker["odpowiedzialo_workerow"] == 0:
+        return "awaria"
+    if "nie-probowano" in slady or "brak-danych" in slady:
+        return "uwaga"
+    return "ok"
+
+
 def _werdykt(broker, pobieranie, retencja):
     """
     Jedno zdanie, od którego można zacząć działać.
@@ -221,14 +249,6 @@ def _werdykt(broker, pobieranie, retencja):
             "deklaruje, ale usługi zakładane ręcznie nie powstają z tego pliku."
         )
 
-    if pobieranie["wniosek"] == "nie-probowano":
-        return (
-            f"Zaplecze działa (worker odpowiada: {broker['odpowiedzialo_workerow']}), ale "
-            "żadnego źródła WWW nie próbowano jeszcze pobrać. To nie jest awaria — "
-            "zadanie po prostu nie zostało jeszcze zlecone. Kliknij „Odśwież teraz” "
-            "przy źródłach w panelu albo poczekaj na najbliższy przebieg harmonogramu."
-        )
-
     if not broker["broker_osiagalny"]:
         return (
             "BROKER NIEOSIĄGALNY z procesu web. Zadania zlecane z żądań wykonują się "
@@ -240,6 +260,18 @@ def _werdykt(broker, pobieranie, retencja):
         return (
             "BROKER DZIAŁA, ALE ŻADEN WORKER NIE ODPOWIADA. Kolejka przyjmuje zadania "
             "i nikt ich nie odbiera. Uruchom usługę celery-worker."
+        )
+
+    # Dopiero tutaj, PO sprawdzeniu brokera i workera. Wcześniej ta gałąź stała
+    # wyżej i potrafiła oznajmić „zaplecze działa (worker odpowiada: 0)" —
+    # zdanie wewnętrznie sprzeczne, w dodatku niezgodne z polem `poziom`,
+    # które w tej samej sytuacji zwracało awarię.
+    if pobieranie["wniosek"] == "nie-probowano":
+        return (
+            f"Zaplecze działa (worker odpowiada: {broker['odpowiedzialo_workerow']}), ale "
+            "żadnego źródła WWW nie próbowano jeszcze pobrać. To nie jest awaria — "
+            "zadanie po prostu nie zostało jeszcze zlecone. Kliknij „Odśwież teraz” "
+            "przy źródłach w panelu albo poczekaj na najbliższy przebieg harmonogramu."
         )
 
     # 2. Nic nie jest zepsute. Zostaje pytanie, ile z tego umiemy potwierdzić —
@@ -282,8 +314,8 @@ class DiagnostykaZadanView(APIView):
     def get(self, request):
         teraz = timezone.now()
         broker = _stan_brokera()
-        pobieranie = _slad_pobierania(teraz)
-        retencja = _slad_retencji(teraz)
+        pobieranie = _slad_pobierania(teraz, request.tenant)
+        retencja = _slad_retencji(teraz, request.tenant)
 
         try:
             from chatbot_project.celery import app
@@ -299,5 +331,6 @@ class DiagnostykaZadanView(APIView):
                 "pobieranie_stron": pobieranie,
                 "czyszczenie_rodo": retencja,
             },
+            "poziom": _poziom(broker, pobieranie, retencja),
             "werdykt": _werdykt(broker, pobieranie, retencja),
         })

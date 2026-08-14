@@ -75,7 +75,8 @@ class TestKatalogPlanow:
         assert plan.price_pln_yearly == cena_roczna
         assert plan.message_limit == wiadomosci
         assert plan.knowledge_base_mb == baza_mb
-        assert plan.max_bots == boty
+        # max_bots celowo nie ma w katalogu: cennik obiecywał 1/3/10 botów,
+        # a modelu wielu botów nigdy nie zbudowano. Wróci razem z funkcją.
         assert plan.max_domains == boty
         assert plan.max_seats == miejsca
 
