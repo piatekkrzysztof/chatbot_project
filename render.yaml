@@ -1,3 +1,16 @@
+# Opis usług na Renderze.
+#
+# UWAGA NA PUŁAPKĘ: ten plik nie tworzy niczego sam z siebie. Usługi założone
+# ręcznie w panelu nie powstają z blueprintu i nie są z nim synchronizowane —
+# obecność wpisu tutaj nie jest dowodem, że usługa istnieje i chodzi.
+# Do sprawdzenia stanu faktycznego służy /api/diagnostyka/zadania/.
+#
+# Zmienne oznaczone `sync: false` Render wypełnia z panelu, a nie z tego pliku.
+# Wypisujemy je mimo to, bo worker i beat startują Django tak samo jak proces
+# web: bez DATABASE_URL i DJANGO_SECRET_KEY nie wstaną, tylko wywalą się przy
+# imporcie ustawień. Wcześniej deklarowały wyłącznie REDIS_URL i wyglądałoby
+# to na poprawną konfigurację aż do pierwszego uruchomienia.
+
 services:
   - type: web
     name: chatbot-backend
@@ -16,12 +29,43 @@ services:
         fromService:
           name: chatbot-redis
           type: redis
+      - key: DJANGO_SETTINGS_MODULE
+        value: chatbot_project.settings.prod
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+      - key: DJANGO_CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: TRUSTED_PROXY_DEPTH
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
 
+  # Odbiera zadania zlecane z żądań: przetwarzanie wgranych dokumentów,
+  # liczenie embeddingów, pobieranie stron WWW.
+  #
+  # Build tylko instaluje zależności. Migracje i pliki statyczne robi proces
+  # web — to on jest właścicielem schematu. Gdy wszystkie trzy usługi puszczały
+  # ./build.sh, każde wdrożenie uruchamiało `migrate` trzykrotnie równolegle
+  # i `collectstatic` w procesach, które statyków w ogóle nie serwują.
   - type: worker
     name: celery-worker
     runtime: python
-    buildCommand: "./build.sh"
-    startCommand: "celery -A chatbot_project worker --loglevel=info"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A chatbot_project worker --loglevel=info --concurrency=2"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.1
@@ -29,11 +73,34 @@ services:
         fromService:
           name: chatbot-redis
           type: redis
+      - key: DJANGO_SETTINGS_MODULE
+        value: chatbot_project.settings.prod
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
 
+  # Wyłącznie zegar: co dwanaście godzin zleca pobranie stron WWW, a raz
+  # na dobę czyszczenie rozmów po okresie retencji (RODO). Sam niczego nie
+  # wykonuje — bez działającego celery-worker zlecenia trafiają do kolejki
+  # i tam zostają.
+  #
+  # Musi być dokładnie jedna instancja. Dwie oznaczają podwójne uruchomienia
+  # każdego zadania, w tym podwójne pobieranie stron u każdego klienta.
   - type: worker
     name: celery-beat
     runtime: python
-    buildCommand: "./build.sh"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "celery -A chatbot_project beat --loglevel=info"
     envVars:
       - key: PYTHON_VERSION
@@ -42,6 +109,13 @@ services:
         fromService:
           name: chatbot-redis
           type: redis
+      - key: DJANGO_SETTINGS_MODULE
+        value: chatbot_project.settings.prod
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
 
   - type: redis
     name: chatbot-redis
+    ipAllowList: []
