@@ -48,10 +48,17 @@ def odpytaj(klient, broker):
 @pytest.mark.django_db
 class TestWerdyktu:
     def test_swieze_pobranie_i_brak_zaleglosci_to_wszystko_dziala(self):
-        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        """„Wszystko działa" wymaga dowodu z OBU sygnałów. Sama świeżo pobrana
+        strona nie wystarcza — bez rozmowy w okolicy progu retencji nie wiadomo,
+        czy czyszczenie w ogóle miało co robić."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=30)
         WebsiteSource.objects.create(
             tenant=tenant, name="strona", url="https://example.com",
             is_active=True, last_crawled_at=timezone.now() - timedelta(hours=3),
+        )
+        blisko_progu = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
+        Conversation.objects.filter(pk=blisko_progu.pk).update(
+            started_at=timezone.now() - timedelta(days=27)
         )
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
 
@@ -90,6 +97,31 @@ class TestWerdyktu:
         czyszczenie = odp.data["slady_w_danych"]["czyszczenie_rodo"]
         assert czyszczenie["wniosek"] == "nie-dziala"
         assert czyszczenie["zaleglych_rozmow"] == 1
+
+    def test_mloda_baza_nie_jest_dowodem_ze_czyszczenie_dziala(self):
+        """Znalezione na produkcji: przy retencji 90 dni i najstarszej rozmowie
+        sprzed tygodnia sprawdzian mówił „działa", choć nie było czego kasować.
+        Miernik, który raportuje sukces bez dowodu, jest gorszy niż jego brak."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
+        swieza = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
+        Conversation.objects.filter(pk=swieza.pk).update(
+            started_at=timezone.now() - timedelta(days=7)
+        )
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        assert odp.data["slady_w_danych"]["czyszczenie_rodo"]["wniosek"] == "brak-danych"
+
+    def test_rozmowy_przy_progu_i_zero_zaleglosci_to_dowod(self):
+        """Dopiero gdy coś było blisko progu i nie przekroczyło go — wiemy,
+        że czyszczenie faktycznie chodzi."""
+        tenant = Tenant.objects.create(name="Firma", data_retention_days=30)
+        blisko = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
+        Conversation.objects.filter(pk=blisko.pk).update(
+            started_at=timezone.now() - timedelta(days=27)
+        )
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        assert odp.data["slady_w_danych"]["czyszczenie_rodo"]["wniosek"] == "dziala"
 
     def test_retencja_wylaczona_nie_jest_zaleglosc(self):
         """0 dni znaczy „nie usuwaj" — stara rozmowa jest wtedy w porządku."""

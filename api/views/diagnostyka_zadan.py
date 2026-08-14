@@ -111,6 +111,7 @@ def _slad_retencji(teraz):
     """
     zalegle = 0
     klientow_z_zaleglosciami = 0
+    ktokolwiek_dobil_do_progu = False
 
     for tenant in Tenant.objects.filter(data_retention_days__gt=0).only("id", "data_retention_days"):
         prog = teraz - timedelta(days=tenant.data_retention_days)
@@ -123,11 +124,30 @@ def _slad_retencji(teraz):
             zalegle += ile
             klientow_z_zaleglosciami += 1
 
+        # Czy ten klient w ogóle zbliżył się do swojego progu retencji.
+        # Bez tego brak zaległości znaczyłby „czyszczenie działa" także wtedy,
+        # gdy najstarsza rozmowa ma tydzień przy retencji 90 dni — czyli gdy
+        # nie było jeszcze czego kasować.
+        blisko_progu = teraz - timedelta(days=tenant.data_retention_days * 0.8)
+        if Conversation.objects.filter(tenant=tenant, started_at__lt=blisko_progu).exists():
+            ktokolwiek_dobil_do_progu = True
+
+    if zalegle == 0 and not ktokolwiek_dobil_do_progu:
+        return {
+            "zaleglych_rozmow": 0,
+            "wniosek": "brak-danych",
+            "opis": (
+                "Żadna rozmowa nie zbliżyła się jeszcze do okresu retencji, "
+                "więc nie ma czego kasować — brak zaległości nie dowodzi, "
+                "że czyszczenie działa."
+            ),
+        }
+
     if zalegle == 0:
         return {
             "zaleglych_rozmow": 0,
             "wniosek": "dziala",
-            "opis": "Żadna rozmowa nie przekracza okresu retencji swojego klienta.",
+            "opis": "Są rozmowy w okolicy progu retencji i żadna go nie przekracza.",
         }
     return {
         "zaleglych_rozmow": zalegle,
