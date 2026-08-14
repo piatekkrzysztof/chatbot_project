@@ -29,6 +29,9 @@ services:
         fromService:
           name: chatbot-redis
           type: redis
+          # Bez `property` Render odrzuca blueprint. Dla Redisa dozwolone są
+          # connectionString, host i port — Celery potrzebuje pełnego adresu.
+          property: connectionString
       - key: DJANGO_SETTINGS_MODULE
         value: chatbot_project.settings.prod
       - key: DJANGO_SECRET_KEY
@@ -73,6 +76,9 @@ services:
         fromService:
           name: chatbot-redis
           type: redis
+          # Bez `property` Render odrzuca blueprint. Dla Redisa dozwolone są
+          # connectionString, host i port — Celery potrzebuje pełnego adresu.
+          property: connectionString
       - key: DJANGO_SETTINGS_MODULE
         value: chatbot_project.settings.prod
       - key: DJANGO_SECRET_KEY
@@ -109,6 +115,9 @@ services:
         fromService:
           name: chatbot-redis
           type: redis
+          # Bez `property` Render odrzuca blueprint. Dla Redisa dozwolone są
+          # connectionString, host i port — Celery potrzebuje pełnego adresu.
+          property: connectionString
       - key: DJANGO_SETTINGS_MODULE
         value: chatbot_project.settings.prod
       - key: DJANGO_SECRET_KEY
