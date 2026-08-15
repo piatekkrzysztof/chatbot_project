@@ -23,6 +23,13 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+# Rozpoznawalny znacznik przyczyny „nie ma dokąd wysłać". Panel pokazuje przy
+# nim inną podpowiedź niż przy awarii wysyłki — to dwa różne problemy i dwa
+# różne działania, a wcześniej dostawały jeden komunikat: „sprawdź adres
+# e-mail w ustawieniach konta". Przy zepsutej skrzynce nadawczej ta rada
+# wysyłała do grzebania w niewłaściwym miejscu.
+BRAK_ADRESU = "BRAK_ADRESU: firma nie ma ustawionego adresu e-mail właściciela."
+
 # Ile ostatnich wiadomości wchodzi do maila. Cała rozmowa bywa długa, a do
 # decyzji „oddzwonić czy nie" wystarcza ostatni fragment — reszta jest w panelu.
 MAX_WIADOMOSCI = 12
@@ -103,7 +110,7 @@ def powiadom_o_zapytaniu(contact_request_id):
     adres = zapytanie.tenant.owner_email
     if not adres:
         ContactRequest.objects.filter(pk=contact_request_id).update(
-            blad_powiadomienia="Firma nie ma ustawionego adresu e-mail właściciela."
+            blad_powiadomienia=BRAK_ADRESU
         )
         logger.warning("Powiadomienie %s: firma %s bez adresu e-mail",
                        contact_request_id, zapytanie.tenant_id)
