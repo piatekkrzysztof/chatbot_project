@@ -47,8 +47,12 @@ def zapis_rozmowy(contact_request):
     if rozmowa is None:
         return ""
 
+    # Sortowanie po samym znaczniku czasu nie wystarcza: pytanie i odpowiedź
+    # zapisane w tej samej chwili dają remis, a przy remisie baza zwraca wiersze
+    # w dowolnej kolejności. W mailu wyglądałoby to jak odpowiedź przed
+    # pytaniem. Klucz główny rośnie monotonicznie, więc rozstrzyga jednoznacznie.
     wiadomosci = list(
-        rozmowa.messages.order_by("-timestamp")[:MAX_WIADOMOSCI]
+        rozmowa.messages.order_by("-timestamp", "-id")[:MAX_WIADOMOSCI]
     )[::-1]
     if not wiadomosci:
         return ""
