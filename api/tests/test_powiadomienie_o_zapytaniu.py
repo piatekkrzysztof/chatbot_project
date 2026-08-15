@@ -75,6 +75,21 @@ class TestTresci:
 
         assert "bez wcześniejszej rozmowy" in mail.outbox[0].body
 
+    def test_kolejnosc_jest_zachowana_przy_identycznym_czasie(self):
+        """Wykryte przez niestabilny test: wiadomości zapisane w tej samej
+        chwili dawały remis w sortowaniu, a baza zwracała je wtedy w dowolnej
+        kolejności. W mailu mogła wyjść odpowiedź przed pytaniem."""
+        t = firma()
+        rozmowa = Conversation.objects.create(tenant=t, user_identifier="gosc")
+        for numer in range(6):
+            ChatMessage.objects.create(
+                conversation=rozmowa, sender="user", message=f"krok {numer}"
+            )
+        zapis = zapis_rozmowy(zapytanie(t, rozmowa))
+
+        pozycje = [zapis.index(f"krok {n}") for n in range(6)]
+        assert pozycje == sorted(pozycje), f"kolejność się rozjechała: {zapis}"
+
     def test_dlugie_rozmowy_sa_przycinane(self):
         """Cała rozmowa bywa długa; do decyzji wystarcza ostatni fragment."""
         t = firma()
