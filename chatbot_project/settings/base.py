@@ -228,15 +228,42 @@ RAG_MAX_DISTANCE = float(os.getenv("RAG_MAX_DISTANCE", "1.15"))
 # Minimalne podobieństwo pytania do wpisu FAQ (rapidfuzz, 0-100), by uznać trafienie
 FAQ_MATCH_THRESHOLD = int(os.getenv("FAQ_MATCH_THRESHOLD", "65"))
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.hostinger.com'
-EMAIL_PORT = 465
-EMAIL_USE_TLS = False
-EMAIL_USE_SSL = True
+# ─── Poczta wychodząca ───
+#
+# Wszystko ze zmiennych środowiskowych, bo dostawca poczty się zmienia,
+# a zmiana dostawcy nie powinna wymagać wdrożenia kodu. Wartości domyślne
+# wskazują Resend — dostawcę transakcyjnego, nie zwykłą skrzynkę.
+#
+# Poprzednio adres serwera był wpisany na sztywno na skrzynkę Hostingera.
+# Gdy ta wygasła, powiadomienia o zapytaniach przestały wychodzić i jedynym
+# sposobem naprawy była zmiana w kodzie.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.resend.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "465"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+# Django odmawia startu, gdy oba są włączone naraz. Wyliczamy jedno z portu,
+# żeby nie dało się ustawić sprzecznej pary przez pomyłkę w zmiennych.
+EMAIL_USE_SSL = EMAIL_PORT in (465, 2465)
+EMAIL_USE_TLS = not EMAIL_USE_SSL
 
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# NADAWCA TO OSOBNA RZECZ NIŻ LOGIN SMTP i tu leżała pułapka. U Hostingera
+# jedno równało się drugiemu, więc kod brał adres z loginu. U dostawców
+# transakcyjnych login jest techniczny — w Resendzie to dosłownie "resend",
+# a hasłem jest klucz API. Nadawcą musi być zweryfikowany adres w Twojej
+# domenie, inaczej wysyłka zostaje odrzucona.
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER
 
-EMAIL_TIMEOUT = 30
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))
+
+if EMAIL_BACKEND.endswith("smtp.EmailBackend") and not (EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL):
+    # Ta sama zasada co przy CHATBOT_KEY na stronie: wyłącznik ma być
+    # wyłącznikiem, nie pułapką. Bez tego brak konfiguracji poczty objawia się
+    # dopiero jako cisza — klient nie dostaje powiadomień o zapytaniach
+    # i nie ma jak się dowiedzieć, dlaczego.
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "Poczta nie jest w pełni skonfigurowana (brak EMAIL_HOST_PASSWORD "
+        "albo DEFAULT_FROM_EMAIL) — powiadomienia o zapytaniach nie wyjdą."
+    )
