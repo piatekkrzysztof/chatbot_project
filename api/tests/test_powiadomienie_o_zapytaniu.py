@@ -127,7 +127,23 @@ class TestSladu:
 
         assert len(mail.outbox) == 0
         assert z.powiadomiono_at is None
-        assert "adresu e-mail" in z.blad_powiadomienia
+        assert z.blad_powiadomienia.startswith("BRAK_ADRESU")
+
+    def test_awaria_wysylki_ma_inny_znacznik_niz_brak_adresu(self):
+        """Panel podpowiada co innego przy każdej z tych przyczyn, więc muszą
+        być rozróżnialne. Wcześniej obie dostawały ten sam komunikat i przy
+        zepsutej skrzynce nadawczej rada brzmiała „sprawdź adres w ustawieniach
+        konta" — czyli wysyłała do grzebania w niewłaściwym miejscu."""
+        t = firma()
+        z = zapytanie(t)
+
+        with patch("chat.powiadomienia.send_mail",
+                   side_effect=OSError("SMTPAuthenticationError: 535")):
+            powiadom_o_zapytaniu(z.pk)
+        z.refresh_from_db()
+
+        assert not z.blad_powiadomienia.startswith("BRAK_ADRESU")
+        assert "535" in z.blad_powiadomienia
 
     def test_awaria_poczty_nie_gubi_samego_zapytania(self):
         """Zapytanie jest cenniejsze niż powiadomienie o nim."""
