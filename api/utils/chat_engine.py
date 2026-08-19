@@ -10,6 +10,7 @@ from accounts.models import WIDGET_LANGUAGE_ADVERBS
 from api.utils.language import jezyk_odpowiedzi
 from api.utils.tokens import przytnij_do_budzetu
 from chat.models import ChatMessage, ChatUsageLog, PromptLog, FAQ
+from documents.utils.queue import enqueue
 from rag.engine import query_similar_chunks_pgvector
 
 logger = logging.getLogger(__name__)
@@ -222,6 +223,38 @@ def determine_source(chunks, faqs, message_text):
     return "gpt"
 
 
+def zapisz_pytanie_i_zglos_start(tenant, conversation, message_text):
+    """
+    Zapisuje wiadomość odwiedzającego i — przy pierwszej w rozmowie —
+    zleca powiadomienie właściciela.
+
+    Jeden pomocnik dla obu ścieżek czatu (strumieniowej i zwykłej), bo zapis
+    pytania był w nich zduplikowany. Przy dwóch kopiach powiadomienie
+    trafiłoby prędzej czy później tylko do jednej.
+    """
+    # Zadanie importowane lokalnie: chat.tasks ciągnie za sobą Celery,
+    # a ten moduł jest importowany przy starcie każdego procesu.
+    from chat.tasks import powiadom_o_rozmowie_task
+
+    ChatMessage.objects.create(
+        conversation=conversation,
+        sender="user",
+        message=message_text,
+        source="manual",
+    )
+
+    if not tenant.powiadom_o_rozmowie:
+        return
+
+    # Tylko pierwsza wypowiedź w rozmowie. Bez tego dłuższa wymiana zdań
+    # zamieniłaby się w serię maili o tej samej rozmowie.
+    czy_pierwsza = ChatMessage.objects.filter(
+        conversation=conversation, sender="user"
+    ).count() == 1
+    if czy_pierwsza:
+        enqueue(powiadom_o_rozmowie_task, conversation.id)
+
+
 def persist_exchange(tenant, conversation, response_text, source, tokens, model, prompt_text):
     """
     Zapisuje odpowiedź bota wraz z logami zużycia i promptu.
@@ -263,12 +296,7 @@ def process_chat_message(tenant, conversation, message_text):
     """
     model = settings.OPENAI_CHAT_MODEL
 
-    ChatMessage.objects.create(
-        conversation=conversation,
-        sender="user",
-        message=message_text,
-        source="manual",
-    )
+    zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
 
     messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
     source = determine_source(chunks, faqs, message_text)
@@ -332,12 +360,7 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
     """
     model = settings.OPENAI_CHAT_MODEL
 
-    ChatMessage.objects.create(
-        conversation=conversation,
-        sender="user",
-        message=message_text,
-        source="manual",
-    )
+    zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
 
     messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
     source = determine_source(chunks, faqs, message_text)

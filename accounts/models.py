@@ -240,6 +240,17 @@ class Tenant(models.Model):
     # Email
     owner_email = models.EmailField(blank=True, null=True)
 
+    # Powiadomienie o KAŻDEJ rozpoczętej rozmowie, nie tylko o zostawionym
+    # kontakcie. Domyślnie wyłączone i to jest świadome: przy realnym ruchu
+    # mail od każdego odwiedzającego zamienia się w szum, a wtedy właściciel
+    # przestaje czytać także te powiadomienia, które niosą zapytanie.
+    # Włączone ma sens na początku, gdy rozmów jest kilka dziennie i każda
+    # jest ciekawa.
+    powiadom_o_rozmowie = models.BooleanField(
+        default=False,
+        verbose_name="Powiadamiaj o każdej rozpoczętej rozmowie",
+    )
+
     # RODO — rozmowy odwiedzających to dane osobowe (treść pytań, adres IP, kontakty
     # zostawione w formularzu). Administratorem jest firma-klient, my przetwarzamy
     # w jej imieniu, więc okres przechowywania musi być jej decyzją, nie naszą.

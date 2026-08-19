@@ -140,3 +140,59 @@ def powiadom_o_zapytaniu(contact_request_id):
     ContactRequest.objects.filter(pk=contact_request_id).update(
         powiadomiono_at=timezone.now(), blad_powiadomienia=""
     )
+
+
+def powiadom_o_rozmowie(conversation_id):
+    """
+    Powiadomienie o rozpoczętej rozmowie — niezależne od tego, czy ktoś
+    zostawił kontakt.
+
+    Powstało, bo przejęcie kontaktu ma wąski lejek: propozycja pojawia się
+    tylko wtedy, gdy bot nie znalazł odpowiedzi, a odwiedzający musi ją
+    jeszcze zauważyć i wypełnić. Rozmowa, która nie skończyła się kontaktem,
+    bywa mimo to warta oddzwonienia — o ile ktokolwiek o niej wie.
+
+    Wysyłamy wyłącznie przy PIERWSZEJ wiadomości w rozmowie. Powiadomienie
+    po każdej wypowiedzi zamieniłoby dłuższą rozmowę w serię maili.
+    """
+    from chat.models import Conversation
+
+    try:
+        rozmowa = Conversation.objects.select_related("tenant").get(pk=conversation_id)
+    except Conversation.DoesNotExist:
+        logger.warning("Powiadomienie o rozmowie: brak rozmowy %s", conversation_id)
+        return
+
+    adres = rozmowa.tenant.owner_email
+    if not adres:
+        logger.warning("Powiadomienie o rozmowie %s: firma bez adresu", conversation_id)
+        return
+
+    pierwsze = rozmowa.messages.filter(sender="user").order_by("timestamp", "id").first()
+    pytanie = pierwsze.message.strip() if pierwsze else "(brak treści)"
+    panel = f"{settings.FRONTEND_URL.rstrip('/')}/conversations"
+
+    tresc = "\n".join([
+        "Ktoś właśnie zaczął rozmowę z chatem na Twojej stronie.",
+        "",
+        f"Pierwsze pytanie:  {pytanie}",
+        "",
+        "Jeśli rozmowa skończy się zostawieniem kontaktu, dostaniesz osobną",
+        "wiadomość z całym przebiegiem.",
+        "",
+        f"Podgląd rozmów: {panel}",
+    ])
+
+    try:
+        send_mail(
+            subject=f"Nowa rozmowa na czacie — {rozmowa.tenant.name}",
+            message=tresc,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[adres],
+            fail_silently=False,
+        )
+    except Exception:
+        # Bez zapisu przy obiekcie: rozmowa to nie zapytanie, a powiadomienie
+        # o niej jest wygodą, nie zobowiązaniem. Log wystarczy, żeby dało się
+        # to znaleźć, gdy klient zgłosi brak maili.
+        logger.exception("Nie udało się powiadomić o rozmowie %s", conversation_id)
