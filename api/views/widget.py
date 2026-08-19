@@ -38,6 +38,21 @@ def _wlaczone(wartosc):
     return bool(wartosc)
 
 
+def branding_dla_panelu(tenant, request):
+    """
+    To samo co serialize_widget_branding plus ustawienia, które widzi wyłącznie
+    właściciel.
+
+    Rozdzielone, bo serialize_widget_branding zasila też publiczny endpoint
+    czytany przez sam widget — z samym kluczem API, bez logowania. Wszystko,
+    co tam trafi, jest odczytywalne przez każdego, kto podejrzy kod strony
+    klienta. Preferencje powiadomień właściciela nie mają tam czego szukać.
+    """
+    dane = serialize_widget_branding(tenant, request)
+    dane["powiadom_o_rozmowie"] = tenant.powiadom_o_rozmowie
+    return dane
+
+
 def serialize_widget_branding(tenant, request):
     # Wersja językowa strony klienta, przekazana przez embed.js z atrybutu
     # <html lang>. Zaczepkę wybieramy po stronie serwera, bo widget i tak nie
@@ -253,7 +268,7 @@ class TenantWidgetSettingsView(APIView):
     permission_classes = [IsOwnerOrEmployee]
 
     def get(self, request):
-        return Response(serialize_widget_branding(request.user.tenant, request))
+        return Response(branding_dla_panelu(request.user.tenant, request))
 
     def patch(self, request):
         tenant = request.user.tenant
@@ -290,7 +305,8 @@ class TenantWidgetSettingsView(APIView):
             "widget_proactive_delay_seconds",
         )
         # Osobno, bo z formularza przychodzą jako napisy "true"/"false"
-        bool_fields = ("widget_proactive_enabled", "widget_hide_branding")
+        bool_fields = ("widget_proactive_enabled", "widget_hide_branding",
+                       "powiadom_o_rozmowie")
         changed_fields = []
 
         for field in text_fields:
@@ -329,7 +345,7 @@ class TenantWidgetSettingsView(APIView):
         if changed_fields:
             tenant.save(update_fields=changed_fields)
 
-        return Response(serialize_widget_branding(tenant, request))
+        return Response(branding_dla_panelu(tenant, request))
 
 
 @extend_schema(
