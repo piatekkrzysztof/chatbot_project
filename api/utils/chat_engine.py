@@ -79,6 +79,14 @@ def build_system_prompt(tenant, chunks, faqs, message=None):
         "Dotyczy to zwłaszcza pytań o to, czym firma się zajmuje, co oferuje, "
         "jakie ma ceny, godziny otwarcia i zasady — o tym wypowiadasz się tylko wtedy, "
         "gdy wynika to z wiedzy podanej niżej.",
+        # Bez tego nie mamy jak odróżnić odpowiedzi od odmowy. Retrieval tego nie
+        # powie: zwraca najbliższe fragmenty niezależnie od tego, czy odpowiadają
+        # na pytanie. Wie o tym tylko model — więc niech powie wprost.
+        f"Gdy nie potrafisz odpowiedzieć na podstawie wiedzy podanej niżej, "
+        f"ZACZNIJ odpowiedź dokładnie od {ZNACZNIK_BRAKU}, a dalej pisz normalnie "
+        f"(odmowa i propozycja kontaktu z firmą, w języku rozmowy). Znacznik "
+        f"wpisz tylko na samym początku i nigdy w środku zdania. Gdy odpowiadasz "
+        f"na podstawie podanej wiedzy — nie wpisuj go wcale.",
     ]
 
     if not has_company_knowledge(tenant, chunks, faqs):
@@ -130,6 +138,18 @@ def build_history_messages(conversation, limit=None):
         elif msg.sender == "bot":
             messages.append({"role": "assistant", "content": msg.message})
     return messages
+
+
+def zrodla_do_pokazania(chunks, source):
+    """
+    Lista źródeł pod odpowiedzią — pusta, gdy bot nie odpowiedział.
+
+    Na screenie od klienta pod zdaniem „nie posiadam informacji na temat
+    organizacji chrzcin" wisiały cztery dokumenty. To nie były źródła
+    odpowiedzi, tylko najbliższe trafienia wyszukiwarki — czyli podpis
+    pod czymś, czego nie ma.
+    """
+    return [] if source == "gpt" else collect_sources(chunks)
 
 
 def collect_sources(chunks):
@@ -212,10 +232,83 @@ def faq_matches_question(faqs, message_text):
     )
 
 
-def determine_source(chunks, faqs, message_text):
+# Model zaczyna od tego ciągu, gdy nie potrafi odpowiedzieć z podanej wiedzy.
+# Nigdy nie dociera do odwiedzającego — zdejmujemy go przed wysłaniem.
+ZNACZNIK_BRAKU = "[BRAK_ODPOWIEDZI]"
+
+
+class ObcinaczZnacznika:
     """
-    Skąd realnie pochodzi pokrycie odpowiedzi — sterruje raportem luk w wiedzy.
+    Zdejmuje znacznik z początku strumienia, zanim cokolwiek pójdzie do
+    przeglądarki.
+
+    Znacznik stoi na POCZĄTKU odpowiedzi, nie na końcu, właśnie przez
+    streaming: koniec przychodzi wtedy, gdy reszta jest już u odwiedzającego.
+    Na początku wystarczy wstrzymać kilkanaście pierwszych znaków.
     """
+
+    def __init__(self):
+        self._bufor = ""
+        self._zdecydowano = False
+        # Spacja po znaczniku bywa osobnym tokenem, więc nie zawsze da się ją
+        # uciąć razem z nim. Bez tego odpowiedź zaczyna się od spacji.
+        self._czekam_na_tresc = False
+        self.brak_pokrycia = False
+
+    def podaj(self, kawalek):
+        """Fragment gotowy do wysłania — bywa pusty, dopóki trwa rozstrzyganie."""
+        if self._zdecydowano:
+            if self._czekam_na_tresc:
+                kawalek = kawalek.lstrip()
+                self._czekam_na_tresc = not kawalek
+            return kawalek
+
+        self._bufor += kawalek
+        poczatek = self._bufor.lstrip()
+
+        if len(poczatek) < len(ZNACZNIK_BRAKU):
+            # Wciąż może się okazać znacznikiem — czekamy na kolejne tokeny
+            if ZNACZNIK_BRAKU.startswith(poczatek):
+                return ""
+            return self._rozstrzygnij(self._bufor)
+
+        if poczatek.startswith(ZNACZNIK_BRAKU):
+            self.brak_pokrycia = True
+            reszta = poczatek[len(ZNACZNIK_BRAKU):].lstrip()
+            self._czekam_na_tresc = not reszta
+            return self._rozstrzygnij(reszta)
+        return self._rozstrzygnij(self._bufor)
+
+    def zakoncz(self):
+        """Resztka bufora, gdy strumień skończył się w trakcie rozstrzygania.
+
+        Bez tego odpowiedź krótsza niż znacznik ("Tak.") przepadałaby w całości.
+        """
+        if self._zdecydowano:
+            return ""
+        return self._rozstrzygnij(self._bufor)
+
+    def _rozstrzygnij(self, tekst):
+        self._zdecydowano = True
+        self._bufor = ""
+        return tekst
+
+
+def determine_source(chunks, faqs, message_text, brak_pokrycia=False):
+    """
+    Skąd realnie pochodzi pokrycie odpowiedzi — steruje raportem luk w wiedzy
+    i tym, czy widget zaproponuje kontakt z firmą.
+
+    `brak_pokrycia` bije wszystko, bo pochodzi od samego modelu. Wcześniej
+    liczyła się wyłącznie niepustość `chunks`, czyli to, czy wyszukiwarka
+    cokolwiek zwróciła — a ta zwraca najbliższe fragmenty, nie fragmenty
+    trafne. Pytanie o chrzciny w firmie od wesel wyciągało cztery fragmenty
+    o weselach: bot uczciwie odmawiał, źródło szło jako "document", widget
+    nie proponował kontaktu i zapytanie nie powstawało. Retrieval mierzy
+    podobieństwo, nie przydatność.
+    """
+    if brak_pokrycia:
+        return "gpt"
     if chunks:
         return "document"
     if faq_matches_question(faqs, message_text):
@@ -299,7 +392,6 @@ def process_chat_message(tenant, conversation, message_text):
     zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
 
     messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
-    source = determine_source(chunks, faqs, message_text)
 
     # Nieudane wywołanie modelu nie może kosztować klienta wiadomości z planu.
     # Wcześniej widok naliczał bezwarunkowo, więc awaria po naszej stronie
@@ -314,6 +406,10 @@ def process_chat_message(tenant, conversation, message_text):
         tokens = 0
         billable = False
 
+    obcinacz = ObcinaczZnacznika()
+    response_text = obcinacz.podaj(response_text) + obcinacz.zakoncz()
+    source = determine_source(chunks, faqs, message_text, obcinacz.brak_pokrycia)
+
     wiadomosc = persist_exchange(
         tenant, conversation, response_text, source, tokens, model,
         prompt_text=message_text,
@@ -323,7 +419,7 @@ def process_chat_message(tenant, conversation, message_text):
         "response": response_text,
         "source": source,
         "tokens": tokens,
-        "sources": collect_sources(chunks),
+        "sources": zrodla_do_pokazania(chunks, source),
         "message_id": wiadomosc.id,
         # Zdejmowane przez widok — to informacja rozliczeniowa, nie treść dla widgetu
         "billable": billable,
@@ -363,10 +459,14 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
     zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
 
     messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
-    source = determine_source(chunks, faqs, message_text)
 
+    # Znacznik braku odpowiedzi stoi na początku strumienia i nie może dotrzeć
+    # do przeglądarki — obcinacz wstrzymuje pierwsze kilkanaście znaków, dopóki
+    # nie wiadomo, czy to on.
+    obcinacz = ObcinaczZnacznika()
     pieces = []
     tokens = 0
+    awaria = False
 
     try:
         stream = get_client(tenant).chat.completions.create(
@@ -381,16 +481,27 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
             if getattr(event, "usage", None):
                 tokens = event.usage.total_tokens
             if event.choices and event.choices[0].delta.content:
-                piece = event.choices[0].delta.content
-                pieces.append(piece)
-                yield _sse({"type": "delta", "content": piece})
+                piece = obcinacz.podaj(event.choices[0].delta.content)
+                if piece:
+                    pieces.append(piece)
+                    yield _sse({"type": "delta", "content": piece})
     except Exception as e:
         logger.exception("Błąd podczas streamowania odpowiedzi: %s", e)
         if not pieces:
             pieces.append(FALLBACK_MESSAGE)
+            awaria = True
             yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
 
+    # Odpowiedź krótsza niż znacznik nigdy nie wyszła z bufora — bez tego
+    # przepadłaby w całości. Po komunikacie o awarii bufor zostawiamy: urwany
+    # początek zdania dokleiłby się do niego i wyszłaby z tego sieczka.
+    reszta = "" if awaria else obcinacz.zakoncz()
+    if reszta:
+        pieces.append(reszta)
+        yield _sse({"type": "delta", "content": reszta})
+
     response_text = "".join(pieces)
+    source = determine_source(chunks, faqs, message_text, obcinacz.brak_pokrycia)
 
     # Urwany strumień też się liczy: odwiedzający zobaczył treść od modelu,
     # a my zapłaciliśmy za tokeny. Nie liczy się wyłącznie sama awaria,
@@ -408,6 +519,6 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
         "type": "done",
         "source": source,
         "tokens": tokens,
-        "sources": collect_sources(chunks),
+        "sources": zrodla_do_pokazania(chunks, source),
         "message_id": wiadomosc.id,
     })
