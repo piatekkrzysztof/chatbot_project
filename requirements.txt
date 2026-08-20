@@ -56,6 +56,9 @@ gunicorn==23.0.0
 python-dotenv==1.0.1
 python-decouple==3.8
 python-dateutil==2.9.0.post0
+# Wchodzi też jako zależność drf-spectacular, ale importujemy go wprost
+# (test spójności render.yaml), więc deklarujemy go jawnie.
+PyYAML==6.0.2
 
 # Monitoring błędów
 sentry-sdk==2.29.1

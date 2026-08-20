@@ -30,3 +30,19 @@ def powiadom_o_rozmowie_task(conversation_id):
     from chat.powiadomienia import powiadom_o_rozmowie
 
     powiadom_o_rozmowie(conversation_id)
+
+
+@shared_task
+def sprawdz_poczte_task(adres_testowy=None):
+    """
+    To samo sprawdzenie, ale wykonane w procesie workera.
+
+    Powłoka Rendera podpina się wyłącznie do usługi web, więc konfiguracji
+    workera nie da się obejrzeć bezpośrednio — a to on realnie wysyła
+    powiadomienia i to na nim siedziała literówka w adresie nadawcy.
+    Zlecenie tego zadania i odczytanie wyniku to jedyny sposób, żeby
+    zobaczyć jego ustawienia.
+    """
+    from chat.management.commands.sprawdz_poczte import zbadaj_poczte
+
+    return zbadaj_poczte(adres_testowy)

@@ -257,13 +257,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER
 
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))
 
-if EMAIL_BACKEND.endswith("smtp.EmailBackend") and not (EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL):
-    # Ta sama zasada co przy CHATBOT_KEY na stronie: wyłącznik ma być
-    # wyłącznikiem, nie pułapką. Bez tego brak konfiguracji poczty objawia się
-    # dopiero jako cisza — klient nie dostaje powiadomień o zapytaniach
-    # i nie ma jak się dowiedzieć, dlaczego.
-    import logging as _logging
-    _logging.getLogger(__name__).warning(
-        "Poczta nie jest w pełni skonfigurowana (brak EMAIL_HOST_PASSWORD "
-        "albo DEFAULT_FROM_EMAIL) — powiadomienia o zapytaniach nie wyjdą."
-    )
+# Sprawdzenie poprawności tych ustawień siedzi w ChatConfig.ready()
+# (chat/kontrola_poczty.py). Było tutaj, ale pytało wyłącznie o OBECNOŚĆ
+# zmiennych — a obie awarie, które realnie wystąpiły, były wartościami
+# obecnymi i błędnymi: "stmp.resend.com" oraz nadawca z podkreślnikiem
+# w domenie. Walidacja kształtu potrzebuje załadowanego Django, więc nie
+# mieści się w module ustawień.

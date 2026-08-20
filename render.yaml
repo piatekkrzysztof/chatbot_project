@@ -48,6 +48,17 @@ services:
         sync: false
       - key: TRUSTED_PROXY_DEPTH
         sync: false
+      # UWAGA: te zmienne muszą być IDENTYCZNE na obu usługach. Render trzyma
+      # je osobno dla każdej i nic ich ze sobą nie porównuje, a wklepuje się
+      # je ręcznie. Realnie rozjechały się dwa razy: EMAIL_HOST = "stmp..."
+      # na web i DEFAULT_FROM_EMAIL z podkreślnikiem w domenie na workerze.
+      # Obie literówki wyszły dopiero przy prawdziwym zapytaniu od klienta.
+      # Do sprawdzenia stanu faktycznego: `manage.py sprawdz_poczte` (web)
+      # oraz zadanie `sprawdz_poczte_task` (worker).
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
       - key: EMAIL_HOST_USER
         sync: false
       - key: EMAIL_HOST_PASSWORD
@@ -104,6 +115,17 @@ services:
       - key: DJANGO_ALLOWED_HOSTS
         sync: false
       - key: FRONTEND_URL
+        sync: false
+      # UWAGA: te zmienne muszą być IDENTYCZNE na obu usługach. Render trzyma
+      # je osobno dla każdej i nic ich ze sobą nie porównuje, a wklepuje się
+      # je ręcznie. Realnie rozjechały się dwa razy: EMAIL_HOST = "stmp..."
+      # na web i DEFAULT_FROM_EMAIL z podkreślnikiem w domenie na workerze.
+      # Obie literówki wyszły dopiero przy prawdziwym zapytaniu od klienta.
+      # Do sprawdzenia stanu faktycznego: `manage.py sprawdz_poczte` (web)
+      # oraz zadanie `sprawdz_poczte_task` (worker).
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
         sync: false
       - key: EMAIL_HOST_USER
         sync: false
