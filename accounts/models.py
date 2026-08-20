@@ -246,6 +246,16 @@ class Tenant(models.Model):
     # przestaje czytać także te powiadomienia, które niosą zapytanie.
     # Włączone ma sens na początku, gdy rozmów jest kilka dziennie i każda
     # jest ciekawa.
+    # Cotygodniowe zestawienie pytań, na które bot nie umiał odpowiedzieć.
+    # Domyślnie WŁĄCZONE, odwrotnie niż powiadomienie o rozmowie — bo to jeden
+    # list na tydzień, wychodzi tylko wtedy, gdy jest o czym pisać, i niesie
+    # jedyną rzecz, której klient nie zobaczy sam z siebie: czego jego klienci
+    # szukali, a nie znaleźli.
+    raport_tygodniowy = models.BooleanField(
+        default=True,
+        verbose_name="Cotygodniowy raport luk w wiedzy",
+    )
+
     powiadom_o_rozmowie = models.BooleanField(
         default=False,
         verbose_name="Powiadamiaj o każdej rozpoczętej rozmowie",

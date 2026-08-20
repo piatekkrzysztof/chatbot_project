@@ -46,3 +46,23 @@ def sprawdz_poczte_task(adres_testowy=None):
     from chat.management.commands.sprawdz_poczte import zbadaj_poczte
 
     return zbadaj_poczte(adres_testowy)
+
+
+@shared_task
+def wyslij_raporty_tygodniowe():
+    """
+    Cotygodniowy obchód wszystkich firm z włączonym raportem luk.
+
+    Jedno zadanie na wszystkich, a nie zadanie na firmę: przy obecnej skali
+    to kilka zapytań do bazy, a rozsypanie tego na osobne zadania utrudniłoby
+    odpowiedź na jedyne pytanie, które się tu liczy — czy obchód w ogóle się
+    odbył. Gdy klientów przybędzie, warto to rozbić.
+    """
+    from accounts.models import Tenant
+    from chat.raport_luk import wyslij_raport
+
+    wyslane = 0
+    for tenant in Tenant.objects.filter(raport_tygodniowy=True).exclude(owner_email=""):
+        if wyslij_raport(tenant):
+            wyslane += 1
+    return wyslane
