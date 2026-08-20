@@ -50,6 +50,7 @@ def branding_dla_panelu(tenant, request):
     """
     dane = serialize_widget_branding(tenant, request)
     dane["powiadom_o_rozmowie"] = tenant.powiadom_o_rozmowie
+    dane["raport_tygodniowy"] = tenant.raport_tygodniowy
     return dane
 
 
@@ -306,7 +307,7 @@ class TenantWidgetSettingsView(APIView):
         )
         # Osobno, bo z formularza przychodzą jako napisy "true"/"false"
         bool_fields = ("widget_proactive_enabled", "widget_hide_branding",
-                       "powiadom_o_rozmowie")
+                       "powiadom_o_rozmowie", "raport_tygodniowy")
         changed_fields = []
 
         for field in text_fields:
