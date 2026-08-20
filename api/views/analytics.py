@@ -13,10 +13,17 @@ from drf_spectacular.utils import extend_schema
 
 from api.schemas import AnalyticsSerializer
 from chat.models import Conversation, ChatMessage, PromptLog, FAQ
+from chat.raport_luk import luki_w_wiedzy
 from documents.models import Document, DocumentChunk, WebsiteSource
 
 
 UNANSWERED_LIMIT = 20
+
+# Okno listy luk na pulpicie. Wcześniej brana była cała historia konta, co przy
+# dłużej działającym bocie zamieniało "szanse na poprawę" w archiwum: na górze
+# siedziały pytania sprzed pół roku, dawno nieaktualne. Trzydzieści dni to
+# zarazem to samo okno, którym mierzone są pozostałe liczby na pulpicie.
+OKNO_LUK_DNI = 30
 
 
 def knowledge_summary(tenant):
@@ -118,10 +125,14 @@ class TenantAnalyticsView(APIView):
             for row in logs.values("source").annotate(count=Count("id"))
         }
 
-        unanswered = (
-            logs.filter(source="gpt")
-            .order_by("-created_at")
-            .values("id", "prompt", "created_at")[:UNANSWERED_LIMIT]
+        # Wspólne z raportem tygodniowym: jedna definicja tego, co liczy się
+        # jako luka, i jedna zasada sklejania powtórzeń. Przy dwóch
+        # implementacjach pulpit i mail prędzej czy później zaczęłyby pokazywać
+        # co innego, a klient nie miałby jak rozstrzygnąć, które kłamie.
+        unanswered = luki_w_wiedzy(
+            tenant,
+            od=timezone.now() - timedelta(days=OKNO_LUK_DNI),
+            limit=UNANSWERED_LIMIT,
         )
 
         subscription = getattr(tenant, "subscription", None)
@@ -155,11 +166,14 @@ class TenantAnalyticsView(APIView):
             },
             "unanswered": [
                 {
-                    "id": row["id"],
-                    "question": row["prompt"],
-                    "asked_at": row["created_at"],
+                    "question": pozycja["pytanie"],
+                    # Ile razy padło to samo pytanie. To ta liczba mówi, co
+                    # uzupełnić najpierw — bez niej lista dziesięciu wpisów
+                    # wygląda na dziesięć problemów, także gdy jest jednym.
+                    "count": pozycja["ile"],
+                    "asked_at": pozycja["ostatnio"],
                 }
-                for row in unanswered
+                for pozycja in unanswered
             ],
         }
 

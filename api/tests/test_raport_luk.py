@@ -299,3 +299,57 @@ class TestWylacznikaWPanelu:
         klient.credentials(HTTP_X_API_KEY=str(t.api_key))
 
         assert "raport_tygodniowy" not in klient.get("/api/widget-settings/").json()
+
+
+@pytest.mark.django_db
+class TestPulpituIRaportuNaJednymZrodle:
+    """
+    Pulpit i list muszą liczyć luki tak samo. Przy dwóch implementacjach
+    zaczęłyby pokazywać co innego, a klient nie miałby jak rozstrzygnąć,
+    które kłamie — i słusznie przestałby ufać obu.
+    """
+
+    def _pulpit(self, tenant):
+        from rest_framework.test import APIClient
+
+        from accounts.models import CustomUser
+
+        uzytkownik = CustomUser.objects.create_user(
+            username="wl", email="wl@firma.pl", password="x",
+            tenant=tenant, role="owner",
+        )
+        klient = APIClient()
+        klient.force_authenticate(user=uzytkownik)
+        klient.credentials(HTTP_X_API_KEY=str(tenant.api_key))
+        return klient.get("/api/analytics/")
+
+    def test_pulpit_sklada_powtorzenia_tak_jak_list(self):
+        t = firma()
+        for _ in range(4):
+            pytanie(t, "Czy organizujecie chrzciny?")
+
+        odp = self._pulpit(t)
+
+        assert odp.status_code == 200
+        luki = odp.json()["unanswered"]
+        assert len(luki) == 1
+        assert luki[0]["question"] == "Czy organizujecie chrzciny?"
+        assert luki[0]["count"] == 4
+
+    def test_pulpit_pomija_pytania_starsze_niz_okno(self):
+        """Wcześniej brana była cała historia konta, więc na górze listy
+        „szanse na poprawę" siedziały pytania sprzed pół roku."""
+        t = firma()
+        pytanie(t, "Świeże pytanie", dni_temu=3)
+        pytanie(t, "Prehistoryczne pytanie", dni_temu=200)
+
+        luki = self._pulpit(t).json()["unanswered"]
+
+        assert [p["question"] for p in luki] == ["Świeże pytanie"]
+
+    def test_pulpit_nie_pokazuje_luk_obcej_firmy(self):
+        obca = firma()
+        pytanie(obca, "Pytanie obcej firmy")
+        moja = Tenant.objects.create(name="Moja", owner_email="ja@firma.pl")
+
+        assert self._pulpit(moja).json()["unanswered"] == []
