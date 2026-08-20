@@ -163,8 +163,9 @@ class UsageSerializer(serializers.Serializer):
 
 
 class UnansweredSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
+    """Pytanie bez pokrycia, po sklejeniu powtórzeń — stąd brak `id`."""
     question = serializers.CharField()
+    count = serializers.IntegerField()
     asked_at = serializers.DateTimeField()
 
 
