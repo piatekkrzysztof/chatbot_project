@@ -27,4 +27,11 @@ app.conf.beat_schedule = {
         "task": "chat.tasks.purge_expired_conversations",
         "schedule": crontab(minute=30, hour=3),
     },
+    # Poniedziałek rano, przed rozkręceniem się tygodnia: lista pytań, na które
+    # bot nie umiał odpowiedzieć, jest do załatwienia w kwadrans i najlepiej
+    # zrobić to, zanim przyjdą kolejne. Godzina w Europe/Warsaw (TIME_ZONE).
+    "raport-luk-w-wiedzy-co-tydzien": {
+        "task": "chat.tasks.wyslij_raporty_tygodniowe",
+        "schedule": crontab(minute=0, hour=8, day_of_week=1),
+    },
 }
