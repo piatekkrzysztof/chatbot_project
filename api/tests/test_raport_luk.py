@@ -246,3 +246,56 @@ class TestObchoduTygodniowego:
 
         assert licznik["wywolan"] == 2, "obchód zatrzymał się na pierwszej awarii"
         assert wyslane == 1
+
+
+@pytest.mark.django_db
+class TestWylacznikaWPanelu:
+    """
+    List obiecuje wprost: „możesz go wyłączyć w panelu". Jeśli tego przełącznika
+    nie ma albo nie działa, obietnica jest kłamstwem, a jedyną drogą wyjścia
+    zostaje oznaczenie nadawcy jako spam — czyli utrata też tych powiadomień,
+    które niosą zapytanie od klienta.
+    """
+    URL = "/api/widget-settings/mine/"
+
+    def _panel(self, tenant):
+        from rest_framework.test import APIClient
+
+        from accounts.models import CustomUser
+
+        wlasciciel = CustomUser.objects.create_user(
+            username="wl", email="wl@firma.pl", password="x",
+            tenant=tenant, role="owner",
+        )
+        klient = APIClient()
+        klient.force_authenticate(user=wlasciciel)
+        klient.credentials(HTTP_X_API_KEY=str(tenant.api_key))
+        return klient
+
+    def test_panel_widzi_ustawienie(self):
+        t = firma()
+
+        odp = self._panel(t).get(self.URL)
+
+        assert odp.status_code == 200
+        assert odp.json()["raport_tygodniowy"] is True
+
+    def test_da_sie_wylaczyc(self):
+        t = firma()
+
+        odp = self._panel(t).patch(self.URL, {"raport_tygodniowy": False}, format="json")
+
+        assert odp.status_code == 200
+        t.refresh_from_db()
+        assert t.raport_tygodniowy is False
+
+    def test_publiczny_endpoint_nie_zdradza_ustawienia(self):
+        """Ten sam wymóg co przy powiadomieniu o rozmowie: publiczny branding
+        odpowiada na sam klucz API, który stoi jawnie w kodzie strony klienta."""
+        from rest_framework.test import APIClient
+
+        t = firma()
+        klient = APIClient()
+        klient.credentials(HTTP_X_API_KEY=str(t.api_key))
+
+        assert "raport_tygodniowy" not in klient.get("/api/widget-settings/").json()
