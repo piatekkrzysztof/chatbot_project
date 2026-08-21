@@ -10,6 +10,7 @@ listy każdy mógł go skopiować i zużywać cudzy limit u siebie.
 Adres bierzemy z nagłówka Origin, którego strona nie może podrobić — nie
 z parametru w zapytaniu, bo ten byłby wyłącznie deklaracją.
 """
+import ipaddress
 from urllib.parse import urlparse
 
 from django.db import IntegrityError
@@ -20,7 +21,50 @@ from accounts.plans import get_plan
 # Adresy deweloperskie nie zajmują miejsca w limicie. Klient stawiający stronę
 # lokalnie zużyłby na testach jedyną domenę planu Start i zablokował sobie
 # wdrożenie produkcyjne — a to najgorszy moment, żeby zobaczyć komunikat o limicie.
-HOSTY_DEWELOPERSKIE = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]"}
+#
+# Bez nawiasów przy IPv6: urlparse zwraca hostname już rozpakowany, więc wpis
+# "[::1]" nigdy się nie dopasowywał i praca po IPv6 na localhoście zjadała
+# domenę z pakietu. Adresy prywatne i pętli zwrotnej łapiemy dodatkowo
+# rachunkiem, w _adres_lokalny — sama lista nazw ich nie obejmie.
+HOSTY_DEWELOPERSKIE = {"localhost", "0.0.0.0"}
+
+# Końcówki zarezerwowane dla pracy lokalnej i sieci domowych (RFC 6761, mDNS).
+KONCOWKI_DEWELOPERSKIE = (".localhost", ".local", ".test")
+
+# Nie adresy, tylko wartości, które przeglądarka wysyła zamiast adresu.
+# "null" trafia w nagłówku Origin ze stron w piaskownicy (iframe z atrybutem
+# sandbox bez allow-same-origin), z plików otwartych z dysku i z części
+# przekierowań. Zapisane w rejestrze wyglądało w panelu jak prawdziwa domena
+# i nie odpowiadało na jedyne pytanie, do którego ten rejestr służy:
+# gdzie faktycznie chodzi widget tego klienta.
+NIE_ADRESY = {"null", "undefined", "none", "about", "blank"}
+
+
+def _adres_lokalny(host):
+    """Czy host jest adresem IP z zakresu prywatnego, pętli zwrotnej albo link-local."""
+    try:
+        adres = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return adres.is_private or adres.is_loopback or adres.is_link_local
+
+
+def wyglada_na_adres_witryny(host):
+    """
+    Czy to w ogóle może być adres publicznej witryny.
+
+    Nazwa bez kropki nie jest publiczną domeną — to albo host wewnętrzny,
+    albo wartość, która adresem nie jest. W obu przypadkach nie ma czego
+    odnotowywać, a wpisanie tego do rejestru zabiera klientowi miejsce
+    w limicie planu za coś, czego nikt z zewnątrz nie odwiedzi.
+    """
+    if host in NIE_ADRESY:
+        return False
+    if host in HOSTY_DEWELOPERSKIE or host.endswith(KONCOWKI_DEWELOPERSKIE):
+        return False
+    if _adres_lokalny(host):
+        return False
+    return "." in host
 
 
 def normalizuj_host(origin):
@@ -66,7 +110,9 @@ def zarejestruj_domene(tenant, origin):
     from accounts.models import WidgetDomain
 
     host = normalizuj_host(origin)
-    if not host or host in HOSTY_DEWELOPERSKIE:
+    if not wyglada_na_adres_witryny(host):
+        # Cicho, bo to nie jest błąd: widget ma działać także w piaskownicy
+        # i na localhoście. Po prostu nie ma czego dopisać do rejestru.
         return ""
 
     istniejaca = WidgetDomain.objects.filter(tenant=tenant, host=host).first()
