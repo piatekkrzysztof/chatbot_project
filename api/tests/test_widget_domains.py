@@ -239,3 +239,72 @@ class TestZarzadzaniaWPanelu:
         klient = self.wlasciciel(user, tenant)
 
         assert klient.post(self.URL, {"host": "obca.pl"}, format="json").status_code == 405
+
+
+@pytest.mark.django_db
+class TestWartosciKtoreNieSaAdresem:
+    """
+    Wykryte na produkcji: w rejestrze jednego klienta siedziała "domena"
+    o nazwie `null`. To nie adres, tylko to, co przeglądarka wysyła w nagłówku
+    Origin ze stron w piaskownicy (iframe z atrybutem sandbox), z plików
+    otwartych z dysku i z części przekierowań.
+
+    Szkoda jest podwójna: w panelu wygląda to jak prawdziwa witryna, a przy
+    tym zajmuje miejsce w limicie planu — klient Startu traci jedyną domenę
+    na coś, czego nikt z zewnątrz nie odwiedzi.
+    """
+
+    @pytest.mark.parametrize("origin", [
+        "null",          # iframe w piaskownicy, plik z dysku
+        "undefined",     # przekazane z JS jako tekst
+        "about:blank",   # pusta karta
+        "http://intranet",   # host bez kropki — nie jest publiczną domeną
+    ])
+    def test_nie_trafiaja_do_rejestru(self, tenant, subscribtion, origin):
+        assert zarejestruj_domene(tenant, origin) == ""
+        assert WidgetDomain.objects.filter(tenant=tenant).count() == 0
+
+    @pytest.mark.parametrize("origin", [
+        "http://[::1]:3000",        # localhost po IPv6
+        "http://192.168.1.10:8080", # sieć domowa/biurowa
+        "http://10.0.0.5",          # sieć prywatna
+        "http://app.localhost:3000",
+        "http://drukarka.local",
+    ])
+    def test_praca_lokalna_nie_zjada_limitu(self, tenant, subscribtion, origin):
+        """
+        Wpis "[::1]" na liście hostów deweloperskich nigdy się nie dopasowywał:
+        urlparse zwraca hostname bez nawiasów, czyli "::1". Praca na localhoście
+        po IPv6 zabierała więc klientowi domenę z pakietu — dokładnie to, czemu
+        ta lista miała zapobiegać.
+        """
+        subscribtion.plan_type = "start"
+        subscribtion.save()
+
+        assert zarejestruj_domene(tenant, origin) == ""
+        assert WidgetDomain.objects.filter(tenant=tenant).count() == 0
+
+    @pytest.mark.parametrize("origin,host", [
+        ("https://sklep.pl", "sklep.pl"),
+        ("https://www.sklep.pl:443", "sklep.pl"),
+        ("https://moj.sklep.co.uk", "moj.sklep.co.uk"),
+        ("https://8.8.8.8", "8.8.8.8"),
+    ])
+    def test_prawdziwe_witryny_nadal_sie_zapisuja(self, tenant, subscribtion, origin, host):
+        """Filtr ma odcinać wartości, które adresem nie są — nie adresy."""
+        assert zarejestruj_domene(tenant, origin) == host
+        assert WidgetDomain.objects.filter(tenant=tenant, host=host).exists()
+
+    def test_widget_dziala_mimo_odrzuconego_origin(self, tenant, subscribtion):
+        """
+        Odrzucenie wartości spoza rejestru nie może wyłączyć czatu: strona
+        w piaskownicy to sytuacja normalna, nie nadużycie. Bez tego klient
+        osadzający widget w ramce z atrybutem sandbox dostałby martwe okno.
+        """
+        klient = APIClient()
+        klient.credentials(HTTP_X_API_KEY=str(tenant.api_key), HTTP_ORIGIN="null")
+
+        odp = klient.get("/api/widget-settings/")
+
+        assert odp.status_code == 200
+        assert WidgetDomain.objects.filter(tenant=tenant).count() == 0
