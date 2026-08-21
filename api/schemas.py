@@ -257,3 +257,20 @@ class PlanSerializer(serializers.Serializer):
 class BillingOverviewSerializer(serializers.Serializer):
     current = CurrentSubscriptionSerializer()
     plans = PlanSerializer(many=True)
+
+
+class CzatTestowyZadanieSerializer(serializers.Serializer):
+    """Pytanie właściciela do własnego bota."""
+    message = serializers.CharField(help_text="Treść pytania.")
+
+
+class CzatTestowyWiadomoscSerializer(serializers.Serializer):
+    sender = serializers.ChoiceField(choices=["user", "bot"])
+    text = serializers.CharField()
+    source = serializers.CharField(
+        help_text="Skąd bot wziął odpowiedź: document, faq albo gpt (nie znalazł).",
+    )
+
+
+class CzatTestowyHistoriaSerializer(serializers.Serializer):
+    messages = CzatTestowyWiadomoscSerializer(many=True)

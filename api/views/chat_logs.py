@@ -4,6 +4,7 @@ from rest_framework.pagination import PageNumberPagination
 from chat.models import PromptLog, Tenant, ChatFeedback, ChatMessage
 from api.serializers import PromptLogSerializer
 from api.utils.mixins import TenantQuerysetMixin
+from chat.zapytania import ZRODLO_TESTOWE
 from api.permissions import IsTenantMember
 from drf_spectacular.utils import extend_schema
 
@@ -20,7 +21,14 @@ class PromptLogListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsTenantMember]
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("conversation").order_by("-created_at")
+        # Rozmowy testowe właściciela nie są historią kontaktów z klientami
+        # — na tej liście byłyby szumem, a w liczniku zawyżeniem.
+        qs = (
+            super().get_queryset()
+            .exclude(conversation__source=ZRODLO_TESTOWE)
+            .select_related("conversation")
+            .order_by("-created_at")
+        )
         is_helpful = self.request.query_params.get("is_helpful")
 
         if is_helpful is not None:

@@ -24,6 +24,7 @@ from api.views.diagnostyka import DiagnostykaAdresuView
 from api.views.diagnostyka_zadan import DiagnostykaZadanView
 from api.views.stripe import PublicPricingView
 from .views.chat_logs import PromptLogListView
+from .views.czat_testowy import CzatTestowyView
 from .views.analytics import TenantAnalyticsView
 from .views.contact import PublicContactRequestView
 from .views.knowledge import TenantKnowledgeView
@@ -35,6 +36,9 @@ urlpatterns = [
     path('chat/', ChatWithGPTView.as_view(), name='chat'),
     path("chat/feedback/", SubmitFeedbackView.as_view(), name="chat-feedback"),
     path("chat/logs/", PromptLogListView.as_view(), name="chat-logs"),
+    # Poza CHAT_PATHS w SubscriptionMiddleware (dopasowanie dokładne),
+    # więc limit wiadomości nie jest tu egzekwowany — i o to chodzi.
+    path("chat/test/", CzatTestowyView.as_view(), name="chat-test"),
     path("chat/export/", ExportPromptLogsCSVView.as_view(), name="chat-export-csv"),
     path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
     path('accounts/register/', ClientRegisterView.as_view(), name='register'),

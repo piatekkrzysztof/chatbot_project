@@ -6,6 +6,7 @@ from io import TextIOWrapper
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
+from chat.zapytania import logi_klientow
 from chat.models import PromptLog, Tenant, Conversation
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
@@ -36,7 +37,8 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
         except Tenant.DoesNotExist:
             raise PermissionDenied("Niepoprawny klucz API.")
 
-        logs = PromptLog.objects.filter(tenant=tenant).order_by("-created_at")
+        # Eksport dotyczy ruchu klientów; próby właściciela to nie ich dane.
+        logs = logi_klientow(tenant).order_by("-created_at")
 
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="prompt_logs_{tenant.id}.csv"'

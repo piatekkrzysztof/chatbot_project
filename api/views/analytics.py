@@ -14,6 +14,7 @@ from drf_spectacular.utils import extend_schema
 from api.schemas import AnalyticsSerializer
 from chat.models import Conversation, ChatMessage, PromptLog, FAQ
 from chat.raport_luk import luki_w_wiedzy
+from chat.zapytania import logi_klientow, rozmowy_klientow, wiadomosci_klientow
 from documents.models import Document, DocumentChunk, WebsiteSource
 
 
@@ -91,12 +92,11 @@ class TenantAnalyticsView(APIView):
             timezone.get_current_timezone(),
         )
 
-        conversations = Conversation.objects.filter(tenant=tenant)
-        messages = ChatMessage.objects.filter(
-            conversation__tenant=tenant,
-            sender="user",
-        )
-        logs = PromptLog.objects.filter(tenant=tenant)
+        # Rozmowy testowe właściciela to nie ruch klientów — w statystykach
+        # zawyżałyby wszystko i psuły jedyne liczby mówiące coś o rynku.
+        conversations = rozmowy_klientow(tenant)
+        messages = wiadomosci_klientow(tenant).filter(sender="user")
+        logs = logi_klientow(tenant)
 
         conversation_counts = conversations.aggregate(
             total=Count("id"),
