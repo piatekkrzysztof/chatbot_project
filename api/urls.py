@@ -25,6 +25,7 @@ from api.views.diagnostyka_zadan import DiagnostykaZadanView
 from api.views.stripe import PublicPricingView
 from .views.chat_logs import PromptLogListView
 from .views.czat_testowy import CzatTestowyView
+from .views.ustawienia_firmy import UstawieniaFirmyView
 from .views.analytics import TenantAnalyticsView
 from .views.contact import PublicContactRequestView
 from .views.knowledge import TenantKnowledgeView
@@ -39,6 +40,7 @@ urlpatterns = [
     # Poza CHAT_PATHS w SubscriptionMiddleware (dopasowanie dokładne),
     # więc limit wiadomości nie jest tu egzekwowany — i o to chodzi.
     path("chat/test/", CzatTestowyView.as_view(), name="chat-test"),
+    path("accounts/firma/", UstawieniaFirmyView.as_view(), name="ustawienia-firmy"),
     path("chat/export/", ExportPromptLogsCSVView.as_view(), name="chat-export-csv"),
     path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
     path('accounts/register/', ClientRegisterView.as_view(), name='register'),

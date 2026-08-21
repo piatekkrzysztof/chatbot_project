@@ -274,3 +274,12 @@ class CzatTestowyWiadomoscSerializer(serializers.Serializer):
 
 class CzatTestowyHistoriaSerializer(serializers.Serializer):
     messages = CzatTestowyWiadomoscSerializer(many=True)
+
+
+class UstawieniaFirmySerializer(serializers.Serializer):
+    """Dane firmy zmieniane przez właściciela z panelu."""
+    name = serializers.CharField(max_length=100, help_text="Nazwa firmy.")
+    owner_email = serializers.CharField(
+        allow_blank=True,
+        help_text="Adres, na który trafiają powiadomienia. Pusty = nie powiadamiaj.",
+    )
