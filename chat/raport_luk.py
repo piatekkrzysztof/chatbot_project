@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 from django.utils import timezone
 
-from chat.models import PromptLog
+from chat.zapytania import logi_klientow
 
 # Ile różnych pytań pokazujemy. Lista ma być do przeczytania przy kawie
 # i do załatwienia w kwadrans, nie do archiwizacji.
@@ -36,7 +36,9 @@ def luki_w_wiedzy(tenant, od=None, do=None, limit=LIMIT_POZYCJI):
 
     Zwraca listę słowników: {"pytanie", "ile", "ostatnio"}.
     """
-    wpisy = PromptLog.objects.filter(tenant=tenant, source="gpt")
+    # Bez rozmów testowych właściciela: sam wpisywałby sobie na tę listę
+    # pytania, o których z góry wie, że są trudne.
+    wpisy = logi_klientow(tenant).filter(source="gpt")
     if od is not None:
         wpisy = wpisy.filter(created_at__gte=od)
     if do is not None:
