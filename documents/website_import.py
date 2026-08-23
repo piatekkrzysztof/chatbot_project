@@ -33,23 +33,53 @@ def fetch_text_from_url(url: str) -> str:
 
 def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta") -> Document:
     """
-    Pobiera stronę WWW, zapisuje jako Document, generuje embeddingi.
+    Pobiera podstronę i zapisuje jako Document — zakładając nowy albo
+    odświeżając istniejący.
+
+    Wcześniej ta funkcja zawsze zakładała nowy dokument, a zadanie cykliczne
+    pomijało adresy, które już były w bazie. Razem znaczyło to, że automatyczne
+    odświeżanie z cennika (Grow co 7 dni, Pro codziennie) nie odświeżało
+    niczego: bot odpowiadał z wersji pobranej przy pierwszym imporcie, także
+    gdy klient dawno zmienił ceny na stronie.
+
+    Rozpoznajemy podstronę po `source_url`, nie po nazwie: nazwę klient może
+    zmienić w panelu, adres jest tym, co faktycznie pobieramy.
     """
     text = fetch_text_from_url(url)
+    istniejacy = Document.objects.filter(
+        tenant=tenant, source="website", source_url=url
+    ).first()
+
+    if istniejacy and istniejacy.content == text:
+        # Strona bez zmian: nie ruszamy fragmentów. Przeliczanie ich co dobę
+        # bez powodu kosztowałoby u klienta z planem Pro tyle samo, co realne
+        # odświeżenie, a niczego by nie wnosiło.
+        return istniejacy
 
     # Ten sam limit co przy uploadzie. Bez tego dałoby się go obejść, dodając
     # stronę zamiast dokumentu — a crawler potrafi zaciągnąć dziesiątki podstron.
-    sprawdz_limit_bazy_wiedzy(tenant, text)
-
-    document = Document.objects.create(
-        tenant=tenant,
-        name=name,
-        content=text,
-        source="website",
-        # Strona jest publiczna, więc bot może podać do niej link jako źródło
-        source_url=url,
+    sprawdz_limit_bazy_wiedzy(
+        tenant, text,
+        zastepowany_tekst=istniejacy.content if istniejacy else "",
     )
 
+    if istniejacy:
+        istniejacy.content = text
+        istniejacy.name = name
+        istniejacy.save(update_fields=["content", "name"])
+        document = istniejacy
+    else:
+        document = Document.objects.create(
+            tenant=tenant,
+            name=name,
+            content=text,
+            source="website",
+            # Strona jest publiczna, więc bot może podać do niej link jako źródło
+            source_url=url,
+        )
+
+    # Przeliczenie jest idempotentne — stare fragmenty znikają przed nowymi,
+    # więc odświeżony dokument nie odpowiada dwiema wersjami naraz.
     enqueue(tasks.generate_embeddings_for_document, document.id)
     return document
 

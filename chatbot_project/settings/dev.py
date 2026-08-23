@@ -18,6 +18,12 @@ DEBUG = True
 # Bez lokalnego Redis/Celery workera zadania wykonują się synchronicznie,
 # w tym samym procesie co request — .delay() nie próbuje łączyć się z brokerem.
 CELERY_TASK_ALWAYS_EAGER = True
+# Bez tego Celery w trybie eager POŁYKA wyjątki z zadań — chowa je w wyniku
+# zamiast rzucić. Zadanie, które wywalało się w testach, wyglądało wtedy
+# dokładnie tak samo jak takie, które przeszło: brak fragmentów w bazie
+# i żadnego śladu dlaczego. To ta sama cicha awaria, którą tępimy
+# w kolejce produkcyjnej.
+CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
 # Modyfikujemy odziedziczoną konfigurację zamiast podmieniać cały słownik.

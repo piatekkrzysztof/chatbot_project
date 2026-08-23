@@ -54,18 +54,23 @@ def rozmiar_bazy_wiedzy(tenant):
     return wynik["razem"] or 0
 
 
-def sprawdz_limit_bazy_wiedzy(tenant, dodawany_tekst=""):
+def sprawdz_limit_bazy_wiedzy(tenant, dodawany_tekst="", zastepowany_tekst=""):
     """
     Rzuca ValidationError, gdy nowa treść nie zmieści się w limicie planu.
 
     Sprawdzamy przed zapisem, nie po: dokument zapisany i zaraz usunięty
     zostawiałby po sobie plik w magazynie i zadanie embeddingów w kolejce.
+
+    `zastepowany_tekst` to treść, która przy tej operacji znika — obecna wersja
+    odświeżanej podstrony. Bez odjęcia jej licznik brałby starą i nową wersję
+    naraz, więc klient blisko limitu nie mógłby odświeżyć własnej strony,
+    mimo że po odświeżeniu zajęłaby mniej więcej tyle samo miejsca.
     """
     limit_mb = limit_bazy_wiedzy_mb(tenant)
     limit_bajtow = limit_mb * MB
 
     obecnie = rozmiar_bazy_wiedzy(tenant)
-    po_dodaniu = obecnie + len(dodawany_tekst or "")
+    po_dodaniu = obecnie - len(zastepowany_tekst or "") + len(dodawany_tekst or "")
 
     if po_dodaniu > limit_bajtow:
         raise ValidationError(
