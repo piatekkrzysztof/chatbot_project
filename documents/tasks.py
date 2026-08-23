@@ -78,13 +78,18 @@ def crawl_and_import_website_source(source_id):
             if not suburl.startswith(url):  # zabezpieczenie przed ucieczką poza domenę
                 continue
 
-            # sprawdź, czy dokument już istnieje
-            if Document.objects.filter(tenant=tenant, source="website", name=suburl).exists():
-                continue
-
+            # Znane podstrony ODŚWIEŻAMY, nie pomijamy. Wcześniej stało tu
+            # `continue` dla adresów już obecnych w bazie, przez co cykliczne
+            # pobieranie z cennika (Grow co 7 dni, Pro codziennie) nie zmieniało
+            # niczego: bot odpowiadał z wersji pobranej za pierwszym razem, choć
+            # klient dawno zmienił na stronie ceny i godziny. Sam import wykrywa
+            # brak zmian i wtedy nie rusza fragmentów.
             try:
                 import_website_as_document(tenant=tenant, url=suburl, name=suburl)
             except Exception as e:
+                # Jedna niedostępna podstrona nie może przerwać pobierania
+                # pozostałych — inaczej awaria na trzeciej z dwudziestu
+                # zostawia bazę wiedzy w połowie odświeżoną.
                 logger.warning("Błąd podczas importu %s: %s", suburl, e)
 
         logger.info("Zakończono pobieranie %s (source_id=%s)", url, source_id)
