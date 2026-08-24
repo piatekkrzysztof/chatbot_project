@@ -79,6 +79,63 @@ def suspend_subscription(tenant, powod):
 
 
 @csrf_exempt
+def _metadane_subskrypcji_z_faktury(faktura):
+    """
+    Metadane subskrypcji, do której należy faktura.
+
+    Faktura ma WŁASNE pole `metadata`, niezależne od metadanych subskrypcji —
+    a my ustawiamy je wyłącznie na sesji płatności i na subskrypcji. Czytanie
+    `faktura["metadata"]` zwracało więc pusty słownik i zdarzenia odnowienia
+    kończyły się na gałęzi „bez tenant_id — pomijam". Stripe dostawał 200,
+    w jego panelu widniało zielone „delivered", a subskrypcja klienta nie
+    przedłużała się mimo opłaconej faktury.
+
+    Adres subskrypcji na fakturze przesuwał się między wersjami API, dlatego
+    sprawdzamy kilka miejsc zamiast zakładać jedno. W nowszych wersjach
+    metadane leżą wprost w `parent.subscription_details` i wtedy nie trzeba
+    nawet pytać Stripe'a.
+    """
+    szczegoly = (
+        (faktura.get("parent") or {}).get("subscription_details")
+        or faktura.get("subscription_details")
+        or {}
+    )
+    if szczegoly.get("metadata"):
+        return szczegoly["metadata"]
+
+    identyfikator = (
+        faktura.get("subscription")
+        or szczegoly.get("subscription")
+    )
+    # Bywa rozwinięty do pełnego obiektu zamiast samego identyfikatora
+    if isinstance(identyfikator, dict):
+        return identyfikator.get("metadata") or {}
+    if not identyfikator:
+        return {}
+
+    try:
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        return stripe.Subscription.retrieve(identyfikator).get("metadata") or {}
+    except Exception:
+        logger.exception("Nie udało się pobrać subskrypcji %s ze Stripe", identyfikator)
+        return {}
+
+
+def _metadane_zdarzenia(event_type, data):
+    """
+    Metadane niosące tenant_id — zależnie od tego, czego dotyczy zdarzenie.
+
+    Sesja płatności i subskrypcja mają je wprost. Faktura wymaga dojścia
+    do subskrypcji, bo własnych metadanych nigdy jej nie nadajemy.
+    """
+    wlasne = data.get("metadata") or {}
+    if wlasne.get("tenant_id"):
+        return wlasne
+    if event_type.startswith("invoice."):
+        return _metadane_subskrypcji_z_faktury(data)
+    return wlasne
+
+
 def stripe_webhook(request):
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
@@ -96,7 +153,7 @@ def stripe_webhook(request):
         return HttpResponse(status=400)
 
     data = event["data"]["object"]
-    metadata = data.get("metadata") or {}
+    metadata = _metadane_zdarzenia(event["type"], data)
     tenant_id = metadata.get("tenant_id")
 
     if not tenant_id:
