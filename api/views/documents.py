@@ -10,6 +10,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from documents.utils.pdf_parser import extract_text_from_pdf
 from documents.validators import sprawdz_limit_bazy_wiedzy
 from api.serializers import DocumentSerializer
+# Ta sama zasada odczytu wartości logicznej co w ustawieniach widgetu:
+# formularz multipart przysyła "true"/"false" jako tekst.
+from api.views.widget import _wlaczone
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.utils.embedding_generator import generate_embeddings_for_document
 from documents.tasks import embed_document_task, crawl_and_import_website_source
@@ -17,6 +20,7 @@ from documents.utils.queue import enqueue
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.exceptions import ValidationError
 from api.serializers import DocumentChunkSerializer, WebsiteSourceSerializer
@@ -50,6 +54,37 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return super().get_queryset().order_by("-uploaded_at")
+
+    @extend_schema(
+        tags=["Panel — baza wiedzy"],
+        summary="Włącz lub wyłącz dokument w wyszukiwaniu",
+        description=(
+            "Wyłączony dokument zostaje w bazie wiedzy, ale bot z niego nie "
+            "korzysta. Fragmenty nie są kasowane, więc włączenie z powrotem "
+            "działa od razu i nie kosztuje ponownego liczenia wektorów."
+        ),
+        request=None,
+        responses=DocumentSerializer,
+    )
+    @action(detail=True, methods=["patch"], url_path="wyszukiwanie",
+            permission_classes=[IsOwnerOrEmployee])
+    def przelacz_wyszukiwanie(self, request, pk=None):
+        """
+        Osobna akcja zamiast zwykłego PATCH na całym obiekcie.
+
+        To jedyne pole dokumentu, które klient ma prawo zmieniać. Otwarcie
+        całego zasobu do zapisu pozwoliłoby podmienić treść albo nazwę bez
+        przeliczenia fragmentów — bot odpowiadałby wtedy z wektorów
+        policzonych dla czegoś innego, niż widać w panelu.
+        """
+        dokument = self.get_object()
+        wartosc = request.data.get("uzywaj_w_wyszukiwaniu")
+        if wartosc is None:
+            raise ValidationError({"uzywaj_w_wyszukiwaniu": "Pole jest wymagane."})
+
+        dokument.uzywaj_w_wyszukiwaniu = _wlaczone(wartosc)
+        dokument.save(update_fields=["uzywaj_w_wyszukiwaniu"])
+        return Response(DocumentSerializer(dokument).data)
 
 
 @extend_schema(
