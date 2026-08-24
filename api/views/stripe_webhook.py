@@ -78,7 +78,6 @@ def suspend_subscription(tenant, powod):
     logger.warning("Subskrypcja wstrzymana (%s): tenant=%s", powod, tenant.id)
 
 
-@csrf_exempt
 def _metadane_subskrypcji_z_faktury(faktura):
     """
     Metadane subskrypcji, do której należy faktura.
@@ -136,6 +135,11 @@ def _metadane_zdarzenia(event_type, data):
     return wlasne
 
 
+# csrf_exempt MUSI stać bezpośrednio nad tym widokiem. Stripe wysyła POST bez
+# ciasteczka sesji i bez tokenu CSRF, więc bez tego Django odrzuca każde
+# zdarzenie kodem 403 — zanim kod webhooka w ogóle się wykona. W panelu Stripe
+# wygląda to jak nieudana dostawa, a w bazie nie dzieje się nic.
+@csrf_exempt
 def stripe_webhook(request):
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")

@@ -246,3 +246,46 @@ class TestBleduStripePrzyZakupie:
             create_checkout_session(firma, "start", "klient@firma.pl")
 
         assert "nie jest jeszcze dostępny" in str(blad.value)
+
+
+@pytest.mark.django_db
+class TestDostepnosciEndpointu:
+    """
+    Regresja, ktora sam wprowadzilem: wstawiajac funkcje pomocnicze miedzy
+    dekorator @csrf_exempt a widok, przeniosłem dekorator na funkcje
+    pomocnicza. Webhook stracil zwolnienie z CSRF i odpowiadal 403 na KAZDE
+    zdarzenie ze Stripe -- zanim jakikolwiek kod webhooka sie wykonal.
+
+    Objaw byl mylacy: platnosc w Stripe konczyla sie sukcesem, a w bazie
+    nie dzialo sie nic. Zaden log aplikacji tego nie pokazywal, bo zadanie
+    nie doszlo do widoku.
+    """
+
+    def test_post_bez_tokenu_csrf_nie_jest_odrzucany(self):
+        """
+        Stripe wysyla POST bez ciasteczka sesji i bez tokenu CSRF. Bez
+        zwolnienia Django odrzuca go kodem 403.
+
+        enforce_csrf_checks=True jest tu konieczne: zwykly klient testowy
+        Django omija ochrone CSRF, wiec bez tego test przechodzilby takze
+        z zepsutym dekoratorem.
+        """
+        from django.test import Client
+
+        klient = Client(enforce_csrf_checks=True)
+        odp = klient.post(
+            "/api/billing/webhook/",
+            data="{}", content_type="application/json",
+        )
+
+        assert odp.status_code != 403, "webhook stracil zwolnienie z CSRF"
+        # 400 = doszlo do widoku i odrzucilo brak podpisu, czyli dokladnie to,
+        # czego oczekujemy od zadania bez naglowka Stripe-Signature
+        assert odp.status_code == 400
+
+    def test_widok_ma_dekorator_bezposrednio(self):
+        """Pilnuje samego ustawienia, a nie tylko skutku — gdyby ktos znowu
+        wstawil cos miedzy dekorator a widok."""
+        from api.views.stripe_webhook import stripe_webhook
+
+        assert getattr(stripe_webhook, "csrf_exempt", False) is True
