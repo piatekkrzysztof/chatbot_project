@@ -191,6 +191,8 @@ class DocumentSerializer(serializers.ModelSerializer):
             "chunk_count",
             "status",
             "preview",
+            "uzywaj_w_wyszukiwaniu",
+            "source_url",
         ]
 
     @extend_schema_field(serializers.IntegerField())

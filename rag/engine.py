@@ -25,7 +25,9 @@ def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5, ma
 
     results = (
         DocumentChunk.objects
-        .filter(document__tenant_id=tenant_id)
+        # Dokumenty odznaczone przez klienta nie biorą udziału. Fragmenty
+        # zostają w bazie, więc włączenie z powrotem działa od razu.
+        .filter(document__tenant_id=tenant_id, document__uzywaj_w_wyszukiwaniu=True)
         .annotate(distance=L2Distance("embedding", query_embedding))
         .filter(distance__lte=max_distance)
         .order_by("distance")[:top_k]

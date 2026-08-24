@@ -25,6 +25,25 @@ class Document(models.Model):
         help_text="Publiczny adres źródła. Pusty dla wgranych plików.",
     )
 
+    # Czy dokument bierze udział w wyszukiwaniu. Powstało z obserwacji na
+    # produkcji: sekcja "Kontakt / Porozmawiajmy o właściwym rozwiązaniu"
+    # była najbliższym trafieniem dla sześciu z jedenastu pytań — o chrzciny,
+    # kontenery z Chin, pogodę i pralki. Nie niesie żadnego faktu, więc leży
+    # "średnio blisko" wszystkiego i zajmuje miejsce w piątce wyników także
+    # przy pytaniach, na które klient ma prawdziwą odpowiedź.
+    #
+    # Odznaczenie NIE kasuje fragmentów, tylko je pomija przy wyszukiwaniu.
+    # Dzięki temu włączenie z powrotem jest natychmiastowe i nie kosztuje
+    # ponownego liczenia wektorów.
+    #
+    # To także jedyny sposób, żeby trwale wyłączyć podstronę pobraną ze strony
+    # WWW: skasowany dokument wróci przy najbliższym odświeżeniu, wyłączony
+    # zostaje wyłączony.
+    uzywaj_w_wyszukiwaniu = models.BooleanField(
+        default=True,
+        verbose_name="Używaj w wyszukiwaniu",
+    )
+
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
 
