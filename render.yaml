@@ -48,6 +48,14 @@ services:
         sync: false
       - key: TRUSTED_PROXY_DEPTH
         sync: false
+      # Próg odległości dla wyszukiwania fragmentów. Tylko tutaj: wyszukiwanie
+      # działa w procesie web, worker pobiera strony i liczy wektory, ale
+      # o nic nie pyta. Wartość dobierana pomiarem — `manage.py zmierz_prog_rag`
+      # pokazuje, gdzie przebiega granica między pytaniami pokrytymi przez bazę
+      # a resztą. Zależy od dokumentów klienta, więc nie ma tu wartości „na
+      # zawsze"; po większej zmianie w bazie wiedzy warto zmierzyć ponownie.
+      - key: RAG_MAX_DISTANCE
+        sync: false
       # UWAGA: te zmienne muszą być IDENTYCZNE na obu usługach. Render trzyma
       # je osobno dla każdej i nic ich ze sobą nie porównuje, a wklepuje się
       # je ręcznie. Realnie rozjechały się dwa razy: EMAIL_HOST = "stmp..."
