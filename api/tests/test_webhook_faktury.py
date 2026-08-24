@@ -171,3 +171,78 @@ class TestPelnejSciezki:
         odp = self._wyslij(None, "invoice.payment_succeeded", {"metadata": {}})
 
         assert odp.status_code == 200
+
+
+@pytest.mark.django_db
+class TestBleduStripePrzyZakupie:
+    """
+    Wyszlo przy konfiguracji trybu testowego: w .env byl klucz testowy,
+    a identyfikatory cen produkcyjne. Stripe odpowiadal wprost
+
+        No such price: 'price_...'; a similar object exists in live mode,
+        but a test mode key was used
+
+    ale wyjatek nie byl lapany, wiec konczylo sie 500 z pustym komunikatem.
+    W panelu wygladalo to tak, ze klikniecie "wybierz plan" nie robi nic.
+    Prawdziwy powod szedl wylacznie do logu.
+    """
+
+    def _wlasciciel(self, firma):
+        from accounts.models import CustomUser
+
+        return CustomUser.objects.create_user(
+            username="wl", email="wl@firma.pl", password="x",
+            tenant=firma, role="owner",
+        )
+
+    def test_odmowa_stripe_konczy_sie_czytelnym_bledem(self, firma, settings):
+        import stripe as biblioteka
+        from rest_framework.exceptions import ValidationError
+
+        from api.views.stripe import create_checkout_session
+
+        settings.STRIPE_PRICE_IDS = {"start": "price_z_produkcji", "grow": "", "pro": ""}
+        settings.STRIPE_SECRET_KEY = "sk_test_cokolwiek"
+
+        with patch("api.views.stripe._utworz_sesje",
+                   side_effect=biblioteka.error.InvalidRequestError(
+                       "No such price: 'price_z_produkcji'", param="price")):
+            with pytest.raises(ValidationError) as blad:
+                create_checkout_session(firma, "start", "klient@firma.pl")
+
+        assert "Nie udało się rozpocząć płatności" in str(blad.value)
+
+    def test_panel_dostaje_400_a_nie_500(self, firma, settings):
+        """Kod 500 z pusta trescia panel pokazuje jako nic — a klient siedzi
+        i klika dalej, przekonany, ze przycisk jest zepsuty."""
+        import stripe as biblioteka
+        from rest_framework.test import APIClient
+
+        settings.STRIPE_PRICE_IDS = {"start": "price_z_produkcji", "grow": "", "pro": ""}
+        settings.STRIPE_SECRET_KEY = "sk_test_cokolwiek"
+
+        klient = APIClient()
+        klient.force_authenticate(user=self._wlasciciel(firma))
+        klient.credentials(HTTP_X_API_KEY=str(firma.api_key))
+
+        with patch("api.views.stripe._utworz_sesje",
+                   side_effect=biblioteka.error.APIConnectionError("brak sieci")):
+            odp = klient.post("/api/billing/create-checkout-session/",
+                              {"plan_type": "start"}, format="json")
+
+        assert odp.status_code == 400
+        assert "płatności" in str(odp.data)
+
+    def test_brak_ceny_dalej_mowi_wprost_ktory_plan(self, firma, settings):
+        """Ten komunikat istnial wczesniej i ma zostac — dotyczy innej
+        sytuacji: ceny w ogole nie skonfigurowano."""
+        from rest_framework.exceptions import ValidationError
+
+        from api.views.stripe import create_checkout_session
+
+        settings.STRIPE_PRICE_IDS = {"start": "", "grow": "", "pro": ""}
+
+        with pytest.raises(ValidationError) as blad:
+            create_checkout_session(firma, "start", "klient@firma.pl")
+
+        assert "nie jest jeszcze dostępny" in str(blad.value)
