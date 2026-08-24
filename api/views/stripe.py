@@ -49,7 +49,27 @@ def create_checkout_session(tenant, plan_code, email=None):
     stripe.api_key = settings.STRIPE_SECRET_KEY
     frontend = settings.FRONTEND_URL.rstrip("/")
 
-    session = stripe.checkout.Session.create(
+    try:
+        session = _utworz_sesje(stripe, tenant, plan, price_id, email, frontend)
+    except stripe.error.StripeError as blad:
+        # Bez tego każdy problem po stronie Stripe (zła cena, wygasły klucz,
+        # niedostępność API) wychodził jako 500 z pustym komunikatem, a panel
+        # pokazywał puste miejsce zamiast wyjaśnienia. Prawdziwy powód szedł
+        # wyłącznie do logu, o ile ktoś wiedział, gdzie patrzeć.
+        #
+        # Najczęstszy przypadek przy konfiguracji: identyfikator ceny
+        # z trybu produkcyjnego przy kluczu testowym albo odwrotnie.
+        logger.exception("Stripe odmówił utworzenia sesji dla planu %s", plan.code)
+        raise ValidationError(
+            "Nie udało się rozpocząć płatności. Spróbuj ponownie za chwilę, "
+            "a jeśli problem się powtórzy — daj nam znać."
+        )
+    return session.url
+
+
+def _utworz_sesje(stripe, tenant, plan, price_id, email, frontend):
+    """Samo wywołanie Stripe, wydzielone, żeby obsługa błędu była czytelna."""
+    return stripe.checkout.Session.create(
         mode="subscription",
         customer_email=email or tenant.owner_email,
         line_items=[{"price": price_id, "quantity": 1}],
@@ -62,7 +82,6 @@ def create_checkout_session(tenant, plan_code, email=None):
             "metadata": {"tenant_id": str(tenant.id), "plan": plan.code}
         },
     )
-    return session.url
 
 
 @extend_schema(
