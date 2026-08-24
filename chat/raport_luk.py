@@ -20,6 +20,40 @@ from django.utils import timezone
 
 from chat.zapytania import logi_klientow
 
+# Zamiana polskich znaków na łacińskie — tylko na potrzeby porównania
+# z listą niżej, żeby „Dzień dobry" i „Dzien dobry" trafiały w to samo.
+BEZ_OGONKOW = str.maketrans("ąćęłńóśźż", "acelnoszz")
+
+# Uprzejmości i zaczepki, które nie są pytaniami o firmę.
+#
+# Formalnie bot faktycznie nie znajduje ich w dokumentach, więc trafiały do
+# raportu jako luki w wiedzy. Dla właściciela to szum: dostawał list z poradą
+# „uzupełnij bazę wiedzy o odpowiedź na «Dzień dobry»". Przy małym ruchu
+# potrafiło to być kilkadziesiąt procent listy, która ma być zestawem zadań
+# do zrobienia w kwadrans.
+#
+# Jawna lista, nie heurystyka: przewidywalna, testowalna i łatwa do
+# uzupełnienia. Dopasowanie do CAŁEJ wypowiedzi, nie do jej fragmentu —
+# „Dzień dobry, jaka jest pogoda w Wałbrzychu" zostaje, bo pytanie o pogodę
+# to prawdziwa luka, a nie powitanie.
+NIE_PYTANIA = {
+    "dzien dobry", "dobry wieczor", "czesc", "hej", "hejka", "hejo", "witam",
+    "siema", "elo", "yo", "halo", "hello", "hi",
+    "dziekuje", "dzieki", "ok", "okej", "spoko", "jasne", "rozumiem",
+    "do widzenia", "na razie", "pa", "papa", "zegnam",
+    "test", "testowanie", "sprawdzam", "a", "?",
+}
+
+
+def _nie_pytanie(tresc):
+    """Czy cała wypowiedź jest tylko uprzejmością."""
+    znormalizowana = "".join(
+        znak for znak in tresc.lower().translate(BEZ_OGONKOW)
+        if znak.isalnum() or znak.isspace()
+    )
+    return " ".join(znormalizowana.split()) in NIE_PYTANIA
+
+
 # Ile różnych pytań pokazujemy. Lista ma być do przeczytania przy kawie
 # i do załatwienia w kwadrans, nie do archiwizacji.
 LIMIT_POZYCJI = 15
@@ -57,7 +91,7 @@ def luki_w_wiedzy(tenant, od=None, do=None, limit=LIMIT_POZYCJI):
     zgrupowane = OrderedDict()
     for wpis in wpisy.order_by("-created_at").iterator():
         tresc = (wpis.prompt or "").strip()
-        if not tresc:
+        if not tresc or _nie_pytanie(tresc):
             continue
         klucz = " ".join(tresc.lower().split())
         if klucz in zgrupowane:

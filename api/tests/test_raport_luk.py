@@ -353,3 +353,82 @@ class TestPulpituIRaportuNaJednymZrodle:
         moja = Tenant.objects.create(name="Moja", owner_email="ja@firma.pl")
 
         assert self._pulpit(moja).json()["unanswered"] == []
+
+
+@pytest.mark.django_db
+class TestOdsiewaniaSzumu:
+    """
+    Z prawdziwego raportu Sm-artu:
+
+        1x  Dzien dobry, jaka jest pogoda w walbrzychu
+        1x  jakie sa godziny otwarcia
+        1x  Dzien dobry                          <- to nie jest luka w wiedzy
+
+    Formalnie bot faktycznie nie znalazl "Dzien dobry" w dokumentach, wiec
+    pozycja trafiala do raportu. Dla wlasciciela to szum: list radzil
+    "uzupelnij baze wiedzy o odpowiedz na «Dzien dobry»". Jedna z trzech
+    pozycji, czyli trzecia czesc listy, ktora ma byc zestawem zadan
+    do zrobienia w kwadrans.
+    """
+
+    @pytest.mark.parametrize("tresc", [
+        "Dzień dobry", "dzien dobry", "Dzień dobry!", "  CZEŚĆ  ", "hej",
+        "Witam", "siema", "Elo", "dziękuję", "ok", "Do widzenia", "test",
+    ])
+    def test_uprzejmosci_nie_sa_lukami(self, tresc):
+        t = firma()
+        pytanie(t, tresc)
+
+        assert luki_w_wiedzy(t) == []
+
+    def test_powitanie_z_prawdziwym_pytaniem_zostaje(self):
+        """
+        Dopasowanie do CALEJ wypowiedzi, nie do fragmentu. Pytanie o pogode
+        to prawdziwa luka — odsianie go razem z powitaniem byloby gorsze
+        niz szum, ktory naprawiamy.
+        """
+        t = firma()
+        pytanie(t, "Dzień dobry, jaka jest pogoda w Wałbrzychu")
+
+        assert [p["pytanie"] for p in luki_w_wiedzy(t)] == \
+            ["Dzień dobry, jaka jest pogoda w Wałbrzychu"]
+
+    def test_krotkie_prawdziwe_pytania_zostaja(self):
+        """Filtr nie moze zjadac zwiezlych pytan — te sa najczestsze."""
+        t = firma()
+        for tresc in ["jakie sa godziny otwarcia", "ceny?", "parking?", "kiedy otwarte"]:
+            pytanie(t, tresc)
+
+        assert len(luki_w_wiedzy(t)) == 4
+
+    def test_filtr_dziala_tez_na_pulpicie(self, db):
+        """Pulpit i raport licza luki tym samym zapytaniem, wiec odsianie
+        obowiazuje w obu miejscach — inaczej pokazywalyby co innego."""
+        from rest_framework.test import APIClient
+
+        from accounts.models import CustomUser
+
+        t = firma()
+        pytanie(t, "Dzień dobry")
+        pytanie(t, "jakie sa godziny otwarcia")
+
+        uzytkownik = CustomUser.objects.create_user(
+            username="wl", email="wl@firma.pl", password="x", tenant=t, role="owner",
+        )
+        klient = APIClient()
+        klient.force_authenticate(user=uzytkownik)
+        klient.credentials(HTTP_X_API_KEY=str(t.api_key))
+
+        luki = klient.get("/api/analytics/").json()["unanswered"]
+
+        assert [p["question"] for p in luki] == ["jakie sa godziny otwarcia"]
+
+    def test_sam_szum_nie_wywoluje_listu(self):
+        """List o samych powitaniach byloby gorszy niz jego brak — uczylby
+        wlasciciela, ze raport nie niesie tresci."""
+        t = firma()
+        for tresc in ["Dzień dobry", "cześć", "ok"]:
+            pytanie(t, tresc)
+
+        assert wyslij_raport(t) is False
+        assert len(mail.outbox) == 0
