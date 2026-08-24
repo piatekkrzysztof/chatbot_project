@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from documents.models import Document
 from documents.validators import sprawdz_limit_bazy_wiedzy
 from documents.utils.queue import enqueue
+from documents.utils.tresc_strony import wyciagnij_tresc
 from documents import tasks
 
 
@@ -18,17 +19,12 @@ def fetch_text_from_url(url: str) -> str:
     if not downloaded:
         raise ValueError(f"Nie udało się pobrać zawartości URL: {url}")
 
-    extracted = trafilatura.extract(
-        downloaded,
-        include_comments=False,
-        include_tables=False,
-        include_formatting=False
-    )
+    extracted = wyciagnij_tresc(downloaded, url)
 
-    if not extracted or len(extracted.strip()) < 100:
+    if not extracted:
         raise ValueError(f"Zbyt mało treści do wykorzystania z: {url}")
 
-    return extracted.strip()
+    return extracted
 
 
 def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta") -> Document:
