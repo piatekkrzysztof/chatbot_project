@@ -37,21 +37,47 @@ ZAKLADKA = 180
 # sekcji i doklejamy do każdego fragmentu, który z tej sekcji pochodzi.
 MAKS_DLUGOSC_NAGLOWKA = 80
 
+# Ile treści musi iść PO krótkiej linii, żeby uznać ją za nagłówek sekcji.
+# Bez tego warunku każde hasło ze strony sprzedażowej zaczynało nowy fragment.
+#
+# 60 znaków, a nie więcej, i to jest zmierzone: przy 90 przestaje działać
+# rozdzielanie krótkich sekcji cennika, czyli to, po co ten mechanizm powstał.
+# Sekcja "CHRZCINY I KOMUNIE" ma pod sobą jedno zdanie i musi zostać osobnym
+# fragmentem, inaczej wraca problem wektora uśredniającego kilka usług.
+MIN_TRESCI_POD_NAGLOWKIEM = 60
+
+# Fragment krótszy niż tyle znaków nie jest sensowną jednostką wyszukiwania:
+# jego wektor niesie zbyt mało, żeby cokolwiek znaczyć, a policzenie kosztuje
+# tyle samo, co pełnego. Takie doklejamy do sąsiada, nie kasujemy — treść ma
+# nie ginąć, nawet drobna.
+#
+# Nisko celowo. Wyższy próg sklejał z powrotem krótkie sekcje cennika, czyli
+# odwracał robotę podziału. Chodzi wyłącznie o resztki w rodzaju "→" albo
+# "Zobacz projekty", nie o zwięzłe sekcje.
+MIN_DLUGOSC_FRAGMENTU = 40
+
 _KONIEC_ZDANIA = re.compile(r"(?<=[.!?])\s+")
 
 
-def _czy_naglowek(blok):
+def _czy_naglowek(blok, nastepny=""):
     """
-    Krótki, jednowierszowy blok bez kropki na końcu — czyli nagłówek sekcji.
+    Krótki blok bez kropki na końcu, po którym idzie realna treść.
 
-    Rozpoznanie jest heurystyczne i takie zostaje: pomyłka w jedną stronę
-    dokleja niepotrzebne zdanie do kilku fragmentów, w drugą — gubi kontekst.
-    Obie są znośne, w odróżnieniu od poprzedniego stanu, w którym nagłówek
-    lądował w innym fragmencie niż treść, której dotyczy.
+    Warunek „po którym idzie realna treść" dopisany po pomiarze na prawdziwej
+    stronie sprzedażowej. Bez niego heurystyka uznawała za nagłówek 36% bloków:
+    tekst marketingowy to w większości krótkie linie bez kropek („Umów
+    bezpłatną rozmowę", „Zobacz projekty", „→"). Każda zaczynała nowy fragment,
+    więc z 9 280 znaków robiło się 58 fragmentów — w tym takie o długości
+    jednego znaku.
+
+    Nagłówek to tytuł NAD czymś. Jeśli po krótkiej linii idzie druga równie
+    krótka, to nie tytuł, tylko po prostu krótkie zdanie.
     """
     if "\n" in blok or len(blok) > MAKS_DLUGOSC_NAGLOWKA:
         return False
-    return not blok.rstrip().endswith((".", "!", "?", ":", ";", ","))
+    if blok.rstrip().endswith((".", "!", "?", ":", ";", ",")):
+        return False
+    return len(nastepny) >= MIN_TRESCI_POD_NAGLOWKIEM
 
 
 def _bloki(tresc):
@@ -133,8 +159,13 @@ def podziel_na_fragmenty(tresc, maks_znakow=MAKS_ZNAKOW, zakladka=ZAKLADKA):
                 czesci.append(ogon)
         return "\n".join(czesci)
 
-    for blok in _bloki(tresc):
-        if _czy_naglowek(blok):
+    # Lista, nie generator: rozpoznanie nagłówka wymaga podejrzenia, co idzie
+    # po nim — bez tego każde hasło ze strony sprzedażowej byłoby nagłówkiem.
+    bloki = list(_bloki(tresc))
+
+    for numer, blok in enumerate(bloki):
+        nastepny = bloki[numer + 1] if numer + 1 < len(bloki) else ""
+        if _czy_naglowek(blok, nastepny):
             # Nowa sekcja zaczyna nowy fragment: mieszanie dwóch sekcji w jednym
             # wektorze jest dokładnie tym, co psuło wyszukiwanie.
             domknij()
@@ -151,7 +182,27 @@ def podziel_na_fragmenty(tresc, maks_znakow=MAKS_ZNAKOW, zakladka=ZAKLADKA):
     domknij()
 
     # Fragment złożony z samego nagłówka nic nie wnosi, a zaśmieca wyniki
-    return [f for f in fragmenty if f and f != naglowek or "\n" in f]
+    fragmenty = [f for f in fragmenty if f and f != naglowek or "\n" in f]
+    return _sklej_krotkie(fragmenty, maks_znakow)
+
+
+def _sklej_krotkie(fragmenty, maks_znakow):
+    """
+    Dokleja zbyt krótkie fragmenty do sąsiada.
+
+    Fragment o długości jednego znaku („→") nie jest jednostką wyszukiwania:
+    jego wektor nie niesie nic, a policzenie kosztuje tyle samo, co pełnego.
+    Doklejamy zamiast kasować, bo treść ma nie ginąć — nawet drobna.
+    """
+    wynik = []
+    for fragment in fragmenty:
+        zbyt_krotki = len(fragment) < MIN_DLUGOSC_FRAGMENTU
+        zmiesci_sie = wynik and len(wynik[-1]) + len(fragment) + 1 <= maks_znakow
+        if zbyt_krotki and zmiesci_sie:
+            wynik[-1] = f"{wynik[-1]}\n{fragment}"
+        else:
+            wynik.append(fragment)
+    return wynik
 
 
 def tekst_do_wektora(fragment, nazwa_dokumentu):

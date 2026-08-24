@@ -271,3 +271,59 @@ class TestZapisuDoBazy:
         dokument.tenant.save()
 
         assert get_client(dokument.tenant).api_key == "sk-klucz-klienta"
+
+
+class TestTresciSprzedazowej:
+    """
+    Strona sprzedazowa to nie artykul: kilkanascie krotkich linii bez kropek
+    ("Umow bezplatna rozmowe", "Zobacz projekty", "→"). Heurystyka naglowkow
+    uznawala 36% takich blokow za naglowek sekcji, wiec kazda linia zaczynala
+    nowy fragment — z 9 280 znakow strony glownej robilo sie 58 fragmentow,
+    w tym o dlugosci jednego znaku.
+
+    Wektor jednoznakowego fragmentu nie niesie nic, a policzenie kosztuje tyle
+    samo, co pelnego.
+    """
+
+    STRONA = """Twoja strona ma pracowac
+
+wtedy, kiedy Ty nie mozesz.
+
+Wiekszosc zapytan ginie nie dlatego, ze firma jest zla, tylko dlatego, ze nikt nie odpisal na czas. Chat odpowiada od razu, o kazdej porze.
+
+Umow bezplatna rozmowe
+
+albo zobacz, jak dziala moj czat
+
+→
+
+Certyfikowany przez:
+
+30 minut, bez zobowiazan i bez prezentacji na 40 slajdow. Rozmawiasz ze mna, nie z handlowcem."""
+
+    def test_krotkie_hasla_nie_staja_sie_osobnymi_fragmentami(self):
+        fragmenty = podziel_na_fragmenty(self.STRONA)
+
+        assert len(fragmenty) <= 3, [f[:40] for f in fragmenty]
+
+    def test_zaden_fragment_nie_jest_szczatkiem(self):
+        """Fragment "→" nie jest jednostka wyszukiwania."""
+        fragmenty = podziel_na_fragmenty(self.STRONA)
+
+        assert all(len(f) >= 40 for f in fragmenty), [len(f) for f in fragmenty]
+
+    def test_nic_z_tresci_nie_ginie(self):
+        """Szczatki doklejamy do sasiada, nie kasujemy."""
+        polaczone = " ".join(podziel_na_fragmenty(self.STRONA))
+
+        for fragment in ["Twoja strona ma pracowac", "Umow bezplatna rozmowe",
+                         "Certyfikowany przez", "nie z handlowcem"]:
+            assert fragment in polaczone, f"zgubiono: {fragment}"
+
+    def test_krotkie_sekcje_cennika_nadal_sie_rozdzielaja(self):
+        """
+        Zabezpieczenie przed przesadzeniem w druga strone. Progi dobrane
+        pomiarem: przy wymaganiu 90 znakow tresci pod naglowkiem sekcje
+        oferty przestaja sie rozdzielac, czyli mechanizm traci sens.
+        """
+        assert len(podziel_na_fragmenty(OFERTA)) == 4
