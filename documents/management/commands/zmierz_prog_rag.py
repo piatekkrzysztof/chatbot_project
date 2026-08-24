@@ -23,6 +23,7 @@ from accounts.models import Tenant
 from chat.models import PromptLog
 from documents.models import DocumentChunk
 from documents.utils.embedding_generator import get_client
+from rag.engine import fragmenty_do_przeszukania
 
 # Pytania spoza jakiejkolwiek bazy wiedzy klienta. Służą za punkt odniesienia:
 # ich odległości pokazują, gdzie zaczyna się "to na pewno nie pasuje".
@@ -115,9 +116,12 @@ class Command(BaseCommand):
                 model=settings.OPENAI_EMBEDDING_MODEL, input=pytanie,
             ).data[0].embedding
 
+            # To samo zapytanie, z którego korzysta bot — łącznie z pominięciem
+            # dokumentów odznaczonych przez klienta. Własna kopia tego filtra
+            # sprawiła, że pomiar pokazywał stan sprzed wyłączenia i wyglądało
+            # to na niedziałającą funkcję.
             trafienia = list(
-                DocumentChunk.objects
-                .filter(document__tenant=tenant)
+                fragmenty_do_przeszukania(tenant.id)
                 .annotate(distance=L2Distance("embedding", wektor))
                 .order_by("distance")[:5]
             )

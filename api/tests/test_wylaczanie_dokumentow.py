@@ -221,3 +221,58 @@ class TestTrwalosciPrzyOdswiezaniu:
         dok.refresh_from_db()
         assert dok.uzywaj_w_wyszukiwaniu is False
         assert "Nowa tresc" in dok.content
+
+
+@pytest.mark.django_db
+class TestNarzedziaPomiarowego:
+    """
+    Komenda zmierz_prog_rag miala wlasna kopie zapytania o fragmenty, bez
+    filtra wylaczonych dokumentow. Skutek byl gorszy niz zwykly blad: bot
+    pomijal odznaczona sekcje poprawnie, a przyrzad pokazywal, ze nie pomija.
+    Wygladalo to na niedzialajaca funkcje i prowadzilo do szukania usterki
+    tam, gdzie jej nie bylo.
+
+    Teraz obie sciezki wolaja fragmenty_do_przeszukania().
+    """
+
+    def test_pomiar_pomija_wylaczone_dokumenty(self, firma, monkeypatch):
+        from io import StringIO
+        from unittest.mock import MagicMock
+
+        from django.core.management import call_command
+
+        from chat.models import Conversation, PromptLog
+
+        kontakt = dokument(firma, "Kontakt", 0.1)
+        dokument(firma, "Cennik", 0.5)
+
+        rozmowa = Conversation.objects.create(
+            tenant=firma, user_identifier="gosc", source="widget"
+        )
+        PromptLog.objects.create(
+            tenant=firma, conversation=rozmowa, model="m",
+            prompt="Czy naprawiacie pralki?", source="document",
+        )
+
+        klient = MagicMock()
+        klient.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(index=0, embedding=wektor(0.0))]
+        )
+        monkeypatch.setattr(
+            "documents.management.commands.zmierz_prog_rag.get_client",
+            lambda tenant=None: klient,
+        )
+
+        def zmierz():
+            wyjscie = StringIO()
+            call_command("zmierz_prog_rag", firma=firma.id, stdout=wyjscie)
+            return wyjscie.getvalue()
+
+        assert "FRAGMENT Kontakt" in zmierz()
+
+        kontakt.uzywaj_w_wyszukiwaniu = False
+        kontakt.save()
+
+        po = zmierz()
+        assert "FRAGMENT Kontakt" not in po
+        assert "FRAGMENT Cennik" in po
