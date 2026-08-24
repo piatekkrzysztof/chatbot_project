@@ -125,7 +125,7 @@ class Command(BaseCommand):
             if not odleglosci:
                 continue
 
-            najblizsze.append(odleglosci[0])
+            najblizsze.append((odleglosci[0], pytanie))
             ile_przejdzie = sum(1 for d in odleglosci if d <= prog)
             kolumny = [f"{d:.3f}" for d in (odleglosci + [None, None, None])[:3] if d is not None]
             while len(kolumny) < 3:
@@ -142,15 +142,16 @@ class Command(BaseCommand):
     def _podsumuj(self, odpowiedziane, bez_pokrycia, kontrolne, prog):
         self.stdout.write(self.style.MIGRATE_HEADING("PODSUMOWANIE"))
 
-        def opis(nazwa, wartosci):
-            if not wartosci:
+        def opis(nazwa, pary):
+            """`pary` to (odległość, pytanie) — treść potrzebna przy nakładaniu grup."""
+            if not pary:
                 self.stdout.write(f"  {nazwa}: brak danych")
                 return None
-            uporzadkowane = sorted(wartosci)
-            srodek = uporzadkowane[len(uporzadkowane) // 2]
+            uporzadkowane = sorted(pary)
+            srodek = uporzadkowane[len(uporzadkowane) // 2][0]
             self.stdout.write(
-                f"  {nazwa}: najmniejsza {uporzadkowane[0]:.3f}   "
-                f"środkowa {srodek:.3f}   największa {uporzadkowane[-1]:.3f}"
+                f"  {nazwa}: najmniejsza {uporzadkowane[0][0]:.3f}   "
+                f"środkowa {srodek:.3f}   największa {uporzadkowane[-1][0]:.3f}"
             )
             return uporzadkowane
 
@@ -167,21 +168,41 @@ class Command(BaseCommand):
         else:
             # Górna granica: to, co ma zostać odcięte. Bierzemy najbliższe
             # z pytań bez pokrycia, a gdy takich nie ma — z kontrolnych.
-            odciac = [w for w in ((bez or []) + (kontrola or []))]
-            najdalsze_trafne = z_bazy[-1]
-            if odciac and min(odciac) > najdalsze_trafne:
-                sugestia = (najdalsze_trafne + min(odciac)) / 2
+            odciac = sorted((bez or []) + (kontrola or []))
+            najdalsze_trafne = z_bazy[-1][0]
+
+            if odciac and odciac[0][0] > najdalsze_trafne:
+                sugestia = (najdalsze_trafne + odciac[0][0]) / 2
                 ocena = self.style.SUCCESS if abs(sugestia - prog) > 0.03 else self.style.NOTICE
                 self.stdout.write(ocena(
                     f"  Próg rozdzielający grupy: {sugestia:.2f}   (obecnie {prog})"
                 ))
             elif odciac:
+                granica = odciac[0][0]
+                # Nazywamy sporne wpisy, zamiast zostawiać sam werdykt. Zwykle
+                # nie jest to wina progu, tylko etykiet: pytania sprzed poprawki
+                # rozpoznawania odmowy siedzą w grupie „odpowiedziane z bazy",
+                # choć bot wcale na nie nie odpowiedział. Ocena zajmuje chwilę,
+                # o ile w ogóle widać, które są sporne.
+                sporne = [(d, p) for d, p in z_bazy if d >= granica]
                 self.stdout.write(self.style.WARNING(
                     f"  Grupy się nakładają: trafne sięgają {najdalsze_trafne:.3f}, "
-                    f"a odcinane zaczynają się od {min(odciac):.3f}.\n"
-                    "  Żaden próg nie rozdzieli ich czysto — to znaczy, że problem jest\n"
-                    "  w treści dokumentów albo w podziale na fragmenty, nie w progu."
+                    f"a odcinane zaczynają się od {granica:.3f}."
                 ))
+                self.stdout.write("")
+                self.stdout.write(
+                    "  Sporne — oznaczone jako odpowiedziane z bazy, ale leżące dalej\n"
+                    "  niż pierwsze z odcinanych. Przeczytaj i oceń, czy firma naprawdę\n"
+                    "  na nie odpowiada:"
+                )
+                for odleglosc, pytanie in sporne:
+                    self.stdout.write(f"      {odleglosc:.3f}  {pytanie[:64]}")
+                self.stdout.write("")
+                self.stdout.write(
+                    f"  Jeśli to pytania spoza oferty, granica biegnie poniżej {granica:.3f} —\n"
+                    "  pomiń je i policz z pozostałych. Jeśli naprawdę są pokryte, problem\n"
+                    "  leży w treści dokumentów albo w podziale na fragmenty, nie w progu."
+                )
 
         self.stdout.write("")
         self.stdout.write(
