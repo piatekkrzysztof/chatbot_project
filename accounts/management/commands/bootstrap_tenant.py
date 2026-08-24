@@ -75,7 +75,22 @@ class Command(BaseCommand):
         self.stdout.write(f"  Login        : {user.username}")
         self.stdout.write(f"  Rola         : owner{' + admin Django' if options['admin'] else ''}")
         self.stdout.write(f"  Klucz widgetu: {tenant.api_key}")
+        # Adres panelu bierzemy z konfiguracji, zamiast kazać go podmieniać
+        # ręcznie. Ten fragment idzie prosto do wklejenia na stronę klienta,
+        # a podstawienie "TWOJA-DOMENA" było krokiem, o którym łatwo zapomnieć —
+        # skutkiem jest widget, który się nie ładuje, i szukanie przyczyny
+        # gdzie indziej.
+        from django.conf import settings
+
+        adres_panelu = (settings.FRONTEND_URL or "").rstrip("/")
+        if not adres_panelu:
+            adres_panelu = "https://USTAW-FRONTEND_URL"
+            self.stdout.write(self.style.WARNING(
+                "\n  UWAGA: FRONTEND_URL nie jest ustawiony — w kodzie osadzenia "
+                "poniżej trzeba podmienić adres ręcznie."
+            ))
+
         self.stdout.write(
-            f'\n  Kod osadzenia:\n  <script src="https://TWOJA-DOMENA/embed.js" '
+            f'\n  Kod osadzenia:\n  <script src="{adres_panelu}/embed.js" '
             f'data-key="{tenant.api_key}" async></script>\n'
         )

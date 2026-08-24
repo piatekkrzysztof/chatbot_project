@@ -217,3 +217,75 @@ class TestZadaniaCyklicznego:
         zrodlo.refresh_from_db()
         assert zrodlo.last_crawled_at is not None
         assert zrodlo.last_error == ""
+
+
+@pytest.mark.django_db
+class TestSladuPoNieudanymPobraniu:
+    """
+    Wykryte przy probie generalnej onboardingu. Dwadziescia podstron, kazda
+    z bledem — a zadanie zapisalo last_crawled_at i puste last_error, wiec
+    panel pokazywal "pobieranie stron: dziala", podczas gdy klient mial
+    calkowicie pusta baze wiedzy.
+
+    Kazdy blad z osobna byl obsluzony poprawnie (jedna niedostepna podstrona
+    nie moze przerwac reszty). Sumy nikt nie sprawdzal.
+    """
+
+    def _zrodlo(self, firma):
+        return WebsiteSource.objects.create(
+            tenant=firma, url="https://dworweselny.pl/", name="Strona"
+        )
+
+    def test_zero_pobranych_podstron_to_blad_nie_sukces(self, firma):
+        from documents.tasks import crawl_and_import_website_source
+
+        zrodlo = self._zrodlo(firma)
+        adresy = [f"https://dworweselny.pl/{n}" for n in "abc"]
+
+        with patch("documents.tasks.sitemap_search", return_value=adresy), \
+             patch("documents.website_import.fetch_text_from_url",
+                   side_effect=ValueError("strona nieosiagalna")):
+            crawl_and_import_website_source(zrodlo.id)
+
+        zrodlo.refresh_from_db()
+        assert zrodlo.last_crawled_at is None, "puste pobranie zapisalo sie jako udane"
+        assert "Żadna z 3 podstron" in zrodlo.last_error
+        assert "strona nieosiagalna" in zrodlo.last_error
+
+    def test_czesciowe_niepowodzenie_zostawia_slad_ale_nie_blokuje(self, firma):
+        """Reszta wiedzy jest juz w bazie i bot z niej korzysta — to nie awaria,
+        ale klient ma prawo wiedziec, ze czegos brakuje."""
+        from documents.tasks import crawl_and_import_website_source
+
+        zrodlo = self._zrodlo(firma)
+        adresy = [f"https://dworweselny.pl/{n}" for n in "abc"]
+
+        def czasem_pada(url):
+            if url.endswith("/b"):
+                raise ValueError("ta jedna nie dziala")
+            tresc = f"SEKCJA\n\nTresc podstrony {url} z konkretami o uslugach."
+            return TrescStrony(tresc, len(tresc) * 2)
+
+        with patch("documents.tasks.sitemap_search", return_value=adresy), \
+             patch("documents.website_import.fetch_text_from_url", side_effect=czasem_pada):
+            crawl_and_import_website_source(zrodlo.id)
+
+        zrodlo.refresh_from_db()
+        assert zrodlo.last_crawled_at is not None
+        assert "1 z 3" in zrodlo.last_error
+        assert Document.objects.filter(tenant=firma).count() == 2
+
+    def test_pelne_powodzenie_czysci_slad_po_poprzedniej_awarii(self, firma):
+        from documents.tasks import crawl_and_import_website_source
+
+        zrodlo = self._zrodlo(firma)
+        zrodlo.last_error = "stara awaria"
+        zrodlo.save()
+
+        with patch("documents.tasks.sitemap_search", return_value=["https://dworweselny.pl/a"]), \
+             pobierz(STARA):
+            crawl_and_import_website_source(zrodlo.id)
+
+        zrodlo.refresh_from_db()
+        assert zrodlo.last_error == ""
+        assert zrodlo.last_crawled_at is not None
