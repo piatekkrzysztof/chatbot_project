@@ -6,6 +6,24 @@ from pgvector.django import L2Distance
 client = OpenAI()
 
 
+def fragmenty_do_przeszukania(tenant_id: int):
+    """
+    Fragmenty, które wolno przeszukiwać dla danej firmy.
+
+    Wydzielone, bo istniały dwie kopie tego zapytania: tutaj i w komendzie
+    zmierz_prog_rag. Filtr wyłączonych dokumentów trafił tylko do jednej,
+    więc przyrząd pomiarowy pokazywał stan sprzed zmiany i wyglądało to na
+    niedziałający filtr. Bot działał poprawnie, kłamał pomiar — czyli
+    najgorszy możliwy układ.
+    """
+    return DocumentChunk.objects.filter(
+        document__tenant_id=tenant_id,
+        # Dokumenty odznaczone przez klienta nie biorą udziału. Fragmenty
+        # zostają w bazie, więc włączenie z powrotem działa od razu.
+        document__uzywaj_w_wyszukiwaniu=True,
+    )
+
+
 def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5, max_distance: float = None):
     """
     Zwraca fragmenty dokumentów podobne do zapytania.
@@ -24,10 +42,7 @@ def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5, ma
     query_embedding = embedding_response.data[0].embedding
 
     results = (
-        DocumentChunk.objects
-        # Dokumenty odznaczone przez klienta nie biorą udziału. Fragmenty
-        # zostają w bazie, więc włączenie z powrotem działa od razu.
-        .filter(document__tenant_id=tenant_id, document__uzywaj_w_wyszukiwaniu=True)
+        fragmenty_do_przeszukania(tenant_id)
         .annotate(distance=L2Distance("embedding", query_embedding))
         .filter(distance__lte=max_distance)
         .order_by("distance")[:top_k]
