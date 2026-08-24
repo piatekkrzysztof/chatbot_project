@@ -163,3 +163,38 @@ class TestZabezpieczen:
         uruchom(firma)
 
         assert list(DocumentChunk.objects.values_list("id", "content")) == przed
+
+
+@pytest.mark.django_db
+class TestSpornychWpisow:
+    """
+    Na prawdziwych danych grupy sie nalozyly — ale nie z winy progu. W grupie
+    "odpowiedziane z bazy" siedzialy pytania sprzed poprawki rozpoznawania
+    odmowy ("Elo po ile masz klode" u agencji marketingowej), bo wszystko szlo
+    wtedy jako 'document'. Sam werdykt "grupy sie nakladaja" nie pozwalal tego
+    zobaczyc; teraz komenda wypisuje sporne wpisy z nazwy.
+    """
+
+    def test_sporne_wpisy_sa_wypisane_z_nazwy(self, firma, monkeypatch):
+        udawane_wektory(monkeypatch, {
+            "Ile kosztuje strona?": 0.4,
+            "Elo po ile masz klode": 1.2,
+            "Jakie sa godziny otwarcia": 1.0,
+        })
+        zapytaj(firma, "Ile kosztuje strona?", "document")
+        zapytaj(firma, "Elo po ile masz klode", "document")   # bledna etykieta
+        zapytaj(firma, "Jakie sa godziny otwarcia", "gpt")
+
+        wynik = uruchom(firma)
+
+        assert "Sporne" in wynik
+        assert "Elo po ile masz klode" in wynik.split("Sporne")[1]
+        # Poprawnie oznaczone pytanie nie jest sporne
+        assert "Ile kosztuje strona?" not in wynik.split("Sporne")[1]
+
+    def test_bez_nakladania_nie_ma_sekcji_spornych(self, firma, monkeypatch):
+        udawane_wektory(monkeypatch, {"A": 0.4, "B": 1.0})
+        zapytaj(firma, "A", "document")
+        zapytaj(firma, "B", "gpt")
+
+        assert "Sporne" not in uruchom(firma)
