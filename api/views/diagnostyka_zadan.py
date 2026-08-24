@@ -331,6 +331,123 @@ class DiagnostykaZadanView(APIView):
                 "pobieranie_stron": pobieranie,
                 "czyszczenie_rodo": retencja,
             },
+            # Dwa sygnały o tym, co widzi klient, a nie o zapleczu. Poziom
+            # ogólny ich nie obejmuje: niepełna podstrona nie znaczy, że system
+            # nie działa, tylko że wiedza jest uboższa, niż się wydaje.
+            "baza_wiedzy": _zdrowie_bazy_wiedzy(request.tenant),
+            "poczta": _zdrowie_poczty(request.tenant),
             "poziom": _poziom(broker, pobieranie, retencja),
             "werdykt": _werdykt(broker, pobieranie, retencja),
         })
+
+
+# Poniżej którego udziału wyciągniętej treści uznajemy podstronę za niepełną.
+# Wartość z pomiaru: strona główna klienta dawała 3%, "/o-nas" 20%, a "/cennik",
+# który wyszedł dobrze — 73%. Połowa oddziela te przypadki z zapasem po obu
+# stronach i nie krzyczy przy stronach, które po prostu mają dużo nawigacji.
+PROG_NIEPELNEJ_STRONY = 0.5
+
+
+def _zdrowie_bazy_wiedzy(tenant):
+    """
+    Czy wiedza, którą klient wgrał, faktycznie trafiła do bota.
+
+    Powstało z przypadku, który trwał tygodniami i nie było go po czym poznać:
+    strona główna miała w bazie 257 znaków z 10 037, a panel pokazywał zielone
+    „gotowe". Status mówił prawdę — dokument BYŁ przetworzony. Tyle że pusty.
+
+    Dwa sygnały. „Bez fragmentów" to awaria: treść jest, wektory się nie
+    policzyły, bot tego nie zna mimo zielonego statusu. „Niepełne" to
+    ostrzeżenie: ze strony wyciągnęliśmy mniejszość tego, co na niej widać.
+    """
+    from documents.models import Document, DocumentChunk
+
+    dokumenty = list(
+        Document.objects.filter(tenant=tenant, uzywaj_w_wyszukiwaniu=True)
+        .exclude(content="")
+        .only("id", "name", "content", "znakow_na_stronie")
+    )
+    z_fragmentami = set(
+        DocumentChunk.objects.filter(document__tenant=tenant)
+        .values_list("document_id", flat=True)
+        .distinct()
+    )
+
+    bez_fragmentow = [d.name for d in dokumenty if d.id not in z_fragmentami]
+
+    niepelne = []
+    for dokument in dokumenty:
+        widocznych = dokument.znakow_na_stronie
+        # Bez mianownika nie da się orzec niczego. Dotyczy wgranych plików
+        # (nie ma strony, z którą można porównać) i podstron pobranych przed
+        # wprowadzeniem tej miary — te ocenimy przy najbliższym odświeżeniu.
+        if not widocznych:
+            continue
+        udzial = len(dokument.content) / widocznych
+        if udzial < PROG_NIEPELNEJ_STRONY:
+            niepelne.append({"nazwa": dokument.name, "udzial_procent": round(udzial * 100)})
+
+    niepelne.sort(key=lambda p: p["udzial_procent"])
+
+    if bez_fragmentow:
+        wniosek, opis = "nie-dziala", (
+            f"{len(bez_fragmentow)} dokumentów ma treść, ale nie ma policzonych "
+            "fragmentów — bot ich nie zna, mimo że w bazie wiedzy wyglądają na gotowe."
+        )
+    elif niepelne:
+        wniosek, opis = "ostrzezenie", (
+            f"Z {len(niepelne)} podstron wyciągnęliśmy mniejszość widocznej treści. "
+            "Bot zna tylko tę część. Zwykle znaczy to, że strona jest budowana "
+            "w sposób utrudniający odczyt treści."
+        )
+    elif not dokumenty:
+        wniosek, opis = "brak-danych", "Baza wiedzy jest pusta — bot nie ma z czego odpowiadać."
+    else:
+        wniosek, opis = "dziala", f"Wszystkie {len(dokumenty)} dokumentów ma policzone fragmenty."
+
+    return {
+        "wniosek": wniosek,
+        "opis": opis,
+        "dokumentow": len(dokumenty),
+        "bez_fragmentow": bez_fragmentow[:10],
+        "niepelne": niepelne[:10],
+    }
+
+
+def _zdrowie_poczty(tenant):
+    """
+    Czy powiadomienia mają jak wyjść.
+
+    Klient nie dowie się o zepsutej poczcie inaczej niż przegapiając zapytanie.
+    Sprawdzamy kształt konfiguracji (to samo, co przy starcie procesu) oraz
+    ślad po ostatnich próbach wysyłki.
+    """
+    from django.conf import settings
+
+    from chat.kontrola_poczty import problemy_z_konfiguracja
+    from chat.models import ContactRequest
+
+    problemy = problemy_z_konfiguracja(settings)
+    nieudane = list(
+        ContactRequest.objects.filter(tenant=tenant)
+        .exclude(blad_powiadomienia="")
+        .order_by("-created_at")
+        .values_list("blad_powiadomienia", flat=True)[:5]
+    )
+
+    if not tenant.owner_email:
+        wniosek, opis = "ostrzezenie", (
+            "Nie ma adresu, na który wysyłamy powiadomienia. Zapytania zobaczysz "
+            "wyłącznie po zalogowaniu do panelu."
+        )
+    elif problemy:
+        wniosek, opis = "nie-dziala", f"Konfiguracja poczty: {problemy[0]}"
+    elif nieudane:
+        wniosek, opis = "ostrzezenie", (
+            f"Ostatnie {len(nieudane)} powiadomień nie doszło. Problem jest po stronie "
+            "poczty, nie Twojego konta."
+        )
+    else:
+        wniosek, opis = "dziala", f"Powiadomienia wychodzą na {tenant.owner_email}."
+
+    return {"wniosek": wniosek, "opis": opis, "adres": tenant.owner_email or ""}

@@ -16,6 +16,7 @@ from unittest.mock import patch
 import pytest
 
 from accounts.models import Subscription, Tenant
+from documents.utils.tresc_strony import TrescStrony
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.website_import import import_website_as_document
 
@@ -40,7 +41,8 @@ def firma(db):
 
 def pobierz(tresc):
     """Podmienia samo ściąganie strony — reszta ścieżki jest prawdziwa."""
-    return patch("documents.website_import.fetch_text_from_url", return_value=tresc)
+    return patch("documents.website_import.fetch_text_from_url",
+                 return_value=TrescStrony(tresc, len(tresc) * 2))
 
 
 @pytest.mark.django_db
@@ -192,7 +194,8 @@ class TestZadaniaCyklicznego:
         def czasem_pada(url):
             if url.endswith("/b"):
                 raise ValueError("strona nieosiagalna")
-            return f"SEKCJA\n\nTresc podstrony {url}."
+            tresc = f"SEKCJA\n\nTresc podstrony {url}."
+            return TrescStrony(tresc, len(tresc) * 2)
 
         with patch("documents.tasks.sitemap_search", return_value=adresy), \
              patch("documents.website_import.fetch_text_from_url", side_effect=czasem_pada):

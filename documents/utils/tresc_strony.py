@@ -27,6 +27,7 @@ Wynik nie może być gorszy niż dotychczasowy, bo stary wariant nadal startuje.
 """
 import logging
 import re
+from typing import NamedTuple
 
 import trafilatura
 from bs4 import BeautifulSoup
@@ -90,6 +91,33 @@ def bez_obudowy(html):
     return re.sub(r"\n{3,}", "\n\n", tekst).strip()
 
 
+class TrescStrony(NamedTuple):
+    """
+    Wynik pobrania wraz z miarą, ile ze strony faktycznie wzięliśmy.
+
+    `znakow_widocznych` zapisujemy przy dokumencie, żeby panel mógł powiedzieć
+    „wyciągnęliśmy 3% tej strony" zamiast zielonego „gotowe". Przez tygodnie
+    strona główna klienta miała w bazie 257 znaków z 10 037 i nic tego nie
+    pokazywało — status mówił, że dokument jest przetworzony, bo formalnie był.
+    """
+    tekst: str
+    znakow_widocznych: int
+
+
+def tekst_widoczny(html):
+    """
+    Wszystko, co użytkownik zobaczyłby na stronie — bez skryptów i styli.
+
+    Górna granica tego, co ekstrakcja mogłaby wyciągnąć. Zawiera nawigację
+    i stopkę, więc nie jest celem samym w sobie; służy za mianownik przy
+    ocenie, ile ze strony wzięliśmy.
+    """
+    zupa = BeautifulSoup(html, "html.parser")
+    for znacznik in zupa(["script", "style", "noscript"]):
+        znacznik.decompose()
+    return re.sub(r"\s+", " ", zupa.get_text(" ")).strip()
+
+
 def przez_trafilature(html):
     """Dotychczasowa droga. Wygrywa tam, gdzie strona jest artykułem."""
     return (trafilatura.extract(
@@ -102,9 +130,9 @@ def przez_trafilature(html):
 
 def wyciagnij_tresc(html, url=""):
     """
-    Treść strony — dłuższy z dwóch wyników.
+    Treść strony — dłuższy z dwóch wyników — wraz z miarą kompletności.
 
-    Zwraca pusty napis, gdy obie drogi dały za mało; decyzję, co z tym zrobić,
+    Przy zbyt małej treści `tekst` jest pusty; decyzję, co z tym zrobić,
     zostawiamy wywołującemu.
     """
     kandydaci = {
@@ -115,7 +143,7 @@ def wyciagnij_tresc(html, url=""):
     wybrany = kandydaci[nazwa]
 
     if len(wybrany) < MINIMUM_ZNAKOW:
-        return ""
+        return TrescStrony("", len(tekst_widoczny(html)))
 
     przegrany = min(kandydaci, key=lambda n: len(kandydaci[n]))
     if len(kandydaci[przegrany]) * 2 < len(wybrany):
@@ -126,4 +154,4 @@ def wyciagnij_tresc(html, url=""):
             "Pobieranie %s: wybrano '%s' (%d znaków) zamiast '%s' (%d znaków)",
             url or "?", nazwa, len(wybrany), przegrany, len(kandydaci[przegrany]),
         )
-    return wybrany
+    return TrescStrony(wybrany, len(tekst_widoczny(html)))

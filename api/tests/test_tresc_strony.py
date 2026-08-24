@@ -118,7 +118,7 @@ class TestWyboruDrogi:
         Sedno naprawy. Na takiej stronie trafilatura wyciaga ulamek tresci,
         bo nie widzi w niej artykulu.
         """
-        tekst = wyciagnij_tresc(SEMANTYCZNA, "https://firma.pl/")
+        tekst = wyciagnij_tresc(SEMANTYCZNA, "https://firma.pl/").tekst
 
         assert "3 900 zl" in tekst
         assert "290 zl miesiecznie" in tekst
@@ -130,24 +130,24 @@ class TestWyboruDrogi:
         from documents.utils.tresc_strony import przez_trafilature
 
         for html in (SEMANTYCZNA, NIESEMANTYCZNA):
-            assert len(wyciagnij_tresc(html)) >= len(przez_trafilature(html))
+            assert len(wyciagnij_tresc(html).tekst) >= len(przez_trafilature(html))
 
     def test_pusta_strona_daje_pusty_wynik(self):
         """Decyzje, co z tym zrobic, zostawiamy wywolujacemu — import rzuca
         wtedy bledem z nazwa adresu, zamiast zapisac pusty dokument."""
-        assert wyciagnij_tresc("<html><body><nav>Menu</nav></body></html>") == ""
+        assert wyciagnij_tresc("<html><body><nav>Menu</nav></body></html>").tekst == ""
 
     def test_za_krotka_tresc_traktujemy_jak_brak(self):
         """Ten sam prog co wczesniej. Zmiana sposobu wyciagania nie jest
         okazja, zeby po cichu przestawic takze to."""
-        assert wyciagnij_tresc("<html><body><p>Krotko.</p></body></html>") == ""
+        assert wyciagnij_tresc("<html><body><p>Krotko.</p></body></html>").tekst == ""
 
     def test_dlugi_artykul_przechodzi(self):
         akapit = ("Wdrozenie chatbota zaczyna sie od uporzadkowania wiedzy firmy. "
                   "Bez tego model odpowiada ogolnikami. ")
         html = f"<html><body><article><h1>Chatbot AI</h1><p>{akapit * 6}</p></article></body></html>"
 
-        tekst = wyciagnij_tresc(html)
+        tekst = wyciagnij_tresc(html).tekst
 
         assert "uporzadkowania wiedzy firmy" in tekst
         assert len(tekst) > 300
