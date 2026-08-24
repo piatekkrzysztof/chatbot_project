@@ -74,6 +74,8 @@ def crawl_and_import_website_source(source_id):
         if not urls:
             urls = [url]  # fallback – tylko główna strona
 
+        pobranych, nieudanych = 0, []
+
         for suburl in urls:
             if not suburl.startswith(url):  # zabezpieczenie przed ucieczką poza domenę
                 continue
@@ -86,16 +88,40 @@ def crawl_and_import_website_source(source_id):
             # brak zmian i wtedy nie rusza fragmentów.
             try:
                 import_website_as_document(tenant=tenant, url=suburl, name=suburl)
+                pobranych += 1
             except Exception as e:
                 # Jedna niedostępna podstrona nie może przerwać pobierania
                 # pozostałych — inaczej awaria na trzeciej z dwudziestu
                 # zostawia bazę wiedzy w połowie odświeżoną.
+                nieudanych.append(f"{suburl}: {e}")
                 logger.warning("Błąd podczas importu %s: %s", suburl, e)
 
-        logger.info("Zakończono pobieranie %s (source_id=%s)", url, source_id)
+        logger.info(
+            "Zakończono pobieranie %s (source_id=%s): %d z %d podstron",
+            url, source_id, pobranych, pobranych + len(nieudanych),
+        )
+
+        if pobranych == 0 and nieudanych:
+            # Zero pobranych podstron to awaria, nie sukces — nawet jeśli każda
+            # z osobna „tylko" się nie udała. Wcześniej zadanie zapisywało tu
+            # last_crawled_at i puste last_error, więc panel pokazywał
+            # „pobieranie stron: działa", a klient miał pustą bazę wiedzy.
+            # Wyszło to przy próbie generalnej onboardingu: dwadzieścia
+            # podstron, dwadzieścia błędów, zielony status.
+            WebsiteSource.objects.filter(pk=source_id).update(
+                last_error=f"Żadna z {len(nieudanych)} podstron nie została pobrana. "
+                           f"Pierwszy błąd — {nieudanych[0][:200]}"
+            )
+            return
 
         WebsiteSource.objects.filter(pk=source_id).update(
-            last_crawled_at=timezone.now(), last_error=""
+            last_crawled_at=timezone.now(),
+            # Częściowe niepowodzenie zostawia ślad, ale nie blokuje: reszta
+            # wiedzy jest już w bazie i bot z niej korzysta.
+            last_error=(
+                f"Nie udało się pobrać {len(nieudanych)} z {pobranych + len(nieudanych)} "
+                f"podstron. Pierwsza — {nieudanych[0][:200]}"
+            ) if nieudanych else "",
         )
 
     except WebsiteSource.DoesNotExist:
