@@ -165,6 +165,10 @@ class PublicPricingView(APIView):
                     "max_domains": plan.max_domains,
                     "max_seats": plan.max_seats,
                     "branding": plan.branding,
+                    # Realna różnica między planami, od niedawna faktycznie
+                    # działająca — a klient jej nie widział. None znaczy
+                    # „odświeżanie wyłącznie na żądanie".
+                    "recrawl_days": plan.recrawl_days,
                 }
                 for plan in PLANS.values()
             ],

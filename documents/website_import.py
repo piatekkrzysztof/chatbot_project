@@ -7,24 +7,28 @@ from bs4 import BeautifulSoup
 from documents.models import Document
 from documents.validators import sprawdz_limit_bazy_wiedzy
 from documents.utils.queue import enqueue
-from documents.utils.tresc_strony import wyciagnij_tresc
+from documents.utils.tresc_strony import TrescStrony, wyciagnij_tresc
 from documents import tasks
 
 
-def fetch_text_from_url(url: str) -> str:
+def fetch_text_from_url(url: str) -> TrescStrony:
     """
-    Pobiera czysty tekst ze strony internetowej.
+    Pobiera tekst ze strony wraz z miarą, ile z niej wzięliśmy.
+
+    Zwraca parę, a nie sam tekst, bo bez mianownika nie da się odróżnić
+    „strona jest krótka" od „wyciągnęliśmy z niej 3%". Ta druga sytuacja
+    trwała u klienta tygodniami i nie było jej po czym poznać.
     """
     downloaded = trafilatura.fetch_url(url)
     if not downloaded:
         raise ValueError(f"Nie udało się pobrać zawartości URL: {url}")
 
-    extracted = wyciagnij_tresc(downloaded, url)
+    wynik = wyciagnij_tresc(downloaded, url)
 
-    if not extracted:
+    if not wynik.tekst:
         raise ValueError(f"Zbyt mało treści do wykorzystania z: {url}")
 
-    return extracted
+    return wynik
 
 
 def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta") -> Document:
@@ -41,12 +45,17 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     Rozpoznajemy podstronę po `source_url`, nie po nazwie: nazwę klient może
     zmienić w panelu, adres jest tym, co faktycznie pobieramy.
     """
-    text = fetch_text_from_url(url)
+    text, znakow_widocznych = fetch_text_from_url(url)
     istniejacy = Document.objects.filter(
         tenant=tenant, source="website", source_url=url
     ).first()
 
     if istniejacy and istniejacy.content == text:
+        # Treść bez zmian, ale miara mogła dojść dopiero teraz — zapisujemy ją
+        # bez ruszania fragmentów.
+        if istniejacy.znakow_na_stronie != znakow_widocznych:
+            istniejacy.znakow_na_stronie = znakow_widocznych
+            istniejacy.save(update_fields=["znakow_na_stronie"])
         # Strona bez zmian: nie ruszamy fragmentów. Przeliczanie ich co dobę
         # bez powodu kosztowałoby u klienta z planem Pro tyle samo, co realne
         # odświeżenie, a niczego by nie wnosiło.
@@ -62,7 +71,8 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     if istniejacy:
         istniejacy.content = text
         istniejacy.name = name
-        istniejacy.save(update_fields=["content", "name"])
+        istniejacy.znakow_na_stronie = znakow_widocznych
+        istniejacy.save(update_fields=["content", "name", "znakow_na_stronie"])
         document = istniejacy
     else:
         document = Document.objects.create(
@@ -72,6 +82,7 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
             source="website",
             # Strona jest publiczna, więc bot może podać do niej link jako źródło
             source_url=url,
+            znakow_na_stronie=znakow_widocznych,
         )
 
     # Przeliczenie jest idempotentne — stare fragmenty znikają przed nowymi,

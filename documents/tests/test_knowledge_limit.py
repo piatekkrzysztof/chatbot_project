@@ -19,6 +19,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
 from documents.models import Document
+from documents.utils.tresc_strony import TrescStrony
 from documents.validators import (
     MB, limit_bazy_wiedzy_mb, rozmiar_bazy_wiedzy, sprawdz_limit_bazy_wiedzy,
 )
@@ -208,7 +209,7 @@ class TestEgzekwowaniaPrzyImporcieStrony:
         subscribtion.save()
         mocker.patch(
             "documents.website_import.fetch_text_from_url",
-            return_value="x" * (6 * MB),
+            return_value=TrescStrony("x" * (6 * MB), 6 * MB),
         )
 
         with pytest.raises(ValidationError):

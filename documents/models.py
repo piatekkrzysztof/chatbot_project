@@ -25,6 +25,16 @@ class Document(models.Model):
         help_text="Publiczny adres źródła. Pusty dla wgranych plików.",
     )
 
+    # Ile znaków widocznego tekstu miała strona w chwili pobrania. Razem
+    # z długością `content` daje odpowiedź na pytanie „ile z tej strony
+    # faktycznie wzięliśmy" — przez tygodnie strona główna klienta miała
+    # w bazie 257 znaków z 10 037, a panel pokazywał zielone „gotowe", bo
+    # formalnie dokument był przetworzony.
+    #
+    # Puste dla wgranych plików (nie ma czego porównywać) i dla podstron
+    # pobranych przed wprowadzeniem tej miary.
+    znakow_na_stronie = models.PositiveIntegerField(null=True, blank=True)
+
     # Czy dokument bierze udział w wyszukiwaniu. Powstało z obserwacji na
     # produkcji: sekcja "Kontakt / Porozmawiajmy o właściwym rozwiązaniu"
     # była najbliższym trafieniem dla sześciu z jedenastu pytań — o chrzciny,

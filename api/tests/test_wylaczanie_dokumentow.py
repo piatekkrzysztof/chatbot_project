@@ -17,6 +17,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import CustomUser, Tenant
 from documents.models import Document, DocumentChunk
+from documents.utils.tresc_strony import TrescStrony
 from rag.engine import query_similar_chunks_pgvector
 
 WYMIAR = 1536
@@ -210,12 +211,14 @@ class TestTrwalosciPrzyOdswiezaniu:
         from documents.website_import import import_website_as_document
 
         adres = "https://agencjasm-art.pl/kontakt"
-        with patch("documents.website_import.fetch_text_from_url", return_value="KONTAKT\n\nPorozmawiajmy."):
+        with patch("documents.website_import.fetch_text_from_url",
+                   return_value=TrescStrony("KONTAKT\n\nPorozmawiajmy.", 400)):
             dok = import_website_as_document(firma, adres, name=adres)
         dok.uzywaj_w_wyszukiwaniu = False
         dok.save()
 
-        with patch("documents.website_import.fetch_text_from_url", return_value="KONTAKT\n\nNowa tresc sekcji."):
+        with patch("documents.website_import.fetch_text_from_url",
+                   return_value=TrescStrony("KONTAKT\n\nNowa tresc sekcji.", 400)):
             import_website_as_document(firma, adres, name=adres)
 
         dok.refresh_from_db()
