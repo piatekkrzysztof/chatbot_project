@@ -14,7 +14,7 @@ from chat.models import FAQ, Conversation
 from chat.privacy import visitor_identifier
 from api.serializers import PublicFAQSerializer, ChatRequestSerializer, WidgetDomainSerializer
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
-from api.permissions import IsOwnerOrEmployee
+from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 
@@ -266,7 +266,7 @@ class TenantWidgetSettingsView(APIView):
     odpowiednik WidgetSettingsAPIView, ale do odczytu/zapisu przez właściciela,
     nie do publicznego odczytu przez sam widget.
     """
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get(self, request):
         return Response(branding_dla_panelu(request.user.tenant, request))
@@ -365,7 +365,7 @@ class WidgetDomainViewSet(viewsets.ModelViewSet):
     witrynie, która o widget nie prosi.
     """
     serializer_class = WidgetDomainSerializer
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
     # Bez tego generator schematu nie potrafi wywnioskować typu identyfikatora
     # w ścieżce, bo queryset zależy od zalogowanego użytkownika
     queryset = WidgetDomain.objects.none()

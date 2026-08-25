@@ -9,7 +9,11 @@ from unittest.mock import patch
 
 @pytest.mark.django_db
 def test_export_prompt_logs_csv(api_client, user, tenant, subscribtion):
+    # Rola jawnie, bo CustomUser.role domyślnie to VIEWER, a hurtowy eksport
+    # przestał być dla obserwatora dostępny. Ten test sprawdza, że eksport
+    # DZIAŁA — kto ma do niego prawo, pilnuje test_rola_viewer.py.
     user.tenant = tenant
+    user.role = "owner"
     user.save()
     api_client.force_authenticate(user=user)
     conversation = Conversation.objects.create(

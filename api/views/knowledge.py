@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.permissions import IsOwnerOrEmployee
+from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from drf_spectacular.utils import extend_schema
 
 from api.schemas import KnowledgeSerializer
@@ -26,7 +26,7 @@ class TenantKnowledgeView(APIView):
     najczęstsze pytanie w ogóle ("czym się zajmujecie?"). To osobny widok od
     brandingu widgetu, bo dotyczy tego, co bot wie, a nie jak wygląda.
     """
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     FIELDS = ("gpt_prompt", "regulamin")
 

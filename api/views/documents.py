@@ -145,7 +145,7 @@ class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
 class WebsiteSourceViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     queryset = WebsiteSource.objects.all()
     serializer_class = WebsiteSourceSerializer
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get_queryset(self):
         return super().get_queryset().order_by("-created_at")

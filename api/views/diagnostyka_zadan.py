@@ -27,7 +27,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Tenant
-from api.permissions import IsOwnerOrEmployee
+from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from chat.models import Conversation
 from documents.models import WebsiteSource
 
@@ -309,7 +309,7 @@ def _werdykt(broker, pobieranie, retencja):
 )
 class DiagnostykaZadanView(APIView):
     """Tylko dla zalogowanego właściciela — pokazuje stan zaplecza."""
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get(self, request):
         teraz = timezone.now()

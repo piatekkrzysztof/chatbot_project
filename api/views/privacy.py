@@ -3,7 +3,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.permissions import IsOwnerOrEmployee
+from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from drf_spectacular.utils import extend_schema
 
 from api.schemas import ErasureResultSerializer, ErrorSerializer, PrivacySettingsSerializer
@@ -24,7 +24,7 @@ class TenantPrivacySettingsView(APIView):
     To administrator danych decyduje o okresie przechowywania, nie dostawca
     narzędzia — dlatego jest to ustawienie w panelu, a nie stała w kodzie.
     """
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def _serialize(self, tenant):
         return {

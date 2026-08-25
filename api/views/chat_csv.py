@@ -23,7 +23,11 @@ from api.schemas import ErrorSerializer, MessageSerializer
 )
 class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
     serializer_class = None
-    permission_classes = [IsTenantMember]
+    # Bylo IsTenantMember, czyli takze `viewer`. Te same dane widac wprawdzie
+    # przez /api/chat/logs/, ale stronicowany odczyt w panelu a wyciagniecie
+    # calej historii rozmow jednym zadaniem to inny profil ryzyka. Rola
+    # `viewer` jest z zalozenia do ogladania, nie do wynoszenia.
+    permission_classes = [IsOwnerOrEmployee]
     queryset = PromptLog.objects.all()
 
     def get(self, request, *args, **kwargs):

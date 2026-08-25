@@ -15,7 +15,7 @@ from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.permissions import IsOwnerOrEmployee
+from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from chat.privacy import anonymize_ip, client_ip
 
 
@@ -31,7 +31,7 @@ from chat.privacy import anonymize_ip, client_ip
 )
 class DiagnostykaAdresuView(APIView):
     """Tylko dla zalogowanego właściciela — pokazuje pochodzenie żądania."""
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get(self, request):
         forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
