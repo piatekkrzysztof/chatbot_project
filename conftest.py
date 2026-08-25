@@ -15,6 +15,28 @@ from chat.models import Conversation
 load_dotenv(".env.test", override=True)
 
 
+@pytest.fixture(autouse=True)
+def zadania_w_miejscu(settings):
+    """
+    Zadania Celery wykonują się w procesie testu, zawsze.
+
+    settings/dev.py włącza tryb inline tylko wtedy, gdy nikt nie wskazał
+    brokera (`CELERY_TASK_ALWAYS_EAGER = not os.getenv("REDIS_URL")`) — bo
+    inaczej stos z docker-compose byłby wewnętrznie sprzeczny: stoi w nim
+    worker, a wszystko i tak wykonywałoby się w procesie web.
+
+    Dla testów to zły domyślny stan. Uruchomione tam, gdzie REDIS_URL istnieje
+    — czyli w kontenerze z docker-compose, dokładnie tak, jak opisuje README —
+    zlecały zadania do prawdziwej kolejki i kończyły się, zanim ktokolwiek je
+    wykonał. Padało pięć testów powiadomień i wektorów, i to nie dlatego, że
+    kod jest zły, tylko dlatego, że nikt nie odebrał zadania.
+
+    Test ma sprawdzać logikę zadania, nie to, czy w środowisku stoi broker.
+    """
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    settings.CELERY_TASK_EAGER_PROPAGATES = True
+
+
 
 @pytest.fixture
 def valid_pdf_file():
