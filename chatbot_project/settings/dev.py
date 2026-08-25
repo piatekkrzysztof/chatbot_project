@@ -15,15 +15,26 @@ DATABASES = {
 
 DEBUG = True
 
-# Bez lokalnego Redis/Celery workera zadania wykonują się synchronicznie,
-# w tym samym procesie co request — .delay() nie próbuje łączyć się z brokerem.
-CELERY_TASK_ALWAYS_EAGER = True
+# Broker był zdefiniowany wyłącznie w prod.py. W dev nigdy to nie bolało, bo
+# zadania i tak wykonywały się w miejscu — ale w chwili, gdy ktoś uruchomi
+# prawdziwego workera (robi to docker-compose), Celery nie widzi żadnej
+# konfiguracji i wraca do swojego domyślnego brokera, czyli RabbitMQ.
+# Worker zalewał wtedy logi:
+#   consumer: Cannot connect to amqp://guest:**@127.0.0.1:5672//
+CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+
+# Tryb inline włączamy tylko wtedy, gdy nikt nie wskazał brokera. Bez tego
+# warunku stos z docker-compose byłby wewnętrznie sprzeczny: stoi w nim worker,
+# a wszystkie zadania i tak wykonywałyby się w procesie web, więc worker nie
+# miałby czego robić i nikt by nie zauważył, że kolejka jest zepsuta.
+CELERY_TASK_ALWAYS_EAGER = not os.getenv("REDIS_URL")
+
 # Bez tego Celery w trybie eager POŁYKA wyjątki z zadań — chowa je w wyniku
 # zamiast rzucić. Zadanie, które wywalało się w testach, wyglądało wtedy
 # dokładnie tak samo jak takie, które przeszło: brak fragmentów w bazie
 # i żadnego śladu dlaczego. To ta sama cicha awaria, którą tępimy
 # w kolejce produkcyjnej.
-CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
 # Modyfikujemy odziedziczoną konfigurację zamiast podmieniać cały słownik.

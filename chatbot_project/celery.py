@@ -7,8 +7,19 @@ from chatbot_project.observability import init_sentry
 
 init_sentry()
 
-# Ustawienie domyślnego settings
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chatbot_project.settings.base")
+# Pakiet, nie konkretny moduł. settings/__init__.py wybiera dev albo prod
+# na podstawie DJANGO_ENV — tak samo robią manage.py i wsgi.py.
+#
+# Stało tu "chatbot_project.settings.base", a base.py nie ma ANI JEDNEJ
+# nastawy Celery. Na produkcji nie bolało, bo Render podaje
+# DJANGO_SETTINGS_MODULE jawnie i setdefault go nie rusza. Bolało dopiero
+# lokalnie: worker nie widział żadnego brokera i wracał do domyślnego dla
+# Celery, czyli RabbitMQ, zalewając logi
+#   consumer: Cannot connect to amqp://guest:**@127.0.0.1:5672//
+# Nikt tego nie zauważył, bo w dev zadania i tak wykonywały się w miejscu
+# i workera po prostu się nie uruchamiało.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chatbot_project.settings")
+os.environ.setdefault("DJANGO_ENV", os.getenv("DJANGO_ENV", "dev"))
 
 app = Celery("chatbot_project")
 app.config_from_object("django.conf:settings", namespace="CELERY")
