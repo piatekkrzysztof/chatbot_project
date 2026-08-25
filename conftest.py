@@ -132,7 +132,7 @@ class NiezamockowaneWywolanieOpenAI(AssertionError):
 
 
 @pytest.fixture(autouse=True)
-def zablokuj_prawdziwe_openai(monkeypatch):
+def zablokuj_prawdziwe_openai(monkeypatch, request):
     """
     Zamienia niezamockowane wywołanie OpenAI w jawny błąd testu.
 
@@ -145,6 +145,14 @@ def zablokuj_prawdziwe_openai(monkeypatch):
 
     Testy, które mockują get_openai_response, w ogóle tu nie docierają.
     """
+    # Furtka dla testów, które celowo sięgają po samą fabrykę — na przykład po
+    # to, żeby sprawdzić, czy bierze klucz klienta, a nie globalny. Fabryka
+    # tylko konstruuje obiekt, nie dzwoni nigdzie, więc taki test jest
+    # bezpieczny. Marker robi z tego decyzję widoczną w kodzie testu, zamiast
+    # cichego wyjątku od reguły.
+    if request.node.get_closest_marker("wolno_uzyc_klienta_openai"):
+        return
+
     def wybuchnij(*args, **kwargs):
         raise NiezamockowaneWywolanieOpenAI(
             "Test sięga po prawdziwe API OpenAI. Zamockuj "
@@ -152,10 +160,20 @@ def zablokuj_prawdziwe_openai(monkeypatch):
             "z którego korzysta testowany kod."
         )
 
+    # raising=True jest tu istotne. Wcześniej stało tu raising=False, więc gdy
+    # embedding_generator przestał mieć `client` (dostał fabrykę get_client),
+    # monkeypatch nie zaprotestował — po cichu STWORZYŁ atrybut, którego nikt
+    # nie używa. Strażnik pilnował wtedy martwej nazwy, a
+    # test_generate_embeddings_for_document_creates_chunks mockował ją i wołał
+    # prawdziwe API OpenAI: przechodził lokalnie (bo lokalnie jest klucz,
+    # i płaciliśmy za każdy przebieg) i wywracał CI, gdzie klucza nie ma.
+    #
+    # Z raising=True zmiana nazwy w kodzie produkcyjnym wywali testy od razu,
+    # zamiast po cichu wyłączyć zabezpieczenie.
     for sciezka in (
         "api.utils.chat_engine.get_client",
-        "documents.utils.embedding_generator.client",
+        "documents.utils.embedding_generator.get_client",
         "rag.engine.client",
     ):
         modul, atrybut = sciezka.rsplit(".", 1)
-        monkeypatch.setattr(f"{modul}.{atrybut}", wybuchnij, raising=False)
+        monkeypatch.setattr(f"{modul}.{atrybut}", wybuchnij, raising=True)
