@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema
 
-from api.permissions import IsOwnerOrEmployee
+from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from api.serializers import FAQSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from chat.models import FAQ
@@ -15,7 +15,7 @@ class FAQViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     """
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get_queryset(self):
         return super().get_queryset().order_by("id")

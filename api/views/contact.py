@@ -8,7 +8,7 @@ from drf_spectacular.utils import extend_schema
 
 from api.schemas import ErrorSerializer, MessageSerializer, PublicContactRequestSerializer
 
-from api.permissions import IsOwnerOrEmployee
+from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from api.serializers import ContactRequestCreateSerializer, ContactRequestSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from chat.models import ContactRequest, Conversation
@@ -71,4 +71,4 @@ class ContactRequestViewSet(TenantQuerysetMixin,
     """Lista zapytań w panelu; można oznaczyć jako obsłużone."""
     queryset = ContactRequest.objects.all()
     serializer_class = ContactRequestSerializer
-    permission_classes = [IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
