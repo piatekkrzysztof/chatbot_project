@@ -261,6 +261,7 @@ class TestZapisuDoBazy:
         assert generate_embeddings_for_document(dokument) == 0
         assert DocumentChunk.objects.filter(document=dokument).count() == 0
 
+    @pytest.mark.wolno_uzyc_klienta_openai
     def test_uzywa_klucza_openai_klienta(self, monkeypatch):
         """Klient z własnym kluczem płaci za rozmowy — powinien też za własną
         bazę wiedzy. Wcześniej ten moduł miał klienta z kluczem globalnym."""
