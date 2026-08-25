@@ -1,38 +1,95 @@
-version: "3.9"
+# Lokalne środowisko deweloperskie: baza z pgvector, Redis, serwer i worker.
+#
+# Jedyne, co trzeba podać samemu, to OPENAI_API_KEY w pliku .env — reszta
+# wartości jest tu wpisana wprost, żeby `docker compose up` działało zaraz
+# po sklonowaniu. To dane lokalnego kontenera, nie sekrety.
+#
+# Poprzednia wersja podawała web-owi env_file: .env.dev, w którym nazwy
+# zmiennych brzmiały POSTGRES_*, a settings/dev.py czyta DEV_DB_*. Kontener
+# szukał więc bazy na localhost zamiast na hoście `db` i nie wstawał.
+
 services:
   db:
-    image: ankane/pgvector:latest
-    container_name: chatbot_db
-    restart: always
+    # Obraz z gotowym rozszerzeniem pgvector — migracje same je włączają.
+    image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: chatbot_db
+      POSTGRES_DB: chatbot_dev_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      # Port hosta do nadpisania, gdy ktos ma juz wlasnego Postgresa:
+      #   PORT_DB=55432 docker compose up
+      - "${PORT_DB:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${PORT_REDIS:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   web:
-    build:
-      context: .
-    container_name: chatbot_web
-    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    build: .
+    command: >
+      bash -c "python manage.py migrate --noinput &&
+               python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
-    env_file:
-      - .env.dev
+      - "${PORT_WEB:-8000}:8000"
+    environment: &srodowisko
+      DJANGO_ENV: dev
+      DEV_DB_NAME: chatbot_dev_db
+      DEV_DB_USER: postgres
+      DEV_DB_PASSWORD: postgres
+      DEV_DB_HOST: db
+      DEV_DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      # Bez klucza serwer wstaje i panel działa; nie działa samo odpowiadanie
+      # bota i liczenie wektorów, bo to jedyne miejsca, które wołają OpenAI.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-lokalny-klucz-tylko-do-developmentu}
+      FRONTEND_URL: http://localhost:3000
+      DJANGO_CORS_ALLOWED_ORIGINS: http://localhost:3000
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: celery -A chatbot_project worker --loglevel=info
+    volumes:
+      - .:/app
+    environment: *srodowisko
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Zadania cykliczne: pobieranie stron klientów, kasowanie starych rozmów,
+  # tygodniowy raport luk. Bez tego usługi projekt działa, tylko nic nie
+  # dzieje się samo.
+  beat:
+    build: .
+    command: celery -A chatbot_project beat --loglevel=info
+    volumes:
+      - .:/app
+    environment: *srodowisko
+    depends_on:
+      - worker
 
 volumes:
-      postgres_data:
+  postgres_data:

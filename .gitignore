@@ -29,3 +29,6 @@ staticfiles/
 # Artefakty testów manualnych
 documents/test_*.pdf
 backups/
+
+# Plik stanu harmonogramu Celery beat — tworzy sie przy kazdym uruchomieniu
+celerybeat-schedule
