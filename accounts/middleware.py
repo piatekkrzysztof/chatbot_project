@@ -122,6 +122,20 @@ class TenantMiddleware:
 import time
 
 
+#: Kod odmowy dla widgetu.
+#:
+#: Wszystkie powody, dla ktorych czat jest niedostepny -- wygasla subskrypcja,
+#: brak subskrypcji, wyczerpany limit wiadomosci -- znacza dla odwiedzajacego
+#: dokladnie to samo: teraz nie odpowiemy i ponawianie nic nie da. Widget
+#: pokazuje wtedy uczciwy komunikat zamiast "Wystapil blad, sprobuj ponownie",
+#: ktory kaze powtarzac cos, co nigdy nie zadziala.
+#:
+#: Jeden kod, a nie osobny dla kazdego powodu, celowo: rozliczenia klienta nie
+#: sa sprawa jego odwiedzajacych. Wlasciciel dowiaduje sie o przyczynie
+#: mailem i w panelu.
+KOD_CZAT_NIEDOSTEPNY = "czat_niedostepny"
+
+
 class SubscriptionMiddleware(MiddlewareMixin):
     # Dokładne ścieżki (nie prefiksy!) — endpointy wysyłające wiadomość do AI.
     # Prefiksowe dopasowanie złapałoby też /api/chat/logs/, /api/chat/feedback/ itd.,
@@ -145,7 +159,10 @@ class SubscriptionMiddleware(MiddlewareMixin):
             try:
                 subscription = Subscription.objects.get(tenant=tenant)
             except Subscription.DoesNotExist:
-                return JsonResponse({'error': 'Subscription not found'}, status=403)
+                return JsonResponse(
+                    {'error': 'Subscription not found', 'kod': KOD_CZAT_NIEDOSTEPNY},
+                    status=403,
+                )
             except Subscription.MultipleObjectsReturned:
                 # Logika awaryjna - wybierz pierwszą aktywną subskrypcję
                 subscription = Subscription.objects.filter(
@@ -153,13 +170,19 @@ class SubscriptionMiddleware(MiddlewareMixin):
                     is_active=True
                 ).order_by('-end_date').first()
                 if not subscription:
-                    return JsonResponse({'error': 'No active subscription'}, status=403)
+                    return JsonResponse(
+                        {'error': 'No active subscription', 'kod': KOD_CZAT_NIEDOSTEPNY},
+                        status=403,
+                    )
 
             # 3. Sprawdź daty ważności subskrypcji
             today = timezone.now().date()
             if not (subscription.is_active and
                     subscription.start_date <= today <= subscription.end_date):
-                return JsonResponse({'error': 'Subscription expired'}, status=403)
+                return JsonResponse(
+                    {'error': 'Subscription expired', 'kod': KOD_CZAT_NIEDOSTEPNY},
+                    status=403,
+                )
 
             # 4. Sprawdź czy cykl rozliczeniowy wymaga resetu
             # Bezpieczne sprawdzenie czy minął miesiąc (uwzględnia lata)
@@ -172,6 +195,7 @@ class SubscriptionMiddleware(MiddlewareMixin):
                 return JsonResponse(
                     {
                         'error': 'Message limit exceeded',
+                        'kod': KOD_CZAT_NIEDOSTEPNY,
                         'limit': subscription.message_limit,
                         'used': subscription.current_message_count
                     },
