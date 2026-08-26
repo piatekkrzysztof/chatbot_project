@@ -15,6 +15,7 @@ from rest_framework.test import APIClient
 from accounts.models import Tenant
 
 NAZWA = settings.NAZWA_CIASTECZKA_ODSWIEZANIA
+ZNACZNIK = settings.NAZWA_CIASTECZKA_SESJI
 
 
 @pytest.fixture
@@ -76,6 +77,43 @@ class TestLogowanie:
 
         assert odpowiedz.status_code == 401
         assert NAZWA not in odpowiedz.cookies
+
+
+class TestZnacznikSesji:
+    """
+    Znacznik pozwala serwerowi Next.js odmowic trasy PRZED renderem.
+    Bez niego chroniona tresc miga na ekranie, zanim kod po stronie
+    klienta zdazy przekierowac.
+    """
+
+    def test_logowanie_ustawia_znacznik_na_calej_domenie(self, klient, wlascicielka, haslo):
+        odpowiedz = zaloguj(klient, wlascicielka, haslo)
+
+        znacznik = odpowiedz.cookies[ZNACZNIK]
+        # Sciezka "/" to caly sens tego ciasteczka: token ma sciezke
+        # /api/accounts/, wiec pod panel w ogole nie dochodzi.
+        assert znacznik["path"] == "/"
+        assert znacznik["httponly"] is True
+
+    def test_znacznik_nie_niesie_tokenu(self, klient, wlascicielka, haslo):
+        # Gdyby cokolwiek z tokenu tu trafilo, zawezenie sciezki tego
+        # drugiego ciasteczka byloby bez znaczenia.
+        odpowiedz = zaloguj(klient, wlascicielka, haslo)
+
+        token = odpowiedz.cookies[NAZWA].value
+        assert odpowiedz.cookies[ZNACZNIK].value == "1"
+        assert token not in odpowiedz.cookies[ZNACZNIK].value
+
+    def test_wylogowanie_kasuje_oba_ciasteczka(self, klient, wlascicielka, haslo):
+        # Znacznik zostawiony po wylogowaniu kazalby Next.js renderowac
+        # panel, ktory natychmiast odbija sie od API -- uzytkownik widzi
+        # migniecie panelu zamiast ekranu logowania.
+        zaloguj(klient, wlascicielka, haslo)
+
+        odpowiedz = klient.post(reverse("logout"))
+
+        assert odpowiedz.cookies[NAZWA].value == ""
+        assert odpowiedz.cookies[ZNACZNIK].value == ""
 
 
 class TestOdswiezanie:
