@@ -6,8 +6,16 @@ from accounts.utils.email import send_invitation_email
 from accounts.models import InvitationToken
 from api.serializers import RegisterSerializer, UserSerializer, AcceptInvitationSerializer
 
-from rest_framework_simplejwt.views import TokenObtainPairView
+from django.conf import settings
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from api.serializers import CustomTokenObtainPairSerializer
+from api.utils.ciasteczka import (
+    odczytaj_token_odswiezania,
+    ustaw_ciasteczko_odswiezania,
+    usun_ciasteczko_odswiezania,
+)
 
 import logging
 
@@ -95,8 +103,123 @@ class ClientRegisterView(APIView):
     ),
 )
 class LoginView(TokenObtainPairView):
+    """
+    Logowanie. Token dostepu wraca w tresci, token odswiezania w ciasteczku.
+
+    Rozdzial jest celowy: token dostepu zyje krotko i frontend trzyma go
+    w pamiecie karty, a token odswiezania -- ten, ktorym da sie odtworzyc
+    sesje na dwa tygodnie -- nie jest widoczny dla zadnego skryptu.
+    """
+
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = []
+
+    def post(self, zadanie, *args, **kwargs):
+        odpowiedz = super().post(zadanie, *args, **kwargs)
+
+        refresh = odpowiedz.data.get("refresh")
+        if refresh:
+            ustaw_ciasteczko_odswiezania(odpowiedz, refresh)
+            if not settings.ZWRACAJ_REFRESH_W_TRESCI:
+                # Token zostawiony w tresci laduje w localStorage, czyli
+                # dokladnie tam, skad ta przebudowa go zabiera.
+                del odpowiedz.data["refresh"]
+
+        return odpowiedz
+
+
+@extend_schema(
+    tags=["Konto"],
+    summary="Odswiez token dostepu",
+    description=(
+        "Czyta token odswiezania z ciasteczka HttpOnly. Kazde wywolanie wydaje "
+        "nowy token odswiezania i uniewaznia poprzedni."
+    ),
+)
+class OdswiezTokenView(TokenRefreshView):
+    """
+    Odswiezanie oparte o ciasteczko.
+
+    Domyslny widok simplejwt oczekuje tokenu w tresci zadania. Skoro token
+    jest teraz niewidoczny dla JavaScriptu, frontend nie ma czego wyslac --
+    czytamy go z ciasteczka i tam tez odsylamy nowy.
+    """
+
+    permission_classes = []
+
+    def post(self, zadanie, *args, **kwargs):
+        token = odczytaj_token_odswiezania(zadanie)
+        if not token:
+            # 401, nie 400: dla frontendu to ten sam przypadek co wygasla
+            # sesja i ma prowadzic do ekranu logowania, a nie do komunikatu
+            # o bledzie formularza.
+            return Response(
+                {"detail": "Brak tokenu odswiezania."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        serializer = self.get_serializer(data={"refresh": token})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as blad:
+            odpowiedz = Response(
+                {"detail": "Sesja wygasla. Zaloguj sie ponownie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            # Token nie do uzycia -- ciasteczko tylko myli przegladarke
+            # i kaze jej probowac w nieskonczonosc.
+            usun_ciasteczko_odswiezania(odpowiedz)
+            logger.info("Odrzucony token odswiezania: %s", blad)
+            return odpowiedz
+
+        dane = dict(serializer.validated_data)
+        nowy_refresh = dane.pop("refresh", None)
+
+        odpowiedz = Response(dane, status=status.HTTP_200_OK)
+        if nowy_refresh:
+            # Rotacja: poprzedni token trafil wlasnie na czarna liste,
+            # wiec bez podmiany ciasteczka nastepne odswiezenie odbiloby sie.
+            ustaw_ciasteczko_odswiezania(odpowiedz, nowy_refresh)
+        return odpowiedz
+
+
+@extend_schema(
+    tags=["Konto"],
+    summary="Wyloguj",
+    description="Uniewaznia token odswiezania i kasuje ciasteczko.",
+    # Widok nie przyjmuje ani nie zwraca tresci -- token przychodzi
+    # w ciasteczku. Bez tych dwoch linii generator schematu probuje zgadnac
+    # serializer, nie potrafi i zglasza blad.
+    request=None,
+    responses={204: None},
+)
+class WylogujView(APIView):
+    """
+    Wylogowanie, ktore naprawde konczy sesje.
+
+    Samo skasowanie ciasteczka byloby gestem po stronie przegladarki: token
+    dzialalby dalej az do konca swojego zycia, wiec kopia zdjeta wczesniej
+    z tego samego urzadzenia otwieralaby panel jeszcze przez dwa tygodnie.
+    Dlatego token trafia na czarna liste.
+    """
+
+    permission_classes = []
+
+    def post(self, zadanie):
+        token = odczytaj_token_odswiezania(zadanie)
+        odpowiedz = Response(status=status.HTTP_204_NO_CONTENT)
+
+        if token:
+            try:
+                RefreshToken(token).blacklist()
+            except TokenError:
+                # Token juz wygasly albo juz uniewazniony. Z punktu widzenia
+                # uzytkownika wylogowanie sie udalo, wiec nie ma o czym
+                # informowac -- nie ma tez czego uniewazniac.
+                pass
+
+        usun_ciasteczko_odswiezania(odpowiedz)
+        return odpowiedz
 
 
 @extend_schema(

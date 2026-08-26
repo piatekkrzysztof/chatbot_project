@@ -7,17 +7,13 @@ from .views.widget import (
 )
 from .views.feedback import PublicFeedbackView, SubmitFeedbackView
 from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
-    InvitationListView, InvitationPreviewView, InvitationRevokeView
+    InvitationListView, InvitationPreviewView, InvitationRevokeView, OdswiezTokenView, WylogujView
 from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
 from .views.stripe_webhook import stripe_webhook
-from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.utils import extend_schema
 
-# TokenRefreshView pochodzi z biblioteki, więc opisujemy go tutaj zamiast
-# dekorować cudzą klasę w jej module
-TokenRefreshView = extend_schema(
-    tags=["Konto"], summary="Odśwież token dostępu"
-)(TokenRefreshView)
+# TokenRefreshView z biblioteki zastąpił OdswiezTokenView, który czyta token
+# z ciasteczka HttpOnly. Opis schematu ma teraz przy sobie, w swoim module.
 from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
 from api.views.diagnostyka import DiagnostykaAdresuView
@@ -45,7 +41,8 @@ urlpatterns = [
     path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
     path('accounts/register/', ClientRegisterView.as_view(), name='register'),
     path('accounts/login/', LoginView.as_view(), name='login'),
-    path('accounts/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('accounts/token/refresh/', OdswiezTokenView.as_view(), name='token_refresh'),
+    path('accounts/logout/', WylogujView.as_view(), name='logout'),
     path('accounts/me/', MeView.as_view(), name='me'),
     path('accounts/invitations/', CreateInvitationView.as_view(), name='invite-user'),
     path("accounts/invitations/list/", InvitationListView.as_view(), name="list-invitations"),
