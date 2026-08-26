@@ -5,7 +5,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 
-from accounts.plans import PROGI_ALERTOW
+from accounts.plans import PROGI_ALERTOW, PROGI_KONCA_SUBSKRYPCJI
 
 
 class WidgetPosition(models.TextChoices):
@@ -422,6 +422,44 @@ class Subscription(models.Model):
         default=0,
         verbose_name="Ostatnio wysłany próg alertu (%)",
     )
+
+    # Ktory prog konca subskrypcji juz wyslalismy i dla ktorej daty konca.
+    #
+    # Data jest tu po to, zeby odnowienie samo zerowalo licznik: po przesunieciu
+    # `end_date` znacznik przestaje pasowac i ostrzezenia dzialaja od nowa.
+    # Bez tego klient, ktory raz dostal komplet powiadomien, nie dostalby ich
+    # nigdy wiecej -- czyli dokladnie ta cicha awaria, ktorej te alerty maja
+    # zapobiegac, wracalaby przy kazdym kolejnym cyklu.
+    alert_konca_prog = models.SmallIntegerField(
+        null=True, blank=True,
+        verbose_name="Ostatnio wysłany próg końca (dni)",
+    )
+    alert_konca_dla = models.DateField(
+        null=True, blank=True,
+        verbose_name="Data końca, której dotyczy wysłany próg",
+    )
+
+    def prog_konca_do_powiadomienia(self, dzisiaj):
+        """
+        Najpilniejszy prog konca, o ktorym jeszcze nie powiadomilismy.
+
+        Zwraca None, gdy nie ma o czym informowac. Bierzemy najpilniejszy,
+        a nie kolejny: gdy zadanie nie chodzilo przez kilka dni, wlasciciel
+        dostanie jedna wiadomosc "subskrypcja wygasla", a nie najpierw
+        ostrzezenie o czyms, co juz sie stalo.
+        """
+        if not self.end_date:
+            return None
+
+        # Inna data konca niz ta, o ktorej powiadamialismy, znaczy odnowienie.
+        wyslany = self.alert_konca_prog if self.alert_konca_dla == self.end_date else None
+
+        zostalo = (self.end_date - dzisiaj).days
+        kandydaci = [
+            prog for prog in PROGI_KONCA_SUBSKRYPCJI
+            if zostalo <= prog and (wyslany is None or prog < wyslany)
+        ]
+        return min(kandydaci) if kandydaci else None
 
     def usage_percent(self):
         """Zużycie limitu w procentach. Bez limitu nie ma czego liczyć."""
