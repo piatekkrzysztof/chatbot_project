@@ -157,6 +157,20 @@ CIASTECZKO_ODSWIEZANIA_SECURE = False
 # ani nie powieksza kazdego zadania bez potrzeby.
 CIASTECZKO_ODSWIEZANIA_SCIEZKA = "/api/accounts/"
 
+# Drugie ciasteczko: sam znacznik "ta przegladarka ma sesje", bez tokenu.
+#
+# Po co: ciasteczko z tokenem ma sciezke /api/accounts/, wiec przegladarka nie
+# wysyla go pod panel.agencjasm-art.pl -- a wlasnie tam Next.js musi wiedziec,
+# czy przepuscic trase, zanim cokolwiek wyrenderuje. Bez tego chroniona tresc
+# miga na ekranie, zanim kod po stronie klienta zdazy przekierowac.
+#
+# Bezpieczenstwo: to ciasteczko nie otwiera niczego. Podrobienie go daje tyle,
+# ze panel sie wyrenderuje i natychmiast dostanie 401 z API, bo prawdziwym
+# strażnikiem jest token, nie ono. Jest mimo to HttpOnly, bo czyta je serwer
+# Next.js z naglowka zadania, a nie skrypt w przegladarce -- HttpOnly blokuje
+# document.cookie, nie odczyt po stronie serwera.
+NAZWA_CIASTECZKA_SESJI = "sesja_panelu"
+
 # Przejsciowo logowanie zwraca refresh takze w tresci odpowiedzi, zeby
 # obecny frontend dzialal do czasu swojego wdrozenia. Do usuniecia zaraz
 # po nim -- refresh w tresci trafia do localStorage, czyli tam, skad ta

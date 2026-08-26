@@ -36,6 +36,34 @@ def ustaw_ciasteczko_odswiezania(odpowiedz, token):
         # zostawialoby w przegladarce ciasteczko, ktore juz nic nie otwiera.
         max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
     )
+    _ustaw_znacznik_sesji(odpowiedz)
+
+
+def _ustaw_znacznik_sesji(odpowiedz):
+    """
+    Znacznik dla serwera Next.js. Nie niesie tokenu -- tylko informacje, ze
+    ta przegladarka ma sesje, zeby dalo sie odmowic trasy przed renderem.
+    """
+    odpowiedz.set_cookie(
+        key=settings.NAZWA_CIASTECZKA_SESJI,
+        value="1",
+        httponly=True,
+        secure=settings.CIASTECZKO_ODSWIEZANIA_SECURE,
+        samesite=settings.CIASTECZKO_ODSWIEZANIA_SAMESITE,
+        domain=settings.CIASTECZKO_ODSWIEZANIA_DOMENA,
+        # Sciezka "/" wlasnie po to, zeby doszlo pod panel, a nie tylko do API.
+        path="/",
+        max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+    )
+
+
+def _usun_znacznik_sesji(odpowiedz):
+    odpowiedz.delete_cookie(
+        key=settings.NAZWA_CIASTECZKA_SESJI,
+        domain=settings.CIASTECZKO_ODSWIEZANIA_DOMENA,
+        path="/",
+        samesite=settings.CIASTECZKO_ODSWIEZANIA_SAMESITE,
+    )
 
 
 def usun_ciasteczko_odswiezania(odpowiedz):
@@ -53,6 +81,7 @@ def usun_ciasteczko_odswiezania(odpowiedz):
         path=settings.CIASTECZKO_ODSWIEZANIA_SCIEZKA,
         samesite=settings.CIASTECZKO_ODSWIEZANIA_SAMESITE,
     )
+    _usun_znacznik_sesji(odpowiedz)
 
 
 def odczytaj_token_odswiezania(zadanie):
