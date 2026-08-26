@@ -30,6 +30,10 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "corsheaders",
+    # Uniewaznianie refresh tokenow. Bez tej aplikacji wylogowanie jest
+    # tylko gestem po stronie przegladarki: token dalej dziala az do konca
+    # swojego zycia, wiec skradziony nie da sie odebrac.
+    "rest_framework_simplejwt.token_blacklist",
     "api",
     "accounts",
     "chat",
@@ -121,9 +125,57 @@ SPECTACULAR_SETTINGS = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    # 15 minut zamiast 8 godzin. Token dostepu zyje teraz w pamieci karty
+    # przegladarki, a nie w localStorage, wiec odswiezanie jest tanie --
+    # a skradziony token jest wart kwadrans, nie caly dzien pracy.
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+
+    # Kazde odswiezenie wydaje nowy refresh i uniewaznia poprzedni. Dzieki
+    # temu token przechwycony i uzyty przez napastnika wylogowuje wlasciciela
+    # -- kradziez przestaje byc cicha.
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
+
+# Ciasteczko z refresh tokenem.
+#
+# Domena z kropka na poczatku, zeby ciasteczko ustawione przez
+# api.agencjasm-art.pl doszlo do panel.agencjasm-art.pl. Oba adresy leza pod
+# ta sama domena rejestrowalna, wiec zapytania miedzy nimi sa "same-site" --
+# dlatego wystarcza SameSite=Lax i nie trzeba stawiac warstwy posredniczacej
+# po stronie Next.js.
+#
+# Lokalnie domena zostaje pusta: ciasteczko ustawione przez localhost:8000
+# i tak dojdzie do localhost:3000, bo ciasteczka ignoruja numer portu.
+NAZWA_CIASTECZKA_ODSWIEZANIA = "refresh_token"
+CIASTECZKO_ODSWIEZANIA_DOMENA = os.getenv("REFRESH_COOKIE_DOMAIN") or None
+CIASTECZKO_ODSWIEZANIA_SAMESITE = "Lax"
+CIASTECZKO_ODSWIEZANIA_SECURE = False
+# Sciezka zawezona do samego odswiezania i wylogowania: ciasteczko nie jest
+# doklejane do kazdego zapytania do API, wiec nie wycieka do logow posrednikow
+# ani nie powieksza kazdego zadania bez potrzeby.
+CIASTECZKO_ODSWIEZANIA_SCIEZKA = "/api/accounts/"
+
+# Drugie ciasteczko: sam znacznik "ta przegladarka ma sesje", bez tokenu.
+#
+# Po co: ciasteczko z tokenem ma sciezke /api/accounts/, wiec przegladarka nie
+# wysyla go pod panel.agencjasm-art.pl -- a wlasnie tam Next.js musi wiedziec,
+# czy przepuscic trase, zanim cokolwiek wyrenderuje. Bez tego chroniona tresc
+# miga na ekranie, zanim kod po stronie klienta zdazy przekierowac.
+#
+# Bezpieczenstwo: to ciasteczko nie otwiera niczego. Podrobienie go daje tyle,
+# ze panel sie wyrenderuje i natychmiast dostanie 401 z API, bo prawdziwym
+# strażnikiem jest token, nie ono. Jest mimo to HttpOnly, bo czyta je serwer
+# Next.js z naglowka zadania, a nie skrypt w przegladarce -- HttpOnly blokuje
+# document.cookie, nie odczyt po stronie serwera.
+NAZWA_CIASTECZKA_SESJI = "sesja_panelu"
+
+# Przejsciowo logowanie zwraca refresh takze w tresci odpowiedzi, zeby
+# obecny frontend dzialal do czasu swojego wdrozenia. Do usuniecia zaraz
+# po nim -- refresh w tresci trafia do localStorage, czyli tam, skad ta
+# przebudowa go zabiera.
+ZWRACAJ_REFRESH_W_TRESCI = os.getenv("ZWRACAJ_REFRESH_W_TRESCI", "1") == "1"
 
 WSGI_APPLICATION = "chatbot_project.wsgi.application"
 ASGI_APPLICATION = "chatbot_project.asgi.application"

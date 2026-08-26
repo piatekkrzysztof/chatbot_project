@@ -63,6 +63,22 @@ if FRONTEND_URL:
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Ciasteczko z refresh tokenem: na produkcji wylacznie po HTTPS, a domena
+# z kropka, zeby doszlo z api.* do panel.*. Domyslna wartosc wyliczana jest
+# z FRONTEND_URL, bo tam wlasnie stoi panel -- REFRESH_COOKIE_DOMAIN jest
+# tylko furtka na wypadek innego ukladu domen.
+CIASTECZKO_ODSWIEZANIA_SECURE = True
+if not CIASTECZKO_ODSWIEZANIA_DOMENA:
+    _host_panelu = FRONTEND_URL.split("://")[-1].strip("/").split(":")[0]
+    _czlony = _host_panelu.split(".")
+    if len(_czlony) >= 3:
+        CIASTECZKO_ODSWIEZANIA_DOMENA = "." + ".".join(_czlony[-2:])
+
+# Ciasteczko jest doklejane automatycznie, wiec adresy pochodzenia musza byc
+# wymienione z nazwy -- gwiazdka z poswiadczeniami jest zabroniona przez
+# specyfikacje i przegladarka odrzuca cala odpowiedz.
+CORS_ALLOW_CREDENTIALS = True
+
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True

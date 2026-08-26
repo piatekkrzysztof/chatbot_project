@@ -27,6 +27,13 @@ class TenantMiddleware:
         exempt_paths = [
             "/api/accounts/register/",
             "/api/accounts/login/",
+            # Odswiezanie i wylogowanie z definicji dzialaja bez waznego
+            # tokenu dostepu -- to jest ich caly sens. Tozsamosc potwierdza
+            # tu token odswiezania z ciasteczka HttpOnly, sprawdzany w widoku.
+            # Bez tego wyjatku wygasla sesja nie dawala sie odnowic ani
+            # zakonczyc: uzytkownik zostawal z martwym panelem.
+            "/api/accounts/token/refresh/",
+            "/api/accounts/logout/",
             # Zapraszany dopiero zakłada konto — nie ma jeszcze ani tokenu JWT,
             # ani klucza API, więc bez tego wyjątku każde zaproszenie kończyło
             # się odmową "Nie rozpoznano tenanta".
