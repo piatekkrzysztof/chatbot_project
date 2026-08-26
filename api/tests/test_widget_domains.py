@@ -96,6 +96,51 @@ class TestLimituZCennika:
         for numer in range(5):
             zarejestruj_domene(tenant, f"https://sklep{numer}.pl")
 
+    def test_nasza_wlasna_domena_nie_zajmuje_limitu(self, tenant, subscribtion, settings):
+        """
+        Okno czatu dziala w ramce serwowanej spod naszego panelu, wiec
+        zapytania z jej wnetrza niosa w naglowku Origin NASZ adres.
+
+        Bez wykluczenia klient planu Start rejestrowal wlasna strone jako
+        pierwsza witryne, a ramka widgetu probowala byc druga i dostawala
+        odmowe -- widget tracil branding, a klient widzial w panelu nasza
+        domene na liscie swoich witryn.
+        """
+        settings.FRONTEND_URL = "https://panel.agencjasm-art.pl"
+        subscribtion.plan_type = "start"
+        subscribtion.save()
+
+        zarejestruj_domene(tenant, "https://sklep.pl")
+        # Nie moze rzucic: to nie jest kolejna witryna klienta
+        wynik = zarejestruj_domene(tenant, "https://panel.agencjasm-art.pl")
+
+        assert wynik == ""
+        assert WidgetDomain.objects.filter(tenant=tenant).count() == 1
+        assert not WidgetDomain.objects.filter(host="panel.agencjasm-art.pl").exists()
+
+    def test_wykluczenie_idzie_za_adresem_panelu(self, tenant, subscribtion, settings):
+        # Adres bierzemy z FRONTEND_URL, wiec przeprowadzka panelu pod inny
+        # adres przenosi wykluczenie razem z nim -- bez zmiany w kodzie.
+        settings.FRONTEND_URL = "https://nowy-panel.example.com"
+        subscribtion.plan_type = "start"
+        subscribtion.save()
+
+        assert zarejestruj_domene(tenant, "https://nowy-panel.example.com") == ""
+        # Stary adres przestaje byc wykluczony -- to zwykla obca witryna
+        assert zarejestruj_domene(tenant, "https://panel.agencjasm-art.pl") == "panel.agencjasm-art.pl"
+
+    def test_cudza_domena_wciaz_liczy_sie_do_limitu(self, tenant, subscribtion, settings):
+        # Wykluczenie ma dotyczyc WYLACZNIE naszego adresu. Gdyby rozlalo sie
+        # szerzej, zniknelaby ochrona klucza API: kazdy moglby skopiowac klucz
+        # ze strony klienta i zuzywac jego limit u siebie.
+        settings.FRONTEND_URL = "https://panel.agencjasm-art.pl"
+        subscribtion.plan_type = "start"
+        subscribtion.save()
+        zarejestruj_domene(tenant, "https://sklep.pl")
+
+        with pytest.raises(PermissionDenied):
+            zarejestruj_domene(tenant, "https://obca-strona.pl")
+
     def test_przekroczenie_limitu_zatrzymuje(self, tenant, subscribtion):
         subscribtion.plan_type = "start"
         subscribtion.save()
