@@ -131,6 +131,12 @@ jobs:
             coverage report --skip-covered --sort=cover | tail -45
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          # Adnotacja, nie tylko podsumowanie: treść $GITHUB_STEP_SUMMARY widać
+          # dopiero po zalogowaniu, a adnotacje są publiczne. Dzięki temu liczbę
+          # widzi każdy, kto otworzy przebieg — łącznie z kimś, kto ogląda
+          # repozytorium bez konta.
+          PROCENT=$(coverage report --format=total 2>/dev/null || echo "?")
+          echo "::notice title=Pokrycie testami::${PROCENT}% (gałęziowe, bez migracji i testów)"
         continue-on-error: true
 
       - name: Zachowaj raport
@@ -169,6 +175,8 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           ruff check . --statistics 2>&1 | tail -40 >> "$GITHUB_STEP_SUMMARY" || true
+          ILE=$(ruff check . --output-format=concise 2>/dev/null | wc -l)
+          echo "::notice title=Ruff::${ILE} trafień (nie blokuje — punkt startowy do ustawienia progu)"
         continue-on-error: true
 
       - name: Ruff — formatowanie
@@ -181,6 +189,8 @@ jobs:
             ruff format --check --diff . 2>&1 | tail -20
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          ILE=$(ruff format --check . 2>/dev/null | grep -c "^Would reformat" || true)
+          echo "::notice title=Formatowanie::${ILE} plików do przeformatowania"
         continue-on-error: true
 
   typy:
@@ -210,6 +220,8 @@ jobs:
             mypy . 2>&1 | tail -60
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          ILE=$(mypy . 2>/dev/null | grep -c "error:" || true)
+          echo "::notice title=Mypy::${ILE} błędów typów"
         continue-on-error: true
 
   bezpieczenstwo:
@@ -240,6 +252,9 @@ jobs:
             bandit -c pyproject.toml -r . -f txt 2>&1 | tail -50
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          WYSOKIE=$(bandit -c pyproject.toml -r . -f json 2>/dev/null             | python -c "import sys,json; d=json.load(sys.stdin); r=d.get('results',[]); print(sum(1 for x in r if x['issue_severity']=='HIGH'))" 2>/dev/null || echo "?")
+          RAZEM=$(bandit -c pyproject.toml -r . -f json 2>/dev/null             | python -c "import sys,json; print(len(json.load(sys.stdin).get('results',[])))" 2>/dev/null || echo "?")
+          echo "::notice title=Bandit::${RAZEM} znalezisk, w tym ${WYSOKIE} o wysokiej wadze"
         continue-on-error: true
 
       - name: pip-audit — zależności produkcyjne
@@ -252,6 +267,8 @@ jobs:
             pip-audit -r requirements.txt --progress-spinner off 2>&1 | tail -40
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          ILE=$(pip-audit -r requirements.txt --progress-spinner off -f json 2>/dev/null             | python -c "import sys,json; d=json.load(sys.stdin); print(sum(len(p.get('vulns',[])) for p in d.get('dependencies',[])))" 2>/dev/null || echo "?")
+          echo "::notice title=pip-audit::${ILE} podatności w zależnościach produkcyjnych"
         continue-on-error: true
 
   obraz:
