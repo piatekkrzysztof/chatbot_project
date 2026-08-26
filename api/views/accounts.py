@@ -153,10 +153,15 @@ class OdswiezTokenView(TokenRefreshView):
             # 401, nie 400: dla frontendu to ten sam przypadek co wygasla
             # sesja i ma prowadzic do ekranu logowania, a nie do komunikatu
             # o bledzie formularza.
-            return Response(
+            odpowiedz = Response(
                 {"detail": "Brak tokenu odswiezania."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+            # Kasujemy tez znacznik sesji. Bez tego przegladarka zostaje ze
+            # sladem po sesji, ktorej juz nie ma: Next.js przepuszcza trase
+            # panelu, panel odbija na logowanie, i tak w kolko.
+            usun_ciasteczko_odswiezania(odpowiedz)
+            return odpowiedz
 
         serializer = self.get_serializer(data={"refresh": token})
         try:

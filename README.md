@@ -276,6 +276,19 @@ Two habits worth knowing if you contribute:
 `TenantMiddleware`. Querysets are scoped through `TenantQuerysetMixin` rather than
 per-view filtering, so a missing filter is a missing mixin and shows up in review.
 
+**Panel sessions.** Login returns a short-lived access token in the body and sets the
+refresh token as an `HttpOnly` `Secure` `SameSite=Lax` cookie scoped to
+`/api/accounts/`, so no script can read it and it is not attached to every other API
+call. Access tokens last 15 minutes; refresh tokens rotate on every use and the previous
+one is blacklisted, so a stolen token logs its owner out rather than granting quiet
+access. `POST /api/accounts/logout/` blacklists the token server-side — clearing the
+cookie alone would leave a working session behind for two weeks. Covered by
+`api/tests/test_uwierzytelnianie_ciasteczkiem.py`, which asserts both halves: that the
+right path works *and* that the wrong one is closed.
+
+The panel and the API are subdomains of one registrable domain, which makes requests
+between them same-site — that is why `SameSite=Lax` suffices and no BFF layer is needed.
+
 **Roles.** `owner` (billing, team, everything), `employee` (content and settings),
 `viewer` (reads every screen, writes nothing, and cannot bulk-export conversations —
 paging through the panel and dumping the whole history in one request are different risk
@@ -330,9 +343,11 @@ Honest list. These are measured or known, not hypothetical.
 - **`RAG_MAX_DISTANCE` is global.** The right threshold depends on a tenant's documents
   and is measured per tenant, but stored as one process-wide setting — multi-tenant in
   every respect except this one.
-- **The frontend keeps its JWT in `localStorage`.** Deliberate simplification while
-  onboarding was manual and trusted; it is XSS-exposed and is being replaced with an
-  `HttpOnly` refresh cookie.
+- **`script-src` in the panel still allows `'unsafe-inline'`.** The refresh token now
+  lives in an `HttpOnly` cookie and the access token only in tab memory, but a script
+  injected into the page could still read the latter. `connect-src` is narrowed to this
+  API, so it has nowhere to send it. Closing the gap fully needs per-request rendering of
+  every panel page.
 - **Annual pricing and message top-up packs are advertised but not implemented.**
   `STRIPE_PRICE_*_ROCZNY` and `STRIPE_PRICE_PAKIET` are read from the environment and
   never used. Either wire them up or remove them from the public pricing page.
