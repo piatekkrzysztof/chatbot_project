@@ -155,6 +155,17 @@ class TestOdswiezanie:
 
         assert odpowiedz.status_code == 401
 
+    def test_brak_tokenu_kasuje_znacznik_sesji(self, klient):
+        # Znacznik bez tokenu to slad po sesji, ktorej nie ma: Next.js
+        # przepuszcza wtedy trase panelu, panel odbija na logowanie,
+        # i przegladarka kreci sie w kolko.
+        klient.cookies[ZNACZNIK] = "1"
+
+        odpowiedz = klient.post(reverse("token_refresh"))
+
+        assert odpowiedz.status_code == 401
+        assert odpowiedz.cookies[ZNACZNIK].value == ""
+
     def test_brak_ciasteczka_to_401_a_nie_400(self, klient):
         # Dla frontendu to ten sam przypadek co wygasla sesja i ma prowadzic
         # do ekranu logowania, a nie do komunikatu o bledzie formularza.
