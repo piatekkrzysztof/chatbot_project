@@ -45,4 +45,12 @@ app.conf.beat_schedule = {
         "task": "chat.tasks.wyslij_raporty_tygodniowe",
         "schedule": crontab(minute=0, hour=8, day_of_week=1),
     },
+    # Koniec subskrypcji wycisza chatbota tak samo jak wyczerpany limit
+    # wiadomości, ale przez długi czas nie miał żadnego powiadomienia.
+    # Codziennie rano, tuż po raporcie tygodniowym, żeby dwie wiadomości
+    # nie przychodziły w tej samej minucie.
+    "konce-subskrypcji-codziennie": {
+        "task": "accounts.tasks_konce.sprawdz_konce_subskrypcji",
+        "schedule": crontab(minute=15, hour=8),
+    },
 }
