@@ -5,6 +5,18 @@ on:
     branches: [main]
   pull_request:
 
+# Zadania jakości (ruff, mypy, bandit, pip-audit, coverage) są w tym przebiegu
+# świadomie NIEBLOKUJĄCE. Ten kod nigdy nie był lintowany ani typowany, więc
+# włączenie ich od razu jako warunku przejścia zamieniłoby CI z powrotem
+# w czerwone — a czerwone CI, którego nikt nie czyta, jest gorsze niż jego brak.
+#
+# Każde z nich wypisuje wynik do podsumowania przebiegu. Kolejny krok to
+# odczytanie tych liczb i ustawienie progów tuż poniżej zmierzonych wartości,
+# a potem podnoszenie ich przy kolejnych zmianach.
+#
+# Jedyne nowe zadanie, które BLOKUJE od razu, to budowa obrazu: albo się buduje,
+# albo nie, nie ma tu nic do wytarowania.
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -56,6 +68,223 @@ jobs:
 
       - name: Testy
         run: pytest -q
+
+  pokrycie:
+    name: Pokrycie testami
+    runs-on: ubuntu-latest
+
+    # Osobne zadanie, nie dodatkowy krok w `test`. Tamto zadanie blokuje
+    # przejście CI, więc nie może zależeć od narzędzia, którego zachowania
+    # nie sprawdzono — awaria pytest-cov zamieniłaby zielony suite w czerwony
+    # z powodu niemającego nic wspólnego z kodem.
+    #
+    # Kosztuje drugi przebieg testów. Do scalenia z `test`, gdy próg pokrycia
+    # zacznie faktycznie blokować i pytest-cov będzie sprawdzonym elementem.
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chatbot_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SECRET_KEY: ci-secret-key-not-used-outside-ci
+      DEV_DB_NAME: chatbot_ci
+      DEV_DB_USER: postgres
+      DEV_DB_PASSWORD: postgres
+      DEV_DB_HOST: localhost
+      DEV_DB_PORT: 5432
+      OPENAI_API_KEY: not-used-tests-are-mocked
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalacja
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Pomiar
+        # Bez --cov-fail-under: najpierw mierzymy, potem ustawiamy próg tuż
+        # poniżej wyniku. Wymyślone z góry 90% skończyłoby się albo czerwonym
+        # CI, albo testami pisanymi pod procent zamiast pod ryzyko.
+        run: |
+          pytest -q --cov --cov-report=term --cov-report=xml
+          {
+            echo "## Pokrycie testami"
+            echo ""
+            echo '```'
+            coverage report --skip-covered --sort=cover | tail -45
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        continue-on-error: true
+
+      - name: Zachowaj raport
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokrycie
+          path: coverage.xml
+          if-no-files-found: warn
+
+  jakosc:
+    name: Jakość kodu
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalacja narzędzi
+        run: pip install ruff
+
+      - name: Ruff — analiza
+        # Nie blokuje. Liczba trafień idzie do podsumowania, żeby dało się
+        # ustawić realny punkt startowy zamiast go zgadywać.
+        run: |
+          {
+            echo "## Ruff — analiza"
+            echo ""
+            echo '```'
+            ruff check . --output-format=concise 2>&1 | tail -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          ruff check . --statistics 2>&1 | tail -40 >> "$GITHUB_STEP_SUMMARY" || true
+        continue-on-error: true
+
+      - name: Ruff — formatowanie
+        run: |
+          {
+            echo ""
+            echo "## Ruff — formatowanie"
+            echo ""
+            echo '```'
+            ruff format --check --diff . 2>&1 | tail -20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        continue-on-error: true
+
+  typy:
+    name: Typy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalacja
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install mypy 'django-stubs[compatible-mypy]'
+
+      - name: Mypy
+        run: |
+          {
+            echo "## Mypy"
+            echo ""
+            echo '```'
+            mypy . 2>&1 | tail -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        continue-on-error: true
+
+  bezpieczenstwo:
+    name: Bezpieczeństwo
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalacja narzędzi
+        # bandit[toml] — bez tego dodatku `-c pyproject.toml` nie zadziała
+        run: pip install 'bandit[toml]' pip-audit
+
+      - name: Bandit
+        # Testy są wyłączone w pyproject.toml — celowo używają rzeczy, które
+        # w kodzie produkcyjnym byłyby podejrzane (assert, hasła w kodzie),
+        # i zalewałyby raport szumem.
+        run: |
+          {
+            echo "## Bandit"
+            echo ""
+            echo '```'
+            bandit -c pyproject.toml -r . -f txt 2>&1 | tail -50
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        continue-on-error: true
+
+      - name: pip-audit — zależności produkcyjne
+        run: |
+          {
+            echo ""
+            echo "## pip-audit"
+            echo ""
+            echo '```'
+            pip-audit -r requirements.txt --progress-spinner off 2>&1 | tail -40
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        continue-on-error: true
+
+  obraz:
+    name: Obraz Docker
+    runs-on: ubuntu-latest
+
+    # To zadanie blokuje. Obraz albo się buduje, albo nie — nie ma tu progu
+    # do wytarowania. Zweryfikowane lokalnie przed dodaniem: buduje się.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Budowa obrazu
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: chatbot-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Obraz wstaje i widzi swoją konfigurację
+        run: |
+          docker run --rm \
+            -e DJANGO_ENV=prod \
+            -e DJANGO_SECRET_KEY=ci-secret-key-not-used-outside-ci \
+            -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/nieuzywana \
+            -e DJANGO_ALLOWED_HOSTS=example.com \
+            -e OPENAI_API_KEY=not-used-nothing-is-called \
+            chatbot-backend:ci \
+            python -c "from chatbot_project.wsgi import application; print('WSGI OK')"
 
   zaleznosci-produkcyjne:
     name: Zależności produkcyjne

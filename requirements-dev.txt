@@ -13,3 +13,7 @@ pytest-mock==3.14.1
 factory-boy==3.3.3
 Faker==37.4.0
 reportlab==4.3.1
+
+# Pomiar pokrycia. Bez progu na start — najpierw mierzymy, potem ustawiamy
+# wartosc tuz ponizej zmierzonej i podnosimy przy kolejnych zmianach.
+pytest-cov
