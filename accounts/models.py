@@ -1,6 +1,6 @@
 import uuid
 from datetime import timedelta
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
@@ -295,9 +295,48 @@ class Tenant(models.Model):
         return f"{self.name} (API Key: {self.api_key})"
 
 
+#: Firma, do ktorej trafiaja konta administratorow platformy.
+#:
+#: Nie jest klientem i nie ma danych -- istnieje wylacznie po to, zeby kazdy
+#: uzytkownik nalezal do jakiejs firmy. To zalozenie niesie cala izolacje
+#: najemcow: TenantMiddleware odmawia, gdy user.tenant_id jest puste, a klasy
+#: uprawnien sprawdzaja je przy kazdym zadaniu.
+FIRMA_ADMINISTRACYJNA = "Administracja platformy"
+
+
+class MenedzerUzytkownikow(UserManager):
+    """
+    Menedzer, ktory pozwala zalozyc administratora zwyklym `createsuperuser`.
+
+    Bez tego standardowa komenda Django konczyla sie surowym bledem bazy:
+    "null value in column tenant_id violates not-null constraint". Kazdy, kto
+    siegnal po odruch znany z kazdego projektu Django, dostawal komunikat
+    o ograniczeniu bazy zamiast informacji, co zrobic.
+
+    Rozwazana alternatywa -- pozwolic, zeby `tenant` bylo puste -- zostala
+    odrzucona. To pole jest podstawa izolacji najemcow, a uzytkownik bez firmy
+    wywracalby przy okazji liste kont w adminie, bo `__str__` czyta nazwe firmy.
+    Wygodniej jest dolozyc firme niz oslabic zalozenie, na ktorym stoi
+    rozdzielenie danych miedzy klientami.
+    """
+
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        if "tenant" not in extra_fields and "tenant_id" not in extra_fields:
+            firma, _ = Tenant.objects.get_or_create(name=FIRMA_ADMINISTRACYJNA)
+            extra_fields["tenant"] = firma
+
+        # Bez tego administrator dostawal role `viewer` z domyslnej wartosci
+        # pola i w panelu nie mogl nic zapisac -- mimo ze w adminie mogl wszystko.
+        extra_fields.setdefault("role", UserRole.OWNER)
+
+        return super().create_superuser(username, email, password, **extra_fields)
+
+
 class CustomUser(AbstractUser):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="users")
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.VIEWER)
+
+    objects = MenedzerUzytkownikow()
 
     def __str__(self):
         return f"{self.username} [{self.tenant.name}]"

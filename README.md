@@ -231,6 +231,22 @@ python manage.py bootstrap_tenant --company "Firma" --email "owner@firma.pl" --p
 
 It prints the widget key and a ready-to-paste embed snippet.
 
+For the Django admin at `/admin/`:
+
+```bash
+python manage.py createsuperuser
+```
+
+Every user in this project belongs to a tenant — that link is what tenant
+isolation is built on. A superuser is a platform operator rather than a
+customer, so the user manager files them under a tenant named *Administracja
+platformy*, created on first use — nothing to pass, nothing to set up. The
+account also gets the `owner` role, so the panel and the admin agree on what
+it may do.
+
+Without that manager the standard command failed on a NOT NULL constraint,
+which reads like a broken database rather than a missing argument.
+
 ---
 
 ## Tests
