@@ -1,0 +1,109 @@
+# Konfiguracja narzędzi jakości. Projekt nie jest pakietem instalowalnym —
+# ten plik istnieje wyłącznie po to, żeby ruff, mypy i bandit czytały te same
+# ustawienia lokalnie i w CI, zamiast brać swoje domyślne.
+
+[tool.ruff]
+target-version = "py311"
+
+# Zmierzone na tym kodzie (20 814 linii, bez migracji i venv):
+#   mediana 35, p90 79, p99 94, maksimum 170
+#
+#   > 79 znaków: 1952 linie
+#   > 88 znaków:  432
+#   > 100 znaków:  93
+#   > 120 znaków:   8
+#
+# 88 to domyślna wartość Blacka i oznaczałaby przeformatowanie 432 linii
+# napisanych świadomie. 100 leży powyżej p99, więc nie walczy ze stylem, jaki
+# ten kod ma, a nadal wyłapuje 93 realne odstępstwa — łącznie z linią na 170
+# znaków, której nikt nie przeczyta bez przewijania w bok.
+line-length = 100
+
+exclude = [
+    "venv",
+    "*/migrations/*",   # generowane przez Django, nie nasz styl
+    "chroma_db",
+    "media",
+]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes: nieużywane importy, niezdefiniowane nazwy — realne błędy
+    "E",    # pycodestyle: błędy
+    "W",    # pycodestyle: ostrzeżenia
+    "I",    # isort: kolejność importów
+    "UP",   # pyupgrade: idiomy nowsze niż Python 3.11
+    "B",    # bugbear: konstrukcje, które zwykle są błędem
+    "DJ",   # flake8-django: pułapki specyficzne dla Django
+    "C4",   # comprehensions
+]
+
+ignore = [
+    # Django wymaga __str__ na modelach, ale nie na każdym — DJ008 krzyczy
+    # na modele pomocnicze, których nikt nie ogląda w adminie.
+    "DJ008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# W testach wolno importować i nie używać (fixtury), a długie łańcuchy
+# asercji bywają czytelniejsze niż ich rozbicie.
+"*/tests/*" = ["F811", "F401"]
+"conftest.py" = ["F811", "F401"]
+# settings/*.py używa `from .base import *` — to jest wzorzec Django, nie błąd.
+"chatbot_project/settings/*.py" = ["F403", "F405"]
+"api/views/documents.py" = ["F403", "F405"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["accounts", "api", "chat", "documents", "rag", "chatbot_project"]
+
+[tool.ruff.format]
+# Cudzysłowy podwójne, jak w większości tego kodu.
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+# Start świadomie łagodny. Ten kod nie ma adnotacji prawie nigdzie, więc
+# strict od razu dałby tysiące błędów i jedyną reakcją byłoby wyłączenie
+# mypy. Zaczynamy od rzeczy, które są błędem niezależnie od adnotacji,
+# i dokręcamy moduł po module.
+ignore_missing_imports = true
+check_untyped_defs = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+exclude = [
+    "venv/",
+    ".*/migrations/.*",
+    "chroma_db/",
+]
+
+[tool.bandit]
+# Testy celowo używają rzeczy, które w kodzie produkcyjnym byłyby podejrzane:
+# hasła w kodzie ("secret"), assert, tymczasowe pliki. Skanowanie ich zalewa
+# raport szumem i uczy ignorowania wyników.
+exclude_dirs = ["venv", "api/tests", "accounts/tests", "documents/tests", "chroma_db"]
+
+[tool.coverage.run]
+source = ["accounts", "api", "chat", "documents", "rag", "chatbot_project"]
+omit = [
+    "*/migrations/*",      # generowane
+    "*/tests/*",           # mierzymy kod, nie testy
+    "conftest.py",
+    "manage.py",
+    "*/wsgi.py",
+    "*/asgi.py",
+    "venv/*",
+]
+# Pokrycie gałęziowe, nie tylko liniowe: `if x: return` wykonane raz daje
+# 100% linii, choć ścieżka bez wejścia w warunek nigdy nie była sprawdzona.
+# Liczba wyjdzie niższa i taka jest uczciwa.
+branch = true
+
+[tool.coverage.report]
+# Linie, ktorych nie da sie sensownie pokryc testem, a ktore zawyzaja dlug.
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+skip_empty = true
