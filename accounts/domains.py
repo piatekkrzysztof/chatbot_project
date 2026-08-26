@@ -13,6 +13,7 @@ z parametru w zapytaniu, bo ten byłby wyłącznie deklaracją.
 import ipaddress
 from urllib.parse import urlparse
 
+from django.conf import settings
 from django.db import IntegrityError
 from rest_framework.exceptions import PermissionDenied
 
@@ -87,6 +88,25 @@ def normalizuj_host(origin):
     return host
 
 
+def nasz_wlasny_host():
+    """
+    Host, spod ktorego serwujemy samo okno czatu.
+
+    Widget dziala w ramce wskazujacej na nasz panel, wiec zapytania z jej
+    wnetrza nios w naglowku Origin NASZ adres, nie adres klienta. Bez tego
+    wykluczenia rejestr zapisywal go jako kolejna witryne klienta: na planie
+    z jedna domena klient rejestrowal wlasna strone, a ramka widgetu probowala
+    byc druga i dostawala odmowe. Widget tracil wtedy branding i wracal do
+    ustawien domyslnych, a klient ogladal w panelu NASZA domene na liscie
+    swoich witryn.
+
+    Bierzemy adres z FRONTEND_URL, bo to ta sama wartosc, ktora sluzy za
+    zrodlo ramki -- gdy panel przeprowadzi sie pod inny adres, wykluczenie
+    przeprowadza sie razem z nim.
+    """
+    return normalizuj_host(getattr(settings, "FRONTEND_URL", ""))
+
+
 def limit_domen(tenant):
     """Ile witryn przysługuje firmie. None oznacza brak ograniczenia."""
     subskrypcja = getattr(tenant, "subscription", None)
@@ -110,6 +130,12 @@ def zarejestruj_domene(tenant, origin):
     from accounts.models import WidgetDomain
 
     host = normalizuj_host(origin)
+
+    # Zapytanie z wnetrza ramki widgetu niesie nasz wlasny adres, nie adres
+    # klienta. Nie ma tu czego odnotowywac -- to nie jest witryna klienta.
+    if host and host == nasz_wlasny_host():
+        return ""
+
     if not wyglada_na_adres_witryny(host):
         # Cicho, bo to nie jest błąd: widget ma działać także w piaskownicy
         # i na localhoście. Po prostu nie ma czego dopisać do rejestru.
