@@ -101,6 +101,15 @@ PAKIET_CENA_PLN = 39
 # informacja, że bot przestał odpowiadać — i musi dotrzeć natychmiast.
 PROGI_ALERTOW = (80, 95, 100)
 
+# Ile dni przed koncem subskrypcji uprzedzamy wlasciciela, i moment samego
+# konca. Zero znaczy "dzis albo juz po" -- wtedy widget przestal odpowiadac
+# i jest to informacja, nie ostrzezenie.
+#
+# Trzy dni, bo tyle wystarcza, zeby zdazyc cokolwiek zrobic, a jednoczesnie
+# na tyle malo, ze wiadomosc nie ginie w skrzynce do czasu, gdy zaczyna byc
+# istotna.
+PROGI_KONCA_SUBSKRYPCJI = (3, 0)
+
 # Nazwy planów sprzed zmiany cennika. Subskrypcje w bazie trzymają kod planu
 # jako tekst, więc bez tej mapy klient kupiony na "basic" trafiłby po zmianie
 # w gałąź "plan nierozpoznany" i dostał domyślne, zaniżone limity.
