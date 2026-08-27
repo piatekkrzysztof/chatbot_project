@@ -48,9 +48,9 @@ jobs:
       OPENAI_API_KEY: not-used-tests-are-mocked
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -106,9 +106,9 @@ jobs:
       OPENAI_API_KEY: not-used-tests-are-mocked
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -119,11 +119,15 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Pomiar
-        # Bez --cov-fail-under: najpierw mierzymy, potem ustawiamy próg tuż
-        # poniżej wyniku. Wymyślone z góry 90% skończyłoby się albo czerwonym
-        # CI, albo testami pisanymi pod procent zamiast pod ryzyko.
+        # Próg 83% pochodzi z POMIARU, nie z sufitu: pierwszy przebieg CI
+        # zgłosił 85% pokrycia gałęziowego (bez migracji i testów). Zostawiamy
+        # dwa punkty zapasu, bo pojedynczy nowy moduł potrafi zbić wynik o
+        # punkt, a próg, który czerwieni CI przy każdym dodanym pliku, kończy
+        # się wyłączeniem progu.
+        #
+        # Podnosimy go przy kolejnych zmianach — 83 jest podłogą, nie celem.
         run: |
-          pytest -q --cov --cov-report=term --cov-report=xml
+          pytest -q --cov --cov-report=term --cov-report=xml --cov-fail-under=83
           {
             echo "## Pokrycie testami"
             echo ""
@@ -137,12 +141,13 @@ jobs:
           # repozytorium bez konta.
           PROCENT=$(coverage report --format=total 2>/dev/null || echo "?")
           echo "::notice title=Pokrycie testami::${PROCENT}% (gałęziowe, bez migracji i testów)"
-        continue-on-error: true
+        # Bez continue-on-error: od tej chwili spadek poniżej progu zatrzymuje
+        # scalenie. To jest cały sens ustawiania progu.
 
       - name: Zachowaj raport
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pokrycie
           path: coverage.xml
@@ -153,9 +158,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -191,16 +196,20 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           ILE=$(ruff format --check . 2>/dev/null | grep -c "^Would reformat" || true)
           echo "::notice title=Formatowanie::${ILE} plików do przeformatowania"
-        continue-on-error: true
+          # Zmierzone w pierwszym przebiegu: ZERO plików do przeformatowania.
+          # Skoro warunek jest już spełniony, nie ma czego tarować — od teraz
+          # blokuje. To najtańszy próg w całym pliku: nic nie kosztuje, dopóki
+          # ktoś go nie złamie.
+          ruff format --check .
 
   typy:
     name: Typy
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -220,8 +229,13 @@ jobs:
             mypy . 2>&1 | tail -60
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          ILE=$(mypy . 2>/dev/null | grep -c "error:" || true)
-          echo "::notice title=Mypy::${ILE} błędów typów"
+          mypy . > mypy.txt 2>&1 || true
+          ILE=$(grep -c "error:" mypy.txt || true)
+          # Sama liczba nie wystarcza: żeby naprawić błąd, trzeba wiedzieć,
+          # który. Podsumowanie przebiegu widać dopiero po zalogowaniu, więc
+          # pierwszy błąd trafia wprost do adnotacji.
+          PIERWSZY=$(grep -m1 "error:" mypy.txt | cut -c1-200 || true)
+          echo "::notice title=Mypy::${ILE} błędów typów — pierwszy: ${PIERWSZY:-brak}"
         continue-on-error: true
 
   bezpieczenstwo:
@@ -229,9 +243,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -252,9 +266,19 @@ jobs:
             bandit -c pyproject.toml -r . -f txt 2>&1 | tail -50
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          WYSOKIE=$(bandit -c pyproject.toml -r . -f json 2>/dev/null             | python -c "import sys,json; d=json.load(sys.stdin); r=d.get('results',[]); print(sum(1 for x in r if x['issue_severity']=='HIGH'))" 2>/dev/null || echo "?")
-          RAZEM=$(bandit -c pyproject.toml -r . -f json 2>/dev/null             | python -c "import sys,json; print(len(json.load(sys.stdin).get('results',[])))" 2>/dev/null || echo "?")
-          echo "::notice title=Bandit::${RAZEM} znalezisk, w tym ${WYSOKIE} o wysokiej wadze"
+          # JSON do PLIKU, nie przez potok. Poprzednia wersja czytała stdout
+          # bandita i obie liczby wychodziły jako "?" — adnotacja wyglądała
+          # na wynik pomiaru, a była śladem po nieudanej ekstrakcji.
+          bandit -c pyproject.toml -r . -f json -o bandit.json 2>bandit.err || true
+          if [ -s bandit.json ]; then
+            RAZEM=$(python -c "import json; print(len(json.load(open('bandit.json')).get('results',[])))")
+            WYSOKIE=$(python -c "import json; print(sum(1 for x in json.load(open('bandit.json')).get('results',[]) if x['issue_severity']=='HIGH'))")
+            echo "::notice title=Bandit::${RAZEM} znalezisk, w tym ${WYSOKIE} o wysokiej wadze"
+          else
+            # Ostrzeżenie, nie cicha adnotacja z pustą liczbą: brak wyniku ma
+            # wyglądać na brak wyniku.
+            echo "::warning title=Bandit::nie udało się odczytać wyniku: $(head -c 300 bandit.err)"
+          fi
         continue-on-error: true
 
       - name: pip-audit — zależności produkcyjne
@@ -278,7 +302,7 @@ jobs:
     # To zadanie blokuje. Obraz albo się buduje, albo nie — nie ma tu progu
     # do wytarowania. Zweryfikowane lokalnie przed dodaniem: buduje się.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: docker/setup-buildx-action@v3
 
@@ -321,9 +345,9 @@ jobs:
       OPENAI_API_KEY: not-used-nothing-is-called
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
