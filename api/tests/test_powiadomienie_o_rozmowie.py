@@ -10,6 +10,7 @@ Testujemy trzy rzeczy, na których to stoi: że mail leci raz na rozmowę
 (a nie po każdej wypowiedzi), że domyślnie nie leci wcale, i że obie
 ścieżki czatu — strumieniowa i zwykła — zachowują się tak samo.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -51,9 +52,7 @@ class TestTresci:
         przyszedł, nie to, na czym akurat stanęło."""
         r = rozmowa(firma())
         for numer in range(4):
-            ChatMessage.objects.create(
-                conversation=r, sender="user", message=f"pytanie {numer}"
-            )
+            ChatMessage.objects.create(conversation=r, sender="user", message=f"pytanie {numer}")
         powiadom_o_rozmowie(r.pk)
 
         assert "pytanie 0" in mail.outbox[0].body
@@ -79,6 +78,7 @@ class TestKiedyLeci:
 
     def _wyslij(self, tenant, tresc):
         from api.utils.chat_engine import zapisz_pytanie_i_zglos_start
+
         r, _ = Conversation.objects.get_or_create(tenant=tenant, user_identifier="gosc")
         zapisz_pytanie_i_zglos_start(tenant, r, tresc)
         return r
@@ -124,6 +124,7 @@ class TestKiedyLeci:
         t = firma()
         with patch("api.utils.chat_engine.enqueue") as zlecenie:
             from api.utils.chat_engine import zapisz_pytanie_i_zglos_start
+
             for kto in ("gosc-a", "gosc-b"):
                 r = Conversation.objects.create(tenant=t, user_identifier=kto)
                 zapisz_pytanie_i_zglos_start(t, r, "dzień dobry")

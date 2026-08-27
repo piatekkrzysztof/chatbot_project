@@ -11,6 +11,7 @@ Teraz źródłem prawdy jest Subscription: to ona decyduje o dostępie, więc to
 musi się zmieniać po opłaceniu. Pola na Tenant zostają zsynchronizowane, bo
 korzysta z nich panel administracyjny.
 """
+
 import logging
 from datetime import timedelta
 
@@ -59,9 +60,15 @@ def activate_subscription(tenant, plan_code):
         subscription.is_active = True
         subscription.start_date = today
         subscription.end_date = today + OKRES_ROZLICZENIOWY
-        subscription.save(update_fields=[
-            "plan_type", "message_limit", "is_active", "start_date", "end_date",
-        ])
+        subscription.save(
+            update_fields=[
+                "plan_type",
+                "message_limit",
+                "is_active",
+                "start_date",
+                "end_date",
+            ]
+        )
 
     # Pola na Tenant są tylko odbiciem stanu — panel admina po nich filtruje
     tenant.subscription_status = "active"
@@ -102,10 +109,7 @@ def _metadane_subskrypcji_z_faktury(faktura):
     if szczegoly.get("metadata"):
         return szczegoly["metadata"]
 
-    identyfikator = (
-        faktura.get("subscription")
-        or szczegoly.get("subscription")
-    )
+    identyfikator = faktura.get("subscription") or szczegoly.get("subscription")
     # Bywa rozwinięty do pełnego obiektu zamiast samego identyfikatora
     if isinstance(identyfikator, dict):
         return identyfikator.get("metadata") or {}
@@ -145,9 +149,7 @@ def stripe_webhook(request):
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
 
     try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
-        )
+        event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
     except ValueError:
         logger.warning("Nieprawidłowa treść żądania ze Stripe")
         return HttpResponse(status=400)
@@ -177,7 +179,9 @@ def stripe_webhook(request):
         subscription = activate_subscription(tenant, metadata.get("plan"))
         logger.info(
             "Subskrypcja aktywna: tenant=%s plan=%s limit=%s",
-            tenant.id, subscription.plan_type, subscription.message_limit,
+            tenant.id,
+            subscription.plan_type,
+            subscription.message_limit,
         )
 
     elif event_type == "invoice.payment_failed":

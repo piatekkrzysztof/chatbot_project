@@ -13,6 +13,7 @@ powiadomienia, a wtedy prawdziwa awaria też zostaje przeoczona.
 Render ustawia RENDER i RENDER_EXTERNAL_HOSTNAME. Sprawdzamy oba, bo drugie
 dotyczy usług webowych i może nie być ustawione dla workerów.
 """
+
 import logging
 import os
 

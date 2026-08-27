@@ -70,14 +70,22 @@ def test_analytics_returns_daily_question_counts(user, tenant, subscribtion):
 def test_analytics_reports_unanswered_questions(user, tenant, subscribtion):
     conversation = Conversation.objects.create(tenant=tenant, user_identifier="a")
     PromptLog.objects.create(
-        tenant=tenant, conversation=conversation, model="test",
-        prompt="Czy robicie dostawy za granice?", response="Nie wiem.",
-        source="gpt", tokens=10,
+        tenant=tenant,
+        conversation=conversation,
+        model="test",
+        prompt="Czy robicie dostawy za granice?",
+        response="Nie wiem.",
+        source="gpt",
+        tokens=10,
     )
     PromptLog.objects.create(
-        tenant=tenant, conversation=conversation, model="test",
-        prompt="Ile kosztuje przeglad?", response="120 zl",
-        source="document", tokens=10,
+        tenant=tenant,
+        conversation=conversation,
+        model="test",
+        prompt="Ile kosztuje przeglad?",
+        response="120 zl",
+        source="document",
+        tokens=10,
     )
 
     client = auth_client(user, tenant)

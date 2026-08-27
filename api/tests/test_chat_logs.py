@@ -21,7 +21,7 @@ def test_prompt_logs_endpoint_returns_logs(user, tenant, subscribtion):
         source="document",
         tokens=111,
         prompt="Co to jest RODO?",
-        response="RODO to rozporządzenie UE."
+        response="RODO to rozporządzenie UE.",
     )
 
     res = client.get("/api/chat/logs/", HTTP_X_API_KEY=str(tenant.api_key))
@@ -42,14 +42,22 @@ def test_prompt_logs_endpoint_filters_by_is_helpful(user, tenant, subscribtion):
     conv = Conversation.objects.create(tenant=tenant, user_identifier="abc")
 
     log1 = PromptLog.objects.create(
-        tenant=tenant, conversation=conv,
-        model="gpt-3.5-turbo", source="gpt", tokens=50,
-        prompt="Jak założyć konto?", response="Kliknij przycisk rejestracja"
+        tenant=tenant,
+        conversation=conv,
+        model="gpt-3.5-turbo",
+        source="gpt",
+        tokens=50,
+        prompt="Jak założyć konto?",
+        response="Kliknij przycisk rejestracja",
     )
     log2 = PromptLog.objects.create(
-        tenant=tenant, conversation=conv,
-        model="gpt-3.5-turbo", source="gpt", tokens=60,
-        prompt="Co to jest regulamin?", response="Regulamin to dokument..."
+        tenant=tenant,
+        conversation=conv,
+        model="gpt-3.5-turbo",
+        source="gpt",
+        tokens=60,
+        prompt="Co to jest regulamin?",
+        response="Regulamin to dokument...",
     )
 
     msg1 = ChatMessage.objects.create(conversation=conv, sender="bot", message=log1.response)

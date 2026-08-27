@@ -30,6 +30,7 @@ class InvitationDuration(models.TextChoices):
     ONE_DAY = "1d", "1 Day"
     ONE_WEEK = "7d", "7 Days"
 
+
 # Języki, w których widget może odpowiadać. Celowo krótka lista: badanie rynku
 # wskazuje PL/EN jako wymóg podstawowy, a UA/DE jako kolejny krok. Każdy dodany
 # język to nie tylko tłumaczenie odpowiedzi, ale też obietnica obsługi po
@@ -64,6 +65,7 @@ class LanguageMode(models.TextChoices):
     zaznaczenie kolejnych języków go nie zmienia, dopóki klient sam nie przełączy
     trybu.
     """
+
     FIXED = "fixed", "Zawsze jeden język"
     AUTO = "auto", "Dopasuj do języka pytania"
 
@@ -79,17 +81,21 @@ class Tenant(models.Model):
     gpt_prompt = models.TextField(
         blank=True,
         null=True,
-        help_text="Unikalny prompt charakterystyczny dla firmy (np. 'Jesteśmy hurtownią elektryczną...')"
+        help_text="Unikalny prompt charakterystyczny dla firmy (np. 'Jesteśmy hurtownią elektryczną...')",
     )
 
     # OpenAI
     openai_api_key = models.CharField(max_length=128, blank=True, null=True)
 
     # Widget
-    widget_position = models.CharField(max_length=25, choices=WidgetPosition.choices, default=WidgetPosition.RIGHT)
+    widget_position = models.CharField(
+        max_length=25, choices=WidgetPosition.choices, default=WidgetPosition.RIGHT
+    )
     widget_color = models.CharField(max_length=20, default="#000000")
     widget_title = models.CharField(max_length=100, default="Chatbot")
-    branding_mode = models.CharField(max_length=20, choices=BrandingMode.choices, default=BrandingMode.SMART)
+    branding_mode = models.CharField(
+        max_length=20, choices=BrandingMode.choices, default=BrandingMode.SMART
+    )
     widget_logo = models.FileField(upload_to="widget_branding/", null=True, blank=True)
     widget_avatar = models.FileField(upload_to="widget_branding/", null=True, blank=True)
     widget_footer_text = models.CharField(max_length=100, blank=True, default="")
@@ -347,7 +353,9 @@ class InvitationToken(models.Model):
     email = models.EmailField()
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.EMPLOYEE)
-    duration = models.CharField(max_length=10, choices=InvitationDuration.choices, default=InvitationDuration.ONE_DAY)
+    duration = models.CharField(
+        max_length=10, choices=InvitationDuration.choices, default=InvitationDuration.ONE_DAY
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     max_users = models.PositiveIntegerField(default=1)
     users = models.PositiveIntegerField(default=0)
@@ -386,12 +394,7 @@ class InvitationToken(models.Model):
 
 
 class Subscription(models.Model):
-
-    tenant = models.OneToOneField(
-        Tenant,
-        on_delete=models.CASCADE,
-        related_name='subscription'
-    )
+    tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name="subscription")
     plan_type = models.CharField(max_length=50)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -401,18 +404,16 @@ class Subscription(models.Model):
     message_limit = models.PositiveIntegerField(
         default=1000,
         verbose_name="Limit wiadomości/miesiąc",
-        help_text="Miesięczny limit wiadomości dla wszystkich chatbotów firmy"
+        help_text="Miesięczny limit wiadomości dla wszystkich chatbotów firmy",
     )
 
     current_message_count = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Liczba użytych wiadomości"
+        default=0, verbose_name="Liczba użytych wiadomości"
     )
 
     # Cykl rozliczeniowy
     billing_cycle_start = models.DateField(
-        auto_now_add=True,
-        verbose_name="Start cyklu rozliczeniowego"
+        auto_now_add=True, verbose_name="Start cyklu rozliczeniowego"
     )
 
     # Najwyższy próg zużycia, o którym już powiadomiliśmy w tym cyklu.
@@ -431,11 +432,13 @@ class Subscription(models.Model):
     # nigdy wiecej -- czyli dokladnie ta cicha awaria, ktorej te alerty maja
     # zapobiegac, wracalaby przy kazdym kolejnym cyklu.
     alert_konca_prog = models.SmallIntegerField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         verbose_name="Ostatnio wysłany próg końca (dni)",
     )
     alert_konca_dla = models.DateField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         verbose_name="Data końca, której dotyczy wysłany próg",
     )
 
@@ -456,7 +459,8 @@ class Subscription(models.Model):
 
         zostalo = (self.end_date - dzisiaj).days
         kandydaci = [
-            prog for prog in PROGI_KONCA_SUBSKRYPCJI
+            prog
+            for prog in PROGI_KONCA_SUBSKRYPCJI
             if zostalo <= prog and (wyslany is None or prog < wyslany)
         ]
         return min(kandydaci) if kandydaci else None
@@ -477,8 +481,7 @@ class Subscription(models.Model):
         """
         procent = self.usage_percent()
         przekroczone = [
-            prog for prog in PROGI_ALERTOW
-            if procent >= prog and prog > self.alert_threshold_sent
+            prog for prog in PROGI_ALERTOW if procent >= prog and prog > self.alert_threshold_sent
         ]
         return max(przekroczone) if przekroczone else None
 
@@ -495,16 +498,18 @@ class Subscription(models.Model):
         # w nowym cyklu zużycie startuje od zera, więc nic nie przekroczyłoby
         # progu zapamiętanego z poprzedniego miesiąca.
         self.alert_threshold_sent = 0
-        self.save(update_fields=[
-            'current_message_count', 'billing_cycle_start', 'alert_threshold_sent',
-        ])
+        self.save(
+            update_fields=[
+                "current_message_count",
+                "billing_cycle_start",
+                "alert_threshold_sent",
+            ]
+        )
 
     def increment_usage(self):
         """Atomowe zwiększenie licznika wiadomości"""
-        Subscription.objects.filter(
-            pk=self.pk
-        ).update(
-            current_message_count=models.F('current_message_count') + 1
+        Subscription.objects.filter(pk=self.pk).update(
+            current_message_count=models.F("current_message_count") + 1
         )
         self.refresh_from_db()
 
@@ -518,7 +523,7 @@ class Subscription(models.Model):
             # Zapisujemy próg przed wysyłką, nie po. Awaria poczty nie może
             # zamienić jednego alertu w alert przy każdej kolejnej wiadomości.
             self.alert_threshold_sent = prog
-            self.save(update_fields=['alert_threshold_sent'])
+            self.save(update_fields=["alert_threshold_sent"])
             enqueue(powiadom_o_zuzyciu, self.pk, prog)
 
 
@@ -536,9 +541,8 @@ class WidgetDomain(models.Model):
     Adres bierzemy z nagłówka Origin, którego przeglądarka nie pozwala podrobić
     z poziomu strony. Nie z parametru w zapytaniu — ten byłby tylko deklaracją.
     """
-    tenant = models.ForeignKey(
-        Tenant, on_delete=models.CASCADE, related_name="widget_domains"
-    )
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="widget_domains")
     host = models.CharField(
         max_length=255,
         help_text="Nazwa hosta bez schematu i bez www, np. sklep.pl",

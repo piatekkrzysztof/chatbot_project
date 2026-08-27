@@ -12,6 +12,7 @@ Progiem odległości tego nie da się załatwić: taki fragment bywa bliżej ni�
 prawdziwe trafienia. Decyzję zostawiamy człowiekowi, bo tylko on wie, czy
 "/kontakt" to pusta zachęta, czy strona z godzinami otwarcia i adresem.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -36,7 +37,9 @@ def firma(db):
 
 def dokument(tenant, nazwa, odleglosc, **kw):
     dok = Document.objects.create(tenant=tenant, name=nazwa, content="tresc", processed=True, **kw)
-    DocumentChunk.objects.create(document=dok, content=f"FRAGMENT {nazwa}", embedding=wektor(odleglosc))
+    DocumentChunk.objects.create(
+        document=dok, content=f"FRAGMENT {nazwa}", embedding=wektor(odleglosc)
+    )
     return dok
 
 
@@ -131,7 +134,8 @@ class TestPanelu:
 
         odp = panel(firma).patch(
             f"/api/documents/{kontakt.id}/wyszukiwanie/",
-            {"uzywaj_w_wyszukiwaniu": False}, format="json",
+            {"uzywaj_w_wyszukiwaniu": False},
+            format="json",
         )
 
         assert odp.status_code == 200
@@ -144,7 +148,8 @@ class TestPanelu:
 
         odp = panel(firma, rola="employee", nazwa="prac").patch(
             f"/api/documents/{kontakt.id}/wyszukiwanie/",
-            {"uzywaj_w_wyszukiwaniu": False}, format="json",
+            {"uzywaj_w_wyszukiwaniu": False},
+            format="json",
         )
 
         assert odp.status_code == 200
@@ -155,7 +160,8 @@ class TestPanelu:
 
         panel(firma).patch(
             f"/api/documents/{kontakt.id}/wyszukiwanie/",
-            {"uzywaj_w_wyszukiwaniu": "false"}, format="json",
+            {"uzywaj_w_wyszukiwaniu": "false"},
+            format="json",
         )
 
         kontakt.refresh_from_db()
@@ -174,7 +180,8 @@ class TestPanelu:
 
         odp = panel(firma).patch(
             f"/api/documents/{cudzy.id}/wyszukiwanie/",
-            {"uzywaj_w_wyszukiwaniu": False}, format="json",
+            {"uzywaj_w_wyszukiwaniu": False},
+            format="json",
         )
 
         assert odp.status_code == 404
@@ -211,14 +218,18 @@ class TestTrwalosciPrzyOdswiezaniu:
         from documents.website_import import import_website_as_document
 
         adres = "https://agencjasm-art.pl/kontakt"
-        with patch("documents.website_import.fetch_text_from_url",
-                   return_value=TrescStrony("KONTAKT\n\nPorozmawiajmy.", 400)):
+        with patch(
+            "documents.website_import.fetch_text_from_url",
+            return_value=TrescStrony("KONTAKT\n\nPorozmawiajmy.", 400),
+        ):
             dok = import_website_as_document(firma, adres, name=adres)
         dok.uzywaj_w_wyszukiwaniu = False
         dok.save()
 
-        with patch("documents.website_import.fetch_text_from_url",
-                   return_value=TrescStrony("KONTAKT\n\nNowa tresc sekcji.", 400)):
+        with patch(
+            "documents.website_import.fetch_text_from_url",
+            return_value=TrescStrony("KONTAKT\n\nNowa tresc sekcji.", 400),
+        ):
             import_website_as_document(firma, adres, name=adres)
 
         dok.refresh_from_db()
@@ -249,12 +260,13 @@ class TestNarzedziaPomiarowego:
         kontakt = dokument(firma, "Kontakt", 0.1)
         dokument(firma, "Cennik", 0.5)
 
-        rozmowa = Conversation.objects.create(
-            tenant=firma, user_identifier="gosc", source="widget"
-        )
+        rozmowa = Conversation.objects.create(tenant=firma, user_identifier="gosc", source="widget")
         PromptLog.objects.create(
-            tenant=firma, conversation=rozmowa, model="m",
-            prompt="Czy naprawiacie pralki?", source="document",
+            tenant=firma,
+            conversation=rozmowa,
+            model="m",
+            prompt="Czy naprawiacie pralki?",
+            source="document",
         )
 
         klient = MagicMock()

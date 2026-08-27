@@ -18,6 +18,7 @@ Sprawdzenie jest CZYSTE — nie rusza sieci. Zwraca listę problemów, decyzję
 co z nimi zrobić zostawia wywołującemu. Dzięki temu da się je przetestować
 bez stawiania serwera poczty i bez czekania na DNS przy starcie procesu.
 """
+
 from email.utils import parseaddr
 
 from django.core.exceptions import ValidationError
@@ -45,9 +46,7 @@ def problemy_z_konfiguracja(ustawienia):
     problemy = []
 
     if not ustawienia.EMAIL_HOST_PASSWORD:
-        problemy.append(
-            "EMAIL_HOST_PASSWORD jest puste — w Resendzie hasłem jest klucz API."
-        )
+        problemy.append("EMAIL_HOST_PASSWORD jest puste — w Resendzie hasłem jest klucz API.")
 
     host = (ustawienia.EMAIL_HOST or "").strip()
     if not host:
@@ -59,15 +58,11 @@ def problemy_z_konfiguracja(ustawienia):
                 "(oczekiwane np. 'smtp.resend.com', bez schematu i ukośników)."
             )
         elif "." not in host:
-            problemy.append(
-                f"EMAIL_HOST = {host!r} nie wygląda na pełną nazwę domenową."
-            )
+            problemy.append(f"EMAIL_HOST = {host!r} nie wygląda na pełną nazwę domenową.")
 
     nadawca = ustawienia.DEFAULT_FROM_EMAIL or ""
     if not nadawca:
-        problemy.append(
-            "DEFAULT_FROM_EMAIL jest puste — nadawca to osobna rzecz niż login SMTP."
-        )
+        problemy.append("DEFAULT_FROM_EMAIL jest puste — nadawca to osobna rzecz niż login SMTP.")
     else:
         # Dopuszczamy formę 'Nazwa <adres@domena>' — sam validate_email ją
         # odrzuca, a to poprawna i częsta wartość tej zmiennej.

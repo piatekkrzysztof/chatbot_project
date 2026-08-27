@@ -13,11 +13,11 @@ class UserViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
 
     def perform_create(self, serializer):
-        if not self.request.user.role == 'owner':
+        if not self.request.user.role == "owner":
             raise PermissionDenied("Only owners can create users.")
         serializer.save(tenant=self.request.user.tenant)
 
     def perform_destroy(self, instance):
-        if not self.request.user.role == 'owner':
+        if not self.request.user.role == "owner":
             raise PermissionDenied("Only owners can delete users.")
         instance.delete()

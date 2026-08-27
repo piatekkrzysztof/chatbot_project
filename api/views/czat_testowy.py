@@ -15,6 +15,7 @@ co widzi odwiedzający. Różnią się dwie rzeczy, obie celowo:
   • rozmowa ma source="test" i wypada ze statystyk, historii i raportu luk
     (patrz chat/zapytania.py).
 """
+
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import (
     OpenApiResponse,
@@ -110,15 +111,14 @@ class CzatTestowyView(APIView):
             raise PermissionDenied("Brak uprawnień.")
 
         rozmowa = rozmowa_testowa(tenant, request.user)
-        wiadomosci = ChatMessage.objects.filter(conversation=rozmowa).order_by(
-            "timestamp", "id"
+        wiadomosci = ChatMessage.objects.filter(conversation=rozmowa).order_by("timestamp", "id")
+        return Response(
+            {
+                "messages": [
+                    {"sender": w.sender, "text": w.message, "source": w.source} for w in wiadomosci
+                ]
+            }
         )
-        return Response({
-            "messages": [
-                {"sender": w.sender, "text": w.message, "source": w.source}
-                for w in wiadomosci
-            ]
-        })
 
     def delete(self, request):
         """Czyści rozmowę — po uzupełnieniu wiedzy testuje się od nowa."""

@@ -11,6 +11,7 @@ tym, którego używa produkcja: FieldFile.path istnieje wyłącznie dla magazynu
 na dysku i na S3 czy R2 rzuca NotImplementedError. Bez tego przetwarzanie
 dokumentów przestałoby działać w momencie przepięcia magazynu na zewnętrzny.
 """
+
 import os
 from pathlib import Path
 

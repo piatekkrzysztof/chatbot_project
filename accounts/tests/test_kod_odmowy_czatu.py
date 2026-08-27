@@ -10,6 +10,7 @@ Jeden kod dla wszystkich powodow celowo: rozliczenia klienta nie sa sprawa
 jego odwiedzajacych. Ten test pilnuje takze tego -- ze w odpowiedzi dla
 odwiedzajacego nie ma nazwy planu ani dat.
 """
+
 from datetime import date, timedelta
 
 import pytest
@@ -38,8 +39,10 @@ class TestKoduOdmowy:
     def test_wygasla_subskrypcja_niesie_kod(self, client, firma):
         wczoraj = date.today() - timedelta(days=1)
         Subscription.objects.create(
-            tenant=firma, plan_type="start",
-            start_date=wczoraj - timedelta(days=30), end_date=wczoraj,
+            tenant=firma,
+            plan_type="start",
+            start_date=wczoraj - timedelta(days=30),
+            end_date=wczoraj,
             is_active=True,
         )
 
@@ -58,9 +61,13 @@ class TestKoduOdmowy:
     def test_wyczerpany_limit_niesie_ten_sam_kod(self, firma, client):
         dzisiaj = date.today()
         Subscription.objects.create(
-            tenant=firma, plan_type="start",
-            start_date=dzisiaj - timedelta(days=1), end_date=dzisiaj + timedelta(days=30),
-            is_active=True, message_limit=10, current_message_count=10,
+            tenant=firma,
+            plan_type="start",
+            start_date=dzisiaj - timedelta(days=1),
+            end_date=dzisiaj + timedelta(days=30),
+            is_active=True,
+            message_limit=10,
+            current_message_count=10,
         )
 
         odpowiedz = wyslij_wiadomosc(client, firma)
@@ -73,8 +80,10 @@ class TestKoduOdmowy:
         # sie okres probny. To jego sprawa z nami, nie z jego klientami.
         wczoraj = date.today() - timedelta(days=1)
         Subscription.objects.create(
-            tenant=firma, plan_type="start",
-            start_date=wczoraj - timedelta(days=30), end_date=wczoraj,
+            tenant=firma,
+            plan_type="start",
+            start_date=wczoraj - timedelta(days=30),
+            end_date=wczoraj,
             is_active=True,
         )
 

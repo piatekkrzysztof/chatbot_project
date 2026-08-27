@@ -53,12 +53,11 @@ def test_only_owner_can_create_user(api_client, tenant, user, subscribtion):
     user.save()
     api_client.force_authenticate(user=user)
 
-    response = api_client.post("/api/users/", {
-        "username": "employee1",
-        "email": "emp@x.com",
-        "password": "pass",
-        "role": "employee"
-    }, HTTP_X_API_KEY=tenant.api_key)
+    response = api_client.post(
+        "/api/users/",
+        {"username": "employee1", "email": "emp@x.com", "password": "pass", "role": "employee"},
+        HTTP_X_API_KEY=tenant.api_key,
+    )
     assert response.status_code == 201
     assert CustomUser.objects.filter(username="employee1").exists()
 
@@ -70,17 +69,21 @@ def test_employee_cannot_create_user(api_client, tenant, user, subscribtion):
     user.save()
     api_client.force_authenticate(user=user)
 
-    response = api_client.post("/api/users/", {
-        "username": "dupa",
-        "email": "bad@x.com",
-        "password": "pass",
-        "role": "viewer"
-    }, HTTP_X_API_KEY=tenant.api_key)
+    response = api_client.post(
+        "/api/users/",
+        {"username": "dupa", "email": "bad@x.com", "password": "pass", "role": "viewer"},
+        HTTP_X_API_KEY=tenant.api_key,
+    )
     assert response.status_code == 403
 
 
 @pytest.mark.django_db
-def test_user_cannot_access_users_from_another_tenant(api_client, tenant, user, subscribtion,):
+def test_user_cannot_access_users_from_another_tenant(
+    api_client,
+    tenant,
+    user,
+    subscribtion,
+):
     tenant2 = Tenant.objects.create(name="T2", owner_email="a@t2.com")
     Subscription.objects.create(
         tenant=tenant2,

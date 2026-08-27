@@ -8,6 +8,7 @@ jego brak: usypia czujność zamiast ją budzić.
 
 Cztery stany, w których produkcja może się znaleźć, i cztery różne odpowiedzi.
 """
+
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -23,14 +24,21 @@ from documents.models import WebsiteSource
 
 BROKER_OK = {"broker_osiagalny": True, "odpowiedzialo_workerow": 1, "nazwy": ["celery@render"]}
 BROKER_BRAK_WORKERA = {"broker_osiagalny": True, "odpowiedzialo_workerow": 0, "nazwy": []}
-BROKER_PADL = {"broker_osiagalny": False, "odpowiedzialo_workerow": 0, "nazwy": [],
-               "blad": "ConnectionError: nie można połączyć"}
+BROKER_PADL = {
+    "broker_osiagalny": False,
+    "odpowiedzialo_workerow": 0,
+    "nazwy": [],
+    "blad": "ConnectionError: nie można połączyć",
+}
 
 
 def zaloguj(tenant):
     user = CustomUser.objects.create_user(
-        username="wlasciciel@example.com", email="wlasciciel@example.com",
-        password="tajne123", tenant=tenant, role="owner",
+        username="wlasciciel@example.com",
+        email="wlasciciel@example.com",
+        password="tajne123",
+        tenant=tenant,
+        role="owner",
     )
     klient = APIClient()
     klient.force_authenticate(user=user)
@@ -53,8 +61,11 @@ class TestWerdyktu:
         czy czyszczenie w ogóle miało co robić."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=30)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=3),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(hours=3),
         )
         blisko_progu = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
         Conversation.objects.filter(pk=blisko_progu.pk).update(
@@ -72,8 +83,11 @@ class TestWerdyktu:
         wyglądałoby to na sprawne. Harmonogram jednak nie był wykonywany."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=50),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(hours=50),
         )
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
 
@@ -85,8 +99,11 @@ class TestWerdyktu:
     def test_zalegle_rozmowy_zdradzaja_ze_czyszczenie_rodo_nie_chodzi(self):
         tenant = Tenant.objects.create(name="Firma", data_retention_days=30)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=2),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(hours=2),
         )
         stara = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
         # auto_now_add trzeba obejść, żeby udać rozmowę sprzed 60 dni
@@ -157,7 +174,10 @@ class TestWerdyktu:
         czegoś, co nie było zepsute."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
         )
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
 
@@ -169,7 +189,10 @@ class TestWerdyktu:
         w Renderze — werdykt musi kierować do crawlera, nie do usług."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
             last_attempt_at=timezone.now() - timedelta(minutes=5),
             last_error="SSLError: certificate verify failed",
         )
@@ -187,8 +210,11 @@ class TestWerdyktu:
         Diagnostyka, która myli sygnały, kieruje w złe miejsce."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(minutes=1),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(minutes=1),
         )
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
         werdykt = odp.data["werdykt"]
@@ -237,32 +263,44 @@ class TestPoziomu:
     def test_awaria_gdy_slady_pokazuja_usterke(self):
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=50),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(hours=50),
         )
         assert odpytaj(zaloguj(tenant), BROKER_OK).data["poziom"] == "awaria"
 
     def test_awaria_gdy_brak_workera(self):
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=2),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(hours=2),
         )
         assert odpytaj(zaloguj(tenant), BROKER_BRAK_WORKERA).data["poziom"] == "awaria"
 
     def test_uwaga_gdy_czegos_nie_da_sie_potwierdzic(self):
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(minutes=5),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(minutes=5),
         )
         assert odpytaj(zaloguj(tenant), BROKER_OK).data["poziom"] == "uwaga"
 
     def test_ok_dopiero_gdy_oba_sygnaly_potwierdzone(self):
         tenant = Tenant.objects.create(name="Firma", data_retention_days=30)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com",
-            is_active=True, last_crawled_at=timezone.now() - timedelta(hours=1),
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(hours=1),
         )
         blisko = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
         Conversation.objects.filter(pk=blisko.pk).update(
@@ -280,8 +318,11 @@ class TestIzolacjiKlientow:
     def test_nie_widac_zrodel_innej_firmy(self):
         obcy = Tenant.objects.create(name="Konkurencja", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=obcy, name="tajny-projekt.pl", url="https://tajny-projekt.pl",
-            is_active=True, last_attempt_at=timezone.now(),
+            tenant=obcy,
+            name="tajny-projekt.pl",
+            url="https://tajny-projekt.pl",
+            is_active=True,
+            last_attempt_at=timezone.now(),
             last_error="SSLError: sekret w komunikacie",
         )
         moj = Tenant.objects.create(name="Moja firma", data_retention_days=90)
@@ -312,7 +353,10 @@ class TestSpojnosciWerdyktuIPoziomu:
         z polem poziom, które w tej samej sytuacji zwracało awarię."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
         )
         odp = odpytaj(zaloguj(tenant), BROKER_BRAK_WORKERA)
 
@@ -326,7 +370,10 @@ class TestSpojnosciWerdyktuIPoziomu:
         czerwony pasek z uspokajającym zdaniem."""
         tenant = Tenant.objects.create(name="Firma", data_retention_days=90)
         WebsiteSource.objects.create(
-            tenant=tenant, name="strona", url="https://example.com", is_active=True,
+            tenant=tenant,
+            name="strona",
+            url="https://example.com",
+            is_active=True,
         )
         odp = odpytaj(zaloguj(tenant), broker)
 

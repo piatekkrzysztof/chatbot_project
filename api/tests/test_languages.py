@@ -10,6 +10,7 @@ wskazującą jeden, gotowy język. Zakres jest zamknięty listą klienta: odpowi
 w języku, którego firma nie obsłuży po eskalacji do człowieka, byłaby obietnicą
 bez pokrycia.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -48,24 +49,33 @@ class TestWykrywaniaJezyka:
     do domyślnego i ignorował zezwolenie.
     """
 
-    @pytest.mark.parametrize("tekst,kod", [
-        ("Jakie macie godziny otwarcia?", "pl"),
-        ("Ile kosztuje przegląd roweru?", "pl"),
-        ("What are your opening hours?", "en"),
-        ("How much does delivery cost?", "en"),
-        ("Wie sind Ihre Öffnungszeiten?", "de"),
-        ("Guten Tag, ich möchte eine Bestellung", "de"),
-        ("Які у вас години роботи?", "uk"),
-    ])
+    @pytest.mark.parametrize(
+        "tekst,kod",
+        [
+            ("Jakie macie godziny otwarcia?", "pl"),
+            ("Ile kosztuje przegląd roweru?", "pl"),
+            ("What are your opening hours?", "en"),
+            ("How much does delivery cost?", "en"),
+            ("Wie sind Ihre Öffnungszeiten?", "de"),
+            ("Guten Tag, ich möchte eine Bestellung", "de"),
+            ("Які у вас години роботи?", "uk"),
+        ],
+    )
     def test_rozpoznaje_obslugiwane_jezyki(self, tekst, kod):
         assert wykryj_jezyk(tekst) == kod
 
-    @pytest.mark.parametrize("tekst", [
-        "¿Cuál es su horario de apertura?",   # hiszpański
-        "Quels sont vos horaires ?",          # francuski
-        "Quanto costa la consegna?",          # włoski
-        "ok", "???", "", "   ",
-    ])
+    @pytest.mark.parametrize(
+        "tekst",
+        [
+            "¿Cuál es su horario de apertura?",  # hiszpański
+            "Quels sont vos horaires ?",  # francuski
+            "Quanto costa la consegna?",  # włoski
+            "ok",
+            "???",
+            "",
+            "   ",
+        ],
+    )
     def test_nierozpoznane_zwraca_none(self, tekst):
         """
         None to pełnoprawny wynik — takie pytanie ma trafić na język domyślny
@@ -133,10 +143,15 @@ class TestTrybuJezykowego:
     def test_uszkodzony_domyslny_wraca_do_polskiego(self, wartosc):
         assert Tenant(widget_default_language=wartosc).default_language() == "pl"
 
-    @pytest.mark.parametrize("kod,forma", [
-        ("ru", "po rosyjsku"), ("cs", "po czesku"),
-        ("uk", "po ukraińsku"), ("de", "po niemiecku"),
-    ])
+    @pytest.mark.parametrize(
+        "kod,forma",
+        [
+            ("ru", "po rosyjsku"),
+            ("cs", "po czesku"),
+            ("uk", "po ukraińsku"),
+            ("de", "po niemiecku"),
+        ],
+    )
     def test_nowe_jezyki_maja_poprawna_forme_w_promptcie(self, kod, forma):
         tenant = Tenant(widget_language_mode="fixed", widget_default_language=kod)
 
@@ -209,9 +224,7 @@ class TestUstawienieWPanelu:
         tenant.widget_languages = "pl,en,uk"
         tenant.save()
 
-        dane = APIClient().get(
-            "/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key)
-        ).json()
+        dane = APIClient().get("/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key)).json()
 
         assert dane["widget_languages"] == ["pl", "en", "uk"]
 

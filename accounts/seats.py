@@ -11,9 +11,11 @@ Sprawdzamy w dwóch miejscach i celowo w obu: przy wystawianiu zaproszenia,
 w link i zobaczy błąd; oraz przy jego przyjęciu, bo między jednym a drugim
 mogą minąć dni i miejsca mogą się w tym czasie zapełnić.
 """
+
 from rest_framework.exceptions import ValidationError
 
 from accounts.plans import get_plan
+
 
 def limit_miejsc(tenant):
     """

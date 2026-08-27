@@ -10,6 +10,7 @@ Testy pilnują tego, co przy tej funkcji może realnie zaszkodzić: żeby
 pracownik nie przekierował powiadomień na siebie i żeby błędny adres nie
 wszedł po cichu do bazy (a stamtąd w wysyłkę, jako 501 od serwera poczty).
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -20,8 +21,11 @@ URL = "/api/accounts/firma/"
 
 def zaloguj(tenant, rola="owner", nazwa="wl"):
     uzytkownik = CustomUser.objects.create_user(
-        username=nazwa, email=f"{nazwa}@firma.pl", password="x",
-        tenant=tenant, role=rola,
+        username=nazwa,
+        email=f"{nazwa}@firma.pl",
+        password="x",
+        tenant=tenant,
+        role=rola,
     )
     klient = APIClient()
     klient.force_authenticate(user=uzytkownik)
@@ -85,12 +89,15 @@ class TestZapisu:
 
 @pytest.mark.django_db
 class TestWalidacji:
-    @pytest.mark.parametrize("zly", [
-        "bez-malpy.pl",
-        "powiadomienia@agencjasm_art.pl",  # podkreślnik — dokładnie ta awaria z produkcji
-        "dwa@@razy.pl",
-        "spacja w srodku@firma.pl",
-    ])
+    @pytest.mark.parametrize(
+        "zly",
+        [
+            "bez-malpy.pl",
+            "powiadomienia@agencjasm_art.pl",  # podkreślnik — dokładnie ta awaria z produkcji
+            "dwa@@razy.pl",
+            "spacja w srodku@firma.pl",
+        ],
+    )
     def test_bledny_adres_nie_wchodzi_do_bazy(self, firma, zly):
         """Bez tego zly adres siedzi cicho do pierwszego zapytania od klienta,
         a wtedy wychodzi jako 501 od serwera poczty — czyli w najgorszym
@@ -157,10 +164,13 @@ class TestOdpornosciUprawnienia:
     to logi wyjatkami przy kazdym wejsciu bota z internetu.
     """
 
-    @pytest.mark.parametrize("sciezka", [
-        "/api/accounts/firma/",
-        "/api/accounts/invitations/",
-    ])
+    @pytest.mark.parametrize(
+        "sciezka",
+        [
+            "/api/accounts/firma/",
+            "/api/accounts/invitations/",
+        ],
+    )
     def test_anonim_dostaje_odmowe_a_nie_bledu_serwera(self, firma, sciezka):
         anonim = APIClient()
         anonim.credentials(HTTP_X_API_KEY=str(firma.api_key))

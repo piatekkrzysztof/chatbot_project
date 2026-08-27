@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.views import APIView
@@ -7,9 +9,12 @@ from api.schemas import DocumentUploadSerializer, ErrorSerializer, MessageSerial
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from pypdf.errors import PyPdfError
+
 from documents.utils.pdf_parser import extract_text_from_pdf
 from documents.validators import sprawdz_limit_bazy_wiedzy
 from api.serializers import DocumentSerializer
+
 # Ta sama zasada odczytu wartości logicznej co w ustawieniach widgetu:
 # formularz multipart przysyła "true"/"false" jako tekst.
 from api.views.widget import _wlaczone
@@ -27,6 +32,8 @@ from api.serializers import DocumentChunkSerializer, WebsiteSourceSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from api.permissions import *
 
+logger = logging.getLogger(__name__)
+
 
 class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
     serializer_class = DocumentSerializer
@@ -39,8 +46,10 @@ class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
         instance = self.get_object()
         data = DocumentSerializer(instance).data
         data["chunk_count"] = instance.chunks.count()
-        data["status"] = "ready" if instance.processed and instance.chunks.exists() else (
-            "processing" if not instance.processed else "processed_no_chunks"
+        data["status"] = (
+            "ready"
+            if instance.processed and instance.chunks.exists()
+            else ("processing" if not instance.processed else "processed_no_chunks")
         )
         data["preview"] = instance.content[:500] if instance.content else ""
         return Response(data)
@@ -66,8 +75,12 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         request=None,
         responses=DocumentSerializer,
     )
-    @action(detail=True, methods=["patch"], url_path="wyszukiwanie",
-            permission_classes=[IsOwnerOrEmployee])
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path="wyszukiwanie",
+        permission_classes=[IsOwnerOrEmployee],
+    )
     def przelacz_wyszukiwanie(self, request, pk=None):
         """
         Osobna akcja zamiast zwykłego PATCH na całym obiekcie.
@@ -96,7 +109,7 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 )
 class UploadDocumentView(APIView):
     parser_classes = [MultiPartParser]
-    permission_classes=[IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployee]
 
     def post(self, request):
         tenant = getattr(request, "tenant", None)
@@ -114,7 +127,25 @@ class UploadDocumentView(APIView):
         # plik w magazynie i zadanie embeddingów w kolejce.
         text = ""
         if file.name.lower().endswith(".pdf"):
-            text = extract_text_from_pdf(file)
+            try:
+                text = extract_text_from_pdf(file)
+            except PyPdfError as blad:
+                # Uszkodzony PDF to nie przypadek brzegowy: urwane pobieranie,
+                # plik ze skanera, dokument zapisany przez program, ktory sie
+                # wysypal. Uzytkownik nie ma jak tego rozpoznac przed wgraniem.
+                #
+                # Bez tej obslugi wychodzila piecsetka - dla wgrywajacego
+                # nieodroznialna od awarii serwisu, a w Sentry szum zamiast
+                # sygnalu. pypdf 6 zglasza tu takze LimitReachedError, czyli
+                # przerwana probe przetworzenia pliku zbudowanego tak, zeby
+                # zajac caly czas procesora; to rowniez ma byc odmowa, nie awaria.
+                logger.info("Nie udalo sie odczytac PDF-a %s: %s", file.name, blad)
+                return Response(
+                    {
+                        "error": "Nie udało się odczytać tego pliku PDF. Sprawdź, czy nie jest uszkodzony."
+                    },
+                    status=400,
+                )
 
         sprawdz_limit_bazy_wiedzy(tenant, text)
 
@@ -138,7 +169,9 @@ class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsTenantMember]
 
     def get_queryset(self):
-        return DocumentChunk.objects.filter(document__tenant=self.request.tenant, document_id=self.kwargs["document_id"])
+        return DocumentChunk.objects.filter(
+            document__tenant=self.request.tenant, document_id=self.kwargs["document_id"]
+        )
 
 
 @extend_schema(tags=["Panel — baza wiedzy"])

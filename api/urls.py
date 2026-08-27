@@ -2,12 +2,25 @@ from django.urls import path, include
 from .views.chat import ChatWithGPTView
 from .views.chat_csv import ExportPromptLogsCSVView, ImportPromptLogsCSVView
 from .views.widget import (
-    WidgetSettingsAPIView, PublicFAQView, PublicChatView,
-    PublicChatStreamView, TenantWidgetSettingsView,
+    WidgetSettingsAPIView,
+    PublicFAQView,
+    PublicChatView,
+    PublicChatStreamView,
+    TenantWidgetSettingsView,
 )
 from .views.feedback import PublicFeedbackView, SubmitFeedbackView
-from .views.accounts import ClientRegisterView, LoginView, MeView, CreateInvitationView, AcceptInvitationView, \
-    InvitationListView, InvitationPreviewView, InvitationRevokeView, OdswiezTokenView, WylogujView
+from .views.accounts import (
+    ClientRegisterView,
+    LoginView,
+    MeView,
+    CreateInvitationView,
+    AcceptInvitationView,
+    InvitationListView,
+    InvitationPreviewView,
+    InvitationRevokeView,
+    OdswiezTokenView,
+    WylogujView,
+)
 from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
 from .views.stripe_webhook import stripe_webhook
 from drf_spectacular.utils import extend_schema
@@ -28,9 +41,9 @@ from .views.knowledge import TenantKnowledgeView
 from .views.privacy import ConversationEraseView, TenantPrivacySettingsView
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('widget-settings/', WidgetSettingsAPIView.as_view(), name='widget-settings'),
-    path('chat/', ChatWithGPTView.as_view(), name='chat'),
+    path("", include(router.urls)),
+    path("widget-settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
+    path("chat/", ChatWithGPTView.as_view(), name="chat"),
     path("chat/feedback/", SubmitFeedbackView.as_view(), name="chat-feedback"),
     path("chat/logs/", PromptLogListView.as_view(), name="chat-logs"),
     # Poza CHAT_PATHS w SubscriptionMiddleware (dopasowanie dokładne),
@@ -39,25 +52,31 @@ urlpatterns = [
     path("accounts/firma/", UstawieniaFirmyView.as_view(), name="ustawienia-firmy"),
     path("chat/export/", ExportPromptLogsCSVView.as_view(), name="chat-export-csv"),
     path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
-    path('accounts/register/', ClientRegisterView.as_view(), name='register'),
-    path('accounts/login/', LoginView.as_view(), name='login'),
-    path('accounts/token/refresh/', OdswiezTokenView.as_view(), name='token_refresh'),
-    path('accounts/logout/', WylogujView.as_view(), name='logout'),
-    path('accounts/me/', MeView.as_view(), name='me'),
-    path('accounts/invitations/', CreateInvitationView.as_view(), name='invite-user'),
+    path("accounts/register/", ClientRegisterView.as_view(), name="register"),
+    path("accounts/login/", LoginView.as_view(), name="login"),
+    path("accounts/token/refresh/", OdswiezTokenView.as_view(), name="token_refresh"),
+    path("accounts/logout/", WylogujView.as_view(), name="logout"),
+    path("accounts/me/", MeView.as_view(), name="me"),
+    path("accounts/invitations/", CreateInvitationView.as_view(), name="invite-user"),
     path("accounts/invitations/list/", InvitationListView.as_view(), name="list-invitations"),
-    path('accounts/accept-invite/', AcceptInvitationView.as_view(), name='accept-invite'),
+    path("accounts/accept-invite/", AcceptInvitationView.as_view(), name="accept-invite"),
     path(
-        'accounts/invitations/<uuid:token>/preview/',
-        InvitationPreviewView.as_view(), name='invitation-preview',
+        "accounts/invitations/<uuid:token>/preview/",
+        InvitationPreviewView.as_view(),
+        name="invitation-preview",
     ),
     path(
-        'accounts/invitations/<int:pk>/',
-        InvitationRevokeView.as_view(), name='invitation-revoke',
+        "accounts/invitations/<int:pk>/",
+        InvitationRevokeView.as_view(),
+        name="invitation-revoke",
     ),
     path("documents-upload/", UploadDocumentView.as_view(), name="upload-document"),
     path("documents/<int:pk>/", DocumentDetailView.as_view(), name="document-detail"),
-    path("documents/<int:document_id>/chunks/", DocumentChunkListView.as_view(), name="document-chunks"),
+    path(
+        "documents/<int:document_id>/chunks/",
+        DocumentChunkListView.as_view(),
+        name="document-chunks",
+    ),
     # path("widget/settings/", WidgetSettingsAPIView.as_view(), name="widget-settings"),
     path("widget/faq/", PublicFAQView.as_view(), name="widget-faq"),
     path("widget/chat/", PublicChatView.as_view(), name="widget-chat"),
@@ -81,5 +100,4 @@ urlpatterns = [
     # Trasy brakowało w ogóle — Stripe nie miał dokąd wysyłać zdarzeń,
     # więc kod webhooka nigdy się nie wykonał
     path("billing/webhook/", stripe_webhook, name="stripe-webhook"),
-
 ]

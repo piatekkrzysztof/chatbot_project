@@ -26,6 +26,7 @@ class TenantKnowledgeView(APIView):
     najczęstsze pytanie w ogóle ("czym się zajmujecie?"). To osobny widok od
     brandingu widgetu, bo dotyczy tego, co bot wie, a nie jak wygląda.
     """
+
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     FIELDS = ("gpt_prompt", "regulamin")

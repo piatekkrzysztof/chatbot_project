@@ -7,6 +7,7 @@ z samej nazwy — i podawał go jako fakt. Pytania o ceny czy godziny model odrz
 poprawnie, więc luka dotyczyła wyłącznie pytań o tożsamość i zakres usług.
 Na stronie klienta oznacza to bota wymyślającego klientowi ofertę.
 """
+
 import pytest
 
 from api.utils.chat_engine import (
@@ -46,9 +47,7 @@ def test_faq_alone_counts_as_knowledge(tenant):
     tenant.gpt_prompt = ""
     tenant.regulamin = ""
     tenant.save()
-    faq = FAQ.objects.create(
-        tenant=tenant, question="Jakie macie godziny?", answer="9-17."
-    )
+    faq = FAQ.objects.create(tenant=tenant, question="Jakie macie godziny?", answer="9-17.")
 
     prompt = build_system_prompt(tenant, chunks=[], faqs=[faq])
 

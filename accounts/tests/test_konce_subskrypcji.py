@@ -13,6 +13,7 @@ idzie wtedy, kiedy nie trzeba. Sam pierwszy warunek przepuscilby zadanie
 wysylajace codziennie, a klient nauczylby sie ignorowac te wiadomosci dokladnie
 wtedy, gdy zaczynaja byc wazne.
 """
+
 from datetime import date, timedelta
 
 import pytest

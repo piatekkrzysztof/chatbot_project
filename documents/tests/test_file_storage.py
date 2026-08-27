@@ -10,6 +10,7 @@ Dwie rzeczy, które łatwo przeoczyć, bo obie zawodzą po cichu:
    NotImplementedError, więc samo przepięcie magazynu zabiłoby przetwarzanie
    dokumentów — i to dopiero na produkcji, bo testy chodzą na dysku lokalnym.
 """
+
 import io
 
 import pytest
@@ -55,8 +56,7 @@ def _wgrany_dokument(tenant, tresc="Serwis 250 zl"):
     return Document.objects.create(
         tenant=tenant,
         name="cennik.pdf",
-        file=SimpleUploadedFile("cennik.pdf", pdf_bytes(tresc),
-                                content_type="application/pdf"),
+        file=SimpleUploadedFile("cennik.pdf", pdf_bytes(tresc), content_type="application/pdf"),
     )
 
 

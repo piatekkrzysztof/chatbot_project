@@ -37,8 +37,11 @@ from api.views.stripe import create_checkout_session
 from drf_spectacular.utils import extend_schema
 
 from api.schemas import (
-    AcceptInvitationRequestSerializer, ErrorSerializer,
-    InvitationPreviewSerializer, MeSerializer, MessageSerializer,
+    AcceptInvitationRequestSerializer,
+    ErrorSerializer,
+    InvitationPreviewSerializer,
+    MeSerializer,
+    MessageSerializer,
 )
 
 
@@ -98,9 +101,7 @@ class ClientRegisterView(APIView):
 @extend_schema(
     tags=["Konto"],
     summary="Logowanie",
-    description=(
-        "W polu `username` można podać zarówno nazwę użytkownika, jak i adres e-mail."
-    ),
+    description=("W polu `username` można podać zarówno nazwę użytkownika, jak i adres e-mail."),
 )
 class LoginView(TokenObtainPairView):
     """
@@ -270,9 +271,7 @@ class CreateInvitationView(generics.CreateAPIView):
             send_invitation_email(invitation)
             email_sent = True
         except Exception:
-            logger.exception(
-                "Nie udało się wysłać zaproszenia na %s", invitation.email
-            )
+            logger.exception("Nie udało się wysłać zaproszenia na %s", invitation.email)
             email_sent = False
 
         data = InvitationReadSerializer(invitation).data
@@ -296,7 +295,9 @@ class AcceptInvitationView(APIView):
         serializer = AcceptInvitationSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "User registered successfully."}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"message": "User registered successfully."}, status=status.HTTP_201_CREATED
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -312,6 +313,7 @@ class InvitationPreviewView(APIView):
     zanim pokaże formularz. Bez tego zapraszany wypełnia dane, żeby dopiero
     przy zapisie dowiedzieć się, że link wygasł.
     """
+
     authentication_classes = []
     permission_classes = []
 
@@ -323,13 +325,15 @@ class InvitationPreviewView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        return Response({
-            "company": invitation.tenant.name,
-            "email": invitation.email,
-            "role": invitation.role,
-            "is_valid": invitation.is_valid(),
-            "expires_at": invitation.expires_at,
-        })
+        return Response(
+            {
+                "company": invitation.tenant.name,
+                "email": invitation.email,
+                "role": invitation.role,
+                "is_valid": invitation.is_valid(),
+                "expires_at": invitation.expires_at,
+            }
+        )
 
 
 @extend_schema(tags=["Panel — zespół"], summary="Lista zaproszeń")
@@ -342,6 +346,7 @@ class InvitationListView(TenantQuerysetMixin, ListAPIView):
 @extend_schema(tags=["Panel — zespół"], summary="Cofnij zaproszenie")
 class InvitationRevokeView(generics.DestroyAPIView):
     """Cofnięcie zaproszenia — link przestaje działać od razu."""
+
     permission_classes = [IsOwner]
     serializer_class = InvitationReadSerializer
 

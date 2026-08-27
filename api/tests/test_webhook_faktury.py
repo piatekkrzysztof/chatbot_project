@@ -18,6 +18,7 @@ widnialo zielone "delivered":
 Adres subskrypcji na fakturze przesuwal sie miedzy wersjami API Stripe,
 dlatego testy sprawdzaja kilka ksztaltow naraz.
 """
+
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -31,8 +32,12 @@ from api.views.stripe_webhook import _metadane_zdarzenia
 def firma(db):
     tenant = Tenant.objects.create(name="Dwor Weselny", owner_email="w@firma.pl")
     Subscription.objects.create(
-        tenant=tenant, plan_type="start", is_active=True, message_limit=2000,
-        current_message_count=0, start_date=date.today() - timedelta(days=40),
+        tenant=tenant,
+        plan_type="start",
+        is_active=True,
+        message_limit=2000,
+        current_message_count=0,
+        start_date=date.today() - timedelta(days=40),
         end_date=date.today() - timedelta(days=9),
     )
     return tenant
@@ -57,10 +62,12 @@ class TestZnajdowaniaFirmy:
         """
         faktura = {
             "metadata": {},
-            "parent": {"subscription_details": {
-                "subscription": "sub_123",
-                "metadata": {"tenant_id": "7", "plan": "grow"},
-            }},
+            "parent": {
+                "subscription_details": {
+                    "subscription": "sub_123",
+                    "metadata": {"tenant_id": "7", "plan": "grow"},
+                }
+            },
         }
 
         with patch("api.views.stripe_webhook.stripe.Subscription.retrieve") as pytanie:
@@ -109,8 +116,10 @@ class TestZnajdowaniaFirmy:
         w nieskonczonosc, a przyczyna i tak lezy gdzie indziej."""
         faktura = {"metadata": {}, "subscription": "sub_123"}
 
-        with patch("api.views.stripe_webhook.stripe.Subscription.retrieve",
-                   side_effect=Exception("Stripe nie odpowiada")):
+        with patch(
+            "api.views.stripe_webhook.stripe.Subscription.retrieve",
+            side_effect=Exception("Stripe nie odpowiada"),
+        ):
             assert _metadane_zdarzenia("invoice.payment_succeeded", faktura) == {}
 
     def test_faktura_bez_subskrypcji_daje_pusty_wynik(self):
@@ -124,8 +133,9 @@ class TestPelnejSciezki:
         from api.views.stripe_webhook import stripe_webhook
 
         zdarzenie = {"type": event_type, "data": {"object": data}}
-        with patch("api.views.stripe_webhook.stripe.Webhook.construct_event",
-                   return_value=zdarzenie):
+        with patch(
+            "api.views.stripe_webhook.stripe.Webhook.construct_event", return_value=zdarzenie
+        ):
             zadanie = MagicMock()
             zadanie.body = b"{}"
             zadanie.META = {"HTTP_STRIPE_SIGNATURE": "podpis"}
@@ -138,9 +148,11 @@ class TestPelnejSciezki:
         """
         faktura = {
             "metadata": {},
-            "parent": {"subscription_details": {
-                "metadata": {"tenant_id": str(firma.id), "plan": "grow"},
-            }},
+            "parent": {
+                "subscription_details": {
+                    "metadata": {"tenant_id": str(firma.id), "plan": "grow"},
+                }
+            },
         }
 
         odp = self._wyslij(None, "invoice.payment_succeeded", faktura)
@@ -154,9 +166,11 @@ class TestPelnejSciezki:
     def test_nieudana_platnosc_zawiesza_konto(self, firma):
         faktura = {
             "metadata": {},
-            "parent": {"subscription_details": {
-                "metadata": {"tenant_id": str(firma.id), "plan": "start"},
-            }},
+            "parent": {
+                "subscription_details": {
+                    "metadata": {"tenant_id": str(firma.id), "plan": "start"},
+                }
+            },
         }
 
         odp = self._wyslij(None, "invoice.payment_failed", faktura)
@@ -191,8 +205,11 @@ class TestBleduStripePrzyZakupie:
         from accounts.models import CustomUser
 
         return CustomUser.objects.create_user(
-            username="wl", email="wl@firma.pl", password="x",
-            tenant=firma, role="owner",
+            username="wl",
+            email="wl@firma.pl",
+            password="x",
+            tenant=firma,
+            role="owner",
         )
 
     def test_odmowa_stripe_konczy_sie_czytelnym_bledem(self, firma, settings):
@@ -204,9 +221,12 @@ class TestBleduStripePrzyZakupie:
         settings.STRIPE_PRICE_IDS = {"start": "price_z_produkcji", "grow": "", "pro": ""}
         settings.STRIPE_SECRET_KEY = "sk_test_cokolwiek"
 
-        with patch("api.views.stripe._utworz_sesje",
-                   side_effect=biblioteka.error.InvalidRequestError(
-                       "No such price: 'price_z_produkcji'", param="price")):
+        with patch(
+            "api.views.stripe._utworz_sesje",
+            side_effect=biblioteka.error.InvalidRequestError(
+                "No such price: 'price_z_produkcji'", param="price"
+            ),
+        ):
             with pytest.raises(ValidationError) as blad:
                 create_checkout_session(firma, "start", "klient@firma.pl")
 
@@ -225,10 +245,13 @@ class TestBleduStripePrzyZakupie:
         klient.force_authenticate(user=self._wlasciciel(firma))
         klient.credentials(HTTP_X_API_KEY=str(firma.api_key))
 
-        with patch("api.views.stripe._utworz_sesje",
-                   side_effect=biblioteka.error.APIConnectionError("brak sieci")):
-            odp = klient.post("/api/billing/create-checkout-session/",
-                              {"plan_type": "start"}, format="json")
+        with patch(
+            "api.views.stripe._utworz_sesje",
+            side_effect=biblioteka.error.APIConnectionError("brak sieci"),
+        ):
+            odp = klient.post(
+                "/api/billing/create-checkout-session/", {"plan_type": "start"}, format="json"
+            )
 
         assert odp.status_code == 400
         assert "płatności" in str(odp.data)
@@ -275,7 +298,8 @@ class TestDostepnosciEndpointu:
         klient = Client(enforce_csrf_checks=True)
         odp = klient.post(
             "/api/billing/webhook/",
-            data="{}", content_type="application/json",
+            data="{}",
+            content_type="application/json",
         )
 
         assert odp.status_code != 403, "webhook stracil zwolnienie z CSRF"

@@ -11,6 +11,7 @@ Testy pilnują trzech rzeczy: że odświeżenie faktycznie podmienia treść, ż
 mnoży kopii tej samej podstrony i że strona bez zmian nie kosztuje przeliczania
 wektorów bez powodu.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -31,8 +32,11 @@ def firma(db):
 
     tenant = Tenant.objects.create(name="Dwor Weselny", owner_email="w@firma.pl")
     Subscription.objects.create(
-        tenant=tenant, plan_type="pro", is_active=True,
-        message_limit=25000, current_message_count=0,
+        tenant=tenant,
+        plan_type="pro",
+        is_active=True,
+        message_limit=25000,
+        current_message_count=0,
         start_date=date.today() - timedelta(days=1),
         end_date=date.today() + timedelta(days=30),
     )
@@ -41,8 +45,10 @@ def firma(db):
 
 def pobierz(tresc):
     """Podmienia samo ściąganie strony — reszta ścieżki jest prawdziwa."""
-    return patch("documents.website_import.fetch_text_from_url",
-                 return_value=TrescStrony(tresc, len(tresc) * 2))
+    return patch(
+        "documents.website_import.fetch_text_from_url",
+        return_value=TrescStrony(tresc, len(tresc) * 2),
+    )
 
 
 @pytest.mark.django_db
@@ -116,7 +122,9 @@ class TestOdswiezania:
             import_website_as_document(firma, ADRES, name=ADRES)
 
         dokument = Document.objects.get(tenant=firma, source_url=ADRES)
-        tresci = list(DocumentChunk.objects.filter(document=dokument).values_list("content", flat=True))
+        tresci = list(
+            DocumentChunk.objects.filter(document=dokument).values_list("content", flat=True)
+        )
         assert tresci, "dokument zostal bez fragmentow"
         assert any("5200" in t for t in tresci)
         assert all("4500" not in t for t in tresci)
@@ -172,10 +180,14 @@ class TestZadaniaCyklicznego:
             tenant=firma, url="https://dworweselny.pl/", name="Strona"
         )
         with pobierz(STARA):
-            import_website_as_document(firma, "https://dworweselny.pl/oferta", name="https://dworweselny.pl/oferta")
+            import_website_as_document(
+                firma, "https://dworweselny.pl/oferta", name="https://dworweselny.pl/oferta"
+            )
 
-        with patch("documents.tasks.sitemap_search", return_value=["https://dworweselny.pl/oferta"]), \
-             pobierz(NOWA):
+        with (
+            patch("documents.tasks.sitemap_search", return_value=["https://dworweselny.pl/oferta"]),
+            pobierz(NOWA),
+        ):
             crawl_and_import_website_source(zrodlo.id)
 
         dokument = Document.objects.get(tenant=firma, source_url="https://dworweselny.pl/oferta")
@@ -189,7 +201,11 @@ class TestZadaniaCyklicznego:
         zrodlo = WebsiteSource.objects.create(
             tenant=firma, url="https://dworweselny.pl/", name="Strona"
         )
-        adresy = ["https://dworweselny.pl/a", "https://dworweselny.pl/b", "https://dworweselny.pl/c"]
+        adresy = [
+            "https://dworweselny.pl/a",
+            "https://dworweselny.pl/b",
+            "https://dworweselny.pl/c",
+        ]
 
         def czasem_pada(url):
             if url.endswith("/b"):
@@ -197,8 +213,10 @@ class TestZadaniaCyklicznego:
             tresc = f"SEKCJA\n\nTresc podstrony {url}."
             return TrescStrony(tresc, len(tresc) * 2)
 
-        with patch("documents.tasks.sitemap_search", return_value=adresy), \
-             patch("documents.website_import.fetch_text_from_url", side_effect=czasem_pada):
+        with (
+            patch("documents.tasks.sitemap_search", return_value=adresy),
+            patch("documents.website_import.fetch_text_from_url", side_effect=czasem_pada),
+        ):
             crawl_and_import_website_source(zrodlo.id)
 
         pobrane = set(Document.objects.filter(tenant=firma).values_list("source_url", flat=True))
@@ -210,8 +228,10 @@ class TestZadaniaCyklicznego:
         zrodlo = WebsiteSource.objects.create(
             tenant=firma, url="https://dworweselny.pl/", name="Strona"
         )
-        with patch("documents.tasks.sitemap_search", return_value=["https://dworweselny.pl/a"]), \
-             pobierz(STARA):
+        with (
+            patch("documents.tasks.sitemap_search", return_value=["https://dworweselny.pl/a"]),
+            pobierz(STARA),
+        ):
             crawl_and_import_website_source(zrodlo.id)
 
         zrodlo.refresh_from_db()
@@ -242,9 +262,13 @@ class TestSladuPoNieudanymPobraniu:
         zrodlo = self._zrodlo(firma)
         adresy = [f"https://dworweselny.pl/{n}" for n in "abc"]
 
-        with patch("documents.tasks.sitemap_search", return_value=adresy), \
-             patch("documents.website_import.fetch_text_from_url",
-                   side_effect=ValueError("strona nieosiagalna")):
+        with (
+            patch("documents.tasks.sitemap_search", return_value=adresy),
+            patch(
+                "documents.website_import.fetch_text_from_url",
+                side_effect=ValueError("strona nieosiagalna"),
+            ),
+        ):
             crawl_and_import_website_source(zrodlo.id)
 
         zrodlo.refresh_from_db()
@@ -266,8 +290,10 @@ class TestSladuPoNieudanymPobraniu:
             tresc = f"SEKCJA\n\nTresc podstrony {url} z konkretami o uslugach."
             return TrescStrony(tresc, len(tresc) * 2)
 
-        with patch("documents.tasks.sitemap_search", return_value=adresy), \
-             patch("documents.website_import.fetch_text_from_url", side_effect=czasem_pada):
+        with (
+            patch("documents.tasks.sitemap_search", return_value=adresy),
+            patch("documents.website_import.fetch_text_from_url", side_effect=czasem_pada),
+        ):
             crawl_and_import_website_source(zrodlo.id)
 
         zrodlo.refresh_from_db()
@@ -282,8 +308,10 @@ class TestSladuPoNieudanymPobraniu:
         zrodlo.last_error = "stara awaria"
         zrodlo.save()
 
-        with patch("documents.tasks.sitemap_search", return_value=["https://dworweselny.pl/a"]), \
-             pobierz(STARA):
+        with (
+            patch("documents.tasks.sitemap_search", return_value=["https://dworweselny.pl/a"]),
+            pobierz(STARA),
+        ):
             crawl_and_import_website_source(zrodlo.id)
 
         zrodlo.refresh_from_db()

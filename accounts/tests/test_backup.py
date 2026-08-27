@@ -8,6 +8,7 @@ przed utratą konfiguracji chatbotów i rozmów klientów.
 Kopia, której nie da się odtworzyć, nie jest kopią. Testy sprawdzają więc nie
 tylko to, czy plik powstaje, ale czy zawiera dane, które faktycznie wracają.
 """
+
 import json
 
 import pytest

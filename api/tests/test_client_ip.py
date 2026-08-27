@@ -11,6 +11,7 @@ X-Forwarded-For nie wolno czytać naiwnie: klient może wysłać własny nagłó
 a proxy tylko dopisuje kolejne wpisy na końcu. Wiarygodne są wyłącznie wpisy
 dopisane przez nasze proxy, czyli TRUSTED_PROXY_DEPTH ostatnich.
 """
+
 import uuid
 
 import pytest
@@ -50,9 +51,7 @@ class TestZaProxy:
         Łańcuch bez podszycia: klient -> Cloudflare -> load balancer.
         Cloudflare dopisał adres klienta, load balancer adres Cloudflare.
         """
-        request = zadanie(
-            remote_addr="10.0.0.1", forwarded="203.0.113.7, 172.16.0.1"
-        )
+        request = zadanie(remote_addr="10.0.0.1", forwarded="203.0.113.7, 172.16.0.1")
 
         assert client_ip(request) == "203.0.113.7"
 
@@ -121,9 +120,7 @@ class TestLimituOdwiedzajacego:
         )
 
     @override_settings(TRUSTED_PROXY_DEPTH=2, LIMIT_ODWIEDZAJACEGO="3/hour")
-    def test_natretny_odwiedzajacy_zostaje_zatrzymany(
-        self, tenant, subscribtion, mocker, settings
-    ):
+    def test_natretny_odwiedzajacy_zostaje_zatrzymany(self, tenant, subscribtion, mocker, settings):
         """
         Bez tego limitu jeden rozmówca mógł sam wyczerpać cały miesięczny
         pakiet, za który zapłacił klient.
@@ -141,9 +138,7 @@ class TestLimituOdwiedzajacego:
         assert kody[3] == 429
 
     @override_settings(TRUSTED_PROXY_DEPTH=2, LIMIT_ODWIEDZAJACEGO="3/hour")
-    def test_limit_jednego_nie_dotyka_pozostalych(
-        self, tenant, subscribtion, mocker, settings
-    ):
+    def test_limit_jednego_nie_dotyka_pozostalych(self, tenant, subscribtion, mocker, settings):
         """Sedno całej poprawki z adresem — inaczej blokada objęłaby wszystkich."""
         mocker.patch(
             "api.utils.chat_engine.get_openai_response",

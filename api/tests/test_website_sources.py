@@ -7,6 +7,7 @@ from documents.models import WebsiteSource
 @pytest.mark.django_db
 def test_create_website_source_triggers_crawl(monkeypatch, user, tenant, subscribtion):
     from documents.tasks import crawl_and_import_website_source
+
     calls = []
     monkeypatch.setattr(crawl_and_import_website_source, "delay", lambda *a, **kw: calls.append(a))
 
@@ -33,6 +34,7 @@ def test_create_website_source_triggers_crawl(monkeypatch, user, tenant, subscri
 @pytest.mark.django_db
 def test_duplicate_website_source_rejected(monkeypatch, user, tenant, subscribtion):
     from documents.tasks import crawl_and_import_website_source
+
     monkeypatch.setattr(crawl_and_import_website_source, "delay", lambda *a, **kw: None)
 
     client = APIClient()

@@ -37,7 +37,6 @@ def zadania_w_miejscu(settings):
     settings.CELERY_TASK_EAGER_PROPAGATES = True
 
 
-
 @pytest.fixture
 def valid_pdf_file():
     buffer = io.BytesIO()
@@ -51,10 +50,8 @@ def valid_pdf_file():
 
 @pytest.fixture
 def tenant(db):
-    return Tenant.objects.create(
-        name="TestTenant",
-        owner_email="test@example.com"
-    )
+    return Tenant.objects.create(name="TestTenant", owner_email="test@example.com")
+
 
 @pytest.fixture
 def conversation(tenant):
@@ -62,6 +59,7 @@ def conversation(tenant):
         tenant=tenant,
         user_identifier="test-user",
     )
+
 
 @pytest.fixture
 def subscribtion(db, tenant):
@@ -99,7 +97,9 @@ def api_client():
 def mock_celery_tasks(monkeypatch):
     monkeypatch.setattr("documents.tasks.embed_document_task.delay", lambda *a, **kw: None)
     monkeypatch.setattr("documents.tasks.extract_text_from_document.delay", lambda *a, **kw: None)
-    monkeypatch.setattr("documents.tasks.generate_embeddings_for_document.delay", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "documents.tasks.generate_embeddings_for_document.delay", lambda *a, **kw: None
+    )
 
 
 # Baza testowa jest tworzona i usuwana przez pytest-django (prefiks "test_"),

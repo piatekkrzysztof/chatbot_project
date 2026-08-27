@@ -13,6 +13,7 @@ rozliczeniowym i ma własny stan (`alert_threshold_sent`). To jest inne
 zdarzenie, z innym licznikiem i innym harmonogramem — trzymanie obu w jednym
 pliku zaciemniłoby, który stan należy do którego alertu.
 """
+
 import logging
 
 from celery import shared_task

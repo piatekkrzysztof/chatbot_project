@@ -13,6 +13,7 @@ class FAQViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     Zarządzanie FAQ z panelu klienta. Wpisy trafiają do kontekstu asystenta,
     więc klient może sam dopisać odpowiedzi na pytania, których bot nie znał.
     """
+
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]

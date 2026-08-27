@@ -1,6 +1,7 @@
 """
 Endpointy RODO w panelu: okres retencji i prawo do bycia zapomnianym.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -43,9 +44,7 @@ def test_ujemna_retencja_jest_odrzucana(user, tenant):
 def test_niebedaca_liczba_retencja_nie_wywala_serwera(user, tenant):
     client = auth_client(user, tenant)
 
-    response = client.patch(
-        "/api/privacy/", {"data_retention_days": "dużo"}, format="json"
-    )
+    response = client.patch("/api/privacy/", {"data_retention_days": "dużo"}, format="json")
 
     assert response.status_code == 400
 
@@ -59,14 +58,23 @@ def test_usuniecie_rozmowy_kasuje_wszystkie_slady(user, tenant):
     conversation = Conversation.objects.create(tenant=tenant, user_identifier="10.0.0.0")
     ChatMessage.objects.create(conversation=conversation, sender="user", message="Pytanie")
     PromptLog.objects.create(
-        tenant=tenant, conversation=conversation, model="test",
-        prompt="Pytanie", response="Odpowiedz", source="gpt",
+        tenant=tenant,
+        conversation=conversation,
+        model="test",
+        prompt="Pytanie",
+        response="Odpowiedz",
+        source="gpt",
     )
     ChatUsageLog.objects.create(
-        tenant=tenant, conversation=conversation, tokens_used=10, model_used="test",
+        tenant=tenant,
+        conversation=conversation,
+        tokens_used=10,
+        model_used="test",
     )
     ContactRequest.objects.create(
-        tenant=tenant, conversation=conversation, contact="jan@example.com",
+        tenant=tenant,
+        conversation=conversation,
+        contact="jan@example.com",
     )
 
     client = auth_client(user, tenant)

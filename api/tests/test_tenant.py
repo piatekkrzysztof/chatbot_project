@@ -6,8 +6,8 @@ from rest_framework.test import APIClient
 
 
 @pytest.mark.django_db
-def test_tenant_middleware_assigns_tenant(api_client,user,tenant):
-    user.tenant=tenant
+def test_tenant_middleware_assigns_tenant(api_client, user, tenant):
+    user.tenant = tenant
 
     api_client.force_authenticate(user=user)
 

@@ -6,6 +6,7 @@ odpowiadać, a klient dowiadywał się o tym od własnych odwiedzających — al
 wcale. Alert ma zamienić cichą awarię w decyzję: dokupić pakiet, przejść wyżej
 albo świadomie poczekać do nowego cyklu.
 """
+
 import pytest
 from django.core import mail
 
@@ -24,12 +25,20 @@ def subskrypcja(subscribtion):
 
 @pytest.mark.django_db
 class TestWykrywaniaProgu:
-    @pytest.mark.parametrize("uzyte,oczekiwany", [
-        (0, None), (50, None), (79, None),
-        (80, 80), (94, 80),
-        (95, 95), (99, 95),
-        (100, 100), (150, 100),
-    ])
+    @pytest.mark.parametrize(
+        "uzyte,oczekiwany",
+        [
+            (0, None),
+            (50, None),
+            (79, None),
+            (80, 80),
+            (94, 80),
+            (95, 95),
+            (99, 95),
+            (100, 100),
+            (150, 100),
+        ],
+    )
     def test_prog_dla_zuzycia(self, subskrypcja, uzyte, oczekiwany):
         subskrypcja.current_message_count = uzyte
 
@@ -139,11 +148,14 @@ class TestWysylkiPrzyZliczaniu:
 
 @pytest.mark.django_db
 class TestTresciWiadomosci:
-    @pytest.mark.parametrize("prog,fragment", [
-        (80, "uprzedzenie"),
-        (95, "przestanie odpowiadać"),
-        (100, "nie odpowiada już"),
-    ])
+    @pytest.mark.parametrize(
+        "prog,fragment",
+        [
+            (80, "uprzedzenie"),
+            (95, "przestanie odpowiadać"),
+            (100, "nie odpowiada już"),
+        ],
+    )
     def test_tresc_zalezy_od_progu(self, subskrypcja, tenant, prog, fragment):
         """
         Trzy różne sytuacje: uprzedzenie, ostrzeżenie i informacja o tym,

@@ -20,6 +20,7 @@ którego jest najwięcej. Stąd brało się to, że pytanie o chrzciny wyciąga�
 Tutaj tniemy po granicach, które w tekście już są — akapitach i nagłówkach —
 i dopiero w ich ramach pilnujemy długości.
 """
+
 import re
 
 # Górna granica fragmentu. Krótsze fragmenty dają ostrzejsze dopasowanie, ale
@@ -123,7 +124,7 @@ def _ogon(tekst, ile):
         return tekst
     wycinek = tekst[-ile:]
     spacja = wycinek.find(" ")
-    return wycinek[spacja + 1:] if spacja != -1 else wycinek
+    return wycinek[spacja + 1 :] if spacja != -1 else wycinek
 
 
 def podziel_na_fragmenty(tresc, maks_znakow=MAKS_ZNAKOW, zakladka=ZAKLADKA):

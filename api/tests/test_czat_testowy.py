@@ -12,6 +12,7 @@ o których wie, że są trudne. Gdyby szły do raportu luk, sam wypełniłby sob
 listę "czego szukają Twoi klienci" własnymi próbami i zepsuł jedyną liczbę
 w tym produkcie mówiącą coś o rynku, a nie o nas.
 """
+
 from datetime import date, timedelta
 from unittest.mock import patch
 
@@ -32,20 +33,27 @@ class StrumienUdawany:
 
     def __iter__(self):
         for kawalek in self.kawalki:
-            yield type("Zdarzenie", (), {
-                "usage": None,
-                "choices": [type("Wybor", (), {
-                    "delta": type("Delta", (), {"content": kawalek})()
-                })()],
-            })()
+            yield type(
+                "Zdarzenie",
+                (),
+                {
+                    "usage": None,
+                    "choices": [
+                        type("Wybor", (), {"delta": type("Delta", (), {"content": kawalek})()})()
+                    ],
+                },
+            )()
 
 
 @pytest.fixture
 def firma(db):
     tenant = Tenant.objects.create(name="Dwor Weselny", owner_email="w@firma.pl")
     Subscription.objects.create(
-        tenant=tenant, plan_type="start", is_active=True,
-        message_limit=2000, current_message_count=0,
+        tenant=tenant,
+        plan_type="start",
+        is_active=True,
+        message_limit=2000,
+        current_message_count=0,
         start_date=date.today() - timedelta(days=1),
         end_date=date.today() + timedelta(days=30),
     )
@@ -55,8 +63,11 @@ def firma(db):
 @pytest.fixture
 def panel(firma):
     uzytkownik = CustomUser.objects.create_user(
-        username="wl", email="wl@firma.pl", password="x",
-        tenant=firma, role="owner",
+        username="wl",
+        email="wl@firma.pl",
+        password="x",
+        tenant=firma,
+        role="owner",
     )
     klient = APIClient()
     klient.force_authenticate(user=uzytkownik)
@@ -65,8 +76,10 @@ def panel(firma):
 
 
 def rozmawiaj(klient, tresc, odpowiedz="Sala miesci 120 osob."):
-    with patch("api.utils.chat_engine.get_client") as openai, \
-         patch("api.utils.chat_engine.build_chat_messages", return_value=([], [], [])):
+    with (
+        patch("api.utils.chat_engine.get_client") as openai,
+        patch("api.utils.chat_engine.build_chat_messages", return_value=([], [], [])),
+    ):
         openai.return_value.chat.completions.create.return_value = StrumienUdawany([odpowiedz])
         wynik = klient.post(URL, {"message": tresc}, format="json")
         # Strumień jest leniwy — bez skonsumowania nic się nie zapisze
@@ -168,8 +181,11 @@ class TestNieZanieczyszczaLiczb:
         )
         ChatMessage.objects.create(conversation=prawdziwa, sender="user", message="Ile kosztuje?")
         PromptLog.objects.create(
-            tenant=firma, conversation=prawdziwa, model="m",
-            prompt="Ile kosztuje?", source="gpt",
+            tenant=firma,
+            conversation=prawdziwa,
+            model="m",
+            prompt="Ile kosztuje?",
+            source="gpt",
         )
         rozmawiaj(panel, "moje testowe pytanie")
 
@@ -181,8 +197,11 @@ class TestNieZanieczyszczaLiczb:
         (SET_NULL). Takie wpisy pochodzą sprzed usunięcia, nie z testu —
         `exclude()` po pustym powiązaniu musi je zachować."""
         PromptLog.objects.create(
-            tenant=firma, conversation=None, model="m",
-            prompt="Pytanie po retencji", source="gpt",
+            tenant=firma,
+            conversation=None,
+            model="m",
+            prompt="Pytanie po retencji",
+            source="gpt",
         )
 
         assert logi_klientow(firma).count() == 1
@@ -197,8 +216,11 @@ class TestIzolacjiMiedzyOsobami:
         rozmawiaj(panel, "pytanie wlasciciela")
 
         drugi = CustomUser.objects.create_user(
-            username="prac", email="prac@firma.pl", password="x",
-            tenant=firma, role="employee",
+            username="prac",
+            email="prac@firma.pl",
+            password="x",
+            tenant=firma,
+            role="employee",
         )
         klient2 = APIClient()
         klient2.force_authenticate(user=drugi)

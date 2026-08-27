@@ -22,6 +22,7 @@ def test_query_chunks_respects_top_k(mock_client, tenant):
         DocumentChunk.objects.create(document=doc, content=text, embedding=[0.0] * 1536)
 
     from rag.engine import query_similar_chunks_pgvector
+
     results = query_similar_chunks_pgvector(tenant.id, "rejestracja konta", top_k=2)
 
     assert len(results) == 2
@@ -41,6 +42,7 @@ def test_query_chunks_never_leak_between_tenants(mock_client, tenant):
     DocumentChunk.objects.create(document=mine, content="moje dane", embedding=[0.0] * 1536)
 
     from rag.engine import query_similar_chunks_pgvector
+
     results = query_similar_chunks_pgvector(tenant.id, "cokolwiek", top_k=5)
 
     assert [c.content for c in results] == ["moje dane"]

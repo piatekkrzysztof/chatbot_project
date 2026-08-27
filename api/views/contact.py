@@ -30,6 +30,7 @@ class PublicContactRequestView(APIView):
     Odwiedzający zostawia kontakt, gdy bot nie potrafił pomóc.
     Publiczne — autoryzacja kluczem API widgetu, jak reszta endpointów widgetu.
     """
+
     authentication_classes = []
     permission_classes = []
 
@@ -64,11 +65,11 @@ class PublicContactRequestView(APIView):
 
 
 @extend_schema(tags=["Panel — zapytania"])
-class ContactRequestViewSet(TenantQuerysetMixin,
-                            mixins.ListModelMixin,
-                            mixins.UpdateModelMixin,
-                            viewsets.GenericViewSet):
+class ContactRequestViewSet(
+    TenantQuerysetMixin, mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
+):
     """Lista zapytań w panelu; można oznaczyć jako obsłużone."""
+
     queryset = ContactRequest.objects.all()
     serializer_class = ContactRequestSerializer
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
