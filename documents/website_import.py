@@ -46,9 +46,7 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     zmienić w panelu, adres jest tym, co faktycznie pobieramy.
     """
     text, znakow_widocznych = fetch_text_from_url(url)
-    istniejacy = Document.objects.filter(
-        tenant=tenant, source="website", source_url=url
-    ).first()
+    istniejacy = Document.objects.filter(tenant=tenant, source="website", source_url=url).first()
 
     if istniejacy and istniejacy.content == text:
         # Treść bez zmian, ale miara mogła dojść dopiero teraz — zapisujemy ją
@@ -64,7 +62,8 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     # Ten sam limit co przy uploadzie. Bez tego dałoby się go obejść, dodając
     # stronę zamiast dokumentu — a crawler potrafi zaciągnąć dziesiątki podstron.
     sprawdz_limit_bazy_wiedzy(
-        tenant, text,
+        tenant,
+        text,
         zastepowany_tekst=istniejacy.content if istniejacy else "",
     )
 

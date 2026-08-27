@@ -10,6 +10,7 @@ Druga rzecz to poczta: wszystkie sprawdzenia, które zbudowaliśmy, siedziały
 w konsoli. Klient nie ma jak zobaczyć, że jego powiadomienia nie wychodzą —
 dowie się, przegapiając zapytanie.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -28,8 +29,12 @@ def firma(db):
 
 def dokument(tenant, nazwa, tresc="tresc dokumentu", widocznych=None, fragmenty=1, **kw):
     dok = Document.objects.create(
-        tenant=tenant, name=nazwa, content=tresc, processed=True,
-        znakow_na_stronie=widocznych, **kw,
+        tenant=tenant,
+        name=nazwa,
+        content=tresc,
+        processed=True,
+        znakow_na_stronie=widocznych,
+        **kw,
     )
     for numer in range(fragmenty):
         DocumentChunk.objects.create(
@@ -78,8 +83,13 @@ class TestBazyWiedzy:
 
     def test_dokument_wylaczony_z_wyszukiwania_nie_liczy_sie(self, firma):
         """Klient swiadomie go pominal — ostrzeganie o nim byloby halasem."""
-        dokument(firma, "https://firma.pl/kontakt", tresc="x" * 50,
-                 widocznych=5000, uzywaj_w_wyszukiwaniu=False)
+        dokument(
+            firma,
+            "https://firma.pl/kontakt",
+            tresc="x" * 50,
+            widocznych=5000,
+            uzywaj_w_wyszukiwaniu=False,
+        )
 
         assert _zdrowie_bazy_wiedzy(firma)["wniosek"] == "brak-danych"
 
@@ -126,7 +136,8 @@ class TestPoczty:
         """Klient nie dowie sie o zepsutej poczcie inaczej niz przegapiajac
         zapytanie."""
         ContactRequest.objects.create(
-            tenant=firma, contact="jan@klient.pl",
+            tenant=firma,
+            contact="jan@klient.pl",
             blad_powiadomienia="SMTPSenderRefused: 501",
         )
 
@@ -155,7 +166,9 @@ class TestPoczty:
     def test_nie_widac_zapytan_obcej_firmy(self, firma, db):
         obca = Tenant.objects.create(name="Obca", owner_email="o@b.pl")
         ContactRequest.objects.create(
-            tenant=obca, contact="x@y.pl", blad_powiadomienia="awaria u obcych",
+            tenant=obca,
+            contact="x@y.pl",
+            blad_powiadomienia="awaria u obcych",
         )
 
         assert _zdrowie_poczty(firma)["wniosek"] == "dziala"
@@ -166,7 +179,11 @@ class TestEndpointu:
     def test_panel_dostaje_obie_sekcje(self, firma):
         dokument(firma, "https://firma.pl", tresc="x" * 257, widocznych=10037)
         uzytkownik = CustomUser.objects.create_user(
-            username="wl", email="wl@firma.pl", password="x", tenant=firma, role="owner",
+            username="wl",
+            email="wl@firma.pl",
+            password="x",
+            tenant=firma,
+            role="owner",
         )
         klient = APIClient()
         klient.force_authenticate(user=uzytkownik)
@@ -187,7 +204,11 @@ class TestEndpointu:
         """
         dokument(firma, "https://firma.pl", tresc="x" * 257, widocznych=10037)
         uzytkownik = CustomUser.objects.create_user(
-            username="wl2", email="wl2@firma.pl", password="x", tenant=firma, role="owner",
+            username="wl2",
+            email="wl2@firma.pl",
+            password="x",
+            tenant=firma,
+            role="owner",
         )
         klient = APIClient()
         klient.force_authenticate(user=uzytkownik)

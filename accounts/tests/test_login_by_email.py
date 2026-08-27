@@ -7,6 +7,7 @@ adresowi. Pracownik przyjmujący zaproszenie wybiera własną nazwę użytkownik
 więc jego adres przestaje pasować — i osoba właśnie dodana do zespołu nie mogła
 zalogować się tym, o co prosi ją formularz.
 """
+
 import pytest
 from rest_framework.test import APIClient
 

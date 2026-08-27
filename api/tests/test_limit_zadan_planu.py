@@ -11,6 +11,7 @@ Testujemy dwie rzeczy: że stawka odpowiada planowi bez pomocy middleware
 oraz że po jej przekroczeniu żądanie faktycznie dostaje 429. Sam fakt
 poprawnego wyliczenia liczby nic nie znaczy, jeśli nie dochodzi do odrzucenia.
 """
+
 from datetime import date, timedelta
 
 import pytest
@@ -36,8 +37,11 @@ def firma_z_planem(plan, nazwa="Firma"):
     # nie istnieje w tym systemie, więc test nie może jej udawać.
     dzis = date.today()
     Subscription.objects.create(
-        tenant=tenant, plan_type=plan, is_active=True,
-        start_date=dzis - timedelta(days=1), end_date=dzis + timedelta(days=30),
+        tenant=tenant,
+        plan_type=plan,
+        is_active=True,
+        start_date=dzis - timedelta(days=1),
+        end_date=dzis + timedelta(days=30),
     )
     return tenant
 
@@ -46,7 +50,9 @@ def zaloguj(tenant):
     user = CustomUser.objects.create_user(
         username=f"wlasciciel{tenant.pk}@example.com",
         email=f"wlasciciel{tenant.pk}@example.com",
-        password="tajne123", tenant=tenant, role="owner",
+        password="tajne123",
+        tenant=tenant,
+        role="owner",
     )
     klient = APIClient()
     klient.force_authenticate(user=user)
@@ -57,6 +63,7 @@ def zaloguj(tenant):
 class ZadanieBezMiddleware:
     """Żądanie takie, jakie widzi throttle poza ścieżkami czatu: tenant jest
     (ustawia go TenantMiddleware), subskrypcji nie ma."""
+
     def __init__(self, tenant):
         self.tenant = tenant
         self.headers = {}
@@ -64,18 +71,28 @@ class ZadanieBezMiddleware:
 
 @pytest.mark.django_db
 class TestStawkiZPlanu:
-    @pytest.mark.parametrize("plan,oczekiwana", [
-        ("start", "60/min"), ("grow", "150/min"), ("pro", "500/min"),
-    ])
+    @pytest.mark.parametrize(
+        "plan,oczekiwana",
+        [
+            ("start", "60/min"),
+            ("grow", "150/min"),
+            ("pro", "500/min"),
+        ],
+    )
     def test_czat_dostaje_stawke_swojego_planu(self, plan, oczekiwana):
         throttle = APIKeyRateThrottle()
         throttle.request = ZadanieBezMiddleware(firma_z_planem(plan))
         assert throttle.get_rate() == oczekiwana
         assert throttle.get_rate() == rate_for(plan)
 
-    @pytest.mark.parametrize("plan,na_minute", [
-        ("start", 600), ("grow", 1500), ("pro", 5000),
-    ])
+    @pytest.mark.parametrize(
+        "plan,na_minute",
+        [
+            ("start", 600),
+            ("grow", 1500),
+            ("pro", 5000),
+        ],
+    )
     def test_panel_tez_dostaje_stawke_planu_bez_middleware(self, plan, na_minute):
         """Sedno poprawki. Wcześniej bez middleware wychodziło 300/min
         niezależnie od planu, bo throttle nie widział subskrypcji."""
@@ -94,8 +111,11 @@ class TestStawkiZPlanu:
         tenant = Tenant.objects.create(name="Wygasła")
         dzis = date.today()
         Subscription.objects.create(
-            tenant=tenant, plan_type="pro", is_active=False,
-            start_date=dzis - timedelta(days=60), end_date=dzis - timedelta(days=30),
+            tenant=tenant,
+            plan_type="pro",
+            is_active=False,
+            start_date=dzis - timedelta(days=60),
+            end_date=dzis - timedelta(days=30),
         )
         throttle = APIKeyRateThrottle()
         throttle.request = ZadanieBezMiddleware(tenant)
@@ -105,11 +125,13 @@ class TestStawkiZPlanu:
         """Wynik ląduje na żądaniu, więc drugi throttle w łańcuchu nie robi
         tego samego zapytania po raz kolejny."""
         zadanie = ZadanieBezMiddleware(firma_z_planem("grow"))
-        pierwszy = APIKeyRateThrottle(); pierwszy.request = zadanie
+        pierwszy = APIKeyRateThrottle()
+        pierwszy.request = zadanie
         pierwszy.get_rate()
 
         assert getattr(zadanie, "subscription", None) is not None
-        drugi = SubscriptionRateThrottle(); drugi.request = zadanie
+        drugi = SubscriptionRateThrottle()
+        drugi.request = zadanie
         assert drugi.get_rate() == "1500/min"
 
 
@@ -134,6 +156,7 @@ class TestRealnegoOdrzucenia:
                 return "2/min"
 
         from api.views.documents import DocumentsViewSet
+
         pierwotne = DocumentsViewSet.throttle_classes
         DocumentsViewSet.throttle_classes = [DwaNaMinute]
         try:

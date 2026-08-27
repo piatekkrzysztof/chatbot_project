@@ -71,6 +71,7 @@ class TenantAnalyticsView(APIView):
     ile zostało z limitu planu i — najważniejsze — o co pytano, gdy bot nie miał
     pokrycia w materiałach firmy.
     """
+
     permission_classes = [IsTenantMember]
 
     def get(self, request):
@@ -121,8 +122,7 @@ class TenantAnalyticsView(APIView):
 
         # Skąd pochodziły odpowiedzi — 'gpt' oznacza brak trafienia w dokumenty i FAQ
         by_source = {
-            row["source"]: row["count"]
-            for row in logs.values("source").annotate(count=Count("id"))
+            row["source"]: row["count"] for row in logs.values("source").annotate(count=Count("id"))
         }
 
         # Wspólne z raportem tygodniowym: jedna definicja tego, co liczy się

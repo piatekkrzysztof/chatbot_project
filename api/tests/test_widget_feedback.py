@@ -9,6 +9,7 @@ Przy okazji wyszedł poważniejszy problem: serializer szukał wiadomości wśr�
 wszystkich firm. Dopóki chronił go JWT, ryzyko było ograniczone — ale otwarcie
 tego dla widgetu zrobiłoby z tego zapis między tenantami.
 """
+
 import uuid
 
 import pytest
@@ -30,8 +31,10 @@ class TestOcenaZWidgetu:
         wiadomosc = wiadomosc_bota(tenant)
 
         response = APIClient().post(
-            self.URL, {"message_id": wiadomosc.id, "is_helpful": True},
-            format="json", HTTP_X_API_KEY=str(tenant.api_key),
+            self.URL,
+            {"message_id": wiadomosc.id, "is_helpful": True},
+            format="json",
+            HTTP_X_API_KEY=str(tenant.api_key),
         )
 
         assert response.status_code == 200
@@ -43,10 +46,12 @@ class TestOcenaZWidgetu:
         klient = APIClient()
         naglowki = {"HTTP_X_API_KEY": str(tenant.api_key)}
 
-        klient.post(self.URL, {"message_id": wiadomosc.id, "is_helpful": True},
-                    format="json", **naglowki)
-        klient.post(self.URL, {"message_id": wiadomosc.id, "is_helpful": False},
-                    format="json", **naglowki)
+        klient.post(
+            self.URL, {"message_id": wiadomosc.id, "is_helpful": True}, format="json", **naglowki
+        )
+        klient.post(
+            self.URL, {"message_id": wiadomosc.id, "is_helpful": False}, format="json", **naglowki
+        )
 
         assert ChatFeedback.objects.filter(message=wiadomosc).count() == 1
         assert ChatFeedback.objects.get(message=wiadomosc).is_helpful is False
@@ -62,8 +67,10 @@ class TestOcenaZWidgetu:
         cudza = wiadomosc_bota(obcy, "Cudza odpowiedź")
 
         response = APIClient().post(
-            self.URL, {"message_id": cudza.id, "is_helpful": True},
-            format="json", HTTP_X_API_KEY=str(tenant.api_key),
+            self.URL,
+            {"message_id": cudza.id, "is_helpful": True},
+            format="json",
+            HTTP_X_API_KEY=str(tenant.api_key),
         )
 
         assert response.status_code == 400
@@ -82,13 +89,13 @@ class TestOcenaZWidgetu:
     def test_nie_da_sie_ocenic_wlasnej_wiadomosci_uzytkownika(self, tenant):
         """Ocenia się odpowiedzi bota, nie pytania odwiedzającego."""
         rozmowa = Conversation.objects.create(tenant=tenant, user_identifier="10.0.0.0")
-        pytanie = ChatMessage.objects.create(
-            conversation=rozmowa, sender="user", message="Pytanie"
-        )
+        pytanie = ChatMessage.objects.create(conversation=rozmowa, sender="user", message="Pytanie")
 
         response = APIClient().post(
-            self.URL, {"message_id": pytanie.id, "is_helpful": True},
-            format="json", HTTP_X_API_KEY=str(tenant.api_key),
+            self.URL,
+            {"message_id": pytanie.id, "is_helpful": True},
+            format="json",
+            HTTP_X_API_KEY=str(tenant.api_key),
         )
 
         assert response.status_code == 400
@@ -108,7 +115,8 @@ def test_czat_zwraca_identyfikator_odpowiedzi(tenant, subscribtion, mocker):
     response = APIClient().post(
         "/api/widget/chat/",
         {"message": "Pytanie", "conversation_session_id": str(uuid.uuid4())},
-        format="json", HTTP_X_API_KEY=str(tenant.api_key),
+        format="json",
+        HTTP_X_API_KEY=str(tenant.api_key),
     )
 
     assert response.status_code == 200

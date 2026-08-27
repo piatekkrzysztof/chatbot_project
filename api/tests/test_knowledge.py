@@ -6,6 +6,7 @@ nie miał jak opisać własnej działalności — a bez niego bot odmawia odpowi
 na najczęstsze pytanie w ogóle. Analityka musi ten brak nazwać wprost, inaczej
 właściciel widzi tylko bota, który "nic nie umie".
 """
+
 import pytest
 from rest_framework.test import APIClient
 

@@ -6,6 +6,7 @@ Standardowe `createsuperuser` tu nie wystarcza: CustomUser ma wymagane pole
 Ta komenda tworzy jedno i drugie w komplecie — to też ścieżka onboardingu
 każdego nowego klienta agencji.
 """
+
 from datetime import date, timedelta
 from getpass import getpass
 
@@ -20,12 +21,17 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--company", required=True, help="Nazwa firmy")
-        parser.add_argument("--email", required=True, help="E-mail właściciela (będzie też loginem)")
+        parser.add_argument(
+            "--email", required=True, help="E-mail właściciela (będzie też loginem)"
+        )
         parser.add_argument("--password", help="Hasło; pominięte = zapyta interaktywnie")
         parser.add_argument("--plan", default="pro", help="Nazwa planu (domyślnie: pro)")
-        parser.add_argument("--message-limit", type=int, default=1000, help="Limit wiadomości/miesiąc")
         parser.add_argument(
-            "--admin", action="store_true",
+            "--message-limit", type=int, default=1000, help="Limit wiadomości/miesiąc"
+        )
+        parser.add_argument(
+            "--admin",
+            action="store_true",
             help="Nadaj dostęp do panelu Django (/admin/)",
         )
 
@@ -85,10 +91,12 @@ class Command(BaseCommand):
         adres_panelu = (settings.FRONTEND_URL or "").rstrip("/")
         if not adres_panelu:
             adres_panelu = "https://USTAW-FRONTEND_URL"
-            self.stdout.write(self.style.WARNING(
-                "\n  UWAGA: FRONTEND_URL nie jest ustawiony — w kodzie osadzenia "
-                "poniżej trzeba podmienić adres ręcznie."
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    "\n  UWAGA: FRONTEND_URL nie jest ustawiony — w kodzie osadzenia "
+                    "poniżej trzeba podmienić adres ręcznie."
+                )
+            )
 
         self.stdout.write(
             f'\n  Kod osadzenia:\n  <script src="{adres_panelu}/embed.js" '

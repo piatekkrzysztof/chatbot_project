@@ -9,11 +9,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.plans import (
-    BRANDING_WLASNY, PAKIET_CENA_PLN, PAKIET_WIADOMOSCI, PLANS, get_plan,
+    BRANDING_WLASNY,
+    PAKIET_CENA_PLN,
+    PAKIET_WIADOMOSCI,
+    PLANS,
+    get_plan,
 )
 from api.schemas import (
-    BillingOverviewSerializer, CheckoutRequestSerializer,
-    CheckoutResponseSerializer, ErrorSerializer, PublicPricingSerializer,
+    BillingOverviewSerializer,
+    CheckoutRequestSerializer,
+    CheckoutResponseSerializer,
+    ErrorSerializer,
+    PublicPricingSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,16 +41,13 @@ def create_checkout_session(tenant, plan_code, email=None):
     """
     plan = get_plan(plan_code)
     if plan is None:
-        raise ValidationError(
-            f"Nieznany plan: {plan_code}. Dostępne: {', '.join(PLANS)}."
-        )
+        raise ValidationError(f"Nieznany plan: {plan_code}. Dostępne: {', '.join(PLANS)}.")
 
     price_id = settings.STRIPE_PRICE_IDS.get(plan.code)
     if not price_id:
         logger.error("Brak identyfikatora ceny Stripe dla planu %s", plan.code)
         raise ValidationError(
-            f"Plan {plan.name} nie jest jeszcze dostępny do zakupu. "
-            "Skontaktuj się z nami."
+            f"Plan {plan.name} nie jest jeszcze dostępny do zakupu. Skontaktuj się z nami."
         )
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -78,9 +82,7 @@ def _utworz_sesje(stripe, tenant, plan, price_id, email, frontend):
         metadata={"tenant_id": str(tenant.id), "plan": plan.code},
         # Metadane sesji nie przechodzą na subskrypcję, a zdarzenia odnowienia
         # dotyczą właśnie subskrypcji — bez tego nie da się ich powiązać z firmą
-        subscription_data={
-            "metadata": {"tenant_id": str(tenant.id), "plan": plan.code}
-        },
+        subscription_data={"metadata": {"tenant_id": str(tenant.id), "plan": plan.code}},
     )
 
 
@@ -103,40 +105,42 @@ class BillingOverviewView(APIView):
         biezacy = subscription.plan_type if subscription else None
         biezacy_plan = get_plan(biezacy)
 
-        return Response({
-            "current": {
-                "plan": biezacy,
-                # Plan spoza cennika (subskrypcje sprzed katalogu) pokazujemy
-                # pod jego własną nazwą, zamiast udawać, że go nie ma
-                "name": biezacy_plan.name if biezacy_plan else biezacy,
-                "in_catalogue": biezacy_plan is not None,
-                "is_active": bool(subscription and subscription.is_active),
-                "used": subscription.current_message_count if subscription else 0,
-                "limit": subscription.message_limit if subscription else 0,
-                "renews_at": subscription.end_date if subscription else None,
-            },
-            "plans": [
-                {
-                    "code": plan.code,
-                    "name": plan.name,
-                    "price_pln": plan.price_pln,
-                    "price_pln_yearly": plan.price_pln_yearly,
-                    "message_limit": plan.message_limit,
-                    "branding": plan.branding,
-                    # Zostawiamy dla zgodności z panelem, który pyta o białą
-                    # etykietę wprost; poziom brandingu jest teraz trzystopniowy
-                    "white_label": plan.branding == BRANDING_WLASNY,
-                    "knowledge_base_mb": plan.knowledge_base_mb,
-                    "max_domains": plan.max_domains,
-                    "max_seats": plan.max_seats,
-                    # Bez identyfikatora ceny w Stripe nie da się kupić —
-                    # panel ma to pokazać zamiast prowadzić w ślepy zaułek
-                    "available": bool(settings.STRIPE_PRICE_IDS.get(plan.code)),
-                    "current": plan.code == biezacy,
-                }
-                for plan in PLANS.values()
-            ],
-        })
+        return Response(
+            {
+                "current": {
+                    "plan": biezacy,
+                    # Plan spoza cennika (subskrypcje sprzed katalogu) pokazujemy
+                    # pod jego własną nazwą, zamiast udawać, że go nie ma
+                    "name": biezacy_plan.name if biezacy_plan else biezacy,
+                    "in_catalogue": biezacy_plan is not None,
+                    "is_active": bool(subscription and subscription.is_active),
+                    "used": subscription.current_message_count if subscription else 0,
+                    "limit": subscription.message_limit if subscription else 0,
+                    "renews_at": subscription.end_date if subscription else None,
+                },
+                "plans": [
+                    {
+                        "code": plan.code,
+                        "name": plan.name,
+                        "price_pln": plan.price_pln,
+                        "price_pln_yearly": plan.price_pln_yearly,
+                        "message_limit": plan.message_limit,
+                        "branding": plan.branding,
+                        # Zostawiamy dla zgodności z panelem, który pyta o białą
+                        # etykietę wprost; poziom brandingu jest teraz trzystopniowy
+                        "white_label": plan.branding == BRANDING_WLASNY,
+                        "knowledge_base_mb": plan.knowledge_base_mb,
+                        "max_domains": plan.max_domains,
+                        "max_seats": plan.max_seats,
+                        # Bez identyfikatora ceny w Stripe nie da się kupić —
+                        # panel ma to pokazać zamiast prowadzić w ślepy zaułek
+                        "available": bool(settings.STRIPE_PRICE_IDS.get(plan.code)),
+                        "current": plan.code == biezacy,
+                    }
+                    for plan in PLANS.values()
+                ],
+            }
+        )
 
 
 @extend_schema(
@@ -172,27 +176,29 @@ class PublicPricingView(APIView):
     permission_classes = []
 
     def get(self, request):
-        return Response({
-            "plans": [
-                {
-                    "code": plan.code,
-                    "name": plan.name,
-                    "price_pln": plan.price_pln,
-                    "price_pln_yearly": plan.price_pln_yearly,
-                    "message_limit": plan.message_limit,
-                    "knowledge_base_mb": plan.knowledge_base_mb,
-                    "max_domains": plan.max_domains,
-                    "max_seats": plan.max_seats,
-                    "branding": plan.branding,
-                    # Realna różnica między planami, od niedawna faktycznie
-                    # działająca — a klient jej nie widział. None znaczy
-                    # „odświeżanie wyłącznie na żądanie".
-                    "recrawl_days": plan.recrawl_days,
-                }
-                for plan in PLANS.values()
-            ],
-            "pakiet": {
-                "wiadomosci": PAKIET_WIADOMOSCI,
-                "cena_pln": PAKIET_CENA_PLN,
-            },
-        })
+        return Response(
+            {
+                "plans": [
+                    {
+                        "code": plan.code,
+                        "name": plan.name,
+                        "price_pln": plan.price_pln,
+                        "price_pln_yearly": plan.price_pln_yearly,
+                        "message_limit": plan.message_limit,
+                        "knowledge_base_mb": plan.knowledge_base_mb,
+                        "max_domains": plan.max_domains,
+                        "max_seats": plan.max_seats,
+                        "branding": plan.branding,
+                        # Realna różnica między planami, od niedawna faktycznie
+                        # działająca — a klient jej nie widział. None znaczy
+                        # „odświeżanie wyłącznie na żądanie".
+                        "recrawl_days": plan.recrawl_days,
+                    }
+                    for plan in PLANS.values()
+                ],
+                "pakiet": {
+                    "wiadomosci": PAKIET_WIADOMOSCI,
+                    "cena_pln": PAKIET_CENA_PLN,
+                },
+            }
+        )

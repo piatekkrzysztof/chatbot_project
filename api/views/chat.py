@@ -20,7 +20,10 @@ from rest_framework.throttling import ScopedRateThrottle
     summary="Zadaj pytanie botowi z panelu",
     description="Odpowiednik endpointu widgetu, ale dla zalogowanego użytkownika.",
     request=ChatRequestSerializer,
-    responses={200: PublicChatResponseSerializer, 429: OpenApiResponse(description="Limit planu wyczerpany.")},
+    responses={
+        200: PublicChatResponseSerializer,
+        429: OpenApiResponse(description="Limit planu wyczerpany."),
+    },
 )
 class ChatWithGPTView(APIView):
     throttle_classes = [APIKeyRateThrottle]
@@ -39,10 +42,7 @@ class ChatWithGPTView(APIView):
         conversation, _ = Conversation.objects.get_or_create(
             session_id=data["conversation_session_id"],
             tenant=tenant,
-            defaults={
-                "tenant": tenant,
-                "user_identifier": visitor_identifier(request)
-            }
+            defaults={"tenant": tenant, "user_identifier": visitor_identifier(request)},
         )
 
         user_message = data["message"].strip()

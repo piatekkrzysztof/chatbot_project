@@ -19,9 +19,10 @@ from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from api.schemas import (
-    ErrorSerializer, PublicChatResponseSerializer, WidgetBrandingSerializer,
+    ErrorSerializer,
+    PublicChatResponseSerializer,
+    WidgetBrandingSerializer,
 )
-
 
 
 def _wlaczone(wartosc):
@@ -65,8 +66,12 @@ def serialize_widget_branding(tenant, request):
         "widget_title": tenant.widget_title,
         "branding_mode": tenant.branding_mode,
         "widget_footer_text": tenant.widget_footer_text,
-        "widget_logo": request.build_absolute_uri(tenant.widget_logo.url) if tenant.widget_logo else None,
-        "widget_avatar": request.build_absolute_uri(tenant.widget_avatar.url) if tenant.widget_avatar else None,
+        "widget_logo": request.build_absolute_uri(tenant.widget_logo.url)
+        if tenant.widget_logo
+        else None,
+        "widget_avatar": request.build_absolute_uri(tenant.widget_avatar.url)
+        if tenant.widget_avatar
+        else None,
         # RODO wymaga poinformowania odwiedzającego o przetwarzaniu jego danych
         # w momencie ich zbierania — czyli w oknie czatu, nie tylko w regulaminie.
         "privacy_policy_url": tenant.privacy_policy_url or "",
@@ -109,7 +114,9 @@ class WidgetSettingsAPIView(APIView):
         # wskazywałby nas, nie klienta. Stąd rejestr domen siedzi właśnie tutaj.
         zarejestruj_domene(request.tenant, request.headers.get("Origin"))
 
-        return Response(serialize_widget_branding(request.tenant, request), status=status.HTTP_200_OK)
+        return Response(
+            serialize_widget_branding(request.tenant, request), status=status.HTTP_200_OK
+        )
 
 
 @extend_schema(
@@ -153,6 +160,7 @@ class PublicChatView(APIView):
     bez logowania JWT. Odpowiednik ChatWithGPTView dla anonimowych odwiedzających
     stronę klienta.
     """
+
     authentication_classes = []
     permission_classes = []
     # Limit per firma chroni nas, limit per odwiedzający chroni klienta przed
@@ -178,7 +186,7 @@ class PublicChatView(APIView):
                 "tenant": tenant,
                 "user_identifier": visitor_identifier(request),
                 "source": "widget",
-            }
+            },
         )
 
         result = process_chat_message(tenant, conversation, data["message"].strip())
@@ -197,8 +205,8 @@ class PublicChatView(APIView):
     description=(
         "To samo co `/widget/chat/`, ale odpowiedź leci token po tokenie jako "
         "Server-Sent Events (`text/event-stream`). Każde zdarzenie to JSON: "
-        "`{\"type\": \"delta\", \"content\": \"...\"}` w trakcie, a na koniec "
-        "`{\"type\": \"done\", \"source\": ..., \"tokens\": ..., \"sources\": [...]}`."
+        '`{"type": "delta", "content": "..."}` w trakcie, a na koniec '
+        '`{"type": "done", "source": ..., "tokens": ..., "sources": [...]}`.'
     ),
     request=ChatRequestSerializer,
     responses={
@@ -212,6 +220,7 @@ class PublicChatStreamView(APIView):
     Strumieniowa wersja PublicChatView — odpowiedź leci token po tokenie (SSE),
     dzięki czemu użytkownik widzi ją od razu zamiast czekać na całość.
     """
+
     authentication_classes = []
     permission_classes = []
     throttle_classes = [VisitorRateThrottle]
@@ -233,7 +242,7 @@ class PublicChatStreamView(APIView):
                 "tenant": tenant,
                 "user_identifier": visitor_identifier(request),
                 "source": "widget",
-            }
+            },
         )
 
         # Naliczamy dopiero, gdy odwiedzający realnie dostanie treść od modelu.
@@ -244,7 +253,9 @@ class PublicChatStreamView(APIView):
 
         response = StreamingHttpResponse(
             stream_chat_message(
-                tenant, conversation, data["message"].strip(),
+                tenant,
+                conversation,
+                data["message"].strip(),
                 on_billable=subscription.increment_usage if subscription else None,
             ),
             content_type="text/event-stream",
@@ -266,6 +277,7 @@ class TenantWidgetSettingsView(APIView):
     odpowiednik WidgetSettingsAPIView, ale do odczytu/zapisu przez właściciela,
     nie do publicznego odczytu przez sam widget.
     """
+
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get(self, request):
@@ -300,14 +312,25 @@ class TenantWidgetSettingsView(APIView):
                 )
 
         text_fields = (
-            "widget_position", "widget_color", "widget_title", "branding_mode",
-            "widget_footer_text", "widget_welcome_message", "widget_suggested_questions",
-            "widget_languages", "widget_language_mode", "widget_default_language",
+            "widget_position",
+            "widget_color",
+            "widget_title",
+            "branding_mode",
+            "widget_footer_text",
+            "widget_welcome_message",
+            "widget_suggested_questions",
+            "widget_languages",
+            "widget_language_mode",
+            "widget_default_language",
             "widget_proactive_delay_seconds",
         )
         # Osobno, bo z formularza przychodzą jako napisy "true"/"false"
-        bool_fields = ("widget_proactive_enabled", "widget_hide_branding",
-                       "powiadom_o_rozmowie", "raport_tygodniowy")
+        bool_fields = (
+            "widget_proactive_enabled",
+            "widget_hide_branding",
+            "powiadom_o_rozmowie",
+            "raport_tygodniowy",
+        )
         changed_fields = []
 
         for field in text_fields:
@@ -328,9 +351,7 @@ class TenantWidgetSettingsView(APIView):
                 try:
                     surowe = json.loads(surowe)
                 except ValueError:
-                    raise ValidationError(
-                        {"widget_proactive_texts": "Nieprawidłowy JSON."}
-                    )
+                    raise ValidationError({"widget_proactive_texts": "Nieprawidłowy JSON."})
             if not isinstance(surowe, dict):
                 raise ValidationError(
                     {"widget_proactive_texts": "Oczekiwano obiektu kod języka → tekst."}
@@ -364,6 +385,7 @@ class WidgetDomainViewSet(viewsets.ModelViewSet):
     przy pierwszym zapytaniu, a wpis dodany z palca i tak nie dałby dostępu
     witrynie, która o widget nie prosi.
     """
+
     serializer_class = WidgetDomainSerializer
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
     # Bez tego generator schematu nie potrafi wywnioskować typu identyfikatora
@@ -377,8 +399,10 @@ class WidgetDomainViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         tenant = request.user.tenant
         domeny = self.get_queryset()
-        return Response({
-            "domains": WidgetDomainSerializer(domeny, many=True).data,
-            "limit": limit_domen(tenant),
-            "used": domeny.count(),
-        })
+        return Response(
+            {
+                "domains": WidgetDomainSerializer(domeny, many=True).data,
+                "limit": limit_domen(tenant),
+                "used": domeny.count(),
+            }
+        )

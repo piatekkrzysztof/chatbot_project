@@ -7,6 +7,7 @@ wcześniej nie działały: czy w mailu jest przebieg rozmowy, czy wysyłka
 nie blokuje odpowiedzi dla odwiedzającego i czy nieudana wysyłka zostawia
 ślad zamiast ciszy.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -38,8 +39,10 @@ def rozmowa_z_wymiana(tenant):
 
 def zapytanie(tenant, rozmowa=None, **kw):
     return ContactRequest.objects.create(
-        tenant=tenant, conversation=rozmowa,
-        contact=kw.pop("contact", "jan@firma.pl"), **kw,
+        tenant=tenant,
+        conversation=rozmowa,
+        contact=kw.pop("contact", "jan@firma.pl"),
+        **kw,
     )
 
 
@@ -82,9 +85,7 @@ class TestTresci:
         t = firma()
         rozmowa = Conversation.objects.create(tenant=t, user_identifier="gosc")
         for numer in range(6):
-            ChatMessage.objects.create(
-                conversation=rozmowa, sender="user", message=f"krok {numer}"
-            )
+            ChatMessage.objects.create(conversation=rozmowa, sender="user", message=f"krok {numer}")
         zapis = zapis_rozmowy(zapytanie(t, rozmowa))
 
         pozycje = [zapis.index(f"krok {n}") for n in range(6)]
@@ -152,8 +153,9 @@ class TestSladu:
         t = firma()
         z = zapytanie(t)
 
-        with patch("chat.powiadomienia.send_mail",
-                   side_effect=OSError("SMTPAuthenticationError: 535")):
+        with patch(
+            "chat.powiadomienia.send_mail", side_effect=OSError("SMTPAuthenticationError: 535")
+        ):
             powiadom_o_zapytaniu(z.pk)
         z.refresh_from_db()
 
@@ -182,10 +184,14 @@ class TestSciezkiZWidgetu:
         klient.credentials(HTTP_X_API_KEY=str(t.api_key))
 
         with patch("api.views.contact.enqueue") as zlecenie:
-            odp = klient.post("/api/widget/contact/", {
-                "contact": "jan@firma.pl",
-                "conversation_session_id": str(rozmowa.session_id),
-            }, format="json")
+            odp = klient.post(
+                "/api/widget/contact/",
+                {
+                    "contact": "jan@firma.pl",
+                    "conversation_session_id": str(rozmowa.session_id),
+                },
+                format="json",
+            )
 
         assert odp.status_code == 201
         # Widok zleca zadanie, a nie wysyła maila sam
@@ -199,10 +205,14 @@ class TestSciezkiZWidgetu:
         klient = APIClient()
         klient.credentials(HTTP_X_API_KEY=str(t.api_key))
 
-        odp = klient.post("/api/widget/contact/", {
-            "contact": "jan@firma.pl",
-            "conversation_session_id": str(rozmowa.session_id),
-        }, format="json")
+        odp = klient.post(
+            "/api/widget/contact/",
+            {
+                "contact": "jan@firma.pl",
+                "conversation_session_id": str(rozmowa.session_id),
+            },
+            format="json",
+        )
 
         assert odp.status_code == 201
         assert len(mail.outbox) == 1

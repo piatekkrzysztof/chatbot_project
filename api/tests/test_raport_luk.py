@@ -9,6 +9,7 @@ Testujemy trzy rzeczy, na których stoi jego użyteczność: że powtórzone
 pytanie liczy się jako jedno (ale pilniejsze), że okno to naprawdę tydzień,
 i że milczenie jest zarezerwowane dla braku luk — a nie dla awarii.
 """
+
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -28,9 +29,7 @@ def firma(**kw):
 
 
 def pytanie(tenant, tresc, source="gpt", dni_temu=0):
-    wpis = PromptLog.objects.create(
-        tenant=tenant, model="gpt-4o-mini", prompt=tresc, source=source
-    )
+    wpis = PromptLog.objects.create(tenant=tenant, model="gpt-4o-mini", prompt=tresc, source=source)
     if dni_temu:
         # created_at ma auto_now_add, więc datę trzeba nadpisać po zapisie
         nowa = timezone.now() - timedelta(days=dni_temu)
@@ -123,7 +122,6 @@ class TestOknaCzasu:
 
         assert "Świeże pytanie" in mail.outbox[0].body
         assert "Stare pytanie" not in mail.outbox[0].body
-
 
 
 @pytest.mark.django_db
@@ -256,6 +254,7 @@ class TestWylacznikaWPanelu:
     zostaje oznaczenie nadawcy jako spam — czyli utrata też tych powiadomień,
     które niosą zapytanie od klienta.
     """
+
     URL = "/api/widget-settings/mine/"
 
     def _panel(self, tenant):
@@ -264,8 +263,11 @@ class TestWylacznikaWPanelu:
         from accounts.models import CustomUser
 
         wlasciciel = CustomUser.objects.create_user(
-            username="wl", email="wl@firma.pl", password="x",
-            tenant=tenant, role="owner",
+            username="wl",
+            email="wl@firma.pl",
+            password="x",
+            tenant=tenant,
+            role="owner",
         )
         klient = APIClient()
         klient.force_authenticate(user=wlasciciel)
@@ -315,8 +317,11 @@ class TestPulpituIRaportuNaJednymZrodle:
         from accounts.models import CustomUser
 
         uzytkownik = CustomUser.objects.create_user(
-            username="wl", email="wl@firma.pl", password="x",
-            tenant=tenant, role="owner",
+            username="wl",
+            email="wl@firma.pl",
+            password="x",
+            tenant=tenant,
+            role="owner",
         )
         klient = APIClient()
         klient.force_authenticate(user=uzytkownik)
@@ -371,10 +376,23 @@ class TestOdsiewaniaSzumu:
     do zrobienia w kwadrans.
     """
 
-    @pytest.mark.parametrize("tresc", [
-        "Dzień dobry", "dzien dobry", "Dzień dobry!", "  CZEŚĆ  ", "hej",
-        "Witam", "siema", "Elo", "dziękuję", "ok", "Do widzenia", "test",
-    ])
+    @pytest.mark.parametrize(
+        "tresc",
+        [
+            "Dzień dobry",
+            "dzien dobry",
+            "Dzień dobry!",
+            "  CZEŚĆ  ",
+            "hej",
+            "Witam",
+            "siema",
+            "Elo",
+            "dziękuję",
+            "ok",
+            "Do widzenia",
+            "test",
+        ],
+    )
     def test_uprzejmosci_nie_sa_lukami(self, tresc):
         t = firma()
         pytanie(t, tresc)
@@ -390,8 +408,9 @@ class TestOdsiewaniaSzumu:
         t = firma()
         pytanie(t, "Dzień dobry, jaka jest pogoda w Wałbrzychu")
 
-        assert [p["pytanie"] for p in luki_w_wiedzy(t)] == \
-            ["Dzień dobry, jaka jest pogoda w Wałbrzychu"]
+        assert [p["pytanie"] for p in luki_w_wiedzy(t)] == [
+            "Dzień dobry, jaka jest pogoda w Wałbrzychu"
+        ]
 
     def test_krotkie_prawdziwe_pytania_zostaja(self):
         """Filtr nie moze zjadac zwiezlych pytan — te sa najczestsze."""
@@ -413,7 +432,11 @@ class TestOdsiewaniaSzumu:
         pytanie(t, "jakie sa godziny otwarcia")
 
         uzytkownik = CustomUser.objects.create_user(
-            username="wl", email="wl@firma.pl", password="x", tenant=t, role="owner",
+            username="wl",
+            email="wl@firma.pl",
+            password="x",
+            tenant=t,
+            role="owner",
         )
         klient = APIClient()
         klient.force_authenticate(user=uzytkownik)

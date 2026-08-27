@@ -14,9 +14,7 @@ class ChatAPITest(APITestCase):
     def setUp(self):
         print("==== ACTIVE DJANGO SETTINGS MODULE:", os.environ.get("DJANGO_SETTINGS_MODULE"))
         self.tenant = Tenant.objects.create(
-            name="Test Client",
-            gpt_prompt="Odpowiadaj jak ekspert.",
-            owner_email="test@example.com"
+            name="Test Client", gpt_prompt="Odpowiadaj jak ekspert.", owner_email="test@example.com"
         )
         self.subscription = Subscription.objects.create(
             tenant=self.tenant,
@@ -25,17 +23,24 @@ class ChatAPITest(APITestCase):
             end_date=timezone.now().date(),
             is_active=True,
         )
-        self.user=CustomUser.objects.create_user(username="x", email="x@x.com", password="secret", tenant=self.tenant)
-        print("ALL subscriptions for tenant:", Subscription.objects.filter(tenant=self.tenant).values())
+        self.user = CustomUser.objects.create_user(
+            username="x", email="x@x.com", password="secret", tenant=self.tenant
+        )
+        print(
+            "ALL subscriptions for tenant:",
+            Subscription.objects.filter(tenant=self.tenant).values(),
+        )
         print("ALL tenants:", Tenant.objects.all().values())
         print("Tenant for key:", Tenant.objects.get(api_key=self.tenant.api_key))
         subs = Subscription.objects.filter(tenant=self.tenant)
         print("SUBS found:", subs.count(), list(subs.values()))
 
     def test_chat_view_returns_response(self):
-        url = reverse('chat')
+        url = reverse("chat")
         print(url)
-        self.client.force_authenticate(user=self.user, )
+        self.client.force_authenticate(
+            user=self.user,
+        )
         response = self.client.post(
             url,
             {
@@ -44,10 +49,13 @@ class ChatAPITest(APITestCase):
                 "conversation_id": 1,
             },
             HTTP_X_API_KEY=self.tenant.api_key,
-            format="json"
+            format="json",
         )
-        print("TEST DEBUG:", hasattr(response.wsgi_request, "subscription"),
-              getattr(response.wsgi_request, "subscription", None))
+        print(
+            "TEST DEBUG:",
+            hasattr(response.wsgi_request, "subscription"),
+            getattr(response.wsgi_request, "subscription", None),
+        )
         print(">>> [DEBUG] Response status:", response.status_code)
         print(">>> [DEBUG] Response content:", response.content)
         self.assertEqual(response.status_code, 200)
@@ -67,7 +75,7 @@ class WidgetSettingsTest(APITestCase):
             widget_title="Chatbot Test",
             owner_email="test@example.com",
             gpt_prompt="Test prompt",
-            regulamin="Test regulamin"
+            regulamin="Test regulamin",
         )
 
     def test_widget_settings(self):

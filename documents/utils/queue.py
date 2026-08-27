@@ -9,6 +9,7 @@ przez co wgranie dokumentu kończyło się błędem 500, a dokument przepadał.
 Tutaj próbujemy zlecić zadanie, a jeśli to niemożliwe — wykonujemy je od razu.
 Wolniej, ale użytkownik dostaje działającą funkcję zamiast błędu.
 """
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,8 @@ def enqueue(task, *args, **kwargs):
     except Exception as e:
         logger.warning(
             "Nie udało się zlecić zadania %s (%s) — wykonuję synchronicznie.",
-            getattr(task, "name", task), type(e).__name__,
+            getattr(task, "name", task),
+            type(e).__name__,
         )
         task(*args, **kwargs)
         return False

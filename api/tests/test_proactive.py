@@ -7,6 +7,7 @@ liczyć do limitu planu ani wywoływać OpenAI. Po drugie, języka nie da się w
 z wiadomości, bo wiadomości jeszcze nie ma; bierzemy go z wersji językowej
 strony klienta, którą embed.js czyta z atrybutu <html lang>.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -77,9 +78,11 @@ class TestZaczepkiWApiWidgetu:
         tenant.widget_proactive_texts = {"pl": "Pomóc?", "en": "Need help?"}
         tenant.save()
 
-        dane = APIClient().get(
-            "/api/widget-settings/?lang=en-GB", HTTP_X_API_KEY=str(tenant.api_key)
-        ).json()
+        dane = (
+            APIClient()
+            .get("/api/widget-settings/?lang=en-GB", HTTP_X_API_KEY=str(tenant.api_key))
+            .json()
+        )
 
         assert dane["widget_proactive_enabled"] is True
         assert dane["widget_proactive_text"] == "Need help?"
@@ -90,9 +93,7 @@ class TestZaczepkiWApiWidgetu:
         tenant.widget_proactive_texts = {"pl": "Pomóc?", "en": "Need help?"}
         tenant.save()
 
-        dane = APIClient().get(
-            "/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key)
-        ).json()
+        dane = APIClient().get("/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key)).json()
 
         assert dane["widget_proactive_text"] == "Pomóc?"
 

@@ -7,6 +7,7 @@ nie uniewaznia tokenu, wyglada identycznie jak takie, ktore uniewaznia.
 Dlatego kazdy test sprawdza obie polowki: ze droga wlasciwa dziala ORAZ
 ze droga niewlasciwa jest zamknieta.
 """
+
 import pytest
 from django.conf import settings
 from django.urls import reverse

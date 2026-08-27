@@ -20,8 +20,9 @@ def generate_valid_pdf_bytes():
 
 
 @pytest.mark.django_db
-def test_document_upload_creates_chunks(monkeypatch,user, tenant, subscribtion):
+def test_document_upload_creates_chunks(monkeypatch, user, tenant, subscribtion):
     from documents.tasks import embed_document_task
+
     monkeypatch.setattr(embed_document_task, "delay", lambda *args, **kwargs: None)
 
     client = APIClient()
@@ -38,7 +39,7 @@ def test_document_upload_creates_chunks(monkeypatch,user, tenant, subscribtion):
         "/api/documents-upload/",
         {"file": pdf, "name": "Test"},
         format="multipart",
-        HTTP_X_API_KEY=str(tenant.api_key)
+        HTTP_X_API_KEY=str(tenant.api_key),
     )
 
     assert response.status_code == 201
@@ -74,9 +75,7 @@ def test_upload_without_file_returns_400(user, tenant, subscribtion):
     tenant.save()
     client.force_authenticate(user=user)
     response = client.post(
-        "/api/documents-upload/",
-        data={"name": "Test"},
-        HTTP_X_API_KEY=str(tenant.api_key)
+        "/api/documents-upload/", data={"name": "Test"}, HTTP_X_API_KEY=str(tenant.api_key)
     )
     assert response.status_code == 400
     assert "error" in response.data or "file" in response.data

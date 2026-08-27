@@ -51,6 +51,7 @@ class PublicFeedbackView(APIView):
     ustala klucz API, a serializer sprawdza, że oceniana wiadomość należy
     właśnie do niej.
     """
+
     authentication_classes = []
     permission_classes = []
 

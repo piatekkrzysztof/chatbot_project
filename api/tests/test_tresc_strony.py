@@ -11,6 +11,7 @@ co jest artykułem, a strona sprzedażowa artykułem nie jest.
 Testy pilnują dwóch rzeczy naraz, bo obie da się zepsuć jedną zmianą:
 że treść sekcji marketingowych przechodzi, i że nawigacja ze stopką nie.
 """
+
 import pytest
 
 from documents.utils.tresc_strony import bez_obudowy, wyciagnij_tresc
@@ -52,7 +53,9 @@ NIESEMANTYCZNA = """
 
 
 class TestOdcinaniaObudowy:
-    @pytest.mark.parametrize("html", [SEMANTYCZNA, NIESEMANTYCZNA], ids=["semantyczna", "na-divach"])
+    @pytest.mark.parametrize(
+        "html", [SEMANTYCZNA, NIESEMANTYCZNA], ids=["semantyczna", "na-divach"]
+    )
     def test_nawigacja_i_stopka_nie_wchodza(self, html):
         """
         Obudowa powtarza sie na kazdej podstronie. Wciagnieta do bazy wiedzy
@@ -64,7 +67,9 @@ class TestOdcinaniaObudowy:
         assert "Polityka prywatnosci" not in tekst
         assert "Logo firmy" not in tekst
 
-    @pytest.mark.parametrize("html", [SEMANTYCZNA, NIESEMANTYCZNA], ids=["semantyczna", "na-divach"])
+    @pytest.mark.parametrize(
+        "html", [SEMANTYCZNA, NIESEMANTYCZNA], ids=["semantyczna", "na-divach"]
+    )
     def test_tresc_sekcji_przechodzi(self, html):
         """Druga strona tej samej monety: filtr ma odcinac obudowe, nie tresc."""
         tekst = bez_obudowy(html)
@@ -143,9 +148,13 @@ class TestWyboruDrogi:
         assert wyciagnij_tresc("<html><body><p>Krotko.</p></body></html>").tekst == ""
 
     def test_dlugi_artykul_przechodzi(self):
-        akapit = ("Wdrozenie chatbota zaczyna sie od uporzadkowania wiedzy firmy. "
-                  "Bez tego model odpowiada ogolnikami. ")
-        html = f"<html><body><article><h1>Chatbot AI</h1><p>{akapit * 6}</p></article></body></html>"
+        akapit = (
+            "Wdrozenie chatbota zaczyna sie od uporzadkowania wiedzy firmy. "
+            "Bez tego model odpowiada ogolnikami. "
+        )
+        html = (
+            f"<html><body><article><h1>Chatbot AI</h1><p>{akapit * 6}</p></article></body></html>"
+        )
 
         tekst = wyciagnij_tresc(html).tekst
 

@@ -11,6 +11,7 @@ zanim widok się wykona; naliczanie może więc spokojnie poczekać na wynik.
 Reguła: płacimy za treść od modelu. Urwany strumień też się liczy (odwiedzający
 zobaczył odpowiedź, my zapłaciliśmy za tokeny), sama awaria — nie.
 """
+
 import json
 import uuid
 
@@ -24,7 +25,8 @@ def zapytaj(tenant, klient=None):
     return (klient or APIClient()).post(
         "/api/widget/chat/",
         {"message": "Jakie macie godziny?", "conversation_session_id": str(uuid.uuid4())},
-        format="json", HTTP_X_API_KEY=str(tenant.api_key),
+        format="json",
+        HTTP_X_API_KEY=str(tenant.api_key),
     )
 
 
@@ -83,7 +85,7 @@ class TestNaliczaniaBezStrumienia:
 def zdarzenia_strumienia(response):
     tresc = b"".join(response.streaming_content).decode()
     return [
-        json.loads(linia[len("data: "):])
+        json.loads(linia[len("data: ") :])
         for linia in tresc.splitlines()
         if linia.startswith("data: ")
     ]
@@ -96,24 +98,26 @@ class TestNaliczaniaStrumieniowego:
     def wyslij(self, tenant):
         return APIClient().post(
             self.URL,
-            {"message": "Jakie macie godziny?",
-             "conversation_session_id": str(uuid.uuid4())},
-            format="json", HTTP_X_API_KEY=str(tenant.api_key),
+            {"message": "Jakie macie godziny?", "conversation_session_id": str(uuid.uuid4())},
+            format="json",
+            HTTP_X_API_KEY=str(tenant.api_key),
         )
 
     def test_udany_strumien_zuzywa_wiadomosc(self, tenant, subscribtion, mocker):
         mocker.patch(
             "api.utils.chat_engine.get_client",
-            return_value=mocker.Mock(**{
-                "chat.completions.create.return_value": [
-                    mocker.Mock(usage=None, choices=[
-                        mocker.Mock(delta=mocker.Mock(content="Czynne "))
-                    ]),
-                    mocker.Mock(usage=None, choices=[
-                        mocker.Mock(delta=mocker.Mock(content="9-17."))
-                    ]),
-                ]
-            }),
+            return_value=mocker.Mock(
+                **{
+                    "chat.completions.create.return_value": [
+                        mocker.Mock(
+                            usage=None, choices=[mocker.Mock(delta=mocker.Mock(content="Czynne "))]
+                        ),
+                        mocker.Mock(
+                            usage=None, choices=[mocker.Mock(delta=mocker.Mock(content="9-17."))]
+                        ),
+                    ]
+                }
+            ),
         )
         przed = subscribtion.current_message_count
 
@@ -126,9 +130,9 @@ class TestNaliczaniaStrumieniowego:
     def test_awaria_strumienia_nie_zuzywa_wiadomosci(self, tenant, subscribtion, mocker):
         mocker.patch(
             "api.utils.chat_engine.get_client",
-            return_value=mocker.Mock(**{
-                "chat.completions.create.side_effect": RuntimeError("OpenAI padło")
-            }),
+            return_value=mocker.Mock(
+                **{"chat.completions.create.side_effect": RuntimeError("OpenAI padło")}
+            ),
         )
         przed = subscribtion.current_message_count
 
@@ -144,13 +148,16 @@ class TestNaliczaniaStrumieniowego:
         """
         mocker.patch(
             "api.utils.chat_engine.get_client",
-            return_value=mocker.Mock(**{
-                "chat.completions.create.return_value": [
-                    mocker.Mock(usage=None, choices=[
-                        mocker.Mock(delta=mocker.Mock(content="Czynne 9-17."))
-                    ]),
-                ]
-            }),
+            return_value=mocker.Mock(
+                **{
+                    "chat.completions.create.return_value": [
+                        mocker.Mock(
+                            usage=None,
+                            choices=[mocker.Mock(delta=mocker.Mock(content="Czynne 9-17."))],
+                        ),
+                    ]
+                }
+            ),
         )
         przed = subscribtion.current_message_count
 

@@ -10,16 +10,19 @@ import uuid
 from rest_framework.request import Request
 from accounts.models import Subscription
 from datetime import date, timedelta
-from .factories import TenantFactory, UserFactory, SubscriptionFactory, ConversationFactory, ChatMessageFactory
+from .factories import (
+    TenantFactory,
+    UserFactory,
+    SubscriptionFactory,
+    ConversationFactory,
+    ChatMessageFactory,
+)
 from unittest.mock import patch
 
 
 @pytest.fixture
 def tenant(db):
-    return Tenant.objects.create(
-        name="TestTenant",
-        owner_email="test@example.com"
-    )
+    return Tenant.objects.create(name="TestTenant", owner_email="test@example.com")
 
 
 @pytest.fixture
@@ -53,10 +56,7 @@ def test_chat_view_success(api_client, tenant, user, subscribtion):
     user.save()
     api_client.force_authenticate(user=user)
 
-    conversation = Conversation.objects.create(
-        tenant=tenant,
-        user_identifier="test-user"
-    )
+    conversation = Conversation.objects.create(tenant=tenant, user_identifier="test-user")
     payload = {
         "message": "Jak mogę skontaktować się z Wami?",
         "conversation_id": conversation.id,
@@ -78,10 +78,7 @@ def test_chat_view_success(api_client, tenant, user, subscribtion):
 def test_chat_view_invalid_api_key():
     client = APIClient()
     client.credentials(HTTP_X_API_KEY=str(uuid.uuid4()))
-    payload = {
-        "message": "Test",
-        "conversation_id": str(uuid.uuid4())
-    }
+    payload = {"message": "Test", "conversation_id": str(uuid.uuid4())}
     response = client.post("/api/chat/", payload, format="json")
     assert response.status_code == 401
 
@@ -89,19 +86,14 @@ def test_chat_view_invalid_api_key():
 @pytest.mark.django_db
 def test_chat_view_missing_api_key():
     client = APIClient()
-    payload = {
-        "message": "Test",
-        "conversation_id": str(uuid.uuid4())
-    }
+    payload = {"message": "Test", "conversation_id": str(uuid.uuid4())}
     response = client.post("/api/chat/", payload, format="json")
     assert response.status_code == 401
 
 
 @pytest.mark.django_db
 def test_chat_view_invalid_payload(api_client):
-    payload = {
-        "wrong_field": "value"
-    }
+    payload = {"wrong_field": "value"}
     response = api_client.post("/api/chat/", payload, format="json")
     assert response.status_code in [400, 403]  # zależnie od logiki serializera lub middleware
 
@@ -112,10 +104,7 @@ def test_chat_view_new_conversation(api_client, user, tenant, subscribtion):
     user.save()
     api_client.force_authenticate(user=user)
 
-    conversation = Conversation.objects.create(
-        tenant=tenant,
-        user_identifier="test-user"
-    )
+    conversation = Conversation.objects.create(tenant=tenant, user_identifier="test-user")
 
     payload = {
         "message": "Cześć, chcę założyć nowe zgłoszenie!",
@@ -135,10 +124,7 @@ def test_chat_view_openai_fallback(api_client, user, tenant, subscribtion):
     user.save()
     api_client.force_authenticate(user=user)
 
-    conversation = Conversation.objects.create(
-        tenant=tenant,
-        user_identifier="test-user"
-    )
+    conversation = Conversation.objects.create(tenant=tenant, user_identifier="test-user")
 
     payload = {
         "message": "Testowe zapytanie do fallbacku",
@@ -146,11 +132,10 @@ def test_chat_view_openai_fallback(api_client, user, tenant, subscribtion):
         "conversation_session_id": str(conversation.session_id),
     }
 
-    with patch("api.views.chat.process_chat_message", return_value={
-        "response": "Testowa odpowiedź fallback",
-        "source": "gpt",
-        "tokens": 0
-    }):
+    with patch(
+        "api.views.chat.process_chat_message",
+        return_value={"response": "Testowa odpowiedź fallback", "source": "gpt", "tokens": 0},
+    ):
         headers = {"HTTP_X_API_KEY": tenant.api_key}
         response = api_client.post("/api/chat/", payload, format="json", **headers)
 
@@ -185,17 +170,25 @@ def test_chat_view_enforces_subscription_limit(
     limit = PLANS["start"].rate_per_minute
 
     for i in range(limit):
-        res = client.post("/api/chat/", {
-            "message": "test",
-            "conversation_id": conversation.id,
-            "conversation_session_id": str(conversation.session_id),
-        }, format="json")
+        res = client.post(
+            "/api/chat/",
+            {
+                "message": "test",
+                "conversation_id": conversation.id,
+                "conversation_session_id": str(conversation.session_id),
+            },
+            format="json",
+        )
         assert res.status_code == 200
 
     # kolejne żądanie ponad limit ma zostać odrzucone
-    res = client.post("/api/chat/", {
-        "message": "test",
-        "conversation_id": conversation.id,
-        "conversation_session_id": str(conversation.session_id),
-    }, format="json")
+    res = client.post(
+        "/api/chat/",
+        {
+            "message": "test",
+            "conversation_id": conversation.id,
+            "conversation_session_id": str(conversation.session_id),
+        },
+        format="json",
+    )
     assert res.status_code == 429

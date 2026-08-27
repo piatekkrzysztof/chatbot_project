@@ -15,6 +15,7 @@ a stanowią drugą drogę dodawania wiedzy — liczenie bajtów pliku pomijałob
 je w całości i limit dałoby się obejść, dodając stronę zamiast dokumentu.
 Tekst jest też tym, co realnie kosztuje: embeddingi liczymy od znaków.
 """
+
 from django.db.models import Sum
 from django.db.models.functions import Length
 from rest_framework.exceptions import ValidationError
@@ -46,11 +47,7 @@ def rozmiar_bazy_wiedzy(tenant):
     treści wszystkich dokumentów do pamięci tylko po to, żeby je zmierzyć,
     byłoby kosztowniejsze niż sam upload.
     """
-    wynik = (
-        Document.objects
-        .filter(tenant=tenant)
-        .aggregate(razem=Sum(Length("content")))
-    )
+    wynik = Document.objects.filter(tenant=tenant).aggregate(razem=Sum(Length("content")))
     return wynik["razem"] or 0
 
 

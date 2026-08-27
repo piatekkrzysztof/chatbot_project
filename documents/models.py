@@ -4,7 +4,7 @@ from pgvector.django import VectorField
 
 
 class Document(models.Model):
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='documents')
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="documents")
     name = models.CharField(max_length=255, default="Untitled")
     content = models.TextField(blank=True)
     file = models.FileField(upload_to="documents/", null=True, blank=True)
@@ -69,11 +69,7 @@ class DocumentChunk(models.Model):
 
 
 class WebsiteSource(models.Model):
-    tenant = models.ForeignKey(
-        Tenant,
-        on_delete=models.CASCADE,
-        related_name="website_sources"
-    )
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="website_sources")
     name = models.CharField(max_length=255, default="Strona WWW klienta")
     url = models.URLField()
     is_active = models.BooleanField(default=True)

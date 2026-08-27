@@ -10,6 +10,7 @@ i obejść limit.
 
 Dlatego zamiast zgadywać, właściciel może zobaczyć wprost, co serwer widzi.
 """
+
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from django.conf import settings
 from rest_framework.response import Response
@@ -31,6 +32,7 @@ from chat.privacy import anonymize_ip, client_ip
 )
 class DiagnostykaAdresuView(APIView):
     """Tylko dla zalogowanego właściciela — pokazuje pochodzenie żądania."""
+
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get(self, request):
@@ -39,15 +41,17 @@ class DiagnostykaAdresuView(APIView):
         depth = getattr(settings, "TRUSTED_PROXY_DEPTH", 0)
         rozpoznany = client_ip(request)
 
-        return Response({
-            "trusted_proxy_depth": depth,
-            "remote_addr": request.META.get("REMOTE_ADDR"),
-            "x_forwarded_for": lancuch,
-            "rozpoznany_adres": rozpoznany,
-            # To trafia do bazy jako identyfikator rozmówcy
-            "zapisywany_identyfikator": anonymize_ip(rozpoznany),
-            "podpowiedz": self.podpowiedz(depth, lancuch),
-        })
+        return Response(
+            {
+                "trusted_proxy_depth": depth,
+                "remote_addr": request.META.get("REMOTE_ADDR"),
+                "x_forwarded_for": lancuch,
+                "rozpoznany_adres": rozpoznany,
+                # To trafia do bazy jako identyfikator rozmówcy
+                "zapisywany_identyfikator": anonymize_ip(rozpoznany),
+                "podpowiedz": self.podpowiedz(depth, lancuch),
+            }
+        )
 
     @staticmethod
     def podpowiedz(depth, lancuch):

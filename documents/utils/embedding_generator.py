@@ -4,6 +4,7 @@ Liczenie wektorów dla fragmentów dokumentu.
 Sam podział siedzi w documents/utils/fragmenty.py — tutaj tylko rozmowa
 z modelem embeddingów i zapis do bazy.
 """
+
 import logging
 
 from django.conf import settings
@@ -38,7 +39,7 @@ def _wektory(klient, teksty):
     """Wektory dla listy tekstów, partiami."""
     wynik = []
     for poczatek in range(0, len(teksty), ROZMIAR_PARTII):
-        partia = teksty[poczatek:poczatek + ROZMIAR_PARTII]
+        partia = teksty[poczatek : poczatek + ROZMIAR_PARTII]
         odpowiedz = klient.embeddings.create(
             model=settings.OPENAI_EMBEDDING_MODEL,
             input=partia,
@@ -75,8 +76,10 @@ def generate_embeddings_for_document(document):
     wektory = _wektory(klient, [tekst_do_wektora(f, document.name) for f in fragmenty])
 
     DocumentChunk.objects.filter(document=document).delete()
-    DocumentChunk.objects.bulk_create([
-        DocumentChunk(document=document, content=fragment, embedding=wektor)
-        for fragment, wektor in zip(fragmenty, wektory)
-    ])
+    DocumentChunk.objects.bulk_create(
+        [
+            DocumentChunk(document=document, content=fragment, embedding=wektor)
+            for fragment, wektor in zip(fragmenty, wektory)
+        ]
+    )
     return len(fragmenty)

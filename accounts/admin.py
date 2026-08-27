@@ -6,8 +6,12 @@ from .models import Tenant, CustomUser, InvitationToken, Subscription
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
     list_display = (
-        "name", "gpt_prompt", "subscription_status", "current_token_usage",
-        "token_limit", "data_retention_days",
+        "name",
+        "gpt_prompt",
+        "subscription_status",
+        "current_token_usage",
+        "token_limit",
+        "data_retention_days",
     )
     list_filter = ("data_retention_days",)
     search_fields = ("name",)
@@ -19,12 +23,8 @@ class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_display = ("username", "email", "tenant", "role", "is_staff")
     list_filter = ("role", "tenant")
-    fieldsets = UserAdmin.fieldsets + (
-        ("Tenant", {"fields": ("tenant", "role")}),
-    )
-    add_fieldsets = UserAdmin.add_fieldsets + (
-        ("Tenant", {"fields": ("tenant", "role")}),
-    )
+    fieldsets = UserAdmin.fieldsets + (("Tenant", {"fields": ("tenant", "role")}),)
+    add_fieldsets = UserAdmin.add_fieldsets + (("Tenant", {"fields": ("tenant", "role")}),)
 
 
 admin.site.register(Subscription)
@@ -32,7 +32,16 @@ admin.site.register(Subscription)
 
 @admin.register(InvitationToken)
 class InvitationTokenAdmin(admin.ModelAdmin):
-    list_display = ("email", "tenant", "role", "duration", "users", "max_users", "is_valid_token", "expires_at")
+    list_display = (
+        "email",
+        "tenant",
+        "role",
+        "duration",
+        "users",
+        "max_users",
+        "is_valid_token",
+        "expires_at",
+    )
     readonly_fields = ("token", "created_at", "expires_at")
     list_filter = ("role", "duration")
 

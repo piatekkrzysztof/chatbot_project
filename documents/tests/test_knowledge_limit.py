@@ -11,6 +11,7 @@ Metoda nie wykonywała się nigdy.
 Stąd nacisk tych testów: sprawdzają, że limit realnie zatrzymuje zapis na obu
 drogach dodawania wiedzy, a nie że funkcja zwraca poprawną liczbę.
 """
+
 import io
 
 import pytest
@@ -21,15 +22,23 @@ from rest_framework.test import APIClient
 from documents.models import Document
 from documents.utils.tresc_strony import TrescStrony
 from documents.validators import (
-    MB, limit_bazy_wiedzy_mb, rozmiar_bazy_wiedzy, sprawdz_limit_bazy_wiedzy,
+    MB,
+    limit_bazy_wiedzy_mb,
+    rozmiar_bazy_wiedzy,
+    sprawdz_limit_bazy_wiedzy,
 )
 
 
 @pytest.mark.django_db
 class TestLimituZKatalogu:
-    @pytest.mark.parametrize("plan,limit_mb", [
-        ("start", 5), ("grow", 25), ("pro", 100),
-    ])
+    @pytest.mark.parametrize(
+        "plan,limit_mb",
+        [
+            ("start", 5),
+            ("grow", 25),
+            ("pro", 100),
+        ],
+    )
     def test_limit_pochodzi_z_cennika(self, tenant, subscribtion, plan, limit_mb):
         subscribtion.plan_type = plan
         subscribtion.save()
@@ -128,6 +137,7 @@ class TestEgzekwowaniaPrzyUploadzie:
     go nie wołał — testy sprawdzające samą funkcję przechodziły, a limit
     w produkcie nie istniał.
     """
+
     URL = "/api/documents-upload/"
 
     def zaloguj(self, user, tenant, plan="start"):
@@ -161,7 +171,8 @@ class TestEgzekwowaniaPrzyUploadzie:
 
     def test_upload_w_limicie_przechodzi(self, user, tenant, subscribtion, mocker):
         mocker.patch(
-            "api.views.documents.extract_text_from_pdf", return_value="treść firmy",
+            "api.views.documents.extract_text_from_pdf",
+            return_value="treść firmy",
         )
         mocker.patch("api.views.documents.enqueue")
         klient = self.zaloguj(user, tenant, "start")

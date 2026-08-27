@@ -7,11 +7,13 @@ akurat te publiczne, od których zaczyna każdy integrujący widget.
 
 Te serializery nic nie walidują: opisują to, co widoki i tak zwracają.
 """
+
 from rest_framework import serializers
 
 
 class MessageSerializer(serializers.Serializer):
     """Krótkie potwierdzenie operacji."""
+
     message = serializers.CharField()
 
 
@@ -24,6 +26,7 @@ class ErrorSerializer(serializers.Serializer):
 
 
 # --- Widget (publiczny, X-API-Key) ---
+
 
 class WidgetBrandingSerializer(serializers.Serializer):
     widget_position = serializers.CharField()
@@ -44,6 +47,7 @@ class WidgetBrandingSerializer(serializers.Serializer):
 
 class ChatSourceSerializer(serializers.Serializer):
     """Pojedyncze źródło odpowiedzi pokazywane odwiedzającemu."""
+
     name = serializers.CharField(help_text="Nazwa dokumentu albo tytuł strony.")
     url = serializers.CharField(
         allow_blank=True,
@@ -87,15 +91,14 @@ class PublicContactRequestSerializer(serializers.Serializer):
 
 # --- Panel (JWT) ---
 
+
 class MeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     username = serializers.CharField()
     email = serializers.EmailField()
     role = serializers.ChoiceField(choices=["owner", "employee", "viewer"])
     tenant_name = serializers.CharField()
-    tenant_api_key = serializers.UUIDField(
-        help_text="Klucz do osadzenia widgetu na stronie firmy."
-    )
+    tenant_api_key = serializers.UUIDField(help_text="Klucz do osadzenia widgetu na stronie firmy.")
 
 
 class KnowledgeSerializer(serializers.Serializer):
@@ -164,6 +167,7 @@ class UsageSerializer(serializers.Serializer):
 
 class UnansweredSerializer(serializers.Serializer):
     """Pytanie bez pokrycia, po sklejeniu powtórzeń — stąd brak `id`."""
+
     question = serializers.CharField()
     count = serializers.IntegerField()
     asked_at = serializers.DateTimeField()
@@ -201,6 +205,7 @@ class DocumentUploadSerializer(serializers.Serializer):
 
 class PublicPlanSerializer(serializers.Serializer):
     """Plan w cenniku dla strony sprzedażowej — bez danych o firmie."""
+
     code = serializers.CharField()
     name = serializers.CharField()
     price_pln = serializers.IntegerField()
@@ -261,6 +266,7 @@ class BillingOverviewSerializer(serializers.Serializer):
 
 class CzatTestowyZadanieSerializer(serializers.Serializer):
     """Pytanie właściciela do własnego bota."""
+
     message = serializers.CharField(help_text="Treść pytania.")
 
 
@@ -278,6 +284,7 @@ class CzatTestowyHistoriaSerializer(serializers.Serializer):
 
 class UstawieniaFirmySerializer(serializers.Serializer):
     """Dane firmy zmieniane przez właściciela z panelu."""
+
     name = serializers.CharField(max_length=100, help_text="Nazwa firmy.")
     owner_email = serializers.CharField(
         allow_blank=True,
