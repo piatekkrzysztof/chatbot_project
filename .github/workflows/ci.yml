@@ -204,13 +204,24 @@ jobs:
           # pierwszym uruchomieniu. Próg postawiony na odczycie z zepsutego
           # instrumentu jest gorszy niż brak progu.
           ruff format --check . > format.txt 2>&1 || true
-          ILE=$(grep -c "^Would reformat" format.txt || true)
-          if grep -q "^Would reformat" format.txt; then
-            echo "::notice title=Formatowanie::${ILE} plików do przeformatowania (nie blokuje — punkt startowy)"
+
+          # Czytamy WIERSZ PODSUMOWANIA, nie pojedyncze wpisy "Would reformat".
+          # Ruff przy większej liczbie plików nie wypisuje ich po kolei, tylko
+          # samo podsumowanie w rodzaju "165 files would be reformatted,
+          # 23 files already formatted". Licznik oparty na wpisach zwracał więc
+          # zero mimo 165 plików do poprawy - i to zero trafiło do adnotacji
+          # wyglądającej na pomiar.
+          ILE=$(grep -oE '[0-9]+ files? would be reformatted' format.txt | grep -oE '^[0-9]+' || true)
+          PODSUMOWANIE=$(tail -1 format.txt | cut -c1-140)
+
+          if [ -n "$ILE" ]; then
+            echo "::notice title=Formatowanie::${ILE} plików do przeformatowania (nie blokuje - dług do spłacenia)"
+          elif grep -q "already formatted" format.txt; then
+            echo "::notice title=Formatowanie::0 plików do przeformatowania (${PODSUMOWANIE})"
           else
-            # Rozróżniamy "zmierzono zero" od "nie udało się zmierzyć".
-            OGON=$(tail -1 format.txt | cut -c1-120)
-            echo "::notice title=Formatowanie::0 plików do przeformatowania — ostatni wiersz raportu: ${OGON:-brak}"
+            # Brak obu wzorców znaczy, że raport ma nieznany kształt.
+            # Ostrzeżenie, nie cicha zerowa liczba.
+            echo "::warning title=Formatowanie::nie odczytano wyniku, ostatni wiersz: ${PODSUMOWANIE:-brak}"
           fi
         # Z powrotem nieblokujące, do czasu poznania PRAWDZIWEJ liczby.
         continue-on-error: true
