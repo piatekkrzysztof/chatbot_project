@@ -356,8 +356,9 @@ Honest list. These are measured or known, not hypothetical.
   `pip-audit` all run on every pull request, but only coverage (83%, measured at 85%)
   and formatting block a merge. The rest report a number and nothing more - a debt with
   a figure attached rather than a hidden one.
-- **78 vulnerabilities in production dependencies**, reported by `pip-audit` and not yet
-  triaged. The number is real; the severity spread is not yet known.
+- **Dependency vulnerabilities: 0.** `pip-audit` runs on every pull request. It reported
+  78 in August 2026, concentrated in three packages; all three were upgraded and the
+  count is now zero. It will not stay there on its own - the check is what keeps it honest.
 - **`RAG_MAX_DISTANCE` is global.** The right threshold depends on a tenant's documents
   and is measured per tenant, but stored as one process-wide setting — multi-tenant in
   every respect except this one.

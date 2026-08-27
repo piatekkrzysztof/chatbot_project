@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.views import APIView
@@ -7,6 +9,8 @@ from api.schemas import DocumentUploadSerializer, ErrorSerializer, MessageSerial
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from pypdf.errors import PyPdfError
+
 from documents.utils.pdf_parser import extract_text_from_pdf
 from documents.validators import sprawdz_limit_bazy_wiedzy
 from api.serializers import DocumentSerializer
@@ -27,6 +31,8 @@ from rest_framework.exceptions import ValidationError
 from api.serializers import DocumentChunkSerializer, WebsiteSourceSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from api.permissions import *
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
@@ -121,7 +127,25 @@ class UploadDocumentView(APIView):
         # plik w magazynie i zadanie embeddingów w kolejce.
         text = ""
         if file.name.lower().endswith(".pdf"):
-            text = extract_text_from_pdf(file)
+            try:
+                text = extract_text_from_pdf(file)
+            except PyPdfError as blad:
+                # Uszkodzony PDF to nie przypadek brzegowy: urwane pobieranie,
+                # plik ze skanera, dokument zapisany przez program, ktory sie
+                # wysypal. Uzytkownik nie ma jak tego rozpoznac przed wgraniem.
+                #
+                # Bez tej obslugi wychodzila piecsetka - dla wgrywajacego
+                # nieodroznialna od awarii serwisu, a w Sentry szum zamiast
+                # sygnalu. pypdf 6 zglasza tu takze LimitReachedError, czyli
+                # przerwana probe przetworzenia pliku zbudowanego tak, zeby
+                # zajac caly czas procesora; to rowniez ma byc odmowa, nie awaria.
+                logger.info("Nie udalo sie odczytac PDF-a %s: %s", file.name, blad)
+                return Response(
+                    {
+                        "error": "Nie udało się odczytać tego pliku PDF. Sprawdź, czy nie jest uszkodzony."
+                    },
+                    status=400,
+                )
 
         sprawdz_limit_bazy_wiedzy(tenant, text)
 
