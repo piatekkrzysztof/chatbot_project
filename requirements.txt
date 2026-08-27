@@ -14,7 +14,11 @@
 # 5.1 znaczyloby swiadome uzywanie wersji, ktorej nikt juz nie lata.
 Django==5.2.17
 djangorestframework==3.16.0
-djangorestframework_simplejwt==5.5.0
+djangorestframework_simplejwt==5.5.1
+# PyJWT wchodzi jako zaleznosc simplejwt, ale przypinamy go jawnie: to on
+# weryfikuje podpisy naszych tokenow dostepu, wiec jego wersja jest decyzja
+# bezpieczenstwa, a nie szczegolem cudzej paczki. W 2.9.0 bylo 6 podatnosci.
+PyJWT==2.13.0
 django-cors-headers==4.7.0
 drf-spectacular==0.28.0
 
@@ -64,7 +68,7 @@ stripe<=8.5.0
 
 # Serwer i konfiguracja
 gunicorn==23.0.0
-python-dotenv==1.0.1
+python-dotenv==1.2.3
 python-decouple==3.8
 python-dateutil==2.9.0.post0
 # Wchodzi też jako zależność drf-spectacular, ale importujemy go wprost
