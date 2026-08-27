@@ -15,6 +15,7 @@ Dotychczasowa wersja miała trzy dziury:
   • błąd był wyciszony podwójnie: fail_silently=True wewnątrz try/except.
     Zepsuta konfiguracja poczty oznaczała ciszę bez żadnego sygnału.
 """
+
 import logging
 
 from django.conf import settings
@@ -51,9 +52,7 @@ def zapis_rozmowy(contact_request):
     # zapisane w tej samej chwili dają remis, a przy remisie baza zwraca wiersze
     # w dowolnej kolejności. W mailu wyglądałoby to jak odpowiedź przed
     # pytaniem. Klucz główny rośnie monotonicznie, więc rozstrzyga jednoznacznie.
-    wiadomosci = list(
-        rozmowa.messages.order_by("-timestamp", "-id")[:MAX_WIADOMOSCI]
-    )[::-1]
+    wiadomosci = list(rozmowa.messages.order_by("-timestamp", "-id")[:MAX_WIADOMOSCI])[::-1]
     if not wiadomosci:
         return ""
 
@@ -104,20 +103,19 @@ def powiadom_o_zapytaniu(contact_request_id):
     from chat.models import ContactRequest
 
     try:
-        zapytanie = ContactRequest.objects.select_related(
-            "tenant", "conversation"
-        ).get(pk=contact_request_id)
+        zapytanie = ContactRequest.objects.select_related("tenant", "conversation").get(
+            pk=contact_request_id
+        )
     except ContactRequest.DoesNotExist:
         logger.warning("Powiadomienie: brak zapytania %s", contact_request_id)
         return
 
     adres = zapytanie.tenant.owner_email
     if not adres:
-        ContactRequest.objects.filter(pk=contact_request_id).update(
-            blad_powiadomienia=BRAK_ADRESU
+        ContactRequest.objects.filter(pk=contact_request_id).update(blad_powiadomienia=BRAK_ADRESU)
+        logger.warning(
+            "Powiadomienie %s: firma %s bez adresu e-mail", contact_request_id, zapytanie.tenant_id
         )
-        logger.warning("Powiadomienie %s: firma %s bez adresu e-mail",
-                       contact_request_id, zapytanie.tenant_id)
         return
 
     try:
@@ -172,16 +170,18 @@ def powiadom_o_rozmowie(conversation_id):
     pytanie = pierwsze.message.strip() if pierwsze else "(brak treści)"
     panel = f"{settings.FRONTEND_URL.rstrip('/')}/conversations"
 
-    tresc = "\n".join([
-        "Ktoś właśnie zaczął rozmowę z chatem na Twojej stronie.",
-        "",
-        f"Pierwsze pytanie:  {pytanie}",
-        "",
-        "Jeśli rozmowa skończy się zostawieniem kontaktu, dostaniesz osobną",
-        "wiadomość z całym przebiegiem.",
-        "",
-        f"Podgląd rozmów: {panel}",
-    ])
+    tresc = "\n".join(
+        [
+            "Ktoś właśnie zaczął rozmowę z chatem na Twojej stronie.",
+            "",
+            f"Pierwsze pytanie:  {pytanie}",
+            "",
+            "Jeśli rozmowa skończy się zostawieniem kontaktu, dostaniesz osobną",
+            "wiadomość z całym przebiegiem.",
+            "",
+            f"Podgląd rozmów: {panel}",
+        ]
+    )
 
     try:
         send_mail(

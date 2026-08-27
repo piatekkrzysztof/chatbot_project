@@ -3,6 +3,7 @@ Regresja: formularz dodawania zaproszenia w adminie wywracał się na
 `expires_at`, bo pole jest wyliczane z `created_at`, którego niezapisany
 obiekt jeszcze nie ma (Sentry: TypeError NoneType + timedelta).
 """
+
 from datetime import timedelta
 
 import pytest
@@ -33,7 +34,9 @@ def test_expires_at_follows_duration(tenant):
 
 @pytest.mark.django_db
 def test_unknown_duration_falls_back_to_one_day(tenant):
-    invitation = InvitationToken.objects.create(tenant=tenant, email="kto@firma.pl", duration="dziwne")
+    invitation = InvitationToken.objects.create(
+        tenant=tenant, email="kto@firma.pl", duration="dziwne"
+    )
 
     assert invitation.expires_at - invitation.created_at == timedelta(days=1)
 

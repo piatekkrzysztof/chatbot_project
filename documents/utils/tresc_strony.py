@@ -25,6 +25,7 @@ Bierzemy więc DŁUŻSZY z dwóch wyników. Nie „lepszy" — dłuższy, bo teg
 dowieść, a „lepszy" wymagałby oceny, której nie umiemy zrobić automatycznie.
 Wynik nie może być gorszy niż dotychczasowy, bo stary wariant nadal startuje.
 """
+
 import logging
 import re
 from typing import NamedTuple
@@ -46,12 +47,33 @@ ZNACZNIKI_OBUDOWY = ("script", "style", "noscript", "nav", "header", "footer", "
 # człony to "header-title" — jeden wyraz, nie pasujący do listy. Dopasowanie
 # po fragmencie kasowałoby treść przy każdej klasie zawierającej te litery.
 CZLONY_OBUDOWY = {
-    "nav", "navbar", "navigation", "menu", "mainmenu", "main-menu", "topbar",
-    "header", "site-header", "page-header", "masthead",
-    "footer", "site-footer", "page-footer", "colophon",
-    "breadcrumb", "breadcrumbs", "sidebar", "widget-area",
-    "cookie", "cookies", "cookie-banner", "consent", "gdpr", "rodo",
-    "skip-link", "screen-reader-text",
+    "nav",
+    "navbar",
+    "navigation",
+    "menu",
+    "mainmenu",
+    "main-menu",
+    "topbar",
+    "header",
+    "site-header",
+    "page-header",
+    "masthead",
+    "footer",
+    "site-footer",
+    "page-footer",
+    "colophon",
+    "breadcrumb",
+    "breadcrumbs",
+    "sidebar",
+    "widget-area",
+    "cookie",
+    "cookies",
+    "cookie-banner",
+    "consent",
+    "gdpr",
+    "rodo",
+    "skip-link",
+    "screen-reader-text",
 }
 
 # Poniżej tylu znaków uznajemy, że ze strony nic sensownego nie wyszło.
@@ -100,6 +122,7 @@ class TrescStrony(NamedTuple):
     strona główna klienta miała w bazie 257 znaków z 10 037 i nic tego nie
     pokazywało — status mówił, że dokument jest przetworzony, bo formalnie był.
     """
+
     tekst: str
     znakow_widocznych: int
 
@@ -120,12 +143,15 @@ def tekst_widoczny(html):
 
 def przez_trafilature(html):
     """Dotychczasowa droga. Wygrywa tam, gdzie strona jest artykułem."""
-    return (trafilatura.extract(
-        html,
-        include_comments=False,
-        include_tables=True,
-        include_formatting=False,
-    ) or "").strip()
+    return (
+        trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+            include_formatting=False,
+        )
+        or ""
+    ).strip()
 
 
 def wyciagnij_tresc(html, url=""):
@@ -152,6 +178,10 @@ def wyciagnij_tresc(html, url=""):
         # klienta na braki w wiedzy dobrze mieć ślad, którą drogą poszliśmy.
         logger.info(
             "Pobieranie %s: wybrano '%s' (%d znaków) zamiast '%s' (%d znaków)",
-            url or "?", nazwa, len(wybrany), przegrany, len(kandydaci[przegrany]),
+            url or "?",
+            nazwa,
+            len(wybrany),
+            przegrany,
+            len(kandydaci[przegrany]),
         )
     return TrescStrony(wybrany, len(tekst_widoczny(html)))

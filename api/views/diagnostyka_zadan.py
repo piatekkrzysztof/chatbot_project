@@ -19,6 +19,7 @@ starsze, niż pozwala polityka klienta. Odpowiedź brokera mówi o stanie na
 teraz, ślady w danych mówią o tym, co działo się przez ostatnie dni — i to
 one są mocniejszym dowodem.
 """
+
 from datetime import timedelta
 
 from django.utils import timezone
@@ -133,8 +134,8 @@ def _slad_pobierania(teraz, tenant):
         "wniosek": "dziala" if dziala else "nie-dziala",
         "opis": (
             f"Ostatnie pobranie {round(godzin, 1)} h temu — harmonogram co 12 h jest dotrzymany."
-            if dziala else
-            f"Ostatnie pobranie {round(godzin, 1)} h temu, a harmonogram przewiduje co 12 h. "
+            if dziala
+            else f"Ostatnie pobranie {round(godzin, 1)} h temu, a harmonogram przewiduje co 12 h. "
             f"Beat prawdopodobnie nie chodzi."
         ),
     }
@@ -309,6 +310,7 @@ def _werdykt(broker, pobieranie, retencja):
 )
 class DiagnostykaZadanView(APIView):
     """Tylko dla zalogowanego właściciela — pokazuje stan zaplecza."""
+
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def get(self, request):
@@ -319,26 +321,29 @@ class DiagnostykaZadanView(APIView):
 
         try:
             from chatbot_project.celery import app
+
             harmonogram = sorted(app.conf.beat_schedule.keys())
         except Exception:
             harmonogram = []
 
-        return Response({
-            "sprawdzono": teraz.isoformat(),
-            "broker_i_workery": broker,
-            "zadeklarowany_harmonogram": harmonogram,
-            "slady_w_danych": {
-                "pobieranie_stron": pobieranie,
-                "czyszczenie_rodo": retencja,
-            },
-            # Dwa sygnały o tym, co widzi klient, a nie o zapleczu. Poziom
-            # ogólny ich nie obejmuje: niepełna podstrona nie znaczy, że system
-            # nie działa, tylko że wiedza jest uboższa, niż się wydaje.
-            "baza_wiedzy": _zdrowie_bazy_wiedzy(request.tenant),
-            "poczta": _zdrowie_poczty(request.tenant),
-            "poziom": _poziom(broker, pobieranie, retencja),
-            "werdykt": _werdykt(broker, pobieranie, retencja),
-        })
+        return Response(
+            {
+                "sprawdzono": teraz.isoformat(),
+                "broker_i_workery": broker,
+                "zadeklarowany_harmonogram": harmonogram,
+                "slady_w_danych": {
+                    "pobieranie_stron": pobieranie,
+                    "czyszczenie_rodo": retencja,
+                },
+                # Dwa sygnały o tym, co widzi klient, a nie o zapleczu. Poziom
+                # ogólny ich nie obejmuje: niepełna podstrona nie znaczy, że system
+                # nie działa, tylko że wiedza jest uboższa, niż się wydaje.
+                "baza_wiedzy": _zdrowie_bazy_wiedzy(request.tenant),
+                "poczta": _zdrowie_poczty(request.tenant),
+                "poziom": _poziom(broker, pobieranie, retencja),
+                "werdykt": _werdykt(broker, pobieranie, retencja),
+            }
+        )
 
 
 # Poniżej którego udziału wyciągniętej treści uznajemy podstronę za niepełną.
@@ -390,15 +395,21 @@ def _zdrowie_bazy_wiedzy(tenant):
     niepelne.sort(key=lambda p: p["udzial_procent"])
 
     if bez_fragmentow:
-        wniosek, opis = "nie-dziala", (
-            f"{len(bez_fragmentow)} dokumentów ma treść, ale nie ma policzonych "
-            "fragmentów — bot ich nie zna, mimo że w bazie wiedzy wyglądają na gotowe."
+        wniosek, opis = (
+            "nie-dziala",
+            (
+                f"{len(bez_fragmentow)} dokumentów ma treść, ale nie ma policzonych "
+                "fragmentów — bot ich nie zna, mimo że w bazie wiedzy wyglądają na gotowe."
+            ),
         )
     elif niepelne:
-        wniosek, opis = "ostrzezenie", (
-            f"Z {len(niepelne)} podstron wyciągnęliśmy mniejszość widocznej treści. "
-            "Bot zna tylko tę część. Zwykle znaczy to, że strona jest budowana "
-            "w sposób utrudniający odczyt treści."
+        wniosek, opis = (
+            "ostrzezenie",
+            (
+                f"Z {len(niepelne)} podstron wyciągnęliśmy mniejszość widocznej treści. "
+                "Bot zna tylko tę część. Zwykle znaczy to, że strona jest budowana "
+                "w sposób utrudniający odczyt treści."
+            ),
         )
     elif not dokumenty:
         wniosek, opis = "brak-danych", "Baza wiedzy jest pusta — bot nie ma z czego odpowiadać."
@@ -436,16 +447,22 @@ def _zdrowie_poczty(tenant):
     )
 
     if not tenant.owner_email:
-        wniosek, opis = "ostrzezenie", (
-            "Nie ma adresu, na który wysyłamy powiadomienia. Zapytania zobaczysz "
-            "wyłącznie po zalogowaniu do panelu."
+        wniosek, opis = (
+            "ostrzezenie",
+            (
+                "Nie ma adresu, na który wysyłamy powiadomienia. Zapytania zobaczysz "
+                "wyłącznie po zalogowaniu do panelu."
+            ),
         )
     elif problemy:
         wniosek, opis = "nie-dziala", f"Konfiguracja poczty: {problemy[0]}"
     elif nieudane:
-        wniosek, opis = "ostrzezenie", (
-            f"Ostatnie {len(nieudane)} powiadomień nie doszło. Problem jest po stronie "
-            "poczty, nie Twojego konta."
+        wniosek, opis = (
+            "ostrzezenie",
+            (
+                f"Ostatnie {len(nieudane)} powiadomień nie doszło. Problem jest po stronie "
+                "poczty, nie Twojego konta."
+            ),
         )
     else:
         wniosek, opis = "dziala", f"Powiadomienia wychodzą na {tenant.owner_email}."

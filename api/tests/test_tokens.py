@@ -9,12 +9,16 @@ z kolei żadnego ograniczenia długości.
 
 Szacujemy znakami, bez tiktoken — uzasadnienie i kalibracja w api/utils/tokens.py.
 """
+
 import pytest
 from django.test import override_settings
 from rest_framework.test import APIClient
 
 from api.utils.tokens import (
-    ZNAKI_NA_TOKEN, oszacuj_tokeny, oszacuj_tokeny_wiadomosci, przytnij_do_budzetu,
+    ZNAKI_NA_TOKEN,
+    oszacuj_tokeny,
+    oszacuj_tokeny_wiadomosci,
+    przytnij_do_budzetu,
 )
 
 
@@ -135,9 +139,12 @@ class TestLimituDlugosciPytania:
     def test_zbyt_dlugie_pytanie_odrzucone(self, tenant, subscribtion):
         response = APIClient().post(
             "/api/widget/chat/",
-            {"message": "a" * 5000, "conversation_session_id":
-             "11111111-1111-1111-1111-111111111111"},
-            format="json", HTTP_X_API_KEY=str(tenant.api_key),
+            {
+                "message": "a" * 5000,
+                "conversation_session_id": "11111111-1111-1111-1111-111111111111",
+            },
+            format="json",
+            HTTP_X_API_KEY=str(tenant.api_key),
         )
 
         assert response.status_code == 400
@@ -151,9 +158,12 @@ class TestLimituDlugosciPytania:
 
         response = APIClient().post(
             "/api/widget/chat/",
-            {"message": "Jakie macie godziny otwarcia?",
-             "conversation_session_id": "22222222-2222-2222-2222-222222222222"},
-            format="json", HTTP_X_API_KEY=str(tenant.api_key),
+            {
+                "message": "Jakie macie godziny otwarcia?",
+                "conversation_session_id": "22222222-2222-2222-2222-222222222222",
+            },
+            format="json",
+            HTTP_X_API_KEY=str(tenant.api_key),
         )
 
         assert response.status_code == 200

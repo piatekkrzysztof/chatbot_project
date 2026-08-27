@@ -16,12 +16,14 @@ def test_owner_can_create_invitation(user, tenant, subscribtion):
     tenant.save()
     client.force_authenticate(user=user)
 
-    response = client.post("/api/accounts/invitations/", {
-        "email": "new@org.com",
-        "role": "employee",
-
-
-    }, HTTP_X_API_KEY=str(tenant.api_key))
+    response = client.post(
+        "/api/accounts/invitations/",
+        {
+            "email": "new@org.com",
+            "role": "employee",
+        },
+        HTTP_X_API_KEY=str(tenant.api_key),
+    )
     assert response.status_code == 201
     assert InvitationToken.objects.filter(email="new@org.com").exists()
 
@@ -37,13 +39,16 @@ def test_accept_invitation_creates_user(user, tenant, subscribtion):
     token = InvitationToken.objects.create(tenant=tenant, role="employee")
 
     client = APIClient()
-    response = client.post("/api/accounts/accept-invite/", {
-        "token": str(token.token),
-        "username": "newuser",
-        "email": "new@x.com",
-        "password": "SafePass123",
-    }
-                           , HTTP_X_API_KEY=str(tenant.api_key))
+    response = client.post(
+        "/api/accounts/accept-invite/",
+        {
+            "token": str(token.token),
+            "username": "newuser",
+            "email": "new@x.com",
+            "password": "SafePass123",
+        },
+        HTTP_X_API_KEY=str(tenant.api_key),
+    )
     assert response.status_code == 201
     assert CustomUser.objects.filter(username="newuser").exists()
     token.refresh_from_db()
@@ -58,22 +63,21 @@ def test_accept_invitation_fails_with_expired_token(user, tenant, subscribtion):
     user.save()
     tenant.save()
     client.force_authenticate(user=user)
-    token = InvitationToken.objects.create(
-        tenant=tenant,
-        role="employee",
-        duration="1h"
-    )
+    token = InvitationToken.objects.create(tenant=tenant, role="employee", duration="1h")
     token.created_at = timezone.now() - timedelta(hours=2)
     token.save()
 
-
     client = APIClient()
-    response = client.post("/api/accounts/accept-invite/", {
-        "token": str(token.token),
-        "username": "late",
-        "email": "late@corp.com",
-        "password": "Abc123456"
-    }, HTTP_X_API_KEY=str(tenant.api_key))
+    response = client.post(
+        "/api/accounts/accept-invite/",
+        {
+            "token": str(token.token),
+            "username": "late",
+            "email": "late@corp.com",
+            "password": "Abc123456",
+        },
+        HTTP_X_API_KEY=str(tenant.api_key),
+    )
     assert response.status_code == 400
     assert "Token expired" in str(response.data)
 
@@ -81,10 +85,14 @@ def test_accept_invitation_fails_with_expired_token(user, tenant, subscribtion):
 @pytest.mark.django_db
 def test_accept_invitation_fails_with_fake_token(user, tenant, subscribtion):
     client = APIClient()
-    response = client.post("/api/accounts/accept-invite/", {
-        "token": "00000000-0000-0000-0000-000000000000",
-        "username": "ghost",
-        "email": "ghost@x.com",
-        "password": "pass"
-    },HTTP_X_API_KEY=str(tenant.api_key))
+    response = client.post(
+        "/api/accounts/accept-invite/",
+        {
+            "token": "00000000-0000-0000-0000-000000000000",
+            "username": "ghost",
+            "email": "ghost@x.com",
+            "password": "pass",
+        },
+        HTTP_X_API_KEY=str(tenant.api_key),
+    )
     assert response.status_code == 400

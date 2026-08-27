@@ -15,7 +15,7 @@ def test_promptlog_export_as_csv(tenant, conversation):
         prompt="Jak działa system?",
         response="System działa tak, że...",
         tokens=150,
-        source="gpt"
+        source="gpt",
     )
 
     ma = PromptLogAdmin(PromptLog, AdminSite())

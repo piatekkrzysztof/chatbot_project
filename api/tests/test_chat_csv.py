@@ -16,10 +16,7 @@ def test_export_prompt_logs_csv(api_client, user, tenant, subscribtion):
     user.role = "owner"
     user.save()
     api_client.force_authenticate(user=user)
-    conversation = Conversation.objects.create(
-        tenant=tenant,
-        user_identifier="test-user"
-    )
+    conversation = Conversation.objects.create(tenant=tenant, user_identifier="test-user")
 
     conv = Conversation.objects.create(id=100, tenant=tenant)
     PromptLog.objects.create(
@@ -29,7 +26,7 @@ def test_export_prompt_logs_csv(api_client, user, tenant, subscribtion):
         response="Sztuczna inteligencja",
         tokens=10,
         source="faq",
-        model="gpt-3.5-turbo"
+        model="gpt-3.5-turbo",
     )
 
     headers = {"HTTP_X_API_KEY": tenant.api_key}
@@ -53,10 +50,7 @@ def test_import_prompt_logs_csv(api_client, user, tenant, subscribtion):
     file.name = "prompts.csv"
 
     response = api_client.post(
-        "/api/chat/import/",
-        {"file": file},
-        format="multipart",
-        HTTP_X_API_KEY=str(tenant.api_key)
+        "/api/chat/import/", {"file": file}, format="multipart", HTTP_X_API_KEY=str(tenant.api_key)
     )
 
     assert response.status_code == 201
@@ -71,10 +65,7 @@ def test_import_prompt_logs_missing_file(api_client, user, tenant, subscribtion)
     api_client.force_authenticate(user=user)
 
     response = api_client.post(
-        "/api/chat/import/",
-        {},
-        format="multipart",
-        HTTP_X_API_KEY=str(tenant.api_key)
+        "/api/chat/import/", {}, format="multipart", HTTP_X_API_KEY=str(tenant.api_key)
     )
 
     assert response.status_code == 400

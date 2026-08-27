@@ -15,7 +15,9 @@ cache.clear()
 @mock.patch("api.utils.chat_engine.get_openai_response")
 @mock.patch("api.utils.chat_engine.query_similar_chunks_pgvector")
 @pytest.mark.django_db
-def test_chat_throttling_enforces_limit(mock_pgvector, mock_openai_response, user, tenant, conversation, subscribtion):
+def test_chat_throttling_enforces_limit(
+    mock_pgvector, mock_openai_response, user, tenant, conversation, subscribtion
+):
     client = APIClient()
     # Stawka pochodzi z katalogu planów — test nie może jej powtarzać własną
     # liczbą, bo wtedy czerwieni się przy każdej zmianie cennika zamiast
@@ -51,9 +53,9 @@ def test_chat_throttling_enforces_limit(mock_pgvector, mock_openai_response, use
     assert response.status_code == 429, f"Limit {limit}/min nie zadziałał po przekroczeniu"
 
 
-@pytest.mark.parametrize("plan,expected_rate", [
-    (kod, rate_for(kod)) for kod in PLANS
-] + [(None, rate_for(None))])
+@pytest.mark.parametrize(
+    "plan,expected_rate", [(kod, rate_for(kod)) for kod in PLANS] + [(None, rate_for(None))]
+)
 def test_get_rate_by_plan(plan, expected_rate):
     """
     Sprawdzamy prawdziwy throttle, nie atrapę. Wcześniej test definiował własną
@@ -68,8 +70,8 @@ def test_get_rate_by_plan(plan, expected_rate):
 
 
 @pytest.mark.django_db
-def test_cache_key_generation(tenant,user):
-    client=APIClient()
+def test_cache_key_generation(tenant, user):
+    client = APIClient()
     user.tenant = tenant
     user.save()
     client.force_authenticate(user=user)
@@ -79,5 +81,3 @@ def test_cache_key_generation(tenant,user):
     throttle = APIKeyRateThrottle()
     key = throttle.get_cache_key(request, None)
     assert key.startswith("throttle_chat_tenant-")
-
-

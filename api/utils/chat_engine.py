@@ -126,11 +126,9 @@ def build_history_messages(conversation, limit=None):
     """
     limit = limit or settings.CHAT_HISTORY_LIMIT
     # id rozstrzyga remis, gdy kilka wiadomości ma identyczny timestamp
-    recent = (
-        ChatMessage.objects
-        .filter(conversation=conversation)
-        .order_by("-timestamp", "-id")[:limit]
-    )
+    recent = ChatMessage.objects.filter(conversation=conversation).order_by("-timestamp", "-id")[
+        :limit
+    ]
     messages = []
     for msg in reversed(list(recent)):
         if msg.sender == "user":
@@ -168,10 +166,12 @@ def collect_sources(chunks):
         if name in seen:
             continue
         seen.add(name)
-        sources.append({
-            "name": name,
-            "url": chunk.document.source_url or "",
-        })
+        sources.append(
+            {
+                "name": name,
+                "url": chunk.document.source_url or "",
+            }
+        )
     return sources
 
 
@@ -188,7 +188,9 @@ def build_chat_messages(tenant, conversation, message_text):
 
     faqs = list(FAQ.objects.filter(tenant=tenant).order_by("id")[:MAX_FAQ_IN_PROMPT])
 
-    messages = [{"role": "system", "content": build_system_prompt(tenant, chunks, faqs, message_text)}]
+    messages = [
+        {"role": "system", "content": build_system_prompt(tenant, chunks, faqs, message_text)}
+    ]
     messages.extend(build_history_messages(conversation))
     messages.append({"role": "user", "content": message_text})
 
@@ -226,10 +228,7 @@ def faq_matches_question(faqs, message_text):
     "pytania bez pokrycia" zostawałby pusty na zawsze.
     """
     threshold = settings.FAQ_MATCH_THRESHOLD
-    return any(
-        fuzz.token_set_ratio(message_text, faq.question) >= threshold
-        for faq in faqs
-    )
+    return any(fuzz.token_set_ratio(message_text, faq.question) >= threshold for faq in faqs)
 
 
 # Model zaczyna od tego ciągu, gdy nie potrafi odpowiedzieć z podanej wiedzy.
@@ -274,7 +273,7 @@ class ObcinaczZnacznika:
 
         if poczatek.startswith(ZNACZNIK_BRAKU):
             self.brak_pokrycia = True
-            reszta = poczatek[len(ZNACZNIK_BRAKU):].lstrip()
+            reszta = poczatek[len(ZNACZNIK_BRAKU) :].lstrip()
             self._czekam_na_tresc = not reszta
             return self._rozstrzygnij(reszta)
         return self._rozstrzygnij(self._bufor)
@@ -341,9 +340,7 @@ def zapisz_pytanie_i_zglos_start(tenant, conversation, message_text):
 
     # Tylko pierwsza wypowiedź w rozmowie. Bez tego dłuższa wymiana zdań
     # zamieniłaby się w serię maili o tej samej rozmowie.
-    czy_pierwsza = ChatMessage.objects.filter(
-        conversation=conversation, sender="user"
-    ).count() == 1
+    czy_pierwsza = ChatMessage.objects.filter(conversation=conversation, sender="user").count() == 1
     if czy_pierwsza:
         enqueue(powiadom_o_rozmowie_task, conversation.id)
 
@@ -411,7 +408,12 @@ def process_chat_message(tenant, conversation, message_text):
     source = determine_source(chunks, faqs, message_text, obcinacz.brak_pokrycia)
 
     wiadomosc = persist_exchange(
-        tenant, conversation, response_text, source, tokens, model,
+        tenant,
+        conversation,
+        response_text,
+        source,
+        tokens,
+        model,
         prompt_text=message_text,
     )
 
@@ -511,14 +513,21 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
         on_billable()
 
     wiadomosc = persist_exchange(
-        tenant, conversation, response_text, source, tokens, model,
+        tenant,
+        conversation,
+        response_text,
+        source,
+        tokens,
+        model,
         prompt_text=message_text,
     )
 
-    yield _sse({
-        "type": "done",
-        "source": source,
-        "tokens": tokens,
-        "sources": zrodla_do_pokazania(chunks, source),
-        "message_id": wiadomosc.id,
-    })
+    yield _sse(
+        {
+            "type": "done",
+            "source": source,
+            "tokens": tokens,
+            "sources": zrodla_do_pokazania(chunks, source),
+            "message_id": wiadomosc.id,
+        }
+    )

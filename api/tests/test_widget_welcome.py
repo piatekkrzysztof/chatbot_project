@@ -6,6 +6,7 @@ o co można zapytać, więc odwiedzający najczęściej je zamykał. Pytania wpi
 w panelu jako zwykły tekst, po jednym w wierszu, i to parsowanie musi być odporne
 na puste linie i spacje, bo pisze je człowiek, nie program.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -40,9 +41,7 @@ def test_widget_dostaje_powitanie_i_pytania(tenant):
     tenant.widget_suggested_questions = "Godziny otwarcia?\nCennik?"
     tenant.save()
 
-    response = APIClient().get(
-        "/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key)
-    )
+    response = APIClient().get("/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key))
 
     assert response.status_code == 200
     data = response.json()

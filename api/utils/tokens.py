@@ -36,8 +36,7 @@ def oszacuj_tokeny(tekst):
 def oszacuj_tokeny_wiadomosci(messages):
     """Górne oszacowanie dla całej listy wiadomości w formacie OpenAI."""
     return sum(
-        oszacuj_tokeny(wiadomosc.get("content", "")) + NARZUT_NA_WIADOMOSC
-        for wiadomosc in messages
+        oszacuj_tokeny(wiadomosc.get("content", "")) + NARZUT_NA_WIADOMOSC for wiadomosc in messages
     )
 
 

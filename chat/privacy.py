@@ -6,6 +6,7 @@ aplikacji nie jest potrzebny w pełnej postaci — służy wyłącznie do odró�
 rozmówców. Skracamy go tak, jak robi to anonimizacja IP w narzędziach
 analitycznych: ostatni oktet (IPv4) lub końcówka adresu (IPv6) idzie do zera.
 """
+
 import ipaddress
 
 from django.conf import settings

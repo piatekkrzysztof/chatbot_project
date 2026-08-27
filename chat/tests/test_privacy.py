@@ -5,6 +5,7 @@ Rozmowa odwiedzającego to dane osobowe: treść pytań, adres IP i kontakt
 zostawiony w formularzu eskalacji. Bez tych mechanizmów aplikacja trzymałaby
 je bezterminowo i w pełnej postaci, czego RODO nie dopuszcza.
 """
+
 from datetime import timedelta
 
 import pytest
@@ -29,12 +30,8 @@ class TestAnonimizacjaIP:
 
 
 def _old_conversation(tenant, days_ago):
-    conversation = Conversation.objects.create(
-        tenant=tenant, user_identifier="192.168.0.0"
-    )
-    ChatMessage.objects.create(
-        conversation=conversation, sender="user", message="Moje pytanie"
-    )
+    conversation = Conversation.objects.create(tenant=tenant, user_identifier="192.168.0.0")
+    ChatMessage.objects.create(conversation=conversation, sender="user", message="Moje pytanie")
     stamp = timezone.now() - timedelta(days=days_ago)
     # auto_now/auto_now_add pomijają zwykły save(), stąd update() na queryset
     Conversation.objects.filter(pk=conversation.pk).update(last_message_at=stamp)
@@ -88,8 +85,12 @@ class TestRetencja:
         tenant.save()
         conversation, stamp = _old_conversation(tenant, days_ago=45)
         log = PromptLog.objects.create(
-            tenant=tenant, conversation=conversation, model="test",
-            prompt="Dane wrazliwe", response="odpowiedz", source="gpt",
+            tenant=tenant,
+            conversation=conversation,
+            model="test",
+            prompt="Dane wrazliwe",
+            response="odpowiedz",
+            source="gpt",
         )
         PromptLog.objects.filter(pk=log.pk).update(created_at=stamp)
 

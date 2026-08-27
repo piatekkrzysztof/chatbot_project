@@ -7,15 +7,15 @@ import uuid
 class Conversation(models.Model):
     id = models.BigAutoField(primary_key=True)
     session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='conversations')
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="conversations")
     user_identifier = models.CharField(max_length=100)
     started_at = models.DateTimeField(auto_now_add=True)
     last_message_at = models.DateTimeField(auto_now=True)
-    status = models.CharField(max_length=20, default='active')  # active, closed, archived
-    source = models.CharField(max_length=30, default='widget')  # widget, panel, API
+    status = models.CharField(max_length=20, default="active")  # active, closed, archived
+    source = models.CharField(max_length=30, default="widget")  # widget, panel, API
 
     class Meta:
-        ordering = ['-last_message_at']
+        ordering = ["-last_message_at"]
         indexes = [
             models.Index(
                 fields=["tenant", "started_at"],
@@ -29,27 +29,31 @@ class Conversation(models.Model):
 
 class ChatMessage(models.Model):
     SENDER_CHOICES = [
-        ('user', 'User'),
-        ('bot', 'Bot'),
-        ('system', 'System'),
+        ("user", "User"),
+        ("bot", "Bot"),
+        ("system", "System"),
     ]
 
     SOURCE_CHOICES = [
-        ('faq', 'FAQ'),
-        ('document', 'Document'),
-        ('gpt', 'OpenAI'),
-        ('fallback', 'Fallback'),
-        ('manual', 'Manual')
+        ("faq", "FAQ"),
+        ("document", "Document"),
+        ("gpt", "OpenAI"),
+        ("fallback", "Fallback"),
+        ("manual", "Manual"),
     ]
 
-    conversation = models.ForeignKey(Conversation, related_name='messages', on_delete=models.CASCADE)
+    conversation = models.ForeignKey(
+        Conversation, related_name="messages", on_delete=models.CASCADE
+    )
     sender = models.CharField(max_length=24, choices=SENDER_CHOICES)
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
     # Rozszerzenia
-    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='gpt')
-    token_count = models.PositiveIntegerField(default=0, help_text="Liczba tokenów tej wiadomości (jeśli dotyczy)")
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default="gpt")
+    token_count = models.PositiveIntegerField(
+        default=0, help_text="Liczba tokenów tej wiadomości (jeśli dotyczy)"
+    )
 
     class Meta:
         indexes = [
@@ -64,7 +68,7 @@ class ChatMessage(models.Model):
 
 
 class FAQ(models.Model):
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='faqs')
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="faqs")
     question = models.TextField()
     answer = models.TextField()
 
@@ -73,15 +77,17 @@ class FAQ(models.Model):
 
 
 class ChatUsageLog(models.Model):
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='usage_logs')
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="usage_logs")
     created_at = models.DateTimeField(auto_now_add=True)
     tokens_used = models.PositiveIntegerField()
-    model_used = models.CharField(max_length=50, default='gpt-3.5-turbo')
-    source = models.CharField(max_length=20, choices=ChatMessage.SOURCE_CHOICES, default='gpt')
+    model_used = models.CharField(max_length=50, default="gpt-3.5-turbo")
+    source = models.CharField(max_length=20, choices=ChatMessage.SOURCE_CHOICES, default="gpt")
     conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.tenant.name} - {self.tokens_used} tokens on {self.model_used} ({self.source})"
+        return (
+            f"{self.tenant.name} - {self.tokens_used} tokens on {self.model_used} ({self.source})"
+        )
 
 
 class PromptLog(models.Model):
@@ -89,11 +95,9 @@ class PromptLog(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
     model = models.CharField(max_length=50)
     prompt = models.TextField()
-    source = models.CharField(max_length=50, choices=[
-        ("faq", "FAQ"),
-        ("document", "RAG"),
-        ("gpt", "GPT fallback")
-    ])
+    source = models.CharField(
+        max_length=50, choices=[("faq", "FAQ"), ("document", "RAG"), ("gpt", "GPT fallback")]
+    )
     tokens = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     response = models.TextField(blank=True, null=True)
@@ -116,9 +120,13 @@ class ContactRequest(models.Model):
     Prośba o kontakt zostawiona przez odwiedzającego, gdy bot nie potrafił pomóc.
     Bez tego rozmowa kończy się ślepym zaułkiem, a firma traci zapytanie.
     """
+
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="contact_requests")
     conversation = models.ForeignKey(
-        Conversation, on_delete=models.SET_NULL, null=True, blank=True,
+        Conversation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="contact_requests",
     )
     name = models.CharField(max_length=100, blank=True)

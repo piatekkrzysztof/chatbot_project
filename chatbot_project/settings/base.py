@@ -6,14 +6,14 @@ from decouple import config, Csv
 import dj_database_url
 from corsheaders.defaults import default_headers
 
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
 load_dotenv(dotenv_path)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 
@@ -48,8 +48,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    'accounts.middleware.TenantMiddleware',
-    'accounts.middleware.SubscriptionMiddleware',
+    "accounts.middleware.TenantMiddleware",
+    "accounts.middleware.SubscriptionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -130,7 +130,6 @@ SIMPLE_JWT = {
     # a skradziony token jest wart kwadrans, nie caly dzien pracy.
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
-
     # Kazde odswiezenie wydaje nowy refresh i uniewaznia poprzedni. Dzieki
     # temu token przechwycony i uzyty przez napastnika wylogowuje wlasciciela
     # -- kradziez przestaje byc cicha.
@@ -180,9 +179,7 @@ ZWRACAJ_REFRESH_W_TRESCI = os.getenv("ZWRACAJ_REFRESH_W_TRESCI", "1") == "1"
 WSGI_APPLICATION = "chatbot_project.wsgi.application"
 ASGI_APPLICATION = "chatbot_project.asgi.application"
 
-DATABASES = {
-    "default": dj_database_url.config(default="sqlite:///db.sqlite3")
-}
+DATABASES = {"default": dj_database_url.config(default="sqlite:///db.sqlite3")}
 
 AUTH_USER_MODEL = "accounts.CustomUser"
 

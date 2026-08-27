@@ -10,6 +10,7 @@ Pomijamy tabele, które migracje i tak odtwarzają (typy zawartości, uprawnieni
 sesje, log adminstracyjny). Ich zrzut nie tylko zajmuje miejsce, ale przy
 odtwarzaniu koliduje z rekordami tworzonymi przez migracje.
 """
+
 import datetime
 import io
 import os
@@ -29,10 +30,7 @@ POMIJANE = [
 
 
 class Command(BaseCommand):
-    help = (
-        "Zapisuje dane aplikacji do pliku JSON. Odtworzenie: "
-        "manage.py loaddata <plik>"
-    )
+    help = "Zapisuje dane aplikacji do pliku JSON. Odtworzenie: manage.py loaddata <plik>"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -51,9 +49,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         znacznik = datetime.datetime.now().strftime("%Y%m%d-%H%M")
-        sciezka = options.get("output") or os.path.join(
-            "backups", f"kopia-{znacznik}.json"
-        )
+        sciezka = options.get("output") or os.path.join("backups", f"kopia-{znacznik}.json")
 
         katalog = os.path.dirname(sciezka)
         if katalog:
@@ -85,14 +81,14 @@ class Command(BaseCommand):
         if options["to_storage"]:
             nazwa = f"backups/{os.path.basename(sciezka)}"
             zapisana = default_storage.save(nazwa, ContentFile(tresc.encode("utf-8")))
-            self.stdout.write(
-                self.style.SUCCESS(f"Wysłano do magazynu: {zapisana}")
-            )
+            self.stdout.write(self.style.SUCCESS(f"Wysłano do magazynu: {zapisana}"))
             if default_storage.__class__.__name__ == "FileSystemStorage":
-                self.stdout.write(self.style.WARNING(
-                    "  Uwaga: magazynem jest dysk lokalny, a nie R2/S3. "
-                    "Na Renderze taki plik znika przy wdrożeniu."
-                ))
+                self.stdout.write(
+                    self.style.WARNING(
+                        "  Uwaga: magazynem jest dysk lokalny, a nie R2/S3. "
+                        "Na Renderze taki plik znika przy wdrożeniu."
+                    )
+                )
 
         self.stdout.write("")
         self.stdout.write(f"Odtworzenie: manage.py loaddata {sciezka}")

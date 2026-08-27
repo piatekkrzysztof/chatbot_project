@@ -9,6 +9,7 @@ jest procesów, i zeruje się przy każdym wdrożeniu.
 Zabezpieczenie przed nadużyciem, które przepuszcza czterokrotnie więcej, niż
 deklaruje, jest gorsze niż jego brak — bo nie wiadomo, że nie działa.
 """
+
 from django.conf import settings
 from django.core.checks import Warning, register
 

@@ -11,6 +11,7 @@ i właściciel nie dowiadywał się o niczym.
 Teraz mówi to sam model, znacznikiem na początku odpowiedzi. Znacznik jest
 elementem protokołu, nie treścią — nie ma prawa dotrzeć do odwiedzającego.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -53,7 +54,7 @@ class TestObcinacza:
         """Wprost: przy każdym rozmiarze tokenu w oknie czatu ma nie być
         nawiasu kwadratowego z protokołu."""
         pelna = f"{ZNACZNIK_BRAKU} Niestety nie posiadam takich informacji."
-        kawalki = [pelna[i:i + podzial] for i in range(0, len(pelna), podzial)]
+        kawalki = [pelna[i : i + podzial] for i in range(0, len(pelna), podzial)]
         wyszlo, brak = przepusc(kawalki)
 
         assert "BRAK_ODPOWIEDZI" not in wyszlo
@@ -86,17 +87,26 @@ class TestObcinacza:
 class TestZrodla:
     def test_znacznik_bije_wyniki_wyszukiwania(self):
         """Sedno naprawy: cztery znalezione fragmenty i mimo to odmowa."""
-        assert determine_source(
-            chunks=["cokolwiek", "cokolwiek", "cokolwiek", "cokolwiek"],
-            faqs=[], message_text="Czy organizujecie chrzciny?",
-            brak_pokrycia=True,
-        ) == "gpt"
+        assert (
+            determine_source(
+                chunks=["cokolwiek", "cokolwiek", "cokolwiek", "cokolwiek"],
+                faqs=[],
+                message_text="Czy organizujecie chrzciny?",
+                brak_pokrycia=True,
+            )
+            == "gpt"
+        )
 
     def test_bez_znacznika_dokumenty_liczą_się_jak_wcześniej(self):
-        assert determine_source(
-            chunks=["fragment"], faqs=[], message_text="Ile kosztuje sala?",
-            brak_pokrycia=False,
-        ) == "document"
+        assert (
+            determine_source(
+                chunks=["fragment"],
+                faqs=[],
+                message_text="Ile kosztuje sala?",
+                brak_pokrycia=False,
+            )
+            == "document"
+        )
 
 
 class FragmentUdawany:
@@ -115,12 +125,16 @@ class StrumienUdawany:
 
     def __iter__(self):
         for kawalek in self.kawalki:
-            yield type("Zdarzenie", (), {
-                "usage": None,
-                "choices": [type("Wybor", (), {
-                    "delta": type("Delta", (), {"content": kawalek})()
-                })()],
-            })()
+            yield type(
+                "Zdarzenie",
+                (),
+                {
+                    "usage": None,
+                    "choices": [
+                        type("Wybor", (), {"delta": type("Delta", (), {"content": kawalek})()})()
+                    ],
+                },
+            )()
 
 
 @pytest.mark.django_db
@@ -131,9 +145,13 @@ class TestSciezkiStrumieniowej:
 
     def _przebieg(self, kawalki):
         tenant, rozmowa = self._rozmowa()
-        with patch("api.utils.chat_engine.get_client") as klient, \
-             patch("api.utils.chat_engine.build_chat_messages",
-                   return_value=([], [FragmentUdawany()], [])):
+        with (
+            patch("api.utils.chat_engine.get_client") as klient,
+            patch(
+                "api.utils.chat_engine.build_chat_messages",
+                return_value=([], [FragmentUdawany()], []),
+            ),
+        ):
             klient.return_value.chat.completions.create.return_value = StrumienUdawany(kawalki)
             return list(stream_chat_message(tenant, rozmowa, "Czy robicie chrzciny?"))
 

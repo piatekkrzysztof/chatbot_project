@@ -5,6 +5,7 @@ class IsOwner(BasePermission):
     """
     Pozwala tylko użytkownikom z rolą 'owner'.
     """
+
     def has_permission(self, request, view):
         # getattr, a nie request.user.role: AnonymousUser nie ma pola `role`,
         # więc niezalogowane żądanie wywracało widok błędem 500 zamiast
@@ -36,8 +37,11 @@ class IsTenantMember(BasePermission):
     Użytkownik musi należeć do tenantowego systemu (czyli dowolna rola).
     Można stosować jako ogólne sprawdzenie obecności w systemie.
     """
+
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and hasattr(request.user, 'tenant'))
+        return bool(
+            request.user and request.user.is_authenticated and hasattr(request.user, "tenant")
+        )
 
 
 class IsOwnerOrEmployeeOrTenantReadOnly(BasePermission):

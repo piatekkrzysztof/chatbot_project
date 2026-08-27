@@ -18,6 +18,7 @@ SameSite=Lax zalatwia przy okazji CSRF na koncowce odswiezania: przegladarka
 nie dokleja takiego ciasteczka do zapytania POST wychodzacego z cudzej strony,
 wiec obca witryna nie odswiezy cudzej sesji.
 """
+
 from django.conf import settings
 
 

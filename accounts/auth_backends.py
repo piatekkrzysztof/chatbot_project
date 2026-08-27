@@ -7,6 +7,7 @@ ręcznie miały username równy adresowi. Pracownik przyjmujący zaproszenie wyb
 własną nazwę użytkownika i jego adres przestaje pasować — czyli osoba zaproszona
 do zespołu nie mogła się zalogować tym, o co prosi ją formularz.
 """
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 
@@ -22,9 +23,9 @@ class EmailOrUsernameBackend(ModelBackend):
 
         # iexact, bo adresy e-mail bywają wpisywane wielką literą; przy kilku
         # kontach na ten sam adres nie zgadujemy, do którego chodziło
-        matches = list(
-            User.objects.filter(email__iexact=username)[:2]
-        ) or list(User.objects.filter(username=username)[:2])
+        matches = list(User.objects.filter(email__iexact=username)[:2]) or list(
+            User.objects.filter(username=username)[:2]
+        )
 
         if len(matches) != 1:
             # Ten sam koszt czasowy co przy trafieniu — inaczej różnica w czasie

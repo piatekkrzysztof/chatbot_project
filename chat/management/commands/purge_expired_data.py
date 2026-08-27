@@ -61,12 +61,17 @@ class Command(BaseCommand):
             cutoff = timezone.now() - timedelta(days=days)
             counts = {
                 "PromptLog": PromptLog.objects.filter(tenant=tenant, created_at__lt=cutoff).count(),
-                "ChatUsageLog": ChatUsageLog.objects.filter(tenant=tenant, created_at__lt=cutoff).count(),
-                "ContactRequest": ContactRequest.objects.filter(tenant=tenant, created_at__lt=cutoff).count(),
-                "Conversation": Conversation.objects.filter(tenant=tenant, last_message_at__lt=cutoff).count(),
+                "ChatUsageLog": ChatUsageLog.objects.filter(
+                    tenant=tenant, created_at__lt=cutoff
+                ).count(),
+                "ContactRequest": ContactRequest.objects.filter(
+                    tenant=tenant, created_at__lt=cutoff
+                ).count(),
+                "Conversation": Conversation.objects.filter(
+                    tenant=tenant, last_message_at__lt=cutoff
+                ).count(),
             }
             summary = ", ".join(f"{k}={v}" for k, v in counts.items() if v)
             self.stdout.write(
-                f"{tenant.name} (retencja {days} dni): "
-                + (summary or "nic do usunięcia")
+                f"{tenant.name} (retencja {days} dni): " + (summary or "nic do usunięcia")
             )

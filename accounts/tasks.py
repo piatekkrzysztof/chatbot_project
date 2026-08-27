@@ -6,6 +6,7 @@ odpowiadać, a klient dowiaduje się o tym od własnych odwiedzających, jeśli
 w ogóle. Alerty mają zamienić cichą awarię w decyzję: dokupić pakiet, przejść
 na wyższy plan albo świadomie poczekać do nowego cyklu.
 """
+
 import logging
 
 from celery import shared_task
@@ -60,7 +61,8 @@ def powiadom_o_zuzyciu(subscription_id, prog):
     if not adres:
         logger.warning(
             "Alert zużycia %s%%: firma %s nie ma adresu e-mail właściciela",
-            prog, subscription.tenant_id,
+            prog,
+            subscription.tenant_id,
         )
         return
 

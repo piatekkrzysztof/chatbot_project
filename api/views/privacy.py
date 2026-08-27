@@ -24,6 +24,7 @@ class TenantPrivacySettingsView(APIView):
     To administrator danych decyduje o okresie przechowywania, nie dostawca
     narzędzia — dlatego jest to ustawienie w panelu, a nie stała w kodzie.
     """
+
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
 
     def _serialize(self, tenant):
@@ -83,14 +84,13 @@ class ConversationEraseView(APIView):
     zostawałaby w PromptLog mimo "usuniętej" rozmowy, więc żądanie usunięcia
     byłoby spełnione tylko pozornie.
     """
+
     permission_classes = [IsOwnerOrEmployee]
 
     def delete(self, request, session_id):
         tenant = request.user.tenant
 
-        conversation = Conversation.objects.filter(
-            tenant=tenant, session_id=session_id
-        ).first()
+        conversation = Conversation.objects.filter(tenant=tenant, session_id=session_id).first()
         if conversation is None:
             raise NotFound("Nie znaleziono rozmowy o tym identyfikatorze.")
 
@@ -103,9 +103,7 @@ class ConversationEraseView(APIView):
                 removed[name] = removed.get(name, 0) + count
 
         for model in (PromptLog, ChatUsageLog, ContactRequest):
-            _, per_model = model.objects.filter(
-                tenant=tenant, conversation=conversation
-            ).delete()
+            _, per_model = model.objects.filter(tenant=tenant, conversation=conversation).delete()
             record(per_model)
 
         _, per_model = conversation.delete()

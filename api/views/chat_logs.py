@@ -24,7 +24,8 @@ class PromptLogListView(TenantQuerysetMixin, ListAPIView):
         # Rozmowy testowe właściciela nie są historią kontaktów z klientami
         # — na tej liście byłyby szumem, a w liczniku zawyżeniem.
         qs = (
-            super().get_queryset()
+            super()
+            .get_queryset()
             .exclude(conversation__source=ZRODLO_TESTOWE)
             .select_related("conversation")
             .order_by("-created_at")
@@ -34,9 +35,11 @@ class PromptLogListView(TenantQuerysetMixin, ListAPIView):
         if is_helpful is not None:
             is_helpful = is_helpful.lower() in ["true", "1"]
 
-            helpful_messages = ChatFeedback.objects.filter(
-                is_helpful=is_helpful
-            ).select_related("message").values_list("message__message", flat=True)
+            helpful_messages = (
+                ChatFeedback.objects.filter(is_helpful=is_helpful)
+                .select_related("message")
+                .values_list("message__message", flat=True)
+            )
 
             qs = qs.filter(response__in=helpful_messages)
 

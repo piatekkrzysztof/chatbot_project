@@ -11,6 +11,7 @@ użytkownika — to dane samej firmy, których zmiana zmienia zachowanie systemu
 wobec świata: dokąd trafiają powiadomienia i pod jaką nazwą przedstawia się
 bot w mailach.
 """
+
 from django.core.exceptions import ValidationError as BladWalidacji
 from django.core.validators import validate_email
 from drf_spectacular.utils import extend_schema, extend_schema_view

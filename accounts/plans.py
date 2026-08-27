@@ -14,6 +14,7 @@ Ceny podane w złotych netto. Rozliczenie prowadzi Stripe po stronie swoich
 cenników; identyfikatory cen trzymamy w zmiennych środowiskowych, żeby zmiana
 cennika nie wymagała wdrożenia kodu.
 """
+
 from dataclasses import dataclass
 
 START = "start"
@@ -24,9 +25,9 @@ PRO = "pro"
 # od pełnej białej etykiety, bo to dwa różne progi cenowe. Klient z GROW chce
 # przede wszystkim, żeby widget nie reklamował cudzej firmy; własne logo
 # i nazwa to potrzeba dopiero na PRO.
-BRANDING_WYMAGANY = "wymagany"      # stopka Sm-art widoczna, bez zmian
-BRANDING_USUWALNY = "usuwalny"      # można ukryć stopkę, ale marka zostaje nasza
-BRANDING_WLASNY = "wlasny"          # pełna biała etykieta: logo, nazwa, kolory
+BRANDING_WYMAGANY = "wymagany"  # stopka Sm-art widoczna, bez zmian
+BRANDING_USUWALNY = "usuwalny"  # można ukryć stopkę, ale marka zostaje nasza
+BRANDING_WLASNY = "wlasny"  # pełna biała etykieta: logo, nazwa, kolory
 
 # Kolejność od najsłabszego do najmocniejszego — pozwala porównywać poziomy
 POZIOMY_BRANDINGU = (BRANDING_WYMAGANY, BRANDING_USUWALNY, BRANDING_WLASNY)
@@ -66,22 +67,43 @@ class Plan:
 
 PLANS = {
     START: Plan(
-        START, "Start", 149, 119, 2_000,
+        START,
+        "Start",
+        149,
+        119,
+        2_000,
         branding=BRANDING_WYMAGANY,
-        knowledge_base_mb=5, max_domains=1, max_seats=1,
-        recrawl_days=None, rate_per_minute=60,
+        knowledge_base_mb=5,
+        max_domains=1,
+        max_seats=1,
+        recrawl_days=None,
+        rate_per_minute=60,
     ),
     GROW: Plan(
-        GROW, "Grow", 349, 279, 8_000,
+        GROW,
+        "Grow",
+        349,
+        279,
+        8_000,
         branding=BRANDING_USUWALNY,
-        knowledge_base_mb=25, max_domains=3, max_seats=3,
-        recrawl_days=7, rate_per_minute=150,
+        knowledge_base_mb=25,
+        max_domains=3,
+        max_seats=3,
+        recrawl_days=7,
+        rate_per_minute=150,
     ),
     PRO: Plan(
-        PRO, "Pro", 899, 719, 25_000,
+        PRO,
+        "Pro",
+        899,
+        719,
+        25_000,
         branding=BRANDING_WLASNY,
-        knowledge_base_mb=100, max_domains=10, max_seats=10,
-        recrawl_days=1, rate_per_minute=500,
+        knowledge_base_mb=100,
+        max_domains=10,
+        max_seats=10,
+        recrawl_days=1,
+        rate_per_minute=500,
     ),
 }
 

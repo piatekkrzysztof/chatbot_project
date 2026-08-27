@@ -22,9 +22,7 @@ def test_generate_embeddings_for_document_creates_chunks(mock_get_client, tenant
 
     # 📄 Dokument testowy
     doc = Document.objects.create(
-        tenant=tenant,
-        name="Test Doc",
-        content="Chunk A. Chunk B. Chunk C." * 100
+        tenant=tenant, name="Test Doc", content="Chunk A. Chunk B. Chunk C." * 100
     )
 
     # 🔁 Uruchom zadanie
