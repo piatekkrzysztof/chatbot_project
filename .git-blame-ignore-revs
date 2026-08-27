@@ -1,0 +1,12 @@
+# Rewizje pomijane przy `git blame`.
+#
+# Zmiany wylacznie mechaniczne, ktore dotknely setek plikow. Bez tego pliku
+# `git blame` na dowolnej linii w repozytorium wskazywalby formatowanie
+# zamiast osoby, ktora te linie napisala - czyli narzedzie do szukania
+# przyczyny przestaloby dzialac dokladnie wtedy, gdy jest potrzebne.
+#
+# GitHub czyta ten plik sam. Lokalnie wlacza sie go raz:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Formatowanie calego kodu ruffem (166 plikow)
+b42fe075c28c9aa721c312a7a7173005eb3bf879
