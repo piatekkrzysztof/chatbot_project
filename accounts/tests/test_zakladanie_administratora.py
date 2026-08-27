@@ -12,6 +12,7 @@ najemcow -- gdyby ktos kiedys "uproscil" to, domyslnie podstawiajac firme
 kazdemu zakladanemu kontu, rozdzielenie danych miedzy klientami przestaloby
 cokolwiek znaczyc, a zaden istniejacy test by tego nie zauwazyl.
 """
+
 import pytest
 from django.db import IntegrityError, transaction
 
@@ -78,6 +79,4 @@ class TestAdministratora:
         """
         with pytest.raises(IntegrityError):
             with transaction.atomic():
-                CustomUser.objects.create_user(
-                    username="bez-firmy", password="tajne-haslo-123"
-                )
+                CustomUser.objects.create_user(username="bez-firmy", password="tajne-haslo-123")

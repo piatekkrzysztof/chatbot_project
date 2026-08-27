@@ -12,6 +12,7 @@ Otwarcie tych ścieżek nie jest luką: uwierzytelnia je klucz API w nagłówku,
 a nie pochodzenie żądania. Nagłówek Origin służy do czego innego — pozwala
 policzyć i ograniczyć witryny, na których klient osadził widget (api.domains).
 """
+
 from corsheaders.signals import check_request_enabled
 
 # Ścieżki wołane z witryn klientów. Celowo wyliczone, a nie prefiks "/api/":

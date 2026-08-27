@@ -10,11 +10,11 @@ from dateutil.relativedelta import relativedelta
 
 
 class TenantMiddleware:
-
     """
     Middleware wymuszający obecność tenanta dla każdego requestu API,
     poza ścieżkami rejestracji i logowania.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -50,7 +50,9 @@ class TenantMiddleware:
 
         # Podgląd zaproszenia ma token w adresie, więc nie da się go dopasować
         # dokładnie; sam token jest tu jednocześnie danymi uwierzytelniającymi.
-        if request.path.startswith("/api/accounts/invitations/") and request.path.endswith("/preview/"):
+        if request.path.startswith("/api/accounts/invitations/") and request.path.endswith(
+            "/preview/"
+        ):
             return
 
         tenant = None
@@ -102,20 +104,14 @@ class TenantMiddleware:
 
         try:
             subscription = Subscription.objects.get(
-                tenant=tenant,
-                is_active=True,
-                start_date__lte=today,
-                end_date__gte=today
+                tenant=tenant, is_active=True, start_date__lte=today, end_date__gte=today
             )
             return subscription
         except Subscription.DoesNotExist:
             return None
         except Subscription.MultipleObjectsReturned:
             return Subscription.objects.filter(
-                tenant=tenant,
-                is_active=True,
-                start_date__lte=today,
-                end_date__gte=today
+                tenant=tenant, is_active=True, start_date__lte=today, end_date__gte=today
             ).first()
 
 
@@ -140,16 +136,16 @@ class SubscriptionMiddleware(MiddlewareMixin):
     # Dokładne ścieżki (nie prefiksy!) — endpointy wysyłające wiadomość do AI.
     # Prefiksowe dopasowanie złapałoby też /api/chat/logs/, /api/chat/feedback/ itd.,
     # które są JWT-owymi endpointami panelu, nie publicznym czatem po X-API-Key.
-    CHAT_PATHS = ('/api/chat/', '/api/widget/chat/', '/api/widget/chat/stream/')
+    CHAT_PATHS = ("/api/chat/", "/api/widget/chat/", "/api/widget/chat/stream/")
 
     def process_request(self, request):
         # Obsługujemy tylko endpointy czatu (panel + publiczny widget)
         if request.path not in self.CHAT_PATHS:
             return None
 
-        api_key = request.headers.get('X-API-KEY')
+        api_key = request.headers.get("X-API-KEY")
         if not api_key:
-            return JsonResponse({'error': 'Missing API key'}, status=401)
+            return JsonResponse({"error": "Missing API key"}, status=401)
 
         try:
             # 1. Znajdź Tenant po kluczu API
@@ -160,27 +156,29 @@ class SubscriptionMiddleware(MiddlewareMixin):
                 subscription = Subscription.objects.get(tenant=tenant)
             except Subscription.DoesNotExist:
                 return JsonResponse(
-                    {'error': 'Subscription not found', 'kod': KOD_CZAT_NIEDOSTEPNY},
+                    {"error": "Subscription not found", "kod": KOD_CZAT_NIEDOSTEPNY},
                     status=403,
                 )
             except Subscription.MultipleObjectsReturned:
                 # Logika awaryjna - wybierz pierwszą aktywną subskrypcję
-                subscription = Subscription.objects.filter(
-                    tenant=tenant,
-                    is_active=True
-                ).order_by('-end_date').first()
+                subscription = (
+                    Subscription.objects.filter(tenant=tenant, is_active=True)
+                    .order_by("-end_date")
+                    .first()
+                )
                 if not subscription:
                     return JsonResponse(
-                        {'error': 'No active subscription', 'kod': KOD_CZAT_NIEDOSTEPNY},
+                        {"error": "No active subscription", "kod": KOD_CZAT_NIEDOSTEPNY},
                         status=403,
                     )
 
             # 3. Sprawdź daty ważności subskrypcji
             today = timezone.now().date()
-            if not (subscription.is_active and
-                    subscription.start_date <= today <= subscription.end_date):
+            if not (
+                subscription.is_active and subscription.start_date <= today <= subscription.end_date
+            ):
                 return JsonResponse(
-                    {'error': 'Subscription expired', 'kod': KOD_CZAT_NIEDOSTEPNY},
+                    {"error": "Subscription expired", "kod": KOD_CZAT_NIEDOSTEPNY},
                     status=403,
                 )
 
@@ -194,12 +192,12 @@ class SubscriptionMiddleware(MiddlewareMixin):
             if not subscription.has_message_quota():
                 return JsonResponse(
                     {
-                        'error': 'Message limit exceeded',
-                        'kod': KOD_CZAT_NIEDOSTEPNY,
-                        'limit': subscription.message_limit,
-                        'used': subscription.current_message_count
+                        "error": "Message limit exceeded",
+                        "kod": KOD_CZAT_NIEDOSTEPNY,
+                        "limit": subscription.message_limit,
+                        "used": subscription.current_message_count,
                     },
-                    status=429
+                    status=429,
                 )
 
             # 6. Przypisz subskrypcję do requestu
@@ -207,4 +205,4 @@ class SubscriptionMiddleware(MiddlewareMixin):
             return None
 
         except Tenant.DoesNotExist:
-            return JsonResponse({'error': 'Invalid API key'}, status=401)
+            return JsonResponse({"error": "Invalid API key"}, status=401)

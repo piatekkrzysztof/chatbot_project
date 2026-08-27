@@ -6,6 +6,7 @@ przeszły przez poprzednie sprawdzenie bez słowa, bo pytało wyłącznie
 o obecność zmiennych. Każda kosztowała osobną rundę diagnozy na żywym
 systemie, przy zapytaniu od klienta czekającym w bazie.
 """
+
 from types import SimpleNamespace
 
 import pytest
@@ -35,19 +36,27 @@ class TestPoprawnejKonfiguracji:
         """'Sm-art <adres>' to poprawna i częsta wartość tej zmiennej.
         Sam validate_email ją odrzuca, więc adres trzeba najpierw rozbić —
         bez tego kontrola krzyczałaby na działającą konfigurację."""
-        assert problemy_z_konfiguracja(
-            ustawienia(DEFAULT_FROM_EMAIL="Sm-art <powiadomienia@agencjasm-art.pl>")
-        ) == []
+        assert (
+            problemy_z_konfiguracja(
+                ustawienia(DEFAULT_FROM_EMAIL="Sm-art <powiadomienia@agencjasm-art.pl>")
+            )
+            == []
+        )
 
     def test_backend_konsolowy_nic_nie_sprawdza(self):
         """Bez połączenia ze światem adres nadawcy i host nie mają znaczenia —
         inaczej każde uruchomienie lokalne sypałoby ostrzeżeniami."""
-        assert problemy_z_konfiguracja(
-            SimpleNamespace(
-                EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend",
-                EMAIL_HOST="", EMAIL_HOST_PASSWORD="", DEFAULT_FROM_EMAIL="",
+        assert (
+            problemy_z_konfiguracja(
+                SimpleNamespace(
+                    EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend",
+                    EMAIL_HOST="",
+                    EMAIL_HOST_PASSWORD="",
+                    DEFAULT_FROM_EMAIL="",
+                )
             )
-        ) == []
+            == []
+        )
 
 
 class TestAwariiZProdukcji:
@@ -123,8 +132,7 @@ class TestOstrzezeniaPrzyStarcie:
             with caplog.at_level("WARNING"):
                 apps.get_app_config("chat").ready()
 
-        assert any("DEFAULT_FROM_EMAIL" in zapis.getMessage()
-                   for zapis in caplog.records)
+        assert any("DEFAULT_FROM_EMAIL" in zapis.getMessage() for zapis in caplog.records)
 
 
 class TestSpojnosciBlueprintu:
@@ -143,7 +151,8 @@ class TestSpojnosciBlueprintu:
 
         komplety = {
             usluga["name"]: sorted(
-                z["key"] for z in usluga["envVars"]
+                z["key"]
+                for z in usluga["envVars"]
                 if z["key"].startswith(("EMAIL_", "DEFAULT_FROM_EMAIL"))
             )
             for usluga in blueprint["services"]

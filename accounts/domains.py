@@ -10,6 +10,7 @@ listy każdy mógł go skopiować i zużywać cudzy limit u siebie.
 Adres bierzemy z nagłówka Origin, którego strona nie może podrobić — nie
 z parametru w zapytaniu, bo ten byłby wyłącznie deklaracją.
 """
+
 import ipaddress
 from urllib.parse import urlparse
 

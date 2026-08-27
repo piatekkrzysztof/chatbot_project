@@ -4,8 +4,8 @@ import os
 from chatbot_project.observability import init_sentry
 
 
-
 DEBUG = False
+
 
 def _csv(name):
     """Lista z zmiennej środowiskowej, bez pustych wpisów po rozdzieleniu."""
@@ -142,9 +142,7 @@ AWS_DEFAULT_ACL = None
 # adresy nie mogą wygasać — podpisane linki psułyby się po kilku godzinach.
 AWS_QUERYSTRING_AUTH = False
 
-USE_OBJECT_STORAGE = bool(
-    AWS_STORAGE_BUCKET_NAME and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-)
+USE_OBJECT_STORAGE = bool(AWS_STORAGE_BUCKET_NAME and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY)
 
 STORAGES = {
     "default": {
@@ -154,9 +152,7 @@ STORAGES = {
             else "django.core.files.storage.FileSystemStorage"
         )
     },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
-    },
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
 # Klucze Stripe definiuje base.py — tutaj nie powtarzamy.

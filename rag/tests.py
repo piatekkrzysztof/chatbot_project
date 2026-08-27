@@ -22,6 +22,7 @@ def test_query_chunks_with_pgvector(mock_client, tenant):
         DocumentChunk.objects.create(document=doc, content=text, embedding=[0.0] * 1536)
 
     from rag.engine import query_similar_chunks_pgvector
+
     results = query_similar_chunks_pgvector(tenant.id, "rejestracja konta", top_k=2)
 
     assert len(results) == 2
@@ -38,10 +39,12 @@ def test_distant_chunks_are_filtered_out(mock_client, tenant):
 
     doc = Document.objects.create(name="Doc", tenant=tenant, content="abc")
     # wektor odległy od zapytania o 2.0 w metryce L2 — powyżej progu
-    DocumentChunk.objects.create(document=doc, content="cos zupelnie innego",
-                                 embedding=[-1.0] + [0.0] * 1535)
+    DocumentChunk.objects.create(
+        document=doc, content="cos zupelnie innego", embedding=[-1.0] + [0.0] * 1535
+    )
 
     from rag.engine import query_similar_chunks_pgvector
+
     results = query_similar_chunks_pgvector(tenant.id, "pytanie", top_k=5)
 
     assert results == []

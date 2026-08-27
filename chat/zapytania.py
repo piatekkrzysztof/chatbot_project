@@ -13,6 +13,7 @@ i zepsuł jedyną liczbę w tym produkcie, która mówi coś o rynku, a nie o na
 Wszystko przez jedno miejsce, bo poprzednim razem dwie definicje tego samego
 (pulpit i raport tygodniowy) zdążyły się rozjechać, zanim ktokolwiek zauważył.
 """
+
 from chat.models import ChatMessage, Conversation, PromptLog
 
 # Wartość pola Conversation.source. Kolumna istniała od początku (widget,
@@ -40,6 +41,4 @@ def logi_klientow(tenant):
     nie z testu. Zachowanie `exclude()` przy pustym powiązaniu jest tu
     kluczowe i dlatego ma własny test.
     """
-    return PromptLog.objects.filter(tenant=tenant).exclude(
-        conversation__source=ZRODLO_TESTOWE
-    )
+    return PromptLog.objects.filter(tenant=tenant).exclude(conversation__source=ZRODLO_TESTOWE)

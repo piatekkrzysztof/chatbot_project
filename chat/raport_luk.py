@@ -14,6 +14,7 @@ UWAGA na wnioski historyczne: wpisy sprzed tej zmiany mają błędne `source`
 i nie da się ich odtworzyć. Wykres luk zaczyna się od tamtej daty, nie od
 początku istnienia konta.
 """
+
 from collections import OrderedDict
 
 from django.utils import timezone
@@ -37,19 +38,43 @@ BEZ_OGONKOW = str.maketrans("ąćęłńóśźż", "acelnoszz")
 # „Dzień dobry, jaka jest pogoda w Wałbrzychu" zostaje, bo pytanie o pogodę
 # to prawdziwa luka, a nie powitanie.
 NIE_PYTANIA = {
-    "dzien dobry", "dobry wieczor", "czesc", "hej", "hejka", "hejo", "witam",
-    "siema", "elo", "yo", "halo", "hello", "hi",
-    "dziekuje", "dzieki", "ok", "okej", "spoko", "jasne", "rozumiem",
-    "do widzenia", "na razie", "pa", "papa", "zegnam",
-    "test", "testowanie", "sprawdzam", "a", "?",
+    "dzien dobry",
+    "dobry wieczor",
+    "czesc",
+    "hej",
+    "hejka",
+    "hejo",
+    "witam",
+    "siema",
+    "elo",
+    "yo",
+    "halo",
+    "hello",
+    "hi",
+    "dziekuje",
+    "dzieki",
+    "ok",
+    "okej",
+    "spoko",
+    "jasne",
+    "rozumiem",
+    "do widzenia",
+    "na razie",
+    "pa",
+    "papa",
+    "zegnam",
+    "test",
+    "testowanie",
+    "sprawdzam",
+    "a",
+    "?",
 }
 
 
 def _nie_pytanie(tresc):
     """Czy cała wypowiedź jest tylko uprzejmością."""
     znormalizowana = "".join(
-        znak for znak in tresc.lower().translate(BEZ_OGONKOW)
-        if znak.isalnum() or znak.isspace()
+        znak for znak in tresc.lower().translate(BEZ_OGONKOW) if znak.isalnum() or znak.isspace()
     )
     return " ".join(znormalizowana.split()) in NIE_PYTANIA
 
@@ -105,9 +130,7 @@ def luki_w_wiedzy(tenant, od=None, do=None, limit=LIMIT_POZYCJI):
                 "ostatnio": wpis.created_at,
             }
 
-    posortowane = sorted(
-        zgrupowane.values(), key=lambda p: (-p["ile"], -p["ostatnio"].timestamp())
-    )
+    posortowane = sorted(zgrupowane.values(), key=lambda p: (-p["ile"], -p["ostatnio"].timestamp()))
     return posortowane[:limit]
 
 

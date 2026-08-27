@@ -21,7 +21,15 @@ class FAQAdmin(admin.ModelAdmin):
 
 @admin.register(PromptLog)
 class PromptLogAdmin(admin.ModelAdmin):
-    list_display = ("tenant", "source", "model", "tokens", "short_prompt", "short_response", "created_at")
+    list_display = (
+        "tenant",
+        "source",
+        "model",
+        "tokens",
+        "short_prompt",
+        "short_response",
+        "created_at",
+    )
     list_filter = ("source", "model", "tenant")
     search_fields = ("prompt", "response", "tenant__name", "model")
     readonly_fields = ("created_at", "prompt", "response")
@@ -34,15 +42,17 @@ class PromptLogAdmin(admin.ModelAdmin):
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         for obj in queryset:
-            writer.writerow({
-                "tenant": obj.tenant.name,
-                "model": obj.model,
-                "source": obj.source,
-                "tokens": obj.tokens,
-                "prompt": obj.prompt,
-                "response": obj.response or "",
-                "created_at": obj.created_at.isoformat()
-            })
+            writer.writerow(
+                {
+                    "tenant": obj.tenant.name,
+                    "model": obj.model,
+                    "source": obj.source,
+                    "tokens": obj.tokens,
+                    "prompt": obj.prompt,
+                    "response": obj.response or "",
+                    "created_at": obj.created_at.isoformat(),
+                }
+            )
         return response
 
     export_as_csv.short_description = "Eksportuj zaznaczone do CSV"
@@ -63,5 +73,3 @@ class PromptLogAdmin(admin.ModelAdmin):
 class ChatFeedbackAdmin(admin.ModelAdmin):
     list_display = ("message", "is_helpful", "submitted_at")
     list_filter = ("is_helpful",)
-
-

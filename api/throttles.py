@@ -42,17 +42,14 @@ class BaseSubscriptionThrottle(SimpleRateThrottle):
             return None
 
         subskrypcja = (
-            Subscription.objects
-            .filter(tenant=tenant, is_active=True)
-            .order_by("-end_date")
-            .first()
+            Subscription.objects.filter(tenant=tenant, is_active=True).order_by("-end_date").first()
         )
         self.request.subscription = subskrypcja
         return subskrypcja
 
     def get_rate(self):
         """Dynamicznie ustala rate na podstawie requestu"""
-        if not hasattr(self, 'request'):
+        if not hasattr(self, "request"):
             return "100/min"  # Domyślny limit bezpieczeństwa
 
         subscription = self._subskrypcja()
@@ -94,16 +91,12 @@ class APIKeyRateThrottle(BaseSubscriptionThrottle):
 
             # Pobierz aktywną subskrypcję (jeśli istnieje)
             subscription = (
-                Subscription.objects
-                .filter(tenant=tenant, is_active=True)
+                Subscription.objects.filter(tenant=tenant, is_active=True)
                 .order_by("-end_date")
                 .first()
             )
             request.subscription = subscription
-            return self.cache_format % {
-                "scope": self.scope,
-                "ident": f"tenant-{tenant.pk}"
-            }
+            return self.cache_format % {"scope": self.scope, "ident": f"tenant-{tenant.pk}"}
         except Tenant.DoesNotExist:
             return None
 
@@ -123,6 +116,7 @@ class VisitorRateThrottle(SimpleRateThrottle):
     Klucz łączy firmę z adresem odwiedzającego — ten sam adres na dwóch różnych
     stronach to dwa niezależne liczniki, bo limity należą do klientów, nie do nas.
     """
+
     scope = "visitor"
 
     def get_rate(self):
@@ -142,9 +136,9 @@ class VisitorRateThrottle(SimpleRateThrottle):
 
         # W kluczu cache trzymamy skrót, nie sam adres: to dane osobowe, a do
         # zliczania wystarczy wartość stała dla danego odwiedzającego.
-        odcisk = hashlib.sha256(
-            f"{settings.SECRET_KEY}:{tenant.pk}:{adres}".encode()
-        ).hexdigest()[:32]
+        odcisk = hashlib.sha256(f"{settings.SECRET_KEY}:{tenant.pk}:{adres}".encode()).hexdigest()[
+            :32
+        ]
 
         return self.cache_format % {"scope": self.scope, "ident": odcisk}
 
@@ -167,16 +161,10 @@ class SubscriptionRateThrottle(BaseSubscriptionThrottle):
 
         # Pobierz aktywną subskrypcję
         subscription = (
-            Subscription.objects
-            .filter(tenant=tenant, is_active=True)
-            .order_by("-end_date")
-            .first()
+            Subscription.objects.filter(tenant=tenant, is_active=True).order_by("-end_date").first()
         )
         request.subscription = subscription
-        return self.cache_format % {
-            "scope": self.scope,
-            "ident": f"tenant-{tenant.pk}"
-        }
+        return self.cache_format % {"scope": self.scope, "ident": f"tenant-{tenant.pk}"}
 
     def get_plan_rate(self, plan):
         """

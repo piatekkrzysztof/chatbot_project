@@ -6,6 +6,7 @@ Rozmowy zawierają treść pytań odwiedzających, skrócony adres IP i zostawio
 kontakty, więc muszą znikać same — poleganie na tym, że ktoś pamięta o ręcznym
 czyszczeniu, nie jest polityką retencji.
 """
+
 import logging
 
 from django.utils import timezone
@@ -42,11 +43,7 @@ def purge_tenant(tenant, now=None):
     ):
         # delete() zwraca sumę razem z kaskadami, więc licznik rozmów obejmowałby
         # też skasowane wiadomości — do raportu bierzemy rozbicie na modele.
-        _, per_model = (
-            model.objects
-            .filter(tenant=tenant, **{f"{field}__lt": cutoff})
-            .delete()
-        )
+        _, per_model = model.objects.filter(tenant=tenant, **{f"{field}__lt": cutoff}).delete()
         for label, count in per_model.items():
             name = label.split(".")[-1]
             removed[name] = removed.get(name, 0) + count
@@ -54,7 +51,9 @@ def purge_tenant(tenant, now=None):
     if removed:
         logger.info(
             "Retencja %s: usunięto dane starsze niż %s dni (%s)",
-            tenant.name, retention_days, removed,
+            tenant.name,
+            retention_days,
+            removed,
         )
 
     return removed

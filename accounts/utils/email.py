@@ -20,7 +20,7 @@ Rola: {invitation.role.capitalize()}
 Kliknij w link, aby dołączyć:
 {accept_url}
 
-Uwaga: link wygaśnie {invitation.expires_at.strftime('%Y-%m-%d %H:%M')} i może być użyty maksymalnie {invitation.max_users} raz(y).
+Uwaga: link wygaśnie {invitation.expires_at.strftime("%Y-%m-%d %H:%M")} i może być użyty maksymalnie {invitation.max_users} raz(y).
 
 Pozdrawiamy,
 Zespół Chatbot Platform

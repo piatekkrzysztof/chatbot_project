@@ -32,11 +32,14 @@ def test_widget_chat_success_without_auth(tenant, subscribtion):
         "conversation_session_id": str(uuid.uuid4()),
     }
 
-    with patch("api.views.widget.process_chat_message", return_value={
-        "response": "Jesteśmy dostępni 9-17.",
-        "source": "gpt",
-        "tokens": 0,
-    }):
+    with patch(
+        "api.views.widget.process_chat_message",
+        return_value={
+            "response": "Jesteśmy dostępni 9-17.",
+            "source": "gpt",
+            "tokens": 0,
+        },
+    ):
         response = client.post(
             "/api/widget/chat/",
             payload,
@@ -70,9 +73,15 @@ def test_widget_chat_enforces_subscription_limit(tenant, subscribtion):
 
     # billable=True odwzorowuje udaną odpowiedź modelu — bez tego pola widok
     # uznaje wywołanie za nieudane i słusznie nie nalicza wiadomości
-    with patch("api.views.widget.process_chat_message", return_value={
-        "response": "ok", "source": "gpt", "tokens": 0, "billable": True,
-    }):
+    with patch(
+        "api.views.widget.process_chat_message",
+        return_value={
+            "response": "ok",
+            "source": "gpt",
+            "tokens": 0,
+            "billable": True,
+        },
+    ):
         for _ in range(3):
             res = client.post(
                 "/api/widget/chat/",

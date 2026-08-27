@@ -4,7 +4,9 @@ from celery import shared_task
 from documents.utils.text_extraction import extract_text, UnsupportedFileType
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.website_import import discover_links_recursively
-from documents.utils.embedding_generator import generate_embeddings_for_document as _generate_embeddings
+from documents.utils.embedding_generator import (
+    generate_embeddings_for_document as _generate_embeddings,
+)
 from documents.utils.queue import enqueue
 from datetime import timedelta
 
@@ -69,7 +71,9 @@ def crawl_and_import_website_source(source_id):
 
         urls = (sitemap_search(source.url) or [])[:MAX_PAGES_PER_CRAWL]
         if not urls:
-            urls = discover_links_recursively(source.url, max_depth=2, max_pages=MAX_PAGES_PER_CRAWL)
+            urls = discover_links_recursively(
+                source.url, max_depth=2, max_pages=MAX_PAGES_PER_CRAWL
+            )
 
         if not urls:
             urls = [url]  # fallback – tylko główna strona
@@ -98,7 +102,10 @@ def crawl_and_import_website_source(source_id):
 
         logger.info(
             "Zakończono pobieranie %s (source_id=%s): %d z %d podstron",
-            url, source_id, pobranych, pobranych + len(nieudanych),
+            url,
+            source_id,
+            pobranych,
+            pobranych + len(nieudanych),
         )
 
         if pobranych == 0 and nieudanych:
@@ -110,7 +117,7 @@ def crawl_and_import_website_source(source_id):
             # podstron, dwadzieścia błędów, zielony status.
             WebsiteSource.objects.filter(pk=source_id).update(
                 last_error=f"Żadna z {len(nieudanych)} podstron nie została pobrana. "
-                           f"Pierwszy błąd — {nieudanych[0][:200]}"
+                f"Pierwszy błąd — {nieudanych[0][:200]}"
             )
             return
 
@@ -121,7 +128,9 @@ def crawl_and_import_website_source(source_id):
             last_error=(
                 f"Nie udało się pobrać {len(nieudanych)} z {pobranych + len(nieudanych)} "
                 f"podstron. Pierwsza — {nieudanych[0][:200]}"
-            ) if nieudanych else "",
+            )
+            if nieudanych
+            else "",
         )
 
     except WebsiteSource.DoesNotExist:

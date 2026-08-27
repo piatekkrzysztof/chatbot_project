@@ -10,6 +10,7 @@ Adres bierzemy z nagłówka Origin, bo strona nie może go podrobić. Rejestr
 siedzi na endpoincie ustawień, bo to jedyne zapytanie widgetu niosące
 prawdziwy adres witryny — samo okno czatu działa w ramce na naszej domenie.
 """
+
 import pytest
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APIClient
@@ -19,14 +20,17 @@ from accounts.models import WidgetDomain
 
 
 class TestNormalizacji:
-    @pytest.mark.parametrize("origin,host", [
-        ("https://sklep.pl", "sklep.pl"),
-        ("https://www.sklep.pl", "sklep.pl"),
-        ("http://SKLEP.PL", "sklep.pl"),
-        ("https://sklep.pl:8443", "sklep.pl"),
-        ("sklep.pl", "sklep.pl"),
-        ("https://sub.sklep.pl", "sub.sklep.pl"),
-    ])
+    @pytest.mark.parametrize(
+        "origin,host",
+        [
+            ("https://sklep.pl", "sklep.pl"),
+            ("https://www.sklep.pl", "sklep.pl"),
+            ("http://SKLEP.PL", "sklep.pl"),
+            ("https://sklep.pl:8443", "sklep.pl"),
+            ("sklep.pl", "sklep.pl"),
+            ("https://sub.sklep.pl", "sub.sklep.pl"),
+        ],
+    )
     def test_sprowadza_do_samej_nazwy_hosta(self, origin, host):
         assert normalizuj_host(origin) == host
 
@@ -127,7 +131,9 @@ class TestLimituZCennika:
 
         assert zarejestruj_domene(tenant, "https://nowy-panel.example.com") == ""
         # Stary adres przestaje byc wykluczony -- to zwykla obca witryna
-        assert zarejestruj_domene(tenant, "https://panel.agencjasm-art.pl") == "panel.agencjasm-art.pl"
+        assert (
+            zarejestruj_domene(tenant, "https://panel.agencjasm-art.pl") == "panel.agencjasm-art.pl"
+        )
 
     def test_cudza_domena_wciaz_liczy_sie_do_limitu(self, tenant, subscribtion, settings):
         # Wykluczenie ma dotyczyc WYLACZNIE naszego adresu. Gdyby rozlalo sie
@@ -196,9 +202,7 @@ class TestPrzezEndpointWidgetu:
         assert response.status_code == 200
         assert WidgetDomain.objects.filter(tenant=tenant, host="sklep.pl").exists()
 
-    def test_skradziony_klucz_na_obcej_stronie_zostaje_odrzucony(
-        self, tenant, subscribtion
-    ):
+    def test_skradziony_klucz_na_obcej_stronie_zostaje_odrzucony(self, tenant, subscribtion):
         """
         Sedno ochrony. Klucz API jest widoczny w kodzie strony klienta —
         bez limitu domen każdy mógł go skopiować i zużywać cudzy limit.
@@ -206,11 +210,11 @@ class TestPrzezEndpointWidgetu:
         subscribtion.plan_type = "start"
         subscribtion.save()
         klient = APIClient()
-        klient.get(self.URL, HTTP_X_API_KEY=str(tenant.api_key),
-                   HTTP_ORIGIN="https://sklep.pl")
+        klient.get(self.URL, HTTP_X_API_KEY=str(tenant.api_key), HTTP_ORIGIN="https://sklep.pl")
 
         response = klient.get(
-            self.URL, HTTP_X_API_KEY=str(tenant.api_key),
+            self.URL,
+            HTTP_X_API_KEY=str(tenant.api_key),
             HTTP_ORIGIN="https://zlodziej.pl",
         )
 
@@ -299,23 +303,29 @@ class TestWartosciKtoreNieSaAdresem:
     na coś, czego nikt z zewnątrz nie odwiedzi.
     """
 
-    @pytest.mark.parametrize("origin", [
-        "null",          # iframe w piaskownicy, plik z dysku
-        "undefined",     # przekazane z JS jako tekst
-        "about:blank",   # pusta karta
-        "http://intranet",   # host bez kropki — nie jest publiczną domeną
-    ])
+    @pytest.mark.parametrize(
+        "origin",
+        [
+            "null",  # iframe w piaskownicy, plik z dysku
+            "undefined",  # przekazane z JS jako tekst
+            "about:blank",  # pusta karta
+            "http://intranet",  # host bez kropki — nie jest publiczną domeną
+        ],
+    )
     def test_nie_trafiaja_do_rejestru(self, tenant, subscribtion, origin):
         assert zarejestruj_domene(tenant, origin) == ""
         assert WidgetDomain.objects.filter(tenant=tenant).count() == 0
 
-    @pytest.mark.parametrize("origin", [
-        "http://[::1]:3000",        # localhost po IPv6
-        "http://192.168.1.10:8080", # sieć domowa/biurowa
-        "http://10.0.0.5",          # sieć prywatna
-        "http://app.localhost:3000",
-        "http://drukarka.local",
-    ])
+    @pytest.mark.parametrize(
+        "origin",
+        [
+            "http://[::1]:3000",  # localhost po IPv6
+            "http://192.168.1.10:8080",  # sieć domowa/biurowa
+            "http://10.0.0.5",  # sieć prywatna
+            "http://app.localhost:3000",
+            "http://drukarka.local",
+        ],
+    )
     def test_praca_lokalna_nie_zjada_limitu(self, tenant, subscribtion, origin):
         """
         Wpis "[::1]" na liście hostów deweloperskich nigdy się nie dopasowywał:
@@ -329,12 +339,15 @@ class TestWartosciKtoreNieSaAdresem:
         assert zarejestruj_domene(tenant, origin) == ""
         assert WidgetDomain.objects.filter(tenant=tenant).count() == 0
 
-    @pytest.mark.parametrize("origin,host", [
-        ("https://sklep.pl", "sklep.pl"),
-        ("https://www.sklep.pl:443", "sklep.pl"),
-        ("https://moj.sklep.co.uk", "moj.sklep.co.uk"),
-        ("https://8.8.8.8", "8.8.8.8"),
-    ])
+    @pytest.mark.parametrize(
+        "origin,host",
+        [
+            ("https://sklep.pl", "sklep.pl"),
+            ("https://www.sklep.pl:443", "sklep.pl"),
+            ("https://moj.sklep.co.uk", "moj.sklep.co.uk"),
+            ("https://8.8.8.8", "8.8.8.8"),
+        ],
+    )
     def test_prawdziwe_witryny_nadal_sie_zapisuja(self, tenant, subscribtion, origin, host):
         """Filtr ma odcinać wartości, które adresem nie są — nie adresy."""
         assert zarejestruj_domene(tenant, origin) == host

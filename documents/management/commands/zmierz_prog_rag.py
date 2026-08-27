@@ -15,6 +15,7 @@ Próg powinien przebiegać między tymi dwoma grupami.
 
 Niczego nie zmienia — tylko liczy i wypisuje.
 """
+
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from pgvector.django import L2Distance
@@ -43,7 +44,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--firma", type=int, required=True, metavar="ID")
         parser.add_argument(
-            "--pytanie", action="append", dest="pytania", metavar="TEKST",
+            "--pytanie",
+            action="append",
+            dest="pytania",
+            metavar="TEKST",
             help="Dodatkowe pytanie do zmierzenia. Można podać wielokrotnie.",
         )
 
@@ -68,8 +72,7 @@ class Command(BaseCommand):
         odpowiedziane, bez_pokrycia = [], []
         widziane = set()
         for tresc, zrodlo in (
-            PromptLog.objects
-            .filter(tenant=tenant)
+            PromptLog.objects.filter(tenant=tenant)
             .exclude(conversation__source="test")
             .order_by("-created_at")
             .values_list("prompt", "source")
@@ -88,16 +91,25 @@ class Command(BaseCommand):
 
         klient = get_client(tenant)
         blisko_odpowiedziane = self._zmierz(
-            klient, tenant, odpowiedziane, prog,
+            klient,
+            tenant,
+            odpowiedziane,
+            prog,
             "BOT ODPOWIEDZIAŁ Z BAZY — te muszą przechodzić",
         )
         blisko_bez_pokrycia = self._zmierz(
-            klient, tenant, bez_pokrycia, prog,
+            klient,
+            tenant,
+            bez_pokrycia,
+            prog,
             "BOT NIE ZNALAZŁ ODPOWIEDZI — te powinny być odcięte",
         )
         self._zmierz(klient, tenant, podane, prog, "PYTANIA PODANE W WYWOŁANIU")
         blisko_kontrolne = self._zmierz(
-            klient, tenant, PYTANIA_KONTROLNE, prog,
+            klient,
+            tenant,
+            PYTANIA_KONTROLNE,
+            prog,
             "PYTANIA KONTROLNE — spoza jakiejkolwiek bazy wiedzy",
         )
 
@@ -108,13 +120,20 @@ class Command(BaseCommand):
             return []
 
         self.stdout.write(self.style.MIGRATE_HEADING(tytul))
-        self.stdout.write(f"{'najbliżej':>10} {'2.':>7} {'3.':>7}  {'przejdzie':>9}  pytanie / trafiony fragment")
+        self.stdout.write(
+            f"{'najbliżej':>10} {'2.':>7} {'3.':>7}  {'przejdzie':>9}  pytanie / trafiony fragment"
+        )
 
         najblizsze = []
         for pytanie in pytania:
-            wektor = klient.embeddings.create(
-                model=settings.OPENAI_EMBEDDING_MODEL, input=pytanie,
-            ).data[0].embedding
+            wektor = (
+                klient.embeddings.create(
+                    model=settings.OPENAI_EMBEDDING_MODEL,
+                    input=pytanie,
+                )
+                .data[0]
+                .embedding
+            )
 
             # To samo zapytanie, z którego korzysta bot — łącznie z pominięciem
             # dokumentów odznaczonych przez klienta. Własna kopia tego filtra
@@ -178,9 +197,9 @@ class Command(BaseCommand):
             if odciac and odciac[0][0] > najdalsze_trafne:
                 sugestia = (najdalsze_trafne + odciac[0][0]) / 2
                 ocena = self.style.SUCCESS if abs(sugestia - prog) > 0.03 else self.style.NOTICE
-                self.stdout.write(ocena(
-                    f"  Próg rozdzielający grupy: {sugestia:.2f}   (obecnie {prog})"
-                ))
+                self.stdout.write(
+                    ocena(f"  Próg rozdzielający grupy: {sugestia:.2f}   (obecnie {prog})")
+                )
             elif odciac:
                 granica = odciac[0][0]
                 # Nazywamy sporne wpisy, zamiast zostawiać sam werdykt. Zwykle
@@ -189,10 +208,12 @@ class Command(BaseCommand):
                 # choć bot wcale na nie nie odpowiedział. Ocena zajmuje chwilę,
                 # o ile w ogóle widać, które są sporne.
                 sporne = [(d, p) for d, p in z_bazy if d >= granica]
-                self.stdout.write(self.style.WARNING(
-                    f"  Grupy się nakładają: trafne sięgają {najdalsze_trafne:.3f}, "
-                    f"a odcinane zaczynają się od {granica:.3f}."
-                ))
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  Grupy się nakładają: trafne sięgają {najdalsze_trafne:.3f}, "
+                        f"a odcinane zaczynają się od {granica:.3f}."
+                    )
+                )
                 self.stdout.write("")
                 self.stdout.write(
                     "  Sporne — oznaczone jako odpowiedziane z bazy, ale leżące dalej\n"

@@ -1,6 +1,10 @@
 import pytest
 from unittest.mock import patch, Mock
-from documents.website_import import discover_links_recursively, fetch_text_from_url, import_website_as_document
+from documents.website_import import (
+    discover_links_recursively,
+    fetch_text_from_url,
+    import_website_as_document,
+)
 from accounts.models import Tenant
 from documents.models import Document
 
@@ -26,6 +30,7 @@ TRAFILATURA_EXTRACT_MOCK = {
     "http://test.local/": "Witamy na stronie\nFAQ\n" + "To jest główna strona. " * 10,
     "http://test.local/faq": "Najczęstsze pytania\n" + "Jak działa system? " * 10,
 }
+
 
 @pytest.mark.django_db
 @patch("documents.website_import.requests.get")

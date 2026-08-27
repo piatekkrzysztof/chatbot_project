@@ -24,7 +24,9 @@ def fragmenty_do_przeszukania(tenant_id: int):
     )
 
 
-def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5, max_distance: float = None):
+def query_similar_chunks_pgvector(
+    tenant_id: int, query: str, top_k: int = 5, max_distance: float = None
+):
     """
     Zwraca fragmenty dokumentów podobne do zapytania.
 
@@ -36,8 +38,7 @@ def query_similar_chunks_pgvector(tenant_id: int, query: str, top_k: int = 5, ma
         max_distance = settings.RAG_MAX_DISTANCE
 
     embedding_response = client.embeddings.create(
-        input=query,
-        model=settings.OPENAI_EMBEDDING_MODEL
+        input=query, model=settings.OPENAI_EMBEDDING_MODEL
     )
     query_embedding = embedding_response.data[0].embedding
 

@@ -10,6 +10,7 @@ Wcześniej ustawienia wskazywały S3, ale przez usunięte w Django 5.1
 DEFAULT_FILE_STORAGE było to ignorowane. Cisza w takiej sytuacji jest gorsza
 niż błąd, dlatego stan bez magazynu jest teraz jawnie raportowany.
 """
+
 from django.conf import settings
 from django.core.checks import Warning, register
 

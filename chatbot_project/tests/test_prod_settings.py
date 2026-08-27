@@ -6,6 +6,7 @@ zamiast frontendu w CORS, a potem ukośnik na końcu adresu Vercela, który
 django-cors-headers odrzuca jako ścieżkę. Wartości kopiuje się z paska
 przeglądarki, więc schemat i ukośnik przychodzą razem z nimi.
 """
+
 import importlib
 
 import pytest
@@ -34,9 +35,7 @@ def load_prod_settings(monkeypatch, **env):
 
 def test_trailing_slash_stripped_from_cors_origin(monkeypatch):
     """django-cors-headers przerywa start, gdy origin ma ścieżkę."""
-    prod = load_prod_settings(
-        monkeypatch, DJANGO_CORS_ALLOWED_ORIGINS="https://app.vercel.app/"
-    )
+    prod = load_prod_settings(monkeypatch, DJANGO_CORS_ALLOWED_ORIGINS="https://app.vercel.app/")
 
     assert prod.CORS_ALLOWED_ORIGINS == ["https://app.vercel.app"]
 
@@ -51,9 +50,7 @@ def test_scheme_and_slash_stripped_from_allowed_hosts(monkeypatch):
 
 
 def test_render_hostname_is_added_automatically(monkeypatch):
-    prod = load_prod_settings(
-        monkeypatch, RENDER_EXTERNAL_HOSTNAME="usluga.onrender.com"
-    )
+    prod = load_prod_settings(monkeypatch, RENDER_EXTERNAL_HOSTNAME="usluga.onrender.com")
 
     assert "usluga.onrender.com" in prod.ALLOWED_HOSTS
 

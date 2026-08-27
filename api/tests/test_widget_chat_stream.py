@@ -48,9 +48,7 @@ def make_openai_stream(pieces, total_tokens=42):
 def parse_sse(response):
     body = b"".join(response.streaming_content).decode("utf-8")
     return [
-        json.loads(line[6:])
-        for line in body.split("\n\n")
-        if line.strip().startswith("data: ")
+        json.loads(line[6:]) for line in body.split("\n\n") if line.strip().startswith("data: ")
     ]
 
 

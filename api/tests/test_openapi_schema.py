@@ -7,6 +7,7 @@ w tym cały publiczny widget, czyli dokładnie to, od czego zaczyna ktoś
 integrujący czat ze swoją stroną. Dokumentacja, która milczy o połowie API,
 myli bardziej niż jej brak.
 """
+
 import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient

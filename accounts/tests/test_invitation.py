@@ -26,6 +26,8 @@ def test_invitation_token_expires_correctly():
 @pytest.mark.django_db
 def test_invitation_token_usage_limit():
     tenant = Tenant.objects.create(name="Firma")
-    token = InvitationToken.objects.create(tenant=tenant, email="test@example.com", max_users=1, users=1)
+    token = InvitationToken.objects.create(
+        tenant=tenant, email="test@example.com", max_users=1, users=1
+    )
 
     assert token.is_valid() is False

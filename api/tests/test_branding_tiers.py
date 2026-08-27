@@ -11,6 +11,7 @@ wartość logiczna przychodzi jako napis "true". Django uznaje wyłącznie "True
 i "1", a na "true" rzuca wyjątkiem — zapis kończył się błędem zamiast zapisać
 ustawienie.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -32,11 +33,14 @@ def wlasciciel(user, tenant, plan):
 
 
 class TestProgowWKatalogu:
-    @pytest.mark.parametrize("plan,ukrywanie,wlasna_marka", [
-        ("start", False, False),
-        ("grow", True, False),
-        ("pro", True, True),
-    ])
+    @pytest.mark.parametrize(
+        "plan,ukrywanie,wlasna_marka",
+        [
+            ("start", False, False),
+            ("grow", True, False),
+            ("pro", True, True),
+        ],
+    )
     def test_uprawnienia_rosna_wraz_z_planem(self, plan, ukrywanie, wlasna_marka):
         assert allows_hiding_branding(plan) is ukrywanie
         assert allows_white_label(plan) is wlasna_marka
@@ -50,9 +54,7 @@ class TestBramkiUkrywaniaStopki:
         """Bez bramki klient Startu wyłączyłby ją zwykłym żądaniem PATCH."""
         klient = wlasciciel(user, tenant, "start")
 
-        response = klient.patch(
-            self.URL, {"widget_hide_branding": True}, format="json"
-        )
+        response = klient.patch(self.URL, {"widget_hide_branding": True}, format="json")
 
         assert response.status_code == 403
         tenant.refresh_from_db()
@@ -61,9 +63,7 @@ class TestBramkiUkrywaniaStopki:
     def test_grow_ukryje_stopke(self, user, tenant, subscribtion):
         klient = wlasciciel(user, tenant, "grow")
 
-        response = klient.patch(
-            self.URL, {"widget_hide_branding": True}, format="json"
-        )
+        response = klient.patch(self.URL, {"widget_hide_branding": True}, format="json")
 
         assert response.status_code == 200
         tenant.refresh_from_db()
@@ -73,9 +73,7 @@ class TestBramkiUkrywaniaStopki:
         """Środkowy próg to ukrycie stopki, nie pełna biała etykieta."""
         klient = wlasciciel(user, tenant, "grow")
 
-        response = klient.patch(
-            self.URL, {"branding_mode": "white_label"}, format="json"
-        )
+        response = klient.patch(self.URL, {"branding_mode": "white_label"}, format="json")
 
         assert response.status_code == 403
 
@@ -88,9 +86,7 @@ class TestBramkiUkrywaniaStopki:
         tenant.save()
         klient = wlasciciel(user, tenant, "start")
 
-        response = klient.patch(
-            self.URL, {"widget_hide_branding": False}, format="json"
-        )
+        response = klient.patch(self.URL, {"widget_hide_branding": False}, format="json")
 
         assert response.status_code == 200
         tenant.refresh_from_db()
@@ -100,9 +96,7 @@ class TestBramkiUkrywaniaStopki:
         tenant.widget_hide_branding = True
         tenant.save()
 
-        dane = APIClient().get(
-            "/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key)
-        ).json()
+        dane = APIClient().get("/api/widget-settings/", HTTP_X_API_KEY=str(tenant.api_key)).json()
 
         assert dane["widget_hide_branding"] is True
 
@@ -113,21 +107,26 @@ class TestWartosciLogicznychZFormularza:
     Sedno naprawionego błędu. Testy wysyłające JSON go nie łapały, bo tam
     wartość logiczna zostaje wartością logiczną — panel wysyła multipart.
     """
+
     URL = "/api/widget-settings/mine/"
 
-    @pytest.mark.parametrize("napis,oczekiwane", [
-        ("true", True), ("false", False),
-        ("True", True), ("False", False),
-        ("1", True), ("0", False),
-    ])
+    @pytest.mark.parametrize(
+        "napis,oczekiwane",
+        [
+            ("true", True),
+            ("false", False),
+            ("True", True),
+            ("False", False),
+            ("1", True),
+            ("0", False),
+        ],
+    )
     def test_zaczepka_zapisuje_sie_z_formularza(
         self, user, tenant, subscribtion, napis, oczekiwane
     ):
         klient = wlasciciel(user, tenant, "grow")
 
-        response = klient.patch(
-            self.URL, {"widget_proactive_enabled": napis}, format="multipart"
-        )
+        response = klient.patch(self.URL, {"widget_proactive_enabled": napis}, format="multipart")
 
         assert response.status_code == 200
         tenant.refresh_from_db()
@@ -136,9 +135,7 @@ class TestWartosciLogicznychZFormularza:
     def test_ukrycie_stopki_zapisuje_sie_z_formularza(self, user, tenant, subscribtion):
         klient = wlasciciel(user, tenant, "grow")
 
-        response = klient.patch(
-            self.URL, {"widget_hide_branding": "true"}, format="multipart"
-        )
+        response = klient.patch(self.URL, {"widget_hide_branding": "true"}, format="multipart")
 
         assert response.status_code == 200
         tenant.refresh_from_db()
@@ -153,9 +150,7 @@ class TestWartosciLogicznychZFormularza:
         tenant.save()
         klient = wlasciciel(user, tenant, "grow")
 
-        klient.patch(
-            self.URL, {"widget_hide_branding": "false"}, format="multipart"
-        )
+        klient.patch(self.URL, {"widget_hide_branding": "false"}, format="multipart")
 
         tenant.refresh_from_db()
         assert tenant.widget_hide_branding is False

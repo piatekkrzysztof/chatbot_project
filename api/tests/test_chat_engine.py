@@ -209,9 +209,7 @@ def test_matching_question_is_counted_as_faq_coverage(mock_gpt, mock_chunks):
     FAQ.objects.create(tenant=tenant, question="Czy naprawiacie rowery elektryczne?", answer="Tak")
     conversation = Conversation.objects.create(tenant=tenant)
 
-    result = process_chat_message(
-        tenant, conversation, "Czy naprawiacie rowery elektryczne?"
-    )
+    result = process_chat_message(tenant, conversation, "Czy naprawiacie rowery elektryczne?")
 
     assert result["source"] == "faq"
 
@@ -223,8 +221,7 @@ def test_get_openai_response_success(mock_get_client):
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
     mock_client.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content="Hi"))],
-        usage=MagicMock(total_tokens=12)
+        choices=[MagicMock(message=MagicMock(content="Hi"))], usage=MagicMock(total_tokens=12)
     )
 
     res = get_openai_response([{"role": "user", "content": "Hello"}])

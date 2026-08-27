@@ -19,6 +19,7 @@ Dwie rzeczy, na których zależy najbardziej:
 Idempotentna: powtórzone uruchomienie nie dubluje danych, bo najpierw kasuje
 poprzednią zawartość tej firmy (nie dotykając żadnej innej).
 """
+
 import random
 from datetime import date, timedelta
 
@@ -40,22 +41,34 @@ NAZWA_FIRMY = "Rowerownia Krakowska (DEMO)"
 WYMIAR_WEKTORA = 1536
 
 FAQ_DEMO = [
-    ("Jakie macie godziny otwarcia?",
-     "Poniedziałek–piątek 9:00–18:00, sobota 10:00–14:00. W niedziele zamknięte."),
-    ("Ile kosztuje przegląd roweru?",
-     "Przegląd podstawowy 120 zł, rozszerzony 220 zł. Rower elektryczny +60 zł "
-     "za diagnostykę układu wspomagania."),
-    ("Czy naprawiacie rowery elektryczne?",
-     "Tak, serwisujemy napędy Bosch, Shimano Steps i Bafang. Nie otwieramy "
-     "ogniw akumulatora — przy usterce baterii kierujemy do autoryzowanego serwisu."),
-    ("Jak długo czeka się na naprawę?",
-     "Drobne naprawy tego samego dnia. Przegląd 2–3 dni robocze, w sezonie "
-     "(kwiecień–czerwiec) do 5 dni."),
-    ("Czy trzeba się umawiać?",
-     "Na przegląd tak, telefonicznie lub mailem. Drobne naprawy przyjmujemy "
-     "od ręki, jeśli akurat jest wolne stanowisko."),
-    ("Czy mogę zostawić rower na przechowanie na zimę?",
-     "Tak, przechowanie sezonowe 180 zł za sezon, w cenie przegląd na start sezonu."),
+    (
+        "Jakie macie godziny otwarcia?",
+        "Poniedziałek–piątek 9:00–18:00, sobota 10:00–14:00. W niedziele zamknięte.",
+    ),
+    (
+        "Ile kosztuje przegląd roweru?",
+        "Przegląd podstawowy 120 zł, rozszerzony 220 zł. Rower elektryczny +60 zł "
+        "za diagnostykę układu wspomagania.",
+    ),
+    (
+        "Czy naprawiacie rowery elektryczne?",
+        "Tak, serwisujemy napędy Bosch, Shimano Steps i Bafang. Nie otwieramy "
+        "ogniw akumulatora — przy usterce baterii kierujemy do autoryzowanego serwisu.",
+    ),
+    (
+        "Jak długo czeka się na naprawę?",
+        "Drobne naprawy tego samego dnia. Przegląd 2–3 dni robocze, w sezonie "
+        "(kwiecień–czerwiec) do 5 dni.",
+    ),
+    (
+        "Czy trzeba się umawiać?",
+        "Na przegląd tak, telefonicznie lub mailem. Drobne naprawy przyjmujemy "
+        "od ręki, jeśli akurat jest wolne stanowisko.",
+    ),
+    (
+        "Czy mogę zostawić rower na przechowanie na zimę?",
+        "Tak, przechowanie sezonowe 180 zł za sezon, w cenie przegląd na start sezonu.",
+    ),
 ]
 
 DOKUMENTY_DEMO = [
@@ -84,8 +97,7 @@ PYTANIA_BEZ_POKRYCIA = [
 ]
 
 ODPOWIEDZ_BRAK = (
-    "Nie mam tej informacji w materiałach firmy. Zostaw kontakt, a odezwiemy "
-    "się z odpowiedzią."
+    "Nie mam tej informacji w materiałach firmy. Zostaw kontakt, a odezwiemy się z odpowiedzią."
 )
 
 KONTAKTY_DEMO = [
@@ -101,14 +113,10 @@ class Command(BaseCommand):
     help = "Zakłada firmę demonstracyjną z realistycznymi danymi (bez wywołań OpenAI)."
 
     def add_arguments(self, parser):
-        parser.add_argument("--email", default="demo@agencjasm-art.pl",
-                            help="Login konta demo")
-        parser.add_argument("--haslo", default="demo",
-                            help="Hasło konta demo")
-        parser.add_argument("--dni", type=int, default=30,
-                            help="Na ile dni wstecz rozłożyć ruch")
-        parser.add_argument("--usun", action="store_true",
-                            help="Skasuj firmę demo i wyjdź")
+        parser.add_argument("--email", default="demo@agencjasm-art.pl", help="Login konta demo")
+        parser.add_argument("--haslo", default="demo", help="Hasło konta demo")
+        parser.add_argument("--dni", type=int, default=30, help="Na ile dni wstecz rozłożyć ruch")
+        parser.add_argument("--usun", action="store_true", help="Skasuj firmę demo i wyjdź")
 
     def handle(self, *args, **opcje):
         # Ziarno na stałe: dwa uruchomienia dają ten sam panel, więc zrzuty
@@ -117,9 +125,13 @@ class Command(BaseCommand):
 
         if opcje["usun"]:
             usuniete, _ = Tenant.objects.filter(name=NAZWA_FIRMY).delete()
-            self.stdout.write(self.style.SUCCESS(
-                f"Skasowano firmę demo ({usuniete} obiektów)." if usuniete
-                else "Nie było czego kasować."))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Skasowano firmę demo ({usuniete} obiektów)."
+                    if usuniete
+                    else "Nie było czego kasować."
+                )
+            )
             return
 
         with transaction.atomic():
@@ -138,8 +150,10 @@ class Command(BaseCommand):
         self.stdout.write(f"  Hasło        : {opcje['haslo']}")
         self.stdout.write(f"  Rola         : viewer (tylko odczyt)")
         self.stdout.write(f"  Klucz widgetu: {firma.api_key}")
-        self.stdout.write(f"  Zasiane      : {rozmow} rozmów, {wiadomosci} wiadomości, "
-                          f"{len(FAQ_DEMO)} FAQ, {len(DOKUMENTY_DEMO)} dokumenty")
+        self.stdout.write(
+            f"  Zasiane      : {rozmow} rozmów, {wiadomosci} wiadomości, "
+            f"{len(FAQ_DEMO)} FAQ, {len(DOKUMENTY_DEMO)} dokumenty"
+        )
         self.stdout.write(
             "\n  Wektory są losowe — wyszukiwanie działa mechanicznie, ale trafia\n"
             "  bez sensu. Żeby bot odpowiadał z sensem, ustaw OPENAI_API_KEY\n"
@@ -167,9 +181,13 @@ class Command(BaseCommand):
             "na podstawie materiałów firmy. Gdy czegoś nie wiesz, mówisz to "
             "wprost i proponujesz zostawienie kontaktu."
         )
-        firma.save(update_fields=[
-            "widget_title", "widget_welcome_message", "gpt_prompt",
-        ])
+        firma.save(
+            update_fields=[
+                "widget_title",
+                "widget_welcome_message",
+                "gpt_prompt",
+            ]
+        )
         return firma
 
     def _wyczysc(self, firma):
@@ -184,8 +202,11 @@ class Command(BaseCommand):
         uzytkownik = CustomUser.objects.filter(username=email).first()
         if uzytkownik is None:
             uzytkownik = CustomUser.objects.create_user(
-                username=email, email=email, password=haslo,
-                tenant=firma, role=UserRole.VIEWER,
+                username=email,
+                email=email,
+                password=haslo,
+                tenant=firma,
+                role=UserRole.VIEWER,
             )
         else:
             uzytkownik.tenant = firma
@@ -210,8 +231,12 @@ class Command(BaseCommand):
     def _dokumenty(self, firma, losowy):
         for adres, nazwa, znakow in DOKUMENTY_DEMO:
             dokument = Document.objects.create(
-                tenant=firma, name=adres, content="x" * int(znakow * 0.72),
-                processed=True, source="website", source_url=adres,
+                tenant=firma,
+                name=adres,
+                content="x" * int(znakow * 0.72),
+                processed=True,
+                source="website",
+                source_url=adres,
                 znakow_na_stronie=znakow,
             )
             # Losowy wektor poprawnego wymiaru: wyszukiwanie ma działać
@@ -225,9 +250,7 @@ class Command(BaseCommand):
                 )
 
     def _faq(self, firma):
-        FAQ.objects.bulk_create(
-            [FAQ(tenant=firma, question=p, answer=o) for p, o in FAQ_DEMO]
-        )
+        FAQ.objects.bulk_create([FAQ(tenant=firma, question=p, answer=o) for p, o in FAQ_DEMO])
 
     def _ruch(self, firma, dni, losowy):
         """Rozmowy rozłożone w czasie, z przewagą dni roboczych."""
@@ -243,7 +266,8 @@ class Command(BaseCommand):
             for _ in range(ile):
                 bez_pokrycia = losowy.random() < 0.22
                 pytanie, zrodlo = (
-                    (losowy.choice(PYTANIA_BEZ_POKRYCIA), "gpt") if bez_pokrycia
+                    (losowy.choice(PYTANIA_BEZ_POKRYCIA), "gpt")
+                    if bez_pokrycia
                     else losowy.choice(PYTANIA_ZNANE)
                 )
                 odpowiedz = ODPOWIEDZ_BRAK if bez_pokrycia else self._odpowiedz(pytanie)
@@ -251,14 +275,16 @@ class Command(BaseCommand):
                 rozmowa = Conversation.objects.create(
                     tenant=firma,
                     user_identifier=f"gosc-{losowy.randint(1000, 9999)}",
-                    status="closed", source="widget",
+                    status="closed",
+                    source="widget",
                 )
                 # auto_now_add nie da się ustawić przy tworzeniu — cofamy
                 # datę osobnym update, inaczej cały ruch ma dzisiejszą datę
                 # i wykres na pulpicie jest jednym słupkiem.
                 chwila = data - timedelta(hours=losowy.randint(0, 9))
                 Conversation.objects.filter(pk=rozmowa.pk).update(
-                    started_at=chwila, last_message_at=chwila,
+                    started_at=chwila,
+                    last_message_at=chwila,
                 )
 
                 for nadawca, tresc, zrodlo_wiad in (
@@ -266,17 +292,23 @@ class Command(BaseCommand):
                     ("bot", odpowiedz, zrodlo),
                 ):
                     wiadomosc = ChatMessage.objects.create(
-                        conversation=rozmowa, sender=nadawca,
-                        message=tresc, source=zrodlo_wiad,
+                        conversation=rozmowa,
+                        sender=nadawca,
+                        message=tresc,
+                        source=zrodlo_wiad,
                         token_count=len(tresc) // 4,
                     )
                     ChatMessage.objects.filter(pk=wiadomosc.pk).update(timestamp=chwila)
                     wiadomosci += 1
 
                 dziennik = PromptLog.objects.create(
-                    tenant=firma, conversation=rozmowa,
-                    model="gpt-4o-mini", prompt=pytanie, response=odpowiedz,
-                    source=zrodlo, tokens=(len(pytanie) + len(odpowiedz)) // 4,
+                    tenant=firma,
+                    conversation=rozmowa,
+                    model="gpt-4o-mini",
+                    prompt=pytanie,
+                    response=odpowiedz,
+                    source=zrodlo,
+                    tokens=(len(pytanie) + len(odpowiedz)) // 4,
                 )
                 PromptLog.objects.filter(pk=dziennik.pk).update(created_at=chwila)
                 rozmow += 1
@@ -294,7 +326,10 @@ class Command(BaseCommand):
         teraz = timezone.now()
         for numer, (imie, kontakt, tresc) in enumerate(KONTAKTY_DEMO):
             zapytanie = ContactRequest.objects.create(
-                tenant=firma, name=imie, contact=kontakt, message=tresc,
+                tenant=firma,
+                name=imie,
+                contact=kontakt,
+                message=tresc,
                 handled=numer >= 3,
             )
             ContactRequest.objects.filter(pk=zapytanie.pk).update(

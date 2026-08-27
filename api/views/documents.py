@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from documents.utils.pdf_parser import extract_text_from_pdf
 from documents.validators import sprawdz_limit_bazy_wiedzy
 from api.serializers import DocumentSerializer
+
 # Ta sama zasada odczytu wartości logicznej co w ustawieniach widgetu:
 # formularz multipart przysyła "true"/"false" jako tekst.
 from api.views.widget import _wlaczone
@@ -39,8 +40,10 @@ class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
         instance = self.get_object()
         data = DocumentSerializer(instance).data
         data["chunk_count"] = instance.chunks.count()
-        data["status"] = "ready" if instance.processed and instance.chunks.exists() else (
-            "processing" if not instance.processed else "processed_no_chunks"
+        data["status"] = (
+            "ready"
+            if instance.processed and instance.chunks.exists()
+            else ("processing" if not instance.processed else "processed_no_chunks")
         )
         data["preview"] = instance.content[:500] if instance.content else ""
         return Response(data)
@@ -66,8 +69,12 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         request=None,
         responses=DocumentSerializer,
     )
-    @action(detail=True, methods=["patch"], url_path="wyszukiwanie",
-            permission_classes=[IsOwnerOrEmployee])
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path="wyszukiwanie",
+        permission_classes=[IsOwnerOrEmployee],
+    )
     def przelacz_wyszukiwanie(self, request, pk=None):
         """
         Osobna akcja zamiast zwykłego PATCH na całym obiekcie.
@@ -96,7 +103,7 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 )
 class UploadDocumentView(APIView):
     parser_classes = [MultiPartParser]
-    permission_classes=[IsOwnerOrEmployee]
+    permission_classes = [IsOwnerOrEmployee]
 
     def post(self, request):
         tenant = getattr(request, "tenant", None)
@@ -138,7 +145,9 @@ class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsTenantMember]
 
     def get_queryset(self):
-        return DocumentChunk.objects.filter(document__tenant=self.request.tenant, document_id=self.kwargs["document_id"])
+        return DocumentChunk.objects.filter(
+            document__tenant=self.request.tenant, document_id=self.kwargs["document_id"]
+        )
 
 
 @extend_schema(tags=["Panel — baza wiedzy"])

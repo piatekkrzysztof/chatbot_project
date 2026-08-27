@@ -11,6 +11,7 @@ Testy pilnują trzech rzeczy, na których stoi jakość odpowiedzi bota: że sek
 nie mieszają się w jednym fragmencie, że nagłówek jedzie razem ze swoją
 treścią i że nic z dokumentu nie ginie po drodze.
 """
+
 import pytest
 
 from documents.utils.fragmenty import (
@@ -85,8 +86,13 @@ class TestZachowaniaTresci:
         której bot nie ma, a klient jest przekonany, że wgrał."""
         polaczone = " ".join(podziel_na_fragmenty(OFERTA))
 
-        for fakt in ["4500 zl", "180 zl od osoby", "90 zl za osobe",
-                     "14 pokojami", "Doba hotelowa 180 zl"]:
+        for fakt in [
+            "4500 zl",
+            "180 zl od osoby",
+            "90 zl za osobe",
+            "14 pokojami",
+            "Doba hotelowa 180 zl",
+        ]:
             assert fakt in polaczone, f"zgubiono: {fakt}"
 
     def test_struktura_wierszy_przetrwa(self):
@@ -109,8 +115,7 @@ class TestDlugosci:
         fragmenty = podziel_na_fragmenty(dokument)
 
         assert fragmenty
-        assert all(len(f) <= MAKS_ZNAKOW + 200 for f in fragmenty), \
-            [len(f) for f in fragmenty]
+        assert all(len(f) <= MAKS_ZNAKOW + 200 for f in fragmenty), [len(f) for f in fragmenty]
 
     def test_akapit_dluzszy_niz_limit_tniemy_po_zdaniach(self):
         """Cięcie w środku zdania gubi sens po obu stronach granicy."""
@@ -121,8 +126,7 @@ class TestDlugosci:
 
         assert len(fragmenty) > 1
         # Każdy fragment kończy się pełnym zdaniem, nie urwanym słowem
-        assert all(f.rstrip().endswith(".") for f in fragmenty), \
-            [f[-40:] for f in fragmenty]
+        assert all(f.rstrip().endswith(".") for f in fragmenty), [f[-40:] for f in fragmenty]
 
     def test_zdanie_dluzsze_niz_limit_nie_wywraca_podzialu(self):
         """Zdarza się w regulaminach — cięcie po słowach jest brzydkie,
@@ -233,7 +237,9 @@ class TestZapisuDoBazy:
         dokument.save()
         generate_embeddings_for_document(dokument)
 
-        tresci = list(DocumentChunk.objects.filter(document=dokument).values_list("content", flat=True))
+        tresci = list(
+            DocumentChunk.objects.filter(document=dokument).values_list("content", flat=True)
+        )
         assert all("4500" not in t for t in tresci)
         assert any("Wszystko sie zmienilo" in t for t in tresci)
 
@@ -317,8 +323,12 @@ Certyfikowany przez:
         """Szczatki doklejamy do sasiada, nie kasujemy."""
         polaczone = " ".join(podziel_na_fragmenty(self.STRONA))
 
-        for fragment in ["Twoja strona ma pracowac", "Umow bezplatna rozmowe",
-                         "Certyfikowany przez", "nie z handlowcem"]:
+        for fragment in [
+            "Twoja strona ma pracowac",
+            "Umow bezplatna rozmowe",
+            "Certyfikowany przez",
+            "nie z handlowcem",
+        ]:
             assert fragment in polaczone, f"zgubiono: {fragment}"
 
     def test_krotkie_sekcje_cennika_nadal_sie_rozdzielaja(self):

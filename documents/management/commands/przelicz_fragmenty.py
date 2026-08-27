@@ -8,6 +8,7 @@ i nagłówkami odciętymi od treści. Ta komenda przelicza je od nowa.
 Kosztuje realne wywołania API modelu embeddingów, więc domyślnie tylko
 pokazuje, co by zrobiła. Do zapisu trzeba dopisać --wykonaj.
 """
+
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import Tenant
@@ -21,11 +22,14 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--firma", type=int, metavar="ID",
+            "--firma",
+            type=int,
+            metavar="ID",
             help="Tylko ta firma. Bez tego: wszystkie.",
         )
         parser.add_argument(
-            "--wykonaj", action="store_true",
+            "--wykonaj",
+            action="store_true",
             help="Zapisz zmiany. Bez tego komenda tylko pokazuje, co by zrobiła.",
         )
 
@@ -43,9 +47,11 @@ class Command(BaseCommand):
 
         na_sucho = not opcje["wykonaj"]
         if na_sucho:
-            self.stdout.write(self.style.WARNING(
-                "PRÓBA NA SUCHO — nic nie zostanie zapisane. Dopisz --wykonaj, żeby przeliczyć.\n"
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    "PRÓBA NA SUCHO — nic nie zostanie zapisane. Dopisz --wykonaj, żeby przeliczyć.\n"
+                )
+            )
 
         bylo_lacznie = nowych_lacznie = 0
 
@@ -66,7 +72,9 @@ class Command(BaseCommand):
             )
 
         self.stdout.write("")
-        self.stdout.write(f"Dokumentów: {dokumenty.count()}   fragmentów: {bylo_lacznie} -> {nowych_lacznie}")
+        self.stdout.write(
+            f"Dokumentów: {dokumenty.count()}   fragmentów: {bylo_lacznie} -> {nowych_lacznie}"
+        )
         if na_sucho:
             self.stdout.write(self.style.WARNING("Nic nie zapisano. Dopisz --wykonaj."))
         else:

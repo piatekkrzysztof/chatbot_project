@@ -13,6 +13,7 @@ odpowiadają na pytanie.
 
 Ten test pilnuje, że grupy są rozdzielane po zapisanym źródle odpowiedzi.
 """
+
 from io import StringIO
 from unittest.mock import MagicMock
 
@@ -84,10 +85,13 @@ class TestRozdzielaniaGrup:
         (9.0), wiec to ONO wyznacza gorna granice. Liczenie wspolnej grupy
         z historii dawaloby prog okolo 5.0 — czyli wpuszczaloby wszystko.
         """
-        udawane_wektory(monkeypatch, {
-            "Ile kosztuje sala?": 0.4,
-            "Jakie sa godziny otwarcia?": 1.0,
-        })
+        udawane_wektory(
+            monkeypatch,
+            {
+                "Ile kosztuje sala?": 0.4,
+                "Jakie sa godziny otwarcia?": 1.0,
+            },
+        )
         zapytaj(firma, "Ile kosztuje sala?", "document")
         zapytaj(firma, "Jakie sa godziny otwarcia?", "gpt")
 
@@ -176,13 +180,16 @@ class TestSpornychWpisow:
     """
 
     def test_sporne_wpisy_sa_wypisane_z_nazwy(self, firma, monkeypatch):
-        udawane_wektory(monkeypatch, {
-            "Ile kosztuje strona?": 0.4,
-            "Elo po ile masz klode": 1.2,
-            "Jakie sa godziny otwarcia": 1.0,
-        })
+        udawane_wektory(
+            monkeypatch,
+            {
+                "Ile kosztuje strona?": 0.4,
+                "Elo po ile masz klode": 1.2,
+                "Jakie sa godziny otwarcia": 1.0,
+            },
+        )
         zapytaj(firma, "Ile kosztuje strona?", "document")
-        zapytaj(firma, "Elo po ile masz klode", "document")   # bledna etykieta
+        zapytaj(firma, "Elo po ile masz klode", "document")  # bledna etykieta
         zapytaj(firma, "Jakie sa godziny otwarcia", "gpt")
 
         wynik = uruchom(firma)

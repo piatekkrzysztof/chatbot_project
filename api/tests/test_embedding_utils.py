@@ -7,9 +7,7 @@ from api.utils.embedding_utils import get_embedding, prepare_document_chunks_for
 @patch("api.utils.embedding_utils.openai.Embedding.create")
 def test_get_embedding_success(mock_openai):
     # Przygotowanie odpowiedzi mocka
-    mock_openai.return_value = {
-        "data": [{"embedding": [0.1, 0.2, 0.3]}]
-    }
+    mock_openai.return_value = {"data": [{"embedding": [0.1, 0.2, 0.3]}]}
 
     text = "Przykładowy tekst"
     embedding = get_embedding(text)

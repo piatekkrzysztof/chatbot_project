@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView
@@ -33,14 +34,14 @@ def trigger_error(request):
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),
+    path("admin/", admin.site.urls),
+    path("api/", include("api.urls")),
     # Dokumentacja celowo poza /api/ — TenantMiddleware wymaga tam tenanta,
     # a schemat ma być czytelny dla kogoś, kto dopiero szuka, jak się połączyć.
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='docs'),
-    path('health/', health_check),
-    path('sentry-debug/', trigger_error),
+    path("schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
+    path("health/", health_check),
+    path("sentry-debug/", trigger_error),
 ]
 
 if settings.DEBUG:

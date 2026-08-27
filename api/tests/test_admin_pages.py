@@ -7,6 +7,7 @@ wyszły: expires_at na formularzu zaproszenia i search_fields='title'
 w dokumentach). Ten test przechodzi listę, wyszukiwanie i formularz dodawania
 dla każdego zarejestrowanego modelu, żeby kolejne wychodziły tutaj.
 """
+
 import pytest
 from django.contrib import admin
 from django.urls import reverse
@@ -15,10 +16,7 @@ from accounts.models import CustomUser
 
 
 def admin_models():
-    return [
-        (model._meta.app_label, model._meta.model_name)
-        for model in admin.site._registry
-    ]
+    return [(model._meta.app_label, model._meta.model_name) for model in admin.site._registry]
 
 
 @pytest.fixture
@@ -78,4 +76,5 @@ def test_adding_document_through_admin_works(client, admin_user, tenant, valid_p
 
     assert response.status_code == 200
     from documents.models import Document
+
     assert Document.objects.filter(name="z-admina.pdf").exists()

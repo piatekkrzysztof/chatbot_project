@@ -15,6 +15,7 @@ Ten plik pilnuje obu połówek umowy naraz. Sam test odczytu przepuściłby
 regresję, w której ktoś podmienia klasę na IsTenantMember i otwiera zapis;
 sam test zapisu przepuściłby powrót do IsOwnerOrEmployee i zamknięcie odczytu.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -26,8 +27,10 @@ from chat.models import FAQ
 def firma(db):
     firma = Tenant.objects.create(name="Firma testowa", owner_email="wl@firma.pl")
     Subscription.objects.create(
-        tenant=firma, plan_type="grow",
-        start_date="2026-01-01", end_date="2027-01-01",
+        tenant=firma,
+        plan_type="grow",
+        start_date="2026-01-01",
+        end_date="2027-01-01",
         message_limit=8000,
     )
     return firma
@@ -35,7 +38,11 @@ def firma(db):
 
 def konto(firma, rola, login):
     return CustomUser.objects.create_user(
-        username=login, email=login, password="x", tenant=firma, role=rola,
+        username=login,
+        email=login,
+        password="x",
+        tenant=firma,
+        role=rola,
     )
 
 
@@ -103,7 +110,9 @@ class TestZapisu:
     @pytest.mark.parametrize("metoda,adres,dane", DO_ZAPISU)
     def test_viewer_nie_zapisuje(self, firma, metoda, adres, dane):
         odp = getattr(klient(konto(firma, UserRole.VIEWER, "v@firma.pl")), metoda)(
-            adres, dane, format="json",
+            adres,
+            dane,
+            format="json",
         )
 
         assert odp.status_code == 403, (
@@ -119,7 +128,9 @@ class TestZapisu:
         firma.save(update_fields=["gpt_prompt"])
 
         klient(konto(firma, UserRole.VIEWER, "v@firma.pl")).patch(
-            "/api/knowledge/", {"gpt_prompt": "przejęte"}, format="json",
+            "/api/knowledge/",
+            {"gpt_prompt": "przejęte"},
+            format="json",
         )
 
         firma.refresh_from_db()
@@ -128,7 +139,9 @@ class TestZapisu:
     def test_pracownik_zapisuje(self, firma):
         """Zacieśnienie nie mogło zablokować roli, która ma prawo zapisu."""
         odp = klient(konto(firma, UserRole.EMPLOYEE, "p@firma.pl")).post(
-            "/api/faq/", {"question": "p", "answer": "o"}, format="json",
+            "/api/faq/",
+            {"question": "p", "answer": "o"},
+            format="json",
         )
 
         assert odp.status_code == 201

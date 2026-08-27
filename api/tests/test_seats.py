@@ -5,6 +5,7 @@ Cennik obiecuje 1, 3 albo 10 miejsc zależnie od planu, ale nic tego nie
 pilnowało — klient planu Start mógł zaprosić dowolną liczbę pracowników.
 Bez tej kontroli wyższy plan kupowało się wyłącznie po limit wiadomości.
 """
+
 import pytest
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
@@ -26,9 +27,14 @@ def dodaj_konta(tenant, ile):
 
 @pytest.mark.django_db
 class TestLimituZKatalogu:
-    @pytest.mark.parametrize("plan,miejsca", [
-        ("start", 1), ("grow", 3), ("pro", 10),
-    ])
+    @pytest.mark.parametrize(
+        "plan,miejsca",
+        [
+            ("start", 1),
+            ("grow", 3),
+            ("pro", 10),
+        ],
+    )
     def test_limit_pochodzi_z_cennika(self, tenant, subscribtion, plan, miejsca):
         subscribtion.plan_type = plan
         subscribtion.save()
@@ -132,9 +138,7 @@ class TestEgzekwowaniaWZaproszeniach:
         assert response.status_code in (200, 201)
         assert InvitationToken.objects.count() == 1
 
-    def test_zaproszenie_traci_waznosc_gdy_miejsca_sie_zapelnia(
-        self, user, tenant, subscribtion
-    ):
+    def test_zaproszenie_traci_waznosc_gdy_miejsca_sie_zapelnia(self, user, tenant, subscribtion):
         """
         Sedno drugiego sprawdzenia. Zaproszenie wystawione, gdy miejsce było
         wolne, nie może dawać konta po tym, jak miejsca się zapełniły.
@@ -144,7 +148,9 @@ class TestEgzekwowaniaWZaproszeniach:
         user.tenant = tenant
         user.save()
         zaproszenie = InvitationToken.objects.create(
-            tenant=tenant, email="nowy@example.com", role="employee",
+            tenant=tenant,
+            email="nowy@example.com",
+            role="employee",
         )
         # Miejsca zapełniają się po wystawieniu zaproszenia
         dodaj_konta(tenant, 2)

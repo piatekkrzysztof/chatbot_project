@@ -7,6 +7,7 @@ aktualizował pola na modelu Tenant, podczas gdy limity wiadomości egzekwuje
 SubscriptionMiddleware na podstawie modelu Subscription — klient mógł zapłacić
 i nie dostać ani jednej wiadomości więcej.
 """
+
 import json
 from unittest.mock import patch
 
@@ -15,7 +16,10 @@ from rest_framework.test import APIClient
 
 from accounts.models import Subscription
 from accounts.plans import (
-    PLANS, allows_hiding_branding, allows_white_label, get_plan,
+    PLANS,
+    allows_hiding_branding,
+    allows_white_label,
+    get_plan,
 )
 from api.views.stripe_webhook import activate_subscription
 
@@ -55,11 +59,14 @@ class TestKatalogPlanow:
         assert allows_hiding_branding("grow") is True
         assert allows_hiding_branding("pro") is True
 
-    @pytest.mark.parametrize("kod,cena,cena_roczna,wiadomosci,baza_mb,boty,miejsca", [
-        ("start", 149, 119, 2_000, 5, 1, 1),
-        ("grow", 349, 279, 8_000, 25, 3, 3),
-        ("pro", 899, 719, 25_000, 100, 10, 10),
-    ])
+    @pytest.mark.parametrize(
+        "kod,cena,cena_roczna,wiadomosci,baza_mb,boty,miejsca",
+        [
+            ("start", 149, 119, 2_000, 5, 1, 1),
+            ("grow", 349, 279, 8_000, 25, 3, 3),
+            ("pro", 899, 719, 25_000, 100, 10, 10),
+        ],
+    )
     def test_cennik_zgodny_z_badaniem(
         self, kod, cena, cena_roczna, wiadomosci, baza_mb, boty, miejsca
     ):
@@ -166,10 +173,14 @@ class TestWebhook:
         Stripe woła z własnych serwerów — bez JWT i bez klucza API.
         Wcześniej TenantMiddleware odrzuciłby takie żądanie.
         """
-        with patch("stripe.Webhook.construct_event",
-                   return_value=self._zdarzenie("checkout.session.completed", tenant)):
+        with patch(
+            "stripe.Webhook.construct_event",
+            return_value=self._zdarzenie("checkout.session.completed", tenant),
+        ):
             response = APIClient().post(
-                self.URL, data=json.dumps({}), content_type="application/json",
+                self.URL,
+                data=json.dumps({}),
+                content_type="application/json",
                 HTTP_STRIPE_SIGNATURE="podpis",
             )
 
@@ -180,10 +191,14 @@ class TestWebhook:
         """Bez tej weryfikacji każdy mógłby aktywować sobie dowolny plan."""
         import stripe
 
-        with patch("stripe.Webhook.construct_event",
-                   side_effect=stripe.error.SignatureVerificationError("zly", "sig")):
+        with patch(
+            "stripe.Webhook.construct_event",
+            side_effect=stripe.error.SignatureVerificationError("zly", "sig"),
+        ):
             response = APIClient().post(
-                self.URL, data=json.dumps({}), content_type="application/json",
+                self.URL,
+                data=json.dumps({}),
+                content_type="application/json",
                 HTTP_STRIPE_SIGNATURE="podrobiony",
             )
 
@@ -192,10 +207,14 @@ class TestWebhook:
         assert subscribtion.plan_type != "pro"
 
     def test_nieudana_platnosc_wstrzymuje_subskrypcje(self, tenant, subscribtion):
-        with patch("stripe.Webhook.construct_event",
-                   return_value=self._zdarzenie("invoice.payment_failed", tenant)):
+        with patch(
+            "stripe.Webhook.construct_event",
+            return_value=self._zdarzenie("invoice.payment_failed", tenant),
+        ):
             response = APIClient().post(
-                self.URL, data=json.dumps({}), content_type="application/json",
+                self.URL,
+                data=json.dumps({}),
+                content_type="application/json",
                 HTTP_STRIPE_SIGNATURE="podpis",
             )
 
@@ -205,11 +224,17 @@ class TestWebhook:
 
     def test_zdarzenie_bez_tenant_id_nie_powtarza_sie_w_nieskonczonosc(self, tenant):
         """Kod błędu kazałby Stripe'owi ponawiać zdarzenie, którego nie da się obsłużyć."""
-        with patch("stripe.Webhook.construct_event",
-                   return_value={"type": "checkout.session.completed",
-                                 "data": {"object": {"metadata": {}}}}):
+        with patch(
+            "stripe.Webhook.construct_event",
+            return_value={
+                "type": "checkout.session.completed",
+                "data": {"object": {"metadata": {}}},
+            },
+        ):
             response = APIClient().post(
-                self.URL, data=json.dumps({}), content_type="application/json",
+                self.URL,
+                data=json.dumps({}),
+                content_type="application/json",
                 HTTP_STRIPE_SIGNATURE="podpis",
             )
 
@@ -270,16 +295,16 @@ class TestCheckout:
 
         assert response.status_code == 400
 
-    def test_brak_identyfikatora_ceny_daje_czytelny_blad(self, user, tenant, subscribtion, settings):
+    def test_brak_identyfikatora_ceny_daje_czytelny_blad(
+        self, user, tenant, subscribtion, settings
+    ):
         """
         Zanim wpiszesz ceny ze Stripe, zakup ma się kończyć zrozumiałym
         komunikatem, a nie pięćsetką z wnętrza biblioteki.
         """
         settings.STRIPE_PRICE_IDS = {"start": "", "grow": "", "pro": ""}
 
-        response = owner_client(user, tenant).post(
-            self.URL, {"plan_type": "pro"}, format="json"
-        )
+        response = owner_client(user, tenant).post(self.URL, {"plan_type": "pro"}, format="json")
 
         assert response.status_code == 400
         assert "nie jest jeszcze dostępny" in str(response.json())
@@ -302,7 +327,9 @@ class TestCheckout:
         assert metadane["plan"] == "pro"
         # Odnowienia dotyczą subskrypcji, nie sesji — bez tych metadanych
         # nie dałoby się powiązać kolejnych płatności z firmą
-        assert create.call_args.kwargs["subscription_data"]["metadata"]["tenant_id"] == str(tenant.id)
+        assert create.call_args.kwargs["subscription_data"]["metadata"]["tenant_id"] == str(
+            tenant.id
+        )
 
 
 @pytest.mark.django_db
@@ -392,6 +419,7 @@ class TestPublicznegoCennika:
     odrzuca wszystko pod /api/. To ten sam wzorzec, który wcześniej blokował
     zaproszenia i webhook Stripe'a.
     """
+
     URL = "/api/billing/cennik/"
 
     def test_dziala_bez_logowania(self):
@@ -439,6 +467,7 @@ class TestRejestracjiZOkresemProbnym:
     a rejestracja próbna go nie tworzyła — klient konfigurowałby wszystko,
     wkleił kod na stronę i zobaczył odmowę zamiast odpowiedzi.
     """
+
     URL = "/api/accounts/register/"
 
     def zarejestruj(self, email="nowy@example.com"):

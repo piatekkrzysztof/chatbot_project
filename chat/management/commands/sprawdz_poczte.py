@@ -10,6 +10,7 @@ Uruchamiać na tej usłudze, której konfigurację chcemy sprawdzić. Powłoka
 Rendera daje dostęp wyłącznie do procesu web — konfigurację workera bada
 zadanie `sprawdz_poczte_task`, patrz chat/tasks.py.
 """
+
 import smtplib
 
 from django.conf import settings

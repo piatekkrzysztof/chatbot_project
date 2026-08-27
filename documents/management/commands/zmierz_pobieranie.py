@@ -17,6 +17,7 @@ Komenda niczego nie zmienia. Pobiera stronę raz i przepuszcza przez kilka
 wariantów ustawień, żeby dało się zobaczyć różnicę w liczbach, zanim
 cokolwiek poprawimy w kodzie.
 """
+
 import re
 
 import trafilatura
@@ -32,10 +33,12 @@ from documents.models import Document
 WARIANTY = {
     "obecny": dict(include_comments=False, include_tables=False, include_formatting=False),
     "+tabele": dict(include_comments=False, include_tables=True, include_formatting=False),
-    "+odzysk": dict(include_comments=False, include_tables=True, include_formatting=False,
-                    favor_recall=True),
-    "+odzysk+struktura": dict(include_comments=False, include_tables=True,
-                              include_formatting=True, favor_recall=True),
+    "+odzysk": dict(
+        include_comments=False, include_tables=True, include_formatting=False, favor_recall=True
+    ),
+    "+odzysk+struktura": dict(
+        include_comments=False, include_tables=True, include_formatting=True, favor_recall=True
+    ),
     # Dwa warianty spoza logiki „wyciągnij artykuł". html2txt zamienia całą
     # stronę na tekst, bez oceniania, co jest treścią. „bez obudowy" robi to
     # samo, ale najpierw odcina nawigację, nagłówek i stopkę — czyli to,
@@ -80,12 +83,21 @@ class Command(BaseCommand):
     help = "Porównuje warianty ekstrakcji treści ze stron (nic nie zmienia)."
 
     def add_arguments(self, parser):
-        parser.add_argument("--firma", type=int, metavar="ID",
-                            help="Weź adresy podstron zapisanych dla tej firmy.")
-        parser.add_argument("--url", action="append", dest="adresy", metavar="ADRES",
-                            help="Konkretny adres. Można podać wielokrotnie.")
-        parser.add_argument("--pokaz", action="store_true",
-                            help="Wypisz też początek tego, co wyciąga najlepszy wariant.")
+        parser.add_argument(
+            "--firma", type=int, metavar="ID", help="Weź adresy podstron zapisanych dla tej firmy."
+        )
+        parser.add_argument(
+            "--url",
+            action="append",
+            dest="adresy",
+            metavar="ADRES",
+            help="Konkretny adres. Można podać wielokrotnie.",
+        )
+        parser.add_argument(
+            "--pokaz",
+            action="store_true",
+            help="Wypisz też początek tego, co wyciąga najlepszy wariant.",
+        )
 
     def handle(self, *args, **opcje):
         adresy = list(opcje.get("adresy") or [])
@@ -94,8 +106,7 @@ class Command(BaseCommand):
             if not Tenant.objects.filter(pk=opcje["firma"]).exists():
                 raise CommandError(f"Nie ma firmy o id {opcje['firma']}.")
             adresy += list(
-                Document.objects
-                .filter(tenant_id=opcje["firma"], source="website")
+                Document.objects.filter(tenant_id=opcje["firma"], source="website")
                 .exclude(source_url="")
                 .order_by("name")
                 .values_list("source_url", flat=True)
@@ -132,7 +143,10 @@ class Command(BaseCommand):
                 wiersz += f"{len(tekst):>11} {udzial:>4.0f}%"
             self.stdout.write(wiersz)
 
-            obecny, najlepszy_nazwa = len(wyniki["obecny"]), max(wyniki, key=lambda n: len(wyniki[n]))
+            obecny, najlepszy_nazwa = (
+                len(wyniki["obecny"]),
+                max(wyniki, key=lambda n: len(wyniki[n])),
+            )
             zyski.append((adres, obecny, len(wyniki[najlepszy_nazwa]), najlepszy_nazwa))
 
             if opcje["pokaz"]:
@@ -155,9 +169,7 @@ class Command(BaseCommand):
             self.stdout.write("  Podstrony, na których traci się najwięcej:")
             for adres, teraz, najlepiej, nazwa in najgorsze:
                 if najlepiej > teraz:
-                    self.stdout.write(
-                        f"    {teraz:>6} -> {najlepiej:>6} ({nazwa})   {adres[-52:]}"
-                    )
+                    self.stdout.write(f"    {teraz:>6} -> {najlepiej:>6} ({nazwa})   {adres[-52:]}")
 
         self.stdout.write("")
         self.stdout.write("  Nic nie zostało zmienione ani zapisane.")

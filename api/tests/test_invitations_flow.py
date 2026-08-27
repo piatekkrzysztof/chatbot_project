@@ -7,6 +7,7 @@ nie ma jeszcze konta ani klucza API — dostawał 401 przy próbie przyjęcia
 zaproszenia. Do tego nieudana wysyłka e-maila kończyła się pięćsetką mimo
 poprawnie zapisanego tokenu, bo send_mail leciał z fail_silently=False.
 """
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -30,8 +31,7 @@ def test_wlasciciel_dostaje_gotowy_link_do_skopiowania(user, tenant, mocker):
 
     response = client.post(
         "/api/accounts/invitations/",
-        {"email": "pracownik@example.com", "role": "employee",
-         "duration": "1d", "max_users": 1},
+        {"email": "pracownik@example.com", "role": "employee", "duration": "1d", "max_users": 1},
         format="json",
     )
 
@@ -53,8 +53,7 @@ def test_awaria_poczty_nie_przekresla_zaproszenia(user, tenant, mocker):
 
     response = client.post(
         "/api/accounts/invitations/",
-        {"email": "pracownik@example.com", "role": "employee",
-         "duration": "1d", "max_users": 1},
+        {"email": "pracownik@example.com", "role": "employee", "duration": "1d", "max_users": 1},
         format="json",
     )
 
@@ -67,13 +66,14 @@ def test_awaria_poczty_nie_przekresla_zaproszenia(user, tenant, mocker):
 def test_zapraszany_widzi_podglad_bez_konta(tenant):
     """Anonimowy request bez klucza API — dokładnie ten, który blokował middleware."""
     invitation = InvitationToken.objects.create(
-        tenant=tenant, email="nowy@example.com", role="employee",
-        duration="1d", max_users=1,
+        tenant=tenant,
+        email="nowy@example.com",
+        role="employee",
+        duration="1d",
+        max_users=1,
     )
 
-    response = APIClient().get(
-        f"/api/accounts/invitations/{invitation.token}/preview/"
-    )
+    response = APIClient().get(f"/api/accounts/invitations/{invitation.token}/preview/")
 
     assert response.status_code == 200
     data = response.json()
@@ -93,14 +93,21 @@ def test_podglad_nieistniejacego_tokenu_daje_404(tenant):
 @pytest.mark.django_db
 def test_zapraszany_zaklada_konto_bez_uwierzytelnienia(tenant):
     invitation = InvitationToken.objects.create(
-        tenant=tenant, email="nowy@example.com", role="employee",
-        duration="1d", max_users=1,
+        tenant=tenant,
+        email="nowy@example.com",
+        role="employee",
+        duration="1d",
+        max_users=1,
     )
 
     response = APIClient().post(
         "/api/accounts/accept-invite/",
-        {"token": str(invitation.token), "username": "nowy",
-         "email": "nowy@example.com", "password": "TajneHaslo123"},
+        {
+            "token": str(invitation.token),
+            "username": "nowy",
+            "email": "nowy@example.com",
+            "password": "TajneHaslo123",
+        },
         format="json",
     )
 
@@ -113,12 +120,18 @@ def test_zapraszany_zaklada_konto_bez_uwierzytelnienia(tenant):
 @pytest.mark.django_db
 def test_zuzyte_zaproszenie_nie_dziala_drugi_raz(tenant):
     invitation = InvitationToken.objects.create(
-        tenant=tenant, email="nowy@example.com", role="employee",
-        duration="1d", max_users=1,
+        tenant=tenant,
+        email="nowy@example.com",
+        role="employee",
+        duration="1d",
+        max_users=1,
     )
     client = APIClient()
-    payload = {"token": str(invitation.token), "email": "nowy@example.com",
-               "password": "TajneHaslo123"}
+    payload = {
+        "token": str(invitation.token),
+        "email": "nowy@example.com",
+        "password": "TajneHaslo123",
+    }
 
     first = client.post(
         "/api/accounts/accept-invite/", {**payload, "username": "pierwszy"}, format="json"
@@ -145,8 +158,7 @@ def test_kazdy_okres_waznosci_da_sie_wybrac(user, tenant, mocker, duration):
 
     response = client.post(
         "/api/accounts/invitations/",
-        {"email": "kto@example.com", "role": "employee",
-         "duration": duration, "max_users": 1},
+        {"email": "kto@example.com", "role": "employee", "duration": duration, "max_users": 1},
         format="json",
     )
 
@@ -160,8 +172,7 @@ def test_kazdy_okres_ma_zdefiniowany_czas_wygasniecia():
     jednego dnia, więc "7 dni" wybrane w panelu przestawałoby działać po dobie.
     """
     brakujace = [
-        d.value for d in InvitationDuration
-        if d.value not in InvitationToken.DURATION_DELTAS
+        d.value for d in InvitationDuration if d.value not in InvitationToken.DURATION_DELTAS
     ]
 
     assert brakujace == []
@@ -170,8 +181,11 @@ def test_kazdy_okres_ma_zdefiniowany_czas_wygasniecia():
 @pytest.mark.django_db
 def test_wlasciciel_cofa_zaproszenie(user, tenant):
     invitation = InvitationToken.objects.create(
-        tenant=tenant, email="pomylka@example.com", role="employee",
-        duration="1d", max_users=1,
+        tenant=tenant,
+        email="pomylka@example.com",
+        role="employee",
+        duration="1d",
+        max_users=1,
     )
     client = owner_client(user, tenant)
 
@@ -187,8 +201,11 @@ def test_nie_mozna_cofnac_cudzego_zaproszenia(user, tenant):
 
     obcy = TenantFactory()
     cudze = InvitationToken.objects.create(
-        tenant=obcy, email="ktos@example.com", role="employee",
-        duration="1d", max_users=1,
+        tenant=obcy,
+        email="ktos@example.com",
+        role="employee",
+        duration="1d",
+        max_users=1,
     )
     client = owner_client(user, tenant)
 
@@ -204,12 +221,18 @@ def test_lista_zaproszen_pokazuje_tylko_wlasne(user, tenant):
 
     obcy = TenantFactory()
     InvitationToken.objects.create(
-        tenant=tenant, email="moj@example.com", role="employee",
-        duration="1d", max_users=1,
+        tenant=tenant,
+        email="moj@example.com",
+        role="employee",
+        duration="1d",
+        max_users=1,
     )
     InvitationToken.objects.create(
-        tenant=obcy, email="cudzy@example.com", role="employee",
-        duration="1d", max_users=1,
+        tenant=obcy,
+        email="cudzy@example.com",
+        role="employee",
+        duration="1d",
+        max_users=1,
     )
 
     client = owner_client(user, tenant)

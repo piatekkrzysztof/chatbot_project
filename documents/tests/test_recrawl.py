@@ -6,6 +6,7 @@ ale zadanie cykliczne pobierało wszystkie aktywne źródła przy każdym przebi
 niezależnie od planu. Różnica jest realna, nie tylko cennikowa: każdy przebieg
 to ruch na stronie klienta i przeliczenie embeddingów, za które płacimy.
 """
+
 from datetime import timedelta
 
 import pytest
@@ -25,9 +26,14 @@ def zrodlo(tenant):
 
 
 class TestCzestotliwosciWKatalogu:
-    @pytest.mark.parametrize("plan,dni", [
-        ("start", None), ("grow", 7), ("pro", 1),
-    ])
+    @pytest.mark.parametrize(
+        "plan,dni",
+        [
+            ("start", None),
+            ("grow", 7),
+            ("pro", 1),
+        ],
+    )
     def test_czestotliwosc_pochodzi_z_planu(self, plan, dni):
         assert recrawl_days_for(plan) == dni
 
@@ -42,9 +48,7 @@ class TestCzestotliwosciWKatalogu:
 
 @pytest.mark.django_db
 class TestZadaniaCyklicznego:
-    def test_start_nie_jest_odswiezany_automatycznie(
-        self, tenant, subscribtion, zrodlo, mocker
-    ):
+    def test_start_nie_jest_odswiezany_automatycznie(self, tenant, subscribtion, zrodlo, mocker):
         """Sedno: plan Start ma w cenniku odświeżanie wyłącznie ręczne."""
         subscribtion.plan_type = "start"
         subscribtion.save()
@@ -54,9 +58,7 @@ class TestZadaniaCyklicznego:
 
         kolejka.assert_not_called()
 
-    def test_pierwsze_pobranie_dziala_od_razu(
-        self, tenant, subscribtion, zrodlo, mocker
-    ):
+    def test_pierwsze_pobranie_dziala_od_razu(self, tenant, subscribtion, zrodlo, mocker):
         """Świeżo dodane źródło nie ma daty pobrania — nie ma na co czekać."""
         subscribtion.plan_type = "grow"
         subscribtion.save()
@@ -100,9 +102,7 @@ class TestZadaniaCyklicznego:
 
         kolejka.assert_called_once()
 
-    def test_wylaczone_zrodlo_jest_pomijane(
-        self, tenant, subscribtion, zrodlo, mocker
-    ):
+    def test_wylaczone_zrodlo_jest_pomijane(self, tenant, subscribtion, zrodlo, mocker):
         subscribtion.plan_type = "pro"
         subscribtion.save()
         zrodlo.is_active = False
@@ -116,9 +116,7 @@ class TestZadaniaCyklicznego:
 
 @pytest.mark.django_db
 class TestRecznegoOdswiezania:
-    def test_start_moze_odswiezyc_recznie(
-        self, user, tenant, subscribtion, zrodlo, mocker
-    ):
+    def test_start_moze_odswiezyc_recznie(self, user, tenant, subscribtion, zrodlo, mocker):
         """
         Bez tego plan Start nie miałby żadnego sposobu na uwzględnienie zmian
         na własnej stronie — a cennik obiecuje mu odświeżanie ręczne.
@@ -138,15 +136,11 @@ class TestRecznegoOdswiezania:
         assert response.status_code == 202
         kolejka.assert_called_once()
 
-    def test_nie_da_sie_odswiezyc_cudzego_zrodla(
-        self, user, tenant, subscribtion, mocker
-    ):
+    def test_nie_da_sie_odswiezyc_cudzego_zrodla(self, user, tenant, subscribtion, mocker):
         from api.tests.factories import TenantFactory
 
         obcy = TenantFactory()
-        cudze = WebsiteSource.objects.create(
-            tenant=obcy, name="Cudza", url="https://cudza.pl"
-        )
+        cudze = WebsiteSource.objects.create(tenant=obcy, name="Cudza", url="https://cudza.pl")
         user.tenant = tenant
         user.role = "owner"
         user.save()

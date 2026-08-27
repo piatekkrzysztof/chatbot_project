@@ -14,10 +14,17 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name',
-            'role', 'tenant', 'is_active', 'last_login'
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "tenant",
+            "is_active",
+            "last_login",
         ]
-        read_only_fields = ['id', 'tenant', 'last_login']
+        read_only_fields = ["id", "tenant", "last_login"]
 
 
 class ChatRequestSerializer(serializers.Serializer):
@@ -54,18 +61,18 @@ class RegisterSerializer(serializers.Serializer):
         plan = validated_data.pop("plan")
 
         tenant = Tenant.objects.create(
-            name=validated_data['company_name'],
-            owner_email=validated_data['email'],
-            subscription_status='trial' if use_trial else 'inactive',
-            subscription_plan='trial' if use_trial else None,
+            name=validated_data["company_name"],
+            owner_email=validated_data["email"],
+            subscription_status="trial" if use_trial else "inactive",
+            subscription_plan="trial" if use_trial else None,
         )
 
         user = CustomUser.objects.create_user(
-            username=validated_data['email'],
-            email=validated_data['email'],
-            password=validated_data['password'],
+            username=validated_data["email"],
+            email=validated_data["email"],
+            password=validated_data["password"],
             tenant=tenant,
-            role='owner',
+            role="owner",
         )
 
         return {
@@ -84,12 +91,12 @@ class RegisterSerializer(serializers.Serializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        data['user'] = {
-            'id': self.user.id,
-            'email': self.user.email,
-            'role': self.user.role,
-            'tenant_id': self.user.tenant_id,
-            'tenant_name': self.user.tenant.name,
+        data["user"] = {
+            "id": self.user.id,
+            "email": self.user.email,
+            "role": self.user.role,
+            "tenant_id": self.user.tenant_id,
+            "tenant_name": self.user.tenant.name,
         }
 
         return data
@@ -98,10 +105,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class InvitationCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvitationToken
-        fields = ['email', 'role', 'duration', 'max_users']
+        fields = ["email", "role", "duration", "max_users"]
 
     def create(self, validated_data):
-        tenant = self.context['request'].user.tenant
+        tenant = self.context["request"].user.tenant
         # Wcześnie, żeby właściciel dowiedział się teraz, a nie po tym, jak
         # pracownik kliknie w link i zobaczy błąd
         sprawdz_limit_miejsc(tenant)
@@ -115,6 +122,7 @@ class InvitationReadSerializer(serializers.ModelSerializer):
     Sam e-mail nie wystarcza: wysyłka bywa zablokowana albo wiadomość ląduje
     w spamie, a wtedy właściciel nie ma jak przekazać zaproszenia inaczej.
     """
+
     accept_url = serializers.SerializerMethodField()
     expires_at = serializers.DateTimeField(read_only=True)
     is_valid = serializers.BooleanField(read_only=True)
@@ -123,9 +131,18 @@ class InvitationReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvitationToken
         fields = [
-            'id', 'email', 'role', 'duration', 'max_users', 'users',
-            'seats_left', 'token', 'accept_url', 'expires_at', 'is_valid',
-            'created_at',
+            "id",
+            "email",
+            "role",
+            "duration",
+            "max_users",
+            "users",
+            "seats_left",
+            "token",
+            "accept_url",
+            "expires_at",
+            "is_valid",
+            "created_at",
         ]
 
     @extend_schema_field(serializers.URLField())
@@ -145,7 +162,7 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         try:
-            invitation = InvitationToken.objects.get(token=attrs['token'])
+            invitation = InvitationToken.objects.get(token=attrs["token"])
         except InvitationToken.DoesNotExist:
             raise serializers.ValidationError("Invalid token.")
 
@@ -157,19 +174,19 @@ class AcceptInvitationSerializer(serializers.Serializer):
         # zejść na niższy plan
         sprawdz_limit_miejsc(invitation.tenant)
 
-        attrs['invitation'] = invitation
+        attrs["invitation"] = invitation
         return attrs
 
     def create(self, validated_data):
-        invitation = validated_data['invitation']
+        invitation = validated_data["invitation"]
         tenant = invitation.tenant
 
         user = CustomUser.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
+            username=validated_data["username"],
+            email=validated_data["email"],
+            password=validated_data["password"],
             tenant=tenant,
-            role=invitation.role
+            role=invitation.role,
         )
 
         invitation.use()
@@ -199,7 +216,9 @@ class DocumentSerializer(serializers.ModelSerializer):
     def get_chunk_count(self, obj):
         return obj.chunks.count()
 
-    @extend_schema_field(serializers.ChoiceField(choices=['ready', 'processed_no_chunks', 'processing']))
+    @extend_schema_field(
+        serializers.ChoiceField(choices=["ready", "processed_no_chunks", "processing"])
+    )
     def get_status(self, obj):
         if obj.processed:
             if obj.chunks.exists():
@@ -221,6 +240,7 @@ class DocumentChunkSerializer(serializers.ModelSerializer):
 
 class WidgetDomainSerializer(serializers.ModelSerializer):
     """Witryna, na której wykryto działający widget."""
+
     class Meta:
         model = WidgetDomain
         fields = ["id", "host", "first_seen", "last_seen"]
@@ -245,16 +265,22 @@ class PromptLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = PromptLog
         fields = [
-            "id", "conversation_id", "conversation_session_id", "prompt", "response",
-            "tokens", "source", "model", "created_at", "is_helpful"
+            "id",
+            "conversation_id",
+            "conversation_session_id",
+            "prompt",
+            "response",
+            "tokens",
+            "source",
+            "model",
+            "created_at",
+            "is_helpful",
         ]
 
     @extend_schema_field(serializers.BooleanField(allow_null=True))
     def get_is_helpful(self, obj):
         msg = ChatMessage.objects.filter(
-            conversation=obj.conversation,
-            sender="bot",
-            message=obj.response
+            conversation=obj.conversation, sender="bot", message=obj.response
         ).first()
 
         feedback = getattr(msg, "feedback", None)
@@ -270,6 +296,7 @@ class ChatFeedbackSerializer(serializers.Serializer):
     cudzą rozmowę — a przy publicznym endpoincie dla widgetu byłby to zapis
     między tenantami i sposób na sprawdzanie, jakie identyfikatory istnieją.
     """
+
     message_id = serializers.IntegerField()
     is_helpful = serializers.BooleanField(required=True)
 
@@ -294,9 +321,9 @@ class ChatFeedbackSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return ChatFeedback.objects.update_or_create(
-            message=self.context["message"],
-            defaults={"is_helpful": validated_data["is_helpful"]}
+            message=self.context["message"], defaults={"is_helpful": validated_data["is_helpful"]}
         )[0]
+
 
 class PublicFAQSerializer(serializers.ModelSerializer):
     class Meta:
@@ -306,6 +333,7 @@ class PublicFAQSerializer(serializers.ModelSerializer):
 
 class ContactRequestCreateSerializer(serializers.Serializer):
     """Dane zostawiane przez odwiedzającego w widgecie — bez pól technicznych."""
+
     name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     contact = serializers.CharField(max_length=200)
     message = serializers.CharField(required=False, allow_blank=True)
@@ -319,14 +347,30 @@ class ContactRequestSerializer(serializers.ModelSerializer):
         # którego nikt nie widzi, jest tym samym co jego brak. Właściciel musi
         # wiedzieć, że o tym zapytaniu nie dostał maila — inaczej czeka na
         # powiadomienie, które nigdy nie przyszło.
-        fields = ["id", "name", "contact", "message", "handled", "created_at",
-                  "powiadomiono_at", "blad_powiadomienia"]
-        read_only_fields = ["id", "name", "contact", "message", "created_at",
-                            "powiadomiono_at", "blad_powiadomienia"]
+        fields = [
+            "id",
+            "name",
+            "contact",
+            "message",
+            "handled",
+            "created_at",
+            "powiadomiono_at",
+            "blad_powiadomienia",
+        ]
+        read_only_fields = [
+            "id",
+            "name",
+            "contact",
+            "message",
+            "created_at",
+            "powiadomiono_at",
+            "blad_powiadomienia",
+        ]
 
 
 class FAQSerializer(serializers.ModelSerializer):
     """Wersja do zarządzania z panelu — z id, żeby dało się edytować i usuwać."""
+
     class Meta:
         model = FAQ
         fields = ["id", "question", "answer"]

@@ -14,11 +14,7 @@ def test_tenant_str():
 def test_invitation_token_validity():
     tenant = Tenant.objects.create(name="Org", owner_email="o@o.com")
     token = InvitationToken.objects.create(
-        tenant=tenant,
-        role="employee",
-        duration=24,
-        max_users=1,
-        email="invite@org.com"
+        tenant=tenant, role="employee", duration=24, max_users=1, email="invite@org.com"
     )
     assert token.is_valid() is True
     assert token.users == 0
@@ -32,10 +28,7 @@ def test_invitation_token_validity():
 def test_invitation_token_expired():
     tenant = Tenant.objects.create(name="T", owner_email="x@x.com")
     token = InvitationToken.objects.create(
-        tenant=tenant,
-        role="employee",
-        duration="1h",
-        max_users=1
+        tenant=tenant, role="employee", duration="1h", max_users=1
     )
     token.created_at = timezone.now() - timedelta(hours=2)
     token.save(update_fields=["created_at"])
@@ -59,9 +52,10 @@ def test_token_str_repr():
     assert str(token) == f"Invitation for {token.email} [{token.role}] ({token.tenant.name})"
 
 
-
 @pytest.mark.django_db
 def test_user_str_repr():
     tenant = Tenant.objects.create(name="A", owner_email="a@a.com")
-    user = CustomUser.objects.create_user(username="x", email="x@x.com", password="123", tenant=tenant)
+    user = CustomUser.objects.create_user(
+        username="x", email="x@x.com", password="123", tenant=tenant
+    )
     assert str(user) == "x [A]"

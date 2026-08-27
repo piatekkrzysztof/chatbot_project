@@ -7,6 +7,7 @@ do niczego i klient płacący 99 zł był limitowany dokładnie jak darmowy. A s
 liczniki szły do pamięci procesu, więc przy czterech procesach gunicorna realny
 limit był czterokrotnie wyższy od deklarowanego.
 """
+
 import pytest
 from django.test import override_settings
 
