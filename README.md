@@ -344,6 +344,20 @@ public issue.
 
 ---
 
+## Incidents
+
+**[26 August 2026 — the chatbot went silent and nobody was told](docs/incydent-2026-08-26.md).**
+A trial subscription expired, the widget started returning a generic error to every
+visitor, and no alert, log line or panel change said so. Found by accident a day later,
+while verifying an unrelated change. The write-up covers the timeline, why detection
+failed, a second unrelated bug the investigation surfaced, what was fixed, and what is
+still open.
+
+Written because the code path is the same for every customer, and because the detection
+gap is more interesting than the bug.
+
+---
+
 ## Known limitations
 
 Honest list. These are measured or known, not hypothetical.
@@ -374,6 +388,11 @@ Honest list. These are measured or known, not hypothetical.
   diagnosed. A randomly red pipeline is worse than none, so this needs fixing before
   coverage gates go in.
 - **No load test.** Throughput and p95 latency under concurrency are unknown.
+- **No monitoring.** There is no dashboard on which a chatbot going quiet would be
+  visible, and no alert on a drop in conversation volume. That is the signal that would
+  have caught the August incident in minutes rather than a day.
+- **Middleware refusals are silent.** A request rejected by `SubscriptionMiddleware`
+  writes no log line and records no event, so refusals cannot be counted after the fact.
 - **The OpenAPI schema is behind authentication.** `drf-spectacular` is wired up and the
   schema is generated, but `/api/schema/` returns 401, so the API cannot be browsed
   without an account.
