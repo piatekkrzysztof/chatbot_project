@@ -371,8 +371,11 @@ Honest list. These are measured or known, not hypothetical.
   and formatting block a merge. The rest report a number and nothing more - a debt with
   a figure attached rather than a hidden one.
 - **Dependency vulnerabilities: 0.** `pip-audit` runs on every pull request. It reported
-  78 in August 2026, concentrated in three packages; all three were upgraded and the
-  count is now zero. It will not stay there on its own - the check is what keeps it honest.
+  78 in August 2026, cleared in two passes: three direct packages first, then three more
+  that only the tool's own resolution surfaced - including PyJWT, which verifies the
+  signature on every access token. Checking the direct dependencies by hand had looked
+  like enough and was not. It will not stay at zero on its own; the check is what keeps
+  it honest.
 - **`RAG_MAX_DISTANCE` is global.** The right threshold depends on a tenant's documents
   and is measured per tenant, but stored as one process-wide setting — multi-tenant in
   every respect except this one.
