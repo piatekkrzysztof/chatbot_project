@@ -215,7 +215,7 @@ jobs:
           PODSUMOWANIE=$(tail -1 format.txt | cut -c1-140)
 
           if [ -n "$ILE" ]; then
-            echo "::notice title=Formatowanie::${ILE} plików do przeformatowania (nie blokuje - dług do spłacenia)"
+            echo "::notice title=Formatowanie::${ILE} plików do przeformatowania"
           elif grep -q "already formatted" format.txt; then
             echo "::notice title=Formatowanie::0 plików do przeformatowania (${PODSUMOWANIE})"
           else
@@ -223,8 +223,12 @@ jobs:
             # Ostrzeżenie, nie cicha zerowa liczba.
             echo "::warning title=Formatowanie::nie odczytano wyniku, ostatni wiersz: ${PODSUMOWANIE:-brak}"
           fi
-        # Z powrotem nieblokujące, do czasu poznania PRAWDZIWEJ liczby.
-        continue-on-error: true
+
+          # Teraz blokuje - i tym razem na zmierzonej liczbie, nie na odczycie
+          # z zepsutego licznika. Cały kod został przeformatowany, `ruff format
+          # --check` zgłasza "188 files already formatted", a pakiet 855 testów
+          # przeszedł po tej zmianie bez zmian.
+          ruff format --check .
 
   typy:
     name: Typy

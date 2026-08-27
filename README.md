@@ -352,10 +352,12 @@ Honest list. These are measured or known, not hypothetical.
   no faithfulness or abstention scoring. "RAG works" is currently an opinion backed by
   spot checks and one threshold-measuring command, not a number. This is the single
   biggest gap and the top of the roadmap.
-- **Coverage is unmeasured.** The suite is large and behavioural, but no percentage has
-  been recorded, so there is no threshold to defend against regressions.
-- **No linter, formatter, type checker or dependency scan in CI.** Ruff, mypy/Pyright,
-  Bandit and `pip-audit` are planned, not present.
+- **277 lint findings and 1 type error, both unenforced.** Ruff, mypy, Bandit and
+  `pip-audit` all run on every pull request, but only coverage (83%, measured at 85%)
+  and formatting block a merge. The rest report a number and nothing more - a debt with
+  a figure attached rather than a hidden one.
+- **78 vulnerabilities in production dependencies**, reported by `pip-audit` and not yet
+  triaged. The number is real; the severity spread is not yet known.
 - **`RAG_MAX_DISTANCE` is global.** The right threshold depends on a tenant's documents
   and is measured per tenant, but stored as one process-wide setting — multi-tenant in
   every respect except this one.
