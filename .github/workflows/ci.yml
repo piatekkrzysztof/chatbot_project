@@ -194,13 +194,26 @@ jobs:
             ruff format --check --diff . 2>&1 | tail -20
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          ILE=$(ruff format --check . 2>/dev/null | grep -c "^Would reformat" || true)
-          echo "::notice title=Formatowanie::${ILE} plików do przeformatowania"
-          # Zmierzone w pierwszym przebiegu: ZERO plików do przeformatowania.
-          # Skoro warunek jest już spełniony, nie ma czego tarować — od teraz
-          # blokuje. To najtańszy próg w całym pliku: nic nie kosztuje, dopóki
-          # ktoś go nie złamie.
-          ruff format --check .
+          # Oba strumienie do pliku. Poprzednia wersja miała tu `2>/dev/null`
+          # i liczyła wiersze "Would reformat" ze STDOUT — a ruff wypisuje je
+          # na STDERR. Licznik wyrzucał więc dokładnie to, co miał policzyć,
+          # i podawał ZERO niezależnie od stanu kodu.
+          #
+          # Kosztowało to więcej niż samą złą liczbę: na jej podstawie ten krok
+          # został ustawiony jako blokujący, po czym CI stanęło na czerwono przy
+          # pierwszym uruchomieniu. Próg postawiony na odczycie z zepsutego
+          # instrumentu jest gorszy niż brak progu.
+          ruff format --check . > format.txt 2>&1 || true
+          ILE=$(grep -c "^Would reformat" format.txt || true)
+          if grep -q "^Would reformat" format.txt; then
+            echo "::notice title=Formatowanie::${ILE} plików do przeformatowania (nie blokuje — punkt startowy)"
+          else
+            # Rozróżniamy "zmierzono zero" od "nie udało się zmierzyć".
+            OGON=$(tail -1 format.txt | cut -c1-120)
+            echo "::notice title=Formatowanie::0 plików do przeformatowania — ostatni wiersz raportu: ${OGON:-brak}"
+          fi
+        # Z powrotem nieblokujące, do czasu poznania PRAWDZIWEJ liczby.
+        continue-on-error: true
 
   typy:
     name: Typy
