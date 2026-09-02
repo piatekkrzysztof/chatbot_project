@@ -292,6 +292,19 @@ Two habits worth knowing if you contribute:
 `TenantMiddleware`. Querysets are scoped through `TenantQuerysetMixin` rather than
 per-view filtering, so a missing filter is a missing mixin and shows up in review.
 
+**Audit log.** Every state-changing request to the API is recorded: who, what, when,
+from which address, and how it ended. Written by middleware rather than by calls inside
+each view - a call is something you forget to add when you write the next endpoint, and
+then the log is full, looks complete, and is missing exactly the entry you need. The
+owner of a company reads their own log through `/api/accounts/dziennik/`; there is no
+endpoint that writes to it or deletes from it, for them or for us, because a record that
+can be corrected afterwards proves nothing.
+
+Request bodies are deliberately not stored. They carry passwords, visitors' personal
+data and whole documents; keeping them would turn the audit log into a second, less
+guarded copy of everything. `DELETE /api/faq/12/ 204` already says who removed which
+entry.
+
 **Login rate limiting.** Two layers, because each catches something the other misses:
 10 attempts per minute per IP address, and 5 per minute per account regardless of where
 they come from. The second layer is the one that matters - distributing guesses across
