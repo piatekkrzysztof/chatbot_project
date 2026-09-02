@@ -119,9 +119,7 @@ class TenantMiddleware:
             return
 
         powod = (
-            PowodOdmowy.ZLY_KLUCZ
-            if request.headers.get("X-API-Key")
-            else PowodOdmowy.BRAK_KLUCZA
+            PowodOdmowy.ZLY_KLUCZ if request.headers.get("X-API-Key") else PowodOdmowy.BRAK_KLUCZA
         )
         try:
             zapisz_odmowe(None, powod)
@@ -188,7 +186,6 @@ def _odmow(tresc, status, powod, tenant=None):
     return JsonResponse(tresc, status=status)
 
 
-
 class SubscriptionMiddleware(MiddlewareMixin):
     # Dokładne ścieżki (nie prefiksy!) — endpointy wysyłające wiadomość do AI.
     # Prefiksowe dopasowanie złapałoby też /api/chat/logs/, /api/chat/feedback/ itd.,
@@ -202,9 +199,7 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
         api_key = request.headers.get("X-API-KEY")
         if not api_key:
-            return _odmow(
-                {"error": "Missing API key"}, 401, PowodOdmowy.BRAK_KLUCZA
-            )
+            return _odmow({"error": "Missing API key"}, 401, PowodOdmowy.BRAK_KLUCZA)
 
         try:
             # 1. Znajdź Tenant po kluczu API
@@ -272,9 +267,7 @@ class SubscriptionMiddleware(MiddlewareMixin):
             return None
 
         except Tenant.DoesNotExist:
-            return _odmow(
-                {"error": "Invalid API key"}, 401, PowodOdmowy.ZLY_KLUCZ
-            )
+            return _odmow({"error": "Invalid API key"}, 401, PowodOdmowy.ZLY_KLUCZ)
 
 
 #: Ścieżki, których nie zapisujemy.

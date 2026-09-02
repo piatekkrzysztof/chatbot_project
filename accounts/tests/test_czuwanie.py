@@ -16,9 +16,27 @@ import pytest
 from django.core import mail
 from django.utils import timezone
 
-from accounts.czuwanie import PROG_ZLYCH_KLUCZY, sprawdz_odmowy_widgetu
+from accounts.czuwanie import (
+    PROG_ZLYCH_KLUCZY,
+    BrakAdresuAlertow,
+    sprawdz_odmowy_widgetu,
+)
 from accounts.models import Tenant
 from accounts.odmowy import PowodOdmowy, ZliczenieOdmow
+
+#: Adres alertow ustawiony wprost, dla kazdego testu w tym pliku.
+#:
+#: Pierwsza wersja polegala na tym, co akurat stalo w .env dewelopera. Na jego
+#: maszynie DEFAULT_FROM_EMAIL byl ustawiony i szesc testow przechodzilo;
+#: w CI, gdzie .env nie ma, ta sama szostka padala - bo send_mail z pustym
+#: odbiorca nie zglasza bledu, tylko po cichu nic nie wysyla. Test, ktorego
+#: wynik zalezy od pliku spoza repozytorium, nie mierzy kodu.
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def adres_alertow(settings):
+    settings.EMAIL_ALERTOW = "alerty@example.com"
 
 
 @pytest.fixture
@@ -178,3 +196,43 @@ class TestNiezawodnosci:
         assert len(mail.outbox) == 1
         assert "Rowerownia" in mail.outbox[0].body
         assert "Piekarnia" in mail.outbox[0].body
+
+
+@pytest.mark.django_db
+class TestBrakuKonfiguracji:
+    """Alert bez adresu docelowego to monitoring, który sam milczy."""
+
+    def test_brak_adresu_zatrzymuje_zadanie_glosno(self, firma, settings):
+        """
+        Najważniejszy test w tym pliku, zaraz po nieudanej wysyłce.
+
+        `send_mail` z pustym odbiorca NIE rzuca wyjatkiem - zwraca zero i nic
+        nie robi. Pierwsza wersja stawiala wtedy znacznik "zgloszone" i alert
+        przepadal na zawsze: przez brak jednej zmiennej srodowiskowej caly
+        monitoring milczalby dokladnie tak, jak w sierpniu milczal chatbot.
+
+        Zlapalo to dopiero CI, gdzie nie ma pliku .env. Na maszynie
+        deweloperskiej ten blad byl niewidoczny.
+        """
+        settings.EMAIL_ALERTOW = ""
+        settings.DEFAULT_FROM_EMAIL = ""
+        odmowy(firma, PowodOdmowy.SUBSKRYPCJA_WYGASLA)
+
+        with pytest.raises(BrakAdresuAlertow):
+            sprawdz_odmowy_widgetu()
+
+        # Znacznik zostaje niepostawiony: po naprawieniu konfiguracji alert
+        # ma pojsc, a nie zostac uznany za doreczony.
+        assert ZliczenieOdmow.objects.get().zgloszone is False
+
+    def test_zero_doreczen_bez_wyjatku_tez_jest_porazka(self, firma):
+        # Backend poczty moze przyjac wiadomosc i zwrocic zero doreczen bez
+        # zadnego bledu. Bez sprawdzenia wyniku nie odroznilibysmy tego od
+        # udanej wysylki.
+        odmowy(firma, PowodOdmowy.SUBSKRYPCJA_WYGASLA)
+
+        with patch("accounts.czuwanie.send_mail", return_value=0):
+            with pytest.raises(RuntimeError):
+                sprawdz_odmowy_widgetu()
+
+        assert ZliczenieOdmow.objects.get().zgloszone is False

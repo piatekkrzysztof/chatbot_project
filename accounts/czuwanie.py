@@ -51,6 +51,10 @@ logger = logging.getLogger(__name__)
 PROG_ZLYCH_KLUCZY = 50
 
 
+class BrakAdresuAlertow(RuntimeError):
+    """Nie ma dokąd wysłać alertu."""
+
+
 def _adres_operatora() -> str:
     """
     Dokąd idą alerty.
@@ -59,8 +63,21 @@ def _adres_operatora() -> str:
     adresu piszemy do klientów, a ten ktoś musi czytać w niedzielę. Gdy nie jest
     ustawiona, wracamy do adresu nadawcy - alert wysłany do siebie jest wciąż
     lepszy niż alert nigdzie.
+
+    Gdy nie ma ani jednego, rzucamy wyjątkiem zamiast wysyłać „donikąd".
+    `send_mail` z pustym odbiorcą NIE zgłasza błędu - zwraca zero i po cichu
+    nic nie robi. Pierwsza wersja tego modułu stawiała wtedy znacznik
+    „zgłoszone" i alert przepadał na zawsze, czyli przez brak jednej zmiennej
+    środowiskowej cały monitoring milczałby dokładnie tak, jak milczał chatbot
+    w sierpniu.
     """
-    return getattr(settings, "EMAIL_ALERTOW", "") or settings.DEFAULT_FROM_EMAIL
+    adres = getattr(settings, "EMAIL_ALERTOW", "") or settings.DEFAULT_FROM_EMAIL
+    if not adres:
+        raise BrakAdresuAlertow(
+            "Ustaw EMAIL_ALERTOW albo DEFAULT_FROM_EMAIL - bez tego alerty "
+            "o niedzialajacych chatbotach nie maja dokad isc."
+        )
+    return adres
 
 
 def _opis_firmy(zliczenie: ZliczenieOdmow) -> str:
@@ -126,13 +143,19 @@ def sprawdz_odmowy_widgetu():
     )
 
     try:
-        send_mail(
+        wyslane = send_mail(
             subject=temat,
             message=_tresc_alertu(zliczenia),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[_adres_operatora()],
             fail_silently=False,
         )
+        if not wyslane:
+            # Zero doreczen bez wyjatku. Django tak wlasnie konczy wysylke do
+            # pustej listy odbiorcow, a takze przy backendzie, ktory milczaco
+            # odrzuca wiadomosc. Bez tego sprawdzenia nie odroznilibysmy tego
+            # od udanej wysylki.
+            raise RuntimeError("send_mail zwrocil 0 - alert nie zostal doreczony")
     except Exception:
         # Znacznika NIE stawiamy: nieudana wysyłka nie może uchodzić za
         # doręczoną, bo alert przepadłby na zawsze - następne uruchomienie
