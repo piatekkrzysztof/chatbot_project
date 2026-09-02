@@ -3,7 +3,8 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from accounts.models import CustomUser, Tenant, InvitationToken, WidgetDomain
+from accounts import nip as nip_pl
+from accounts.models import CustomUser, DaneRozliczeniowe, Tenant, InvitationToken, WidgetDomain
 from accounts.plans import PLANS, PRO
 from accounts.seats import sprawdz_limit_miejsc
 from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ, ContactRequest
@@ -49,12 +50,63 @@ class WidgetSettingsSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.Serializer):
-    company_name = serializers.CharField(max_length=100)
+    """
+    Rejestracja zbiera od razu to, co i tak trzeba mieć do faktury i umowy.
+
+    Alternatywą było pytanie o dane rozliczeniowe dopiero przy pierwszej
+    płatności - mniej pól przy zakładaniu konta, więcej osób kończy rejestrację.
+    Wybór padł na komplet od razu, świadomie: klient, który dochodzi do
+    płatności i dopiero tam dostaje drugi formularz, przerywa w gorszym miejscu,
+    a my przez cały okres próbny nie wiemy nawet, z kim rozmawiamy.
+
+    Gdyby okazało się to zbyt kosztowne w konwersji, poluzowanie jest jedną
+    zmianą: `required=False` na polach adresowych i sprawdzenie kompletu przed
+    utworzeniem sesji płatności.
+    """
+
+    # Osoba zakładająca konto. Do umowy i do tego, żeby wiadomości nie
+    # zaczynały się od "Szanowni Państwo" w rozmowie z jedną osobą.
+    imie = serializers.CharField(max_length=60)
+    nazwisko = serializers.CharField(max_length=60)
+
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+    # Nazwa widoczna w panelu i w widgecie - krótka, robocza.
+    company_name = serializers.CharField(max_length=100)
+
+    # Dane rozliczeniowe. `nazwa_do_faktury` bywa inna niż nazwa robocza:
+    # w panelu "Rowerownia", na fakturze "Rowerownia Krakowska Jan Kowalski".
+    nazwa_do_faktury = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    nip = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    ulica = serializers.CharField(max_length=200)
+    kod_pocztowy = serializers.CharField(max_length=12)
+    miasto = serializers.CharField(max_length=100)
+    kraj = serializers.CharField(max_length=2, required=False, default="PL")
+
     use_trial = serializers.BooleanField(default=True)
     # Bez tego rejestracja kupowała zawsze ten sam plan, niezależnie od wyboru
     plan = serializers.ChoiceField(choices=list(PLANS), default=PRO)
+
+    def validate_nip(self, value):
+        """
+        Suma kontrolna, nie istnienie firmy.
+
+        NIP z literówką wygląda jak NIP i wychodzi dopiero na fakturze - czyli
+        u księgowej klienta, kilka tygodni później, gdy trzeba wystawić korektę.
+        """
+        if not value:
+            return ""
+        if not nip_pl.poprawny(value):
+            raise serializers.ValidationError(
+                "Ten NIP ma nieprawidłową sumę kontrolną. Sprawdź, czy cyfry się nie przestawiły."
+            )
+        return nip_pl.znormalizuj(value)
+
+    def validate_email(self, value):
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
 
     def create(self, validated_data):
         use_trial = validated_data.pop("use_trial")
@@ -67,10 +119,24 @@ class RegisterSerializer(serializers.Serializer):
             subscription_plan="trial" if use_trial else None,
         )
 
+        DaneRozliczeniowe.objects.create(
+            tenant=tenant,
+            # Bez osobnej nazwy na fakturze bierzemy roboczą - lepsza niż pusta,
+            # a klient poprawi ją w ustawieniach, gdy będzie trzeba.
+            nazwa=validated_data.get("nazwa_do_faktury") or validated_data["company_name"],
+            nip=validated_data.get("nip", ""),
+            ulica=validated_data["ulica"],
+            kod_pocztowy=validated_data["kod_pocztowy"],
+            miasto=validated_data["miasto"],
+            kraj=(validated_data.get("kraj") or "PL").upper(),
+        )
+
         user = CustomUser.objects.create_user(
             username=validated_data["email"],
             email=validated_data["email"],
             password=validated_data["password"],
+            first_name=validated_data["imie"],
+            last_name=validated_data["nazwisko"],
             tenant=tenant,
             role="owner",
         )
@@ -81,11 +147,6 @@ class RegisterSerializer(serializers.Serializer):
             "tenant": tenant,
             "plan": plan,
         }
-
-    def validate_email(self, value):
-        if CustomUser.objects.filter(email=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
-        return value
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

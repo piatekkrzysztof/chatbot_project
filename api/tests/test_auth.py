@@ -6,7 +6,16 @@ from accounts.models import CustomUser, Tenant
 @pytest.mark.django_db
 def test_register_creates_user_and_tenant():
     client = APIClient()
-    payload = {"company_name": "Acme Inc.", "email": "admin@acme.com", "password": "SuperHaslo123"}
+    payload = {
+        "imie": "Anna",
+        "nazwisko": "Nowak",
+        "company_name": "Acme Inc.",
+        "email": "admin@acme.com",
+        "password": "SuperHaslo123",
+        "ulica": "Krakowska 12",
+        "kod_pocztowy": "31-000",
+        "miasto": "Krakow",
+    }
     response = client.post("/api/accounts/register/", payload)
     assert response.status_code == 201
     assert CustomUser.objects.filter(email="admin@acme.com").exists()
@@ -62,7 +71,16 @@ def test_register_duplicate_email():
     )
 
     client = APIClient()
-    payload = {"company_name": "DupCorp2", "email": "dup@dup.com", "password": "StrongPassword123"}
+    payload = {
+        "imie": "Anna",
+        "nazwisko": "Nowak",
+        "company_name": "DupCorp2",
+        "email": "dup@dup.com",
+        "password": "StrongPassword123",
+        "ulica": "Krakowska 12",
+        "kod_pocztowy": "31-000",
+        "miasto": "Krakow",
+    }
 
     response = client.post("/api/accounts/register/", payload)
     assert response.status_code == 400
