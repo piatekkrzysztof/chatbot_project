@@ -474,9 +474,16 @@ class TestRejestracjiZOkresemProbnym:
         return APIClient().post(
             self.URL,
             {
+                "imie": "Anna",
+                "nazwisko": "Nowak",
                 "company_name": "Nowa Firma",
                 "email": email,
                 "password": "tajneHaslo123",
+                # Dane do faktury zbierane juz przy rejestracji - klient
+                # dochodzacy do platnosci nie dostaje drugiego formularza.
+                "ulica": "Krakowska 12",
+                "kod_pocztowy": "31-000",
+                "miasto": "Krakow",
                 "use_trial": True,
             },
             format="json",
