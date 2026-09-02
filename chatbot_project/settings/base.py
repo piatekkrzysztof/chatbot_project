@@ -50,6 +50,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "accounts.middleware.TenantMiddleware",
     "accounts.middleware.SubscriptionMiddleware",
+    # Za tamtymi dwoma, bo zapisuje firmę rozpoznaną przez TenantMiddleware.
+    # Sam zapis dzieje się w process_response, czyli po widoku - wcześniej nie
+    # wiadomo ani kto to jest, ani jak żądanie się skończyło.
+    "accounts.middleware.DziennikAudytuMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

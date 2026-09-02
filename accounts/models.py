@@ -556,3 +556,61 @@ class WidgetDomain(models.Model):
 
     def __str__(self):
         return f"{self.host} ({self.tenant.name})"
+
+
+class WpisDziennika(models.Model):
+    """
+    Jeden wpis dziennika audytowego: kto, co, kiedy i skąd.
+
+    Po co: przy pierwszym sporze z klientem ("ktoś nam skasował bazę wiedzy",
+    "kto wyeksportował nasze rozmowy") bez tego nie ma czym odpowiedzieć.
+    Każdy poważniejszy klient B2B pyta o to w ankiecie bezpieczeństwa, a przy
+    naruszeniu ochrony danych to jedyne źródło, z którego da się odtworzyć
+    przebieg zdarzeń.
+
+    Czego tu NIE ma i dlaczego: treści żądań. Ciało zapytania niesie hasła,
+    dane osobowe odwiedzających i całe dokumenty - zapisywanie go zamieniłoby
+    dziennik w drugą, gorzej strzeżoną kopię wszystkiego. Wystarczy metoda,
+    ścieżka i wynik: `DELETE /api/faq/12/ 204` mówi dokładnie, kto usunął
+    które pytanie.
+    """
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="dziennik",
+        null=True,
+        blank=True,
+        help_text="Puste przy zdarzeniach sprzed rozpoznania firmy, np. nieudane logowanie.",
+    )
+
+    # SET_NULL, nie CASCADE: wpis musi przeżyć usunięcie konta, którego dotyczy.
+    # Inaczej skasowanie użytkownika kasowałoby zapis jego własnych działań -
+    # czyli dziennik znikałby dokładnie wtedy, gdy jest najbardziej potrzebny.
+    uzytkownik = models.ForeignKey(
+        "accounts.CustomUser",
+        on_delete=models.SET_NULL,
+        related_name="wpisy_dziennika",
+        null=True,
+        blank=True,
+    )
+    # Kopia tekstowa, żeby wpis pozostał czytelny po usunięciu konta.
+    nazwa_uzytkownika = models.CharField(max_length=150, blank=True, default="")
+
+    czas = models.DateTimeField(auto_now_add=True, db_index=True)
+    metoda = models.CharField(max_length=10)
+    sciezka = models.CharField(max_length=255)
+    status = models.PositiveSmallIntegerField()
+    adres_ip = models.CharField(max_length=45, blank=True, default="")
+
+    class Meta:
+        verbose_name = "Wpis dziennika"
+        verbose_name_plural = "Dziennik audytowy"
+        ordering = ["-czas"]
+        indexes = [
+            models.Index(fields=["tenant", "-czas"]),
+        ]
+
+    def __str__(self):
+        kto = self.nazwa_uzytkownika or "anonim"
+        return f"{self.czas:%Y-%m-%d %H:%M} {kto} {self.metoda} {self.sciezka} -> {self.status}"

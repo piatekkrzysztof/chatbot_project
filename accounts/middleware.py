@@ -1,12 +1,15 @@
+import logging
+
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed, APIException
 from accounts.models import Tenant
 from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.deprecation import MiddlewareMixin
 from .models import Subscription
 from dateutil.relativedelta import relativedelta
+
+logger = logging.getLogger(__name__)
 
 
 class TenantMiddleware:
@@ -206,3 +209,64 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
         except Tenant.DoesNotExist:
             return JsonResponse({"error": "Invalid API key"}, status=401)
+
+
+#: Ścieżki, których nie zapisujemy.
+#:
+#: Ruch widgetu to zwykli odwiedzający strony klienta, a nie działania w
+#: panelu - zapisywanie ich zamieniłoby dziennik w log dostępu i utopiło w nim
+#: to, po co powstał. Webhook Stripe'a przychodzi z zewnątrz i ma własny ślad
+#: po stronie Stripe'a.
+SCIEZKI_POZA_DZIENNIKIEM = ("/api/widget/", "/api/billing/webhook/")
+
+
+class DziennikAudytuMiddleware(MiddlewareMixin):
+    """
+    Zapisuje każde żądanie zmieniające dane.
+
+    Automatycznie, a nie przez wywołania rozsiane po widokach - bo o wywołanie
+    da się zapomnieć przy dopisywaniu nowej końcówki, a wtedy dziennik jest
+    pełny, wygląda na kompletny i akurat tej jednej rzeczy nie zawiera. Tutaj
+    nowa końcówka trafia do dziennika sama.
+
+    Zapis w `process_response`, nie w `process_request`: przed widokiem nie
+    wiadomo jeszcze ani kto to jest, ani jak się skończyło. DRF uwierzytelnia
+    dopiero w widoku i ustawia użytkownika także na żądaniu Django, więc po
+    odpowiedzi jedno i drugie jest już znane.
+    """
+
+    METODY_ZMIENIAJACE = {"POST", "PUT", "PATCH", "DELETE"}
+
+    def process_response(self, request, response):
+        if request.method not in self.METODY_ZMIENIAJACE:
+            return response
+        if not request.path.startswith("/api/"):
+            return response
+        if request.path.startswith(SCIEZKI_POZA_DZIENNIKIEM):
+            return response
+
+        from accounts.models import WpisDziennika
+        from chat.privacy import client_ip
+
+        uzytkownik = getattr(request, "user", None)
+        if not getattr(uzytkownik, "is_authenticated", False):
+            uzytkownik = None
+
+        try:
+            WpisDziennika.objects.create(
+                tenant=getattr(request, "tenant", None),
+                uzytkownik=uzytkownik,
+                nazwa_uzytkownika=getattr(uzytkownik, "username", "") or "",
+                metoda=request.method,
+                sciezka=request.path[:255],
+                status=response.status_code,
+                adres_ip=client_ip(request) or "",
+            )
+        except Exception:
+            # Dziennik nie może wywrócić żądania, które już się powiodło.
+            # Zapisana zmiana bez wpisu to luka w dzienniku; odrzucone żądanie
+            # z powodu awarii dziennika to utrata pracy użytkownika. Z dwojga
+            # złego wybieramy lukę - i zostawiamy po niej ślad w logu.
+            logger.exception("Nie udalo sie zapisac wpisu dziennika audytowego")
+
+        return response
