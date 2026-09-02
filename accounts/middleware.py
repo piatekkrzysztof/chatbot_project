@@ -37,6 +37,9 @@ class TenantMiddleware:
             # zakonczyc: uzytkownik zostawal z martwym panelem.
             "/api/accounts/token/refresh/",
             "/api/accounts/logout/",
+            # Drugi krok logowania: haslo juz sprawdzone, ale sesji jeszcze
+            # nie ma, wiec tenanta tez nie ma skad wziac.
+            "/api/accounts/login/2fa/",
             # Zapraszany dopiero zakłada konto — nie ma jeszcze ani tokenu JWT,
             # ani klucza API, więc bez tego wyjątku każde zaproszenie kończyło
             # się odmową "Nie rozpoznano tenanta".
