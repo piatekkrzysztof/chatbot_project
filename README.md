@@ -292,6 +292,24 @@ Two habits worth knowing if you contribute:
 `TenantMiddleware`. Querysets are scoped through `TenantQuerysetMixin` rather than
 per-view filtering, so a missing filter is a missing mixin and shows up in review.
 
+**Two-factor authentication.** Optional, TOTP, enabled by the user. The algorithm is
+implemented here rather than pulled from a package - RFC 6238 is HMAC-SHA1 from the
+standard library plus a truncation, fully specified and published *with official test
+vectors*, so correctness can be proven instead of assumed. All six vectors from Appendix B
+are in the test suite. The tension with "don't roll your own crypto" is real and the
+reasoning is written down in `accounts/totp.py`.
+
+Setup is two-step: the secret exists after starting, but nothing is enforced until a code
+is typed back. Otherwise anyone who scans the QR and closes the tab locks themselves out.
+A used code stops working immediately rather than lasting out its 30-second window, and
+backup codes are stored as hashes - a readable list in the database would defeat the whole
+mechanism for every account at once. Disabling requires the password *and* a code: a
+hijacked session has neither.
+
+Not mandatory for owners. Making it mandatory needs a recovery procedure that is more than
+"we turn it off over the phone if you sound convincing", and that promise is worse than no
+second factor at all.
+
 **Audit log.** Every state-changing request to the API is recorded: who, what, when,
 from which address, and how it ended. Written by middleware rather than by calls inside
 each view - a call is something you forget to add when you write the next endpoint, and

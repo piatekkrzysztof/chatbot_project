@@ -28,6 +28,7 @@ from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
 from api.permissions import *
 from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
+from accounts import dwuskladnikowe
 from datetime import timedelta
 
 from django.utils import timezone
@@ -36,6 +37,8 @@ from accounts.models import Subscription
 from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
 from api.views.stripe import create_checkout_session
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from rest_framework import serializers
 
 from api.schemas import (
     AcceptInvitationRequestSerializer,
@@ -99,6 +102,34 @@ class ClientRegisterView(APIView):
             )
 
 
+class BiletIKodSerializer(serializers.Serializer):
+    """Bilet z pierwszego kroku i kod z aplikacji albo kod zapasowy."""
+
+    bilet = serializers.CharField()
+    kod = serializers.CharField()
+
+
+def odpowiedz_z_sesja(dane):
+    """
+    Odpowiedz z tokenami: dostepu w tresci, odswiezania w ciasteczku.
+
+    Funkcja modulu, nie metoda widoku: korzystaja z niej dwa rozne kroki
+    logowania i nie potrzebuje niczego z instancji. Jako metoda musialaby byc
+    wolana z obcej klasy, co czyta sie jak pomylka.
+    """
+    odpowiedz = Response(dict(dane), status=status.HTTP_200_OK)
+
+    refresh = odpowiedz.data.get("refresh")
+    if refresh:
+        ustaw_ciasteczko_odswiezania(odpowiedz, refresh)
+        if not settings.ZWRACAJ_REFRESH_W_TRESCI:
+            # Token zostawiony w tresci laduje w localStorage, czyli dokladnie
+            # tam, skad ta przebudowa go zabiera.
+            del odpowiedz.data["refresh"]
+
+    return odpowiedz
+
+
 @extend_schema(
     tags=["Konto"],
     summary="Logowanie",
@@ -121,17 +152,74 @@ class LoginView(TokenObtainPairView):
     throttle_classes = [LimitLogowaniaIP, LimitLogowaniaKonto]
 
     def post(self, zadanie, *args, **kwargs):
-        odpowiedz = super().post(zadanie, *args, **kwargs)
+        # Walidacja rozpisana zamiast super().post(), bo przy wlaczonym drugim
+        # skladniku tokeny NIE moga powstac w tym kroku - a super() zwraca je
+        # od razu i nie daje dostepu do uzytkownika, zeby to sprawdzic.
+        serializer = self.get_serializer(data=zadanie.data)
+        serializer.is_valid(raise_exception=True)
+        uzytkownik = serializer.user
 
-        refresh = odpowiedz.data.get("refresh")
-        if refresh:
-            ustaw_ciasteczko_odswiezania(odpowiedz, refresh)
-            if not settings.ZWRACAJ_REFRESH_W_TRESCI:
-                # Token zostawiony w tresci laduje w localStorage, czyli
-                # dokladnie tam, skad ta przebudowa go zabiera.
-                del odpowiedz.data["refresh"]
+        if dwuskladnikowe.ma_wlaczony_drugi_skladnik(uzytkownik):
+            # Haslo bylo poprawne, ale sesja jeszcze nie powstaje. Bilet niesie
+            # sam identyfikator uzytkownika i nie otwiera niczego w API.
+            return Response(
+                {
+                    "wymaga_drugiego_skladnika": True,
+                    "bilet": dwuskladnikowe.wystaw_bilet(uzytkownik),
+                },
+                status=status.HTTP_200_OK,
+            )
 
-        return odpowiedz
+        return odpowiedz_z_sesja(serializer.validated_data)
+
+
+@extend_schema(
+    tags=["Konto"],
+    summary="Drugi krok logowania",
+    description="Wymienia bilet z pierwszego kroku i kod na sesje.",
+    request=BiletIKodSerializer,
+    responses={200: OpenApiTypes.OBJECT},
+)
+class LogowanieDrugiSkladnikView(APIView):
+    """
+    Drugi krok logowania: bilet plus kod z aplikacji albo kod zapasowy.
+
+    Osobna koncowka, a nie dodatkowe pole w logowaniu, bo pierwszy krok musi
+    dzialac tak samo dla wszystkich - inaczej roznica w odpowiedzi zdradzalaby,
+    ktore konta maja wlaczony drugi skladnik, czyli ktore warto atakowac inaczej.
+    """
+
+    permission_classes = []
+    # Ten sam limit co przy hasle: bez niego szescioctfrowy kod da sie zgadnac
+    # milionem prob, a bilet jest wazny piec minut.
+    throttle_classes = [LimitLogowaniaIP]
+
+    def post(self, zadanie):
+        uzytkownik = dwuskladnikowe.odczytaj_bilet(zadanie.data.get("bilet", ""))
+        if not uzytkownik:
+            return Response(
+                {"error": "Bilet wygasl albo jest nieprawidlowy. Zaloguj sie ponownie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        skladnik = getattr(uzytkownik, "drugi_skladnik", None)
+        if not skladnik or not skladnik.wlaczony:
+            return Response(
+                {"error": "To konto nie ma wlaczonego drugiego skladnika."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        kod = zadanie.data.get("kod", "")
+        if not (
+            dwuskladnikowe.sprawdz_kod(skladnik, kod)
+            or dwuskladnikowe.zuzyj_kod_zapasowy(uzytkownik, kod)
+        ):
+            return Response({"error": "Kod nie pasuje."}, status=status.HTTP_400_BAD_REQUEST)
+
+        odswiezenie = RefreshToken.for_user(uzytkownik)
+        return odpowiedz_z_sesja(
+            {"refresh": str(odswiezenie), "access": str(odswiezenie.access_token)}
+        )
 
 
 @extend_schema(

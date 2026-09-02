@@ -20,6 +20,7 @@ from .views.accounts import (
     InvitationRevokeView,
     OdswiezTokenView,
     WylogujView,
+    LogowanieDrugiSkladnikView,
 )
 from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
 from .views.stripe_webhook import stripe_webhook
@@ -31,6 +32,12 @@ from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
 from api.views.diagnostyka import DiagnostykaAdresuView
 from api.views.dziennik import DziennikView
+from api.views.drugi_skladnik import (
+    PotwierdzDrugiSkladnikView,
+    RozpocznijDrugiSkladnikView,
+    StanDrugiegoSkladnikaView,
+    WylaczDrugiSkladnikView,
+)
 from api.views.diagnostyka_zadan import DiagnostykaZadanView
 from api.views.stripe import PublicPricingView
 from .views.chat_logs import PromptLogListView
@@ -58,6 +65,11 @@ urlpatterns = [
     path("accounts/login/", LoginView.as_view(), name="login"),
     path("accounts/token/refresh/", OdswiezTokenView.as_view(), name="token_refresh"),
     path("accounts/logout/", WylogujView.as_view(), name="logout"),
+    path("accounts/login/2fa/", LogowanieDrugiSkladnikView.as_view(), name="login-2fa"),
+    path("accounts/2fa/", StanDrugiegoSkladnikaView.as_view(), name="2fa-stan"),
+    path("accounts/2fa/rozpocznij/", RozpocznijDrugiSkladnikView.as_view(), name="2fa-rozpocznij"),
+    path("accounts/2fa/potwierdz/", PotwierdzDrugiSkladnikView.as_view(), name="2fa-potwierdz"),
+    path("accounts/2fa/wylacz/", WylaczDrugiSkladnikView.as_view(), name="2fa-wylacz"),
     path("accounts/me/", MeView.as_view(), name="me"),
     path("accounts/invitations/", CreateInvitationView.as_view(), name="invite-user"),
     path("accounts/invitations/list/", InvitationListView.as_view(), name="list-invitations"),
