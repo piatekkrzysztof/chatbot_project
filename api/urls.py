@@ -32,6 +32,7 @@ from .routers import router
 from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
 from api.views.diagnostyka import DiagnostykaAdresuView
 from api.views.dziennik import DziennikView
+from api.views.dane_rozliczeniowe import DaneRozliczenioweView
 from api.views.drugi_skladnik import (
     PotwierdzDrugiSkladnikView,
     RozpocznijDrugiSkladnikView,
@@ -59,6 +60,11 @@ urlpatterns = [
     path("chat/test/", CzatTestowyView.as_view(), name="chat-test"),
     path("accounts/firma/", UstawieniaFirmyView.as_view(), name="ustawienia-firmy"),
     path("accounts/dziennik/", DziennikView.as_view(), name="dziennik-audytowy"),
+    path(
+        "accounts/dane-rozliczeniowe/",
+        DaneRozliczenioweView.as_view(),
+        name="dane-rozliczeniowe",
+    ),
     path("chat/export/", ExportPromptLogsCSVView.as_view(), name="chat-export-csv"),
     path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
     path("accounts/register/", ClientRegisterView.as_view(), name="register"),
