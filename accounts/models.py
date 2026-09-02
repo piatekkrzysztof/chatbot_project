@@ -614,3 +614,81 @@ class WpisDziennika(models.Model):
     def __str__(self):
         kto = self.nazwa_uzytkownika or "anonim"
         return f"{self.czas:%Y-%m-%d %H:%M} {kto} {self.metoda} {self.sciezka} -> {self.status}"
+
+
+class DrugiSkladnik(models.Model):
+    """
+    Drugie uwierzytelnienie użytkownika: kod jednorazowy z aplikacji.
+
+    Opcjonalne, włączane przez samego użytkownika. Wymuszanie go dla właścicieli
+    byłoby bezpieczniejsze, ale wymaga przemyślanej procedury odzyskiwania
+    dostępu - klient, który zgubi telefon i kody zapasowe, dzwoni wtedy do nas,
+    a "wyłączam mu drugi składnik na słowo przez telefon" jest gorsze niż brak
+    drugiego składnika, bo daje złudzenie ochrony.
+
+    Wpis powstaje przy rozpoczęciu konfiguracji, ale liczy się dopiero po
+    potwierdzeniu kodem. Bez tego rozdziału ktoś, kto zeskanuje kod QR i zamknie
+    kartę, zostałby z włączonym drugim składnikiem i bez działającej aplikacji.
+    """
+
+    uzytkownik = models.OneToOneField(
+        "accounts.CustomUser",
+        on_delete=models.CASCADE,
+        related_name="drugi_skladnik",
+    )
+    sekret = models.CharField(max_length=64)
+
+    #: Puste, dopóki użytkownik nie przepisze poprawnego kodu z aplikacji.
+    potwierdzony_od = models.DateTimeField(null=True, blank=True)
+
+    #: Numer ostatnio użytego kroku czasowego.
+    #:
+    #: Bez tego pola ten sam kod działa przez całe swoje okno, więc podejrzany
+    #: przez ramię albo przechwycony na fałszywej stronie logowania da się użyć
+    #: drugi raz. Kod ma być jednorazowy naprawdę, a nie z nazwy.
+    ostatni_krok = models.BigIntegerField(null=True, blank=True)
+
+    utworzony = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Drugi składnik"
+        verbose_name_plural = "Drugie składniki"
+
+    @property
+    def wlaczony(self) -> bool:
+        return self.potwierdzony_od is not None
+
+    def __str__(self):
+        stan = "włączony" if self.wlaczony else "w trakcie konfiguracji"
+        return f"{self.uzytkownik} - {stan}"
+
+
+class KodZapasowy(models.Model):
+    """
+    Kod jednorazowy na wypadek utraty telefonu.
+
+    Przechowywany jako skrót, nie jako tekst. Kod zapasowy jest równoważny
+    drugiemu składnikowi, więc lista czytelnych kodów w bazie znosiłaby całą
+    ochronę - ktoś z dostępem do zrzutu bazy omijałby drugi składnik dla
+    wszystkich kont naraz.
+
+    Skrót SHA-256 bez soli i bez rozciągania wystarcza, w odróżnieniu od haseł:
+    kod ma kilkadziesiąt bitów entropii z generatora, a nie kilkanaście z głowy
+    użytkownika, więc nie ma czego zgadywać ze słownika.
+    """
+
+    uzytkownik = models.ForeignKey(
+        "accounts.CustomUser",
+        on_delete=models.CASCADE,
+        related_name="kody_zapasowe",
+    )
+    skrot = models.CharField(max_length=64, db_index=True)
+    uzyty = models.DateTimeField(null=True, blank=True)
+    utworzony = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Kod zapasowy"
+        verbose_name_plural = "Kody zapasowe"
+
+    def __str__(self):
+        return f"{self.uzytkownik} - {'użyty' if self.uzyty else 'nieużyty'}"
