@@ -292,6 +292,13 @@ Two habits worth knowing if you contribute:
 `TenantMiddleware`. Querysets are scoped through `TenantQuerysetMixin` rather than
 per-view filtering, so a missing filter is a missing mixin and shows up in review.
 
+**Login rate limiting.** Two layers, because each catches something the other misses:
+10 attempts per minute per IP address, and 5 per minute per account regardless of where
+they come from. The second layer is the one that matters - distributing guesses across
+addresses is cheap, and an IP-only limit does not notice it. Until 27 August 2026 there
+was no limit at all: the project's default throttles key off `request.tenant`, which the
+login endpoint does not have, so they returned no cache key and silently did nothing.
+
 **Panel sessions.** Login returns a short-lived access token in the body and sets the
 refresh token as an `HttpOnly` `Secure` `SameSite=Lax` cookie scoped to
 `/api/accounts/`, so no script can read it and it is not attached to every other API
