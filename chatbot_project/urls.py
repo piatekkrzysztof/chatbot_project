@@ -26,8 +26,6 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from chatbot_project.zdrowie import health_check
 
 
-
-
 def trigger_error(request):
     division_by_zero = 1 / 0
 
