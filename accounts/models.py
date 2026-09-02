@@ -692,3 +692,56 @@ class KodZapasowy(models.Model):
 
     def __str__(self):
         return f"{self.uzytkownik} - {'użyty' if self.uzyty else 'nieużyty'}"
+
+
+class DaneRozliczeniowe(models.Model):
+    """
+    Dane do faktury i do umowy.
+
+    Osobny model, a nie kolejne pola w `Tenant`, z trzech powodów: widać jednym
+    spojrzeniem, gdzie leżą dane rozliczeniowe (przydaje się przy umowie
+    powierzenia i przy pytaniu, co usuwamy przy zamknięciu konta), `Tenant` jest
+    już duży i miesza w sobie ustawienia widgetu z tożsamością firmy, a przy
+    kasowaniu konta ten zestaw ma inny los niż reszta - dokumenty księgowe
+    trzyma się dłużej niż rozmowy.
+
+    Nazwa jest tu osobna od `Tenant.name` celowo: klient wpisuje "Rowerownia"
+    jako nazwę widoczną w panelu, a na fakturze musi stać
+    "Rowerownia Krakowska Jan Kowalski", bo tak brzmi w rejestrze.
+    """
+
+    tenant = models.OneToOneField(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="dane_rozliczeniowe",
+    )
+
+    nazwa = models.CharField(
+        max_length=200,
+        verbose_name="Nazwa na fakturze",
+        help_text="Pełna nazwa firmy albo imię i nazwisko, jeśli działalność nierejestrowana.",
+    )
+
+    #: Opcjonalny, bo klientem bywa osoba prywatna albo firma spoza Polski.
+    #: Sprawdzamy sumę kontrolną, ale nie istnienie firmy - do tego służy
+    #: rejestr VAT, czyli zapytanie do zewnętrznej usługi.
+    nip = models.CharField(max_length=15, blank=True, default="", verbose_name="NIP")
+
+    ulica = models.CharField(max_length=200, verbose_name="Ulica i numer")
+    kod_pocztowy = models.CharField(max_length=12)
+    miasto = models.CharField(max_length=100)
+    kraj = models.CharField(max_length=2, default="PL", verbose_name="Kod kraju")
+
+    utworzone = models.DateTimeField(auto_now_add=True)
+    zmienione = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Dane rozliczeniowe"
+        verbose_name_plural = "Dane rozliczeniowe"
+
+    def __str__(self):
+        return f"{self.nazwa} ({self.nip or 'bez NIP'})"
+
+    @property
+    def adres_jednym_wierszem(self) -> str:
+        return f"{self.ulica}, {self.kod_pocztowy} {self.miasto}"
