@@ -27,6 +27,7 @@ from rest_framework.exceptions import PermissionDenied
 from api.utils.mixins import TenantQuerysetMixin
 from rest_framework.generics import ListAPIView
 from api.permissions import *
+from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
 from datetime import timedelta
 
 from django.utils import timezone
@@ -114,6 +115,10 @@ class LoginView(TokenObtainPairView):
 
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = []
+    # Domyslne throttle'e tego projektu opieraja sie na request.tenant albo
+    # request.subscription, a tu jeszcze zadnego nie ma - wiec nie obowiazywaly
+    # i hasla mozna bylo zgadywac bez ograniczen. Podajemy je wprost.
+    throttle_classes = [LimitLogowaniaIP, LimitLogowaniaKonto]
 
     def post(self, zadanie, *args, **kwargs):
         odpowiedz = super().post(zadanie, *args, **kwargs)
@@ -147,6 +152,9 @@ class OdswiezTokenView(TokenRefreshView):
     """
 
     permission_classes = []
+    # Koncowka nieuwierzytelniona, ktora wykonuje prace kryptograficzna przy
+    # kazdym wywolaniu - bez limitu jest darmowym obciazeniem dla kazdego.
+    throttle_classes = [LimitLogowaniaIP]
 
     def post(self, zadanie, *args, **kwargs):
         token = odczytaj_token_odswiezania(zadanie)
