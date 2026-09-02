@@ -175,3 +175,49 @@ class SubscriptionRateThrottle(BaseSubscriptionThrottle):
         """
         na_minute = int(rate_for(plan).split("/")[0])
         return f"{na_minute * 10}/min"
+
+
+class LimitLogowaniaIP(SimpleRateThrottle):
+    """
+    Limit prób logowania z jednego adresu.
+
+    Do 27 sierpnia 2026 koncówka logowania nie miała ŻADNEGO limitu. Domyślne
+    throttle'e tego projektu opierają się na `request.tenant` albo
+    `request.subscription`, a logowanie jest wyłączone z TenantMiddleware -
+    więc `get_cache_key` zwracał tam pusto i limit nie obowiązywał. Hasła
+    można było zgadywać bez ograniczeń.
+
+    Stawka jest hojna jak na człowieka i ciasna jak na maszynę: ktoś, kto
+    pomyli hasło, poprawia je raz albo dwa, a nie dziesięć razy w minutę.
+    """
+
+    scope = "logowanie-ip"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {"scope": self.scope, "ident": client_ip(request)}
+
+
+class LimitLogowaniaKonto(SimpleRateThrottle):
+    """
+    Limit prób logowania na jedno konto, niezależnie od adresu.
+
+    Sam limit po adresie nie wystarcza: rozproszone zgadywanie z wielu adresów
+    omija go w całości, a to jest dziś tanie. Ten drugi limit chroni konkretne
+    konto - również wtedy, gdy każda próba przychodzi skądinąd.
+
+    Nazwę użytkownika hashujemy, bo klucz trafia do Redisa. Adres e-mail
+    wpisany do pamięci podręcznej otwartym tekstem to dana osobowa leżąca
+    w miejscu, w którym nikt jej nie szuka i nikt jej nie kasuje.
+    """
+
+    scope = "logowanie-konto"
+
+    def get_cache_key(self, request, view):
+        nazwa = (request.data or {}).get("username") or ""
+        if not nazwa:
+            # Bez nazwy nie ma czego ograniczać - takie żądanie i tak odbije
+            # się o walidację, a limit po adresie nadal obowiązuje.
+            return None
+
+        odcisk = hashlib.sha256(nazwa.strip().lower().encode("utf-8")).hexdigest()[:32]
+        return self.cache_format % {"scope": self.scope, "ident": odcisk}
