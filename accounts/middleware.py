@@ -7,6 +7,7 @@ from accounts.models import Tenant
 from django.http import JsonResponse
 from django.utils import timezone
 from .models import Subscription
+from .odmowy import PowodOdmowy, zapisz_odmowe
 from dateutil.relativedelta import relativedelta
 
 logger = logging.getLogger(__name__)
@@ -96,10 +97,42 @@ class TenantMiddleware:
 
         request.tenant = tenant
 
+    #: Sciezki, ktore obsluguja odwiedzajacego strone klienta.
+    #:
+    #: Tylko dla nich zliczamy odmowy z tego middleware. Odrzucone zadanie do
+    #: panelu to zwykle wygasly token albo czyjs skrypt - liczenie tego razem
+    #: z ruchem widgetu zamienicby licznik awarii w log nieudanych logowan,
+    #: ktory ma juz wlasne miejsce (throttling i dziennik audytowy).
+    SCIEZKI_ODWIEDZAJACEGO = ("/api/widget/", "/api/widget-settings/")
+
+    def _zapisz_odmowe_odwiedzajacego(self, request):
+        """
+        Liczy odmowy, ktore SubscriptionMiddleware nigdy nie zobaczy.
+
+        Zly albo brakujacy klucz API odrzucamy juz tutaj, wiec liczniki
+        w SubscriptionMiddleware stalyby w miejscu, do ktorego zadanie nie
+        dociera. To nie jest sytuacja teoretyczna: klient, ktory wklei
+        fragment z literowka w kluczu, ma czat martwy od pierwszej minuty
+        i bez tego zapisu nie zostawia po sobie zadnego sladu.
+        """
+        if not request.path.startswith(self.SCIEZKI_ODWIEDZAJACEGO):
+            return
+
+        powod = (
+            PowodOdmowy.ZLY_KLUCZ
+            if request.headers.get("X-API-Key")
+            else PowodOdmowy.BRAK_KLUCZA
+        )
+        try:
+            zapisz_odmowe(None, powod)
+        except Exception:
+            logger.exception("Nie udalo sie zapisac odmowy widgetu (powod: %s)", powod)
+
     def __call__(self, request):
         try:
             self.process_request(request)
         except APIException as exc:
+            self._zapisz_odmowe_odwiedzajacego(request)
             return JsonResponse({"detail": str(exc.detail)}, status=exc.status_code)
         response = self.get_response(request)
         return response
@@ -138,6 +171,24 @@ import time
 KOD_CZAT_NIEDOSTEPNY = "czat_niedostepny"
 
 
+def _odmow(tresc, status, powod, tenant=None):
+    """
+    Odmawia obslugi i zostawia po tym slad.
+
+    Zapis jest opakowany, bo narzedzie do wykrywania awarii nie moze samo
+    stac sie awaria: gdy baza jest przeciazona albo niedostepna, odwiedzajacy
+    ma dostac normalna odmowe, a nie 500. Nieudany zapis idzie do logu -
+    w przeciwnym razie licznik pokazywalby zero i wygladalo by to jak spokoj.
+    """
+    try:
+        zapisz_odmowe(tenant, powod)
+    except Exception:
+        logger.exception("Nie udalo sie zapisac odmowy widgetu (powod: %s)", powod)
+
+    return JsonResponse(tresc, status=status)
+
+
+
 class SubscriptionMiddleware(MiddlewareMixin):
     # Dokładne ścieżki (nie prefiksy!) — endpointy wysyłające wiadomość do AI.
     # Prefiksowe dopasowanie złapałoby też /api/chat/logs/, /api/chat/feedback/ itd.,
@@ -151,7 +202,9 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
         api_key = request.headers.get("X-API-KEY")
         if not api_key:
-            return JsonResponse({"error": "Missing API key"}, status=401)
+            return _odmow(
+                {"error": "Missing API key"}, 401, PowodOdmowy.BRAK_KLUCZA
+            )
 
         try:
             # 1. Znajdź Tenant po kluczu API
@@ -161,9 +214,11 @@ class SubscriptionMiddleware(MiddlewareMixin):
             try:
                 subscription = Subscription.objects.get(tenant=tenant)
             except Subscription.DoesNotExist:
-                return JsonResponse(
+                return _odmow(
                     {"error": "Subscription not found", "kod": KOD_CZAT_NIEDOSTEPNY},
-                    status=403,
+                    403,
+                    PowodOdmowy.BRAK_SUBSKRYPCJI,
+                    tenant,
                 )
             except Subscription.MultipleObjectsReturned:
                 # Logika awaryjna - wybierz pierwszą aktywną subskrypcję
@@ -173,9 +228,11 @@ class SubscriptionMiddleware(MiddlewareMixin):
                     .first()
                 )
                 if not subscription:
-                    return JsonResponse(
+                    return _odmow(
                         {"error": "No active subscription", "kod": KOD_CZAT_NIEDOSTEPNY},
-                        status=403,
+                        403,
+                        PowodOdmowy.BRAK_AKTYWNEJ,
+                        tenant,
                     )
 
             # 3. Sprawdź daty ważności subskrypcji
@@ -183,9 +240,11 @@ class SubscriptionMiddleware(MiddlewareMixin):
             if not (
                 subscription.is_active and subscription.start_date <= today <= subscription.end_date
             ):
-                return JsonResponse(
+                return _odmow(
                     {"error": "Subscription expired", "kod": KOD_CZAT_NIEDOSTEPNY},
-                    status=403,
+                    403,
+                    PowodOdmowy.SUBSKRYPCJA_WYGASLA,
+                    tenant,
                 )
 
             # 4. Sprawdź czy cykl rozliczeniowy wymaga resetu
@@ -196,14 +255,16 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
             # 5. Sprawdź limit wiadomości
             if not subscription.has_message_quota():
-                return JsonResponse(
+                return _odmow(
                     {
                         "error": "Message limit exceeded",
                         "kod": KOD_CZAT_NIEDOSTEPNY,
                         "limit": subscription.message_limit,
                         "used": subscription.current_message_count,
                     },
-                    status=429,
+                    429,
+                    PowodOdmowy.LIMIT_WIADOMOSCI,
+                    tenant,
                 )
 
             # 6. Przypisz subskrypcję do requestu
@@ -211,7 +272,9 @@ class SubscriptionMiddleware(MiddlewareMixin):
             return None
 
         except Tenant.DoesNotExist:
-            return JsonResponse({"error": "Invalid API key"}, status=401)
+            return _odmow(
+                {"error": "Invalid API key"}, 401, PowodOdmowy.ZLY_KLUCZ
+            )
 
 
 #: Ścieżki, których nie zapisujemy.

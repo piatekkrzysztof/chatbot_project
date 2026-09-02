@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import Tenant, CustomUser, InvitationToken, Subscription
+from accounts.odmowy import ZliczenieOdmow
 
 
 @admin.register(Tenant)
@@ -49,3 +50,28 @@ class InvitationTokenAdmin(admin.ModelAdmin):
         return obj.is_valid()
 
     is_valid_token.boolean = True
+
+
+@admin.register(ZliczenieOdmow)
+class ZliczenieOdmowAdmin(admin.ModelAdmin):
+    """
+    Podglad odmow widgetu - tylko do odczytu.
+
+    Alert mailowy mowi, ze cos sie stalo. Tutaj mozna sprawdzic, ile razy
+    i od kiedy, takze dla dni, o ktorych nikt juz nie pamieta. Raport
+    z incydentu 26.08.2026 nie umial podac ani jednej z tych liczb.
+
+    Bez edycji swiadomie: to sa pomiary, a nie ustawienia. Poprawiony recznie
+    licznik przestalby cokolwiek znaczyc.
+    """
+
+    list_display = ("dzien", "tenant", "powod", "liczba", "pierwsza", "ostatnia", "zgloszone")
+    list_filter = ("powod", "zgloszone", "dzien")
+    search_fields = ("tenant__name",)
+    date_hierarchy = "dzien"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

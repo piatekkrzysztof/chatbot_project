@@ -49,6 +49,14 @@ app.conf.beat_schedule = {
     # wiadomości, ale przez długi czas nie miał żadnego powiadomienia.
     # Codziennie rano, tuż po raporcie tygodniowym, żeby dwie wiadomości
     # nie przychodziły w tej samej minucie.
+    # Odmowy widgetu sprawdzamy co godzine, a nie raz na dobe. Awaria
+    # z sierpnia trwala okolo doby i znalazl ja przypadek - dobowy odstep
+    # bylby od tego przypadku niewiele lepszy. Godzina kosztuje jedno
+    # zapytanie i skraca czas do zauwazenia z dnia do kwadransa.
+    "odmowy-widgetu-co-godzine": {
+        "task": "accounts.czuwanie.sprawdz_odmowy_widgetu",
+        "schedule": crontab(minute=5),
+    },
     "konce-subskrypcji-codziennie": {
         "task": "accounts.tasks_konce.sprawdz_konce_subskrypcji",
         "schedule": crontab(minute=15, hour=8),
