@@ -86,6 +86,12 @@ REST_FRAMEWORK = {
         # Nadpisywane przez LIMIT_ODWIEDZAJACEGO; wpis musi istnieć, bo DRF
         # sprawdza obecność scope'u przy starcie
         "visitor": "20/hour",
+        # Logowanie. Stawki hojne dla człowieka, ciasne dla maszyny: ktoś, kto
+        # pomyli hasło, poprawia je raz albo dwa. Dwie warstwy, bo każda łapie
+        # co innego - po adresie jednego napastnika, po koncie rozproszone
+        # zgadywanie z wielu adresów.
+        "logowanie-ip": "10/min",
+        "logowanie-konto": "5/min",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
