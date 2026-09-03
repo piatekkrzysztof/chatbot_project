@@ -14,6 +14,59 @@ from chat.models import Conversation
 # Zmienne środowiskowe na czas testów (m.in. klucze API)
 load_dotenv(".env.test", override=True)
 
+# UWAGA przy odtwarzaniu warunków CI na własnej maszynie.
+#
+# Ustawienia ładują dotenv z KATALOGU PAKIETU, nie z korzenia repozytorium:
+# `chatbot_project/.env`, a nie `./.env` (patrz settings/base.py, load_dotenv).
+# Odsunięcie pliku z korzenia nie zmienia więc niczego - testy dalej widzą
+# pełną konfigurację produkcyjną, łącznie z żywym kluczem Stripe.
+#
+# Kosztowało to dwa fałszywe „sprawdzone bez .env": raz przy alertach
+# (accounts/tests/test_czuwanie.py), raz przy kartotece Stripe. W obu wypadkach
+# CI znajdowało błąd, którego lokalna weryfikacja nie mogła zobaczyć.
+#
+# Poprawnie:
+#     mv chatbot_project/.env chatbot_project/.env.bak
+#     pytest -q
+#     mv chatbot_project/.env.bak chatbot_project/.env
+#
+# Najlepiej jednak nie polegać na tym w ogóle: test, którego wynik zależy od
+# pliku spoza repozytorium, nie mierzy kodu. Ustawiaj wymagane wartości wprost,
+# fixture'ą `settings`.
+
+
+@pytest.fixture(autouse=True)
+def zadne_polaczenie_ze_stripe(monkeypatch):
+    """
+    Żaden test nie rozmawia z prawdziwym Stripe'em.
+
+    Powód pierwszy, oczywisty: pakiet testów na maszynie z żywym kluczem
+    w .env zakładałby prawdziwe kartoteki klientów i wystawiał prawdziwe
+    sesje płatności. Narzędzie do sprawdzania kodu nie ma prawa ruszać
+    cudzych pieniędzy.
+
+    Powód drugi, mniej oczywisty i groźniejszy: kod płatności ma drogi
+    awaryjne. Niepodstawione wywołanie bez klucza kończy się wyjątkiem, który
+    te drogi łapią - więc test przechodzi, sprawdzając ścieżkę zapasową
+    zamiast tej, o którą go pytano. Wynik wygląda wtedy na zielony i nie
+    znaczy nic.
+
+    Tutaj takie wywołanie kończy się głośnym błędem z nazwą brakującej atrapy,
+    zamiast po cichu wpadać w gałąź awaryjną.
+    """
+    from stripe._api_requestor import _APIRequestor
+
+    def zablokuj(*args, **kwargs):
+        raise AssertionError(
+            "Test probuje polaczyc sie z API Stripe. Podstaw konkretne "
+            "wywolanie (np. stripe.Customer.create albo "
+            "stripe.checkout.Session.create) zamiast pozwalac mu wyjsc "
+            "na zewnatrz - inaczej sprawdzasz droge awaryjna, nie ta wlasciwa."
+        )
+
+    monkeypatch.setattr(_APIRequestor, "request", zablokuj)
+    monkeypatch.setattr(_APIRequestor, "request_stream", zablokuj)
+
 
 @pytest.fixture(autouse=True)
 def zadania_w_miejscu(settings):

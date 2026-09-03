@@ -22,6 +22,7 @@ from api.schemas import (
     ErrorSerializer,
     PublicPricingSerializer,
 )
+from api.utils.stripe_klient import kartoteka_klienta
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +74,23 @@ def create_checkout_session(tenant, plan_code, email=None):
 
 def _utworz_sesje(stripe, tenant, plan, price_id, email, frontend):
     """Samo wywołanie Stripe, wydzielone, żeby obsługa błędu była czytelna."""
+    # Kartoteka klienta niesie nazwe, adres i NIP - czyli to, co musi znalezc
+    # sie na fakturze. Bez niej Stripe zaklada nowa, anonimowa przy kazdym
+    # zakupie, a polska firma dostaje dokument bez wlasnego NIP-u.
+    identyfikator = kartoteka_klienta(tenant, email)
+
+    # Droga awaryjna: gdy Stripe odmowil obslugi kartoteki, platnosc idzie
+    # dalej po samym adresie e-mail. Faktura bez pelnych danych jest klopotem,
+    # ale klient, ktory nie moze zaplacic, jest klopotem wiekszym i naszym.
+    rozpoznanie = (
+        {"customer": identyfikator}
+        if identyfikator
+        else {"customer_email": email or tenant.owner_email}
+    )
+
     return stripe.checkout.Session.create(
         mode="subscription",
-        customer_email=email or tenant.owner_email,
+        **rozpoznanie,
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=f"{frontend}/platnosc/sukces?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{frontend}/platnosc/anulowano",
