@@ -316,7 +316,14 @@ class TestCheckout:
         class FakeSession:
             url = "https://checkout.stripe.test/sesja"
 
-        with patch("stripe.checkout.Session.create", return_value=FakeSession()) as create:
+        # Kartoteka klienta jest osobna sprawa (test_stripe_klient.py). Bez
+        # tego podstawienia wywolanie wychodzi na zewnatrz, konczy sie bledem,
+        # kod wpada w droge awaryjna - a test przechodzi, sprawdzajac nie te
+        # sciezke, o ktora pyta.
+        with (
+            patch("api.views.stripe.kartoteka_klienta", return_value="cus_test"),
+            patch("stripe.checkout.Session.create", return_value=FakeSession()) as create,
+        ):
             response = owner_client(user, tenant).post(
                 self.URL, {"plan_type": "pro"}, format="json"
             )
@@ -401,7 +408,10 @@ def test_adresy_powrotu_maja_odpowiedniki_w_panelu(user, tenant, subscribtion, s
     class FakeSession:
         url = "https://checkout.stripe.test/s"
 
-    with patch("stripe.checkout.Session.create", return_value=FakeSession()) as create:
+    with (
+        patch("api.views.stripe.kartoteka_klienta", return_value="cus_test"),
+        patch("stripe.checkout.Session.create", return_value=FakeSession()) as create,
+    ):
         owner_client(user, tenant).post(
             "/api/billing/create-checkout-session/", {"plan_type": "pro"}, format="json"
         )

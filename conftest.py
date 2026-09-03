@@ -16,6 +16,39 @@ load_dotenv(".env.test", override=True)
 
 
 @pytest.fixture(autouse=True)
+def zadne_polaczenie_ze_stripe(monkeypatch):
+    """
+    Żaden test nie rozmawia z prawdziwym Stripe'em.
+
+    Powód pierwszy, oczywisty: pakiet testów na maszynie z żywym kluczem
+    w .env zakładałby prawdziwe kartoteki klientów i wystawiał prawdziwe
+    sesje płatności. Narzędzie do sprawdzania kodu nie ma prawa ruszać
+    cudzych pieniędzy.
+
+    Powód drugi, mniej oczywisty i groźniejszy: kod płatności ma drogi
+    awaryjne. Niepodstawione wywołanie bez klucza kończy się wyjątkiem, który
+    te drogi łapią - więc test przechodzi, sprawdzając ścieżkę zapasową
+    zamiast tej, o którą go pytano. Wynik wygląda wtedy na zielony i nie
+    znaczy nic.
+
+    Tutaj takie wywołanie kończy się głośnym błędem z nazwą brakującej atrapy,
+    zamiast po cichu wpadać w gałąź awaryjną.
+    """
+    from stripe._api_requestor import _APIRequestor
+
+    def zablokuj(*args, **kwargs):
+        raise AssertionError(
+            "Test probuje polaczyc sie z API Stripe. Podstaw konkretne "
+            "wywolanie (np. stripe.Customer.create albo "
+            "stripe.checkout.Session.create) zamiast pozwalac mu wyjsc "
+            "na zewnatrz - inaczej sprawdzasz droge awaryjna, nie ta wlasciwa."
+        )
+
+    monkeypatch.setattr(_APIRequestor, "request", zablokuj)
+    monkeypatch.setattr(_APIRequestor, "request_stream", zablokuj)
+
+
+@pytest.fixture(autouse=True)
 def zadania_w_miejscu(settings):
     """
     Zadania Celery wykonują się w procesie testu, zawsze.
