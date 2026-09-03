@@ -14,6 +14,26 @@ from chat.models import Conversation
 # Zmienne środowiskowe na czas testów (m.in. klucze API)
 load_dotenv(".env.test", override=True)
 
+# UWAGA przy odtwarzaniu warunków CI na własnej maszynie.
+#
+# Ustawienia ładują dotenv z KATALOGU PAKIETU, nie z korzenia repozytorium:
+# `chatbot_project/.env`, a nie `./.env` (patrz settings/base.py, load_dotenv).
+# Odsunięcie pliku z korzenia nie zmienia więc niczego - testy dalej widzą
+# pełną konfigurację produkcyjną, łącznie z żywym kluczem Stripe.
+#
+# Kosztowało to dwa fałszywe „sprawdzone bez .env": raz przy alertach
+# (accounts/tests/test_czuwanie.py), raz przy kartotece Stripe. W obu wypadkach
+# CI znajdowało błąd, którego lokalna weryfikacja nie mogła zobaczyć.
+#
+# Poprawnie:
+#     mv chatbot_project/.env chatbot_project/.env.bak
+#     pytest -q
+#     mv chatbot_project/.env.bak chatbot_project/.env
+#
+# Najlepiej jednak nie polegać na tym w ogóle: test, którego wynik zależy od
+# pliku spoza repozytorium, nie mierzy kodu. Ustawiaj wymagane wartości wprost,
+# fixture'ą `settings`.
+
 
 @pytest.fixture(autouse=True)
 def zadne_polaczenie_ze_stripe(monkeypatch):
