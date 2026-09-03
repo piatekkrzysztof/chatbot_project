@@ -13,6 +13,7 @@ odtwarzaniu koliduje z rekordami tworzonymi przez migracje.
 
 import datetime
 import io
+import json
 import os
 
 from django.core.files.base import ContentFile
@@ -64,16 +65,36 @@ class Command(BaseCommand):
         )
         tresc = bufor.getvalue()
 
-        if not tresc.strip() or tresc.strip() == "[]":
+        # Liczymy obiekty po sparsowaniu, a nie porownujemy tekst.
+        #
+        # Poprzednia wersja sprawdzala `tresc.strip() == "[]"`. Django przy
+        # `indent=2` zwraca dla pustej bazy nawias otwierajacy, przelamanie
+        # wiersza i nawias zamykajacy - a nie dwa znaki obok siebie. Ten
+        # warunek nigdy nie byl prawdziwy i zabezpieczenie NIE ZADZIALALO ani
+        # razu: komenda spokojnie zapisywala pusty plik na miejsce dobrej
+        # kopii. Dokladnie to, przed czym miala chronic.
+        #
+        # Wyszlo dopiero przy pierwszej probie odtworzenia - czyli przy
+        # pierwszym sprawdzeniu, czy kopia zapasowa robi to, co obiecuje.
+        try:
+            obiekty = json.loads(tresc)
+        except json.JSONDecodeError as blad:
             raise CommandError(
-                "Zrzut jest pusty — przerywam, żeby nie nadpisać dobrej kopii pustą."
+                f"Zrzut nie jest poprawnym JSON-em ({blad}) — przerywam. "
+                "Plik, którego nie da się wczytać, nie jest kopią zapasową."
+            ) from blad
+
+        if not obiekty:
+            raise CommandError(
+                "Zrzut jest pusty — przerywam, żeby nie nadpisać dobrej kopii pustą. "
+                "Jeśli baza naprawdę ma być pusta, skasuj plik docelowy ręcznie."
             )
 
         with open(sciezka, "w", encoding="utf-8") as plik:
             plik.write(tresc)
 
         rozmiar = os.path.getsize(sciezka)
-        liczba_obiektow = tresc.count('"model":')
+        liczba_obiektow = len(obiekty)
         self.stdout.write(self.style.SUCCESS(f"Zapisano: {sciezka}"))
         self.stdout.write(f"  rozmiar: {rozmiar / 1024:.1f} kB")
         self.stdout.write(f"  obiektów: {liczba_obiektow}")
