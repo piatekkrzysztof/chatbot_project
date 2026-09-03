@@ -224,6 +224,26 @@ class TestZeNicNieBlokujeZaplaty:
 
 @pytest.mark.django_db
 class TestSesjiPlatnosci:
+    """
+    Cennik ustawiony wprost, a nie dziedziczony ze środowiska.
+
+    Pierwsza wersja tych dwóch testów polegała na tym, co akurat stało
+    w `chatbot_project/.env` na maszynie deweloperskiej. Tam identyfikatory
+    cen były ustawione i testy przechodziły; w CI, gdzie ich nie ma,
+    `create_checkout_session` odrzuca plan jako niedostępny i oba padają.
+
+    Test, którego wynik zależy od pliku spoza repozytorium, nie mierzy kodu -
+    ta sama lekcja, co przy adresie alertów w `accounts/tests/test_czuwanie.py`.
+    """
+
+    @pytest.fixture(autouse=True)
+    def cennik(self, settings):
+        settings.STRIPE_PRICE_IDS = {
+            "start": "price_test_start",
+            "grow": "price_test_grow",
+            "pro": "price_test_pro",
+        }
+
     def test_sesja_uzywa_kartoteki_zamiast_samego_emaila(self, firma, dane):
         from api.views.stripe import create_checkout_session
 
