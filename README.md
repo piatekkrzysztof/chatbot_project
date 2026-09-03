@@ -394,6 +394,19 @@ still open.
 Written because the code path is the same for every customer, and because the detection
 gap is more interesting than the bug.
 
+## Recovery
+
+**[Restoring from backup — runbook and drill record](docs/odtwarzanie-z-kopii.md).**
+The backup command had always ended with the line "restore with `loaddata`". Nobody
+had ever run it. The first drill, on 3 September 2026, took 12 seconds of machine time
+and found two bugs that months of reading the code had not: the guard against
+overwriting a good backup with an empty one had never once worked, and restoring
+re-ran paid embedding generation across the whole database. Both fixed, both now
+covered by tests that run on every build.
+
+The document holds the measured timings, the verification steps that actually prove a
+restore worked, and what the backup deliberately does not contain.
+
 ---
 
 ## Known limitations
