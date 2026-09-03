@@ -23,10 +23,7 @@ from django.conf.urls.static import static
 import os
 from django.http import JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-
-
-def health_check(request):
-    return JsonResponse({"status": "ok"})
+from chatbot_project.zdrowie import health_check
 
 
 def trigger_error(request):

@@ -745,3 +745,9 @@ class DaneRozliczeniowe(models.Model):
     @property
     def adres_jednym_wierszem(self) -> str:
         return f"{self.ulica}, {self.kod_pocztowy} {self.miasto}"
+
+
+# Zliczenia odmow widgetu mieszkaja w osobnym module, bo dotycza ruchu
+# odwiedzajacych, a nie kont - ale Django musi je zobaczyc przy wykrywaniu
+# modeli, wiec import stoi tutaj.
+from accounts.odmowy import ZliczenieOdmow  # noqa: E402,F401
