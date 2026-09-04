@@ -24,14 +24,19 @@ odległości nie zależy od wartości, a policzenie stu tysięcy prawdziwych
 kosztowałoby realne pieniądze i nic by nie wniosło.
 
     python manage.py zmierz_skale
-    python manage.py zmierz_skale --do 40000
+    python manage.py zmierz_skale --do 85000 --wiem-ze-pisze-do-tej-bazy
+
+Domyslnie mierzy do 10 000 fragmentow, czyli zapisuje okolo 80 MB. Wieksze
+przebiegi trzeba potwierdzic, bo pelny zapisuje ponad 680 MB - a uruchomiona
+na serwerze komenda pisze do bazy PRODUKCYJNEJ.
 """
 
 import random
 import statistics
 import time
 
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from pgvector.django import L2Distance
 
@@ -50,6 +55,27 @@ PROGI = (1_000, 5_000, 10_000, 25_000, 40_000, 85_000)
 
 MB = 1024 * 1024
 
+#: Ile miejsca zajmuje jeden fragment razem z indeksami.
+#:
+#: Zmierzone 4 wrzesnia 2026 na PostgreSQL 16: 5 000 fragmentow zajelo 40,1 MB,
+#: czyli 8,2 kB na sztuke. Wektor to 1536 liczb po 4 bajty, wiec sam zajmuje
+#: 6 kB - reszta to naglowki wiersza i indeksy.
+KB_NA_FRAGMENT = 8.2
+
+#: Domyslny rozmiar pomiaru dobrany tak, zeby byl bezpieczny WSZEDZIE.
+#:
+#: 10 000 fragmentow to okolo 80 MB i wystarcza, zeby zobaczyc, gdzie krzywa
+#: przestaje byc liniowa. Pelny przebieg do 85 000 zapisuje ponad 680 MB -
+#: na malej instancji hostingu to rozmiar, ktory potrafi zapelnic dysk bazy,
+#: a komenda uruchomiona na serwerze pisze do bazy PRODUKCYJNEJ.
+#:
+#: Pierwsza wersja tej komendy miala 85 000 jako domyslne i nie mowila o tym
+#: ani slowa. Bylaby to pulapka zastawiona na kogos, kto zaufa narzedziu.
+DOMYSLNY_ROZMIAR = 10_000
+
+#: Powyzej tego progu trzeba potwierdzic swiadomie.
+PROG_POTWIERDZENIA = 25_000
+
 
 class Command(BaseCommand):
     help = "Mierzy, jak czas wyszukiwania rosnie z wielkoscia bazy wiedzy."
@@ -58,12 +84,21 @@ class Command(BaseCommand):
         parser.add_argument(
             "--do",
             type=int,
-            default=max(PROGI),
+            default=DOMYSLNY_ROZMIAR,
             metavar="N",
-            help="Najwiekszy mierzony rozmiar bazy wiedzy (domyslnie 85000).",
+            help=f"Najwiekszy mierzony rozmiar bazy wiedzy (domyslnie {DOMYSLNY_ROZMIAR}).",
+        )
+        parser.add_argument(
+            "--wiem-ze-pisze-do-tej-bazy",
+            action="store_true",
+            help=(
+                f"Wymagane powyzej {PROG_POTWIERDZENIA} fragmentow. Pomiar zapisuje "
+                "dane do bazy, z ktora jest polaczony - na serwerze to baza produkcyjna."
+            ),
         )
 
     def handle(self, *args, **opcje):
+        self._ostrzez(opcje["do"], opcje["wiem_ze_pisze_do_tej_bazy"])
         self._cennik()
 
         losowy = random.Random(20260904)
@@ -78,6 +113,44 @@ class Command(BaseCommand):
                 firma.delete()
                 self.stdout.write("")
                 self.stdout.write("Dane pomiarowe usuniete.")
+
+    def _ostrzez(self, maksimum, potwierdzone):
+        """
+        Mowi, ile miejsca zajmie pomiar, i nie pozwala go zrobic na slepo.
+
+        Komenda zapisuje fragmenty do bazy, z ktora jest polaczona. Uruchomiona
+        na serwerze pisze do bazy PRODUKCYJNEJ - a pelny przebieg to ponad
+        680 MB, czyli rozmiar zdolny zapelnic dysk malej instancji.
+
+        Dane sa kasowane na koncu, takze po bledzie, ale w trakcie musza sie
+        gdzies zmiescic.
+        """
+        megabajty = maksimum * KB_NA_FRAGMENT / 1024
+        baza = settings.DATABASES["default"]
+
+        self.stdout.write(
+            f"Pomiar zapisze do {maksimum:,} fragmentow, czyli okolo {megabajty:.0f} MB, do bazy:"
+        )
+        self.stdout.write(f"  {baza.get('NAME')} na {baza.get('HOST') or 'localhost'}")
+        self.stdout.write("Dane sa kasowane na koncu, takze po bledzie.")
+        self.stdout.write("")
+
+        if maksimum > PROG_POTWIERDZENIA and not potwierdzone:
+            raise CommandError(
+                "\n".join(
+                    [
+                        f"{maksimum:,} fragmentow to okolo {megabajty:.0f} MB "
+                        f"zapisane do bazy '{baza.get('NAME')}'.",
+                        "Na serwerze jest to baza produkcyjna i tyle miejsca musi",
+                        "sie w niej zmiescic na czas pomiaru.",
+                        "",
+                        "Jesli o tym wiesz, dodaj --wiem-ze-pisze-do-tej-bazy.",
+                        "Jesli chcesz tylko zobaczyc ksztalt krzywej, zostaw "
+                        f"domyslne {DOMYSLNY_ROZMIAR:,} (okolo "
+                        f"{DOMYSLNY_ROZMIAR * KB_NA_FRAGMENT / 1024:.0f} MB).",
+                    ]
+                )
+            )
 
     def _cennik(self):
         """Ile fragmentów mieści się w limicie każdego planu."""
