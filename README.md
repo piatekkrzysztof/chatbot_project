@@ -422,6 +422,27 @@ query plan, and how it was checked and corrected.
 
 ---
 
+## Decisions still open
+
+Most decisions here are described where they apply — above under *Key technical
+decisions*, and in the docstring next to the code that implements them.
+
+Three are recorded separately in [docs/adr](docs/adr), because they are still
+open: each gave something up, each could reasonably be reversed, and each names
+the condition that should make somebody revisit it. No vector index on
+embeddings, alerts only on unambiguous signals, and `style-src 'unsafe-inline'`
+kept while the script hole is closed.
+
+They are separate from the code because the code shows what was chosen and not
+what was declined.
+
+## Changelog
+
+[CHANGELOG.md](CHANGELOG.md) records what changed from a user's point of view.
+The version in `chatbot_project/wersja.py` is served by `/health/`, so
+`curl https://api.agencjasm-art.pl/health/` answers "what is deployed" in one
+line — and a test fails if that version drifts from the newest changelog entry.
+
 ## Known limitations
 
 Honest list. These are measured or known, not hypothetical.

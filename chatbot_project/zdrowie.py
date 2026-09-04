@@ -36,6 +36,8 @@ import logging
 from django.db import connection
 from django.http import JsonResponse
 
+from chatbot_project.wersja import WERSJA
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,6 +90,10 @@ def health_check(request):
             # z tego korzystać zewnętrzne czujki skonfigurowane wcześniej.
             "status": "ok" if baza else "error",
             "stan": stan,
+            # Odpowiedź na pytanie „co jest na produkcji". Do tej pory nie dało
+            # się jej udzielić inaczej niż przez porównywanie commitów z datą
+            # wdrożenia w panelu hostingu.
+            "wersja": WERSJA,
             "baza": baza,
             "broker": broker,
         },

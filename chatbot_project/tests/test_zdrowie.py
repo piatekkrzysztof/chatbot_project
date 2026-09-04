@@ -100,3 +100,51 @@ class TestAwarii:
 
         assert odpowiedz.status_code == 200
         assert odpowiedz.json()["broker"] is False
+
+
+@pytest.mark.django_db
+class TestWersji:
+    def test_odpowiedz_mowi_co_jest_wdrozone(self, client):
+        """
+        Do tej pory nie dalo sie odpowiedziec na pytanie „co jest na
+        produkcji" inaczej niz przez porownywanie commitow z data wdrozenia
+        w panelu hostingu. Przy zgloszeniu od klienta pierwszy krok - czy on
+        w ogole ma juz poprawke - zaczynal sie od tego porownania.
+        """
+        from chatbot_project.wersja import WERSJA
+
+        with patch("chatbot_project.zdrowie._broker_odpowiada", return_value=True):
+            dane = client.get("/health/").json()
+
+        assert dane["wersja"] == WERSJA
+
+    def test_wersja_ma_ksztalt_semantyczny(self):
+        # Numer, ktory nie daje sie porownac, nie mowi "nowsza czy starsza".
+        import re
+
+        from chatbot_project.wersja import WERSJA
+
+        assert re.fullmatch(r"\d+\.\d+\.\d+", WERSJA), WERSJA
+
+    def test_wersja_zgadza_sie_z_najnowszym_wpisem_w_changelogu(self):
+        """
+        Najważniejszy test w tym pliku.
+
+        Wersja i changelog rozjezdzaja sie przy pierwszym posiechu, a wtedy
+        numer w /health/ przestaje cokolwiek znaczyc: mowi, ze wdrozono 1.2.0,
+        a nie da sie sprawdzic, co w tej wersji bylo.
+        """
+        import re
+        from pathlib import Path
+
+        from chatbot_project.wersja import WERSJA
+
+        changelog = (Path(__file__).resolve().parents[2] / "CHANGELOG.md").read_text(
+            encoding="utf-8"
+        )
+        wydania = re.findall(r"^## \[(\d+\.\d+\.\d+)\]", changelog, flags=re.MULTILINE)
+
+        assert wydania, "CHANGELOG.md nie zawiera zadnego wydania"
+        assert wydania[0] == WERSJA, (
+            f"wersja w kodzie to {WERSJA}, a najnowszy wpis w CHANGELOG.md to {wydania[0]}"
+        )
