@@ -157,7 +157,13 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"{kolumny[0]:>10} {kolumny[1]:>7} {kolumny[2]:>7}  {ile_przejdzie:>9}  {pytanie[:58]}"
             )
-            self.stdout.write(f"{'':>38}  └ {trafienia[0].content[:70].replace(chr(10), ' ')}")
+            # Strzalka z ASCII, nie znak ramki. Konsola Windows pracuje
+            # w cp1250, ktore nie ma U+2514 - komenda wywracala sie na
+            # UnicodeEncodeError przy PIERWSZYM wypisanym trafieniu.
+            # Narzedzie diagnostyczne, ktore pada na maszynie autora,
+            # przydaje sie wylacznie na serwerze - czyli wtedy, gdy jest
+            # najtrudniej cokolwiek nim sprawdzic.
+            self.stdout.write(f"{'':>38}  -> {trafienia[0].content[:70].replace(chr(10), ' ')}")
 
         self.stdout.write("")
         return najblizsze
