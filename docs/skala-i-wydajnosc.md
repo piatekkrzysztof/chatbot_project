@@ -108,6 +108,46 @@ made on numbers instead of a hunch.
 
 ---
 
+## What running this costs
+
+The measurement writes real rows. Measured on PostgreSQL 16: 5 000 chunks
+occupy 40.1 MB including indexes — **8.2 kB per chunk**. The vector itself is
+1536 four-byte floats, so 6 kB of that is the embedding; the rest is row
+headers and indexes.
+
+| chunks | disk while running |
+|---|---|
+| 10 000 | ~80 MB |
+| 40 000 | ~320 MB |
+| 85 000 | **~680 MB** |
+
+The rows are deleted at the end, including after an error, but they have to fit
+somewhere while the measurement runs. **On a server, that somewhere is the
+production database.**
+
+The command therefore defaults to 10 000 chunks — enough to see where the curve
+stops being linear, and small enough to be safe anywhere. Anything above 25 000
+requires `--wiem-ze-pisze-do-tej-bazy`, and the refusal names the size and the
+database it would write to.
+
+The first version of the command defaulted to 85 000 and said nothing about
+any of this. It was written to answer a question about capacity and would have
+been a trap for anyone who trusted it — which is the whole reason the footprint
+is measured here rather than estimated.
+
+## Running it on the production instance
+
+Worth doing once, to learn the constant factor between that hardware and the
+numbers above. The default size is safe:
+
+```
+python manage.py zmierz_skale
+```
+
+Around 80 MB while it runs, deleted at the end. Compare the 10 000-chunk row
+with the 40 ms measured here; the ratio is what to multiply the rest of the
+table by.
+
 ## When to measure again
 
 - after adding any index on `documents_documentchunk`,
