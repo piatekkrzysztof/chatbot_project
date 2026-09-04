@@ -13,7 +13,7 @@ from getpass import getpass
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from accounts.models import Tenant, CustomUser, Subscription, UserRole
+from accounts.models import CustomUser, Subscription, Tenant, UserRole
 
 
 class Command(BaseCommand):

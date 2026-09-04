@@ -1,15 +1,16 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from openai import OpenAIError
 
 from accounts.models import Tenant
-from chat.models import Conversation, ChatMessage, FAQ
 from api.utils.chat_engine import (
-    process_chat_message,
-    get_openai_response,
     build_chat_messages,
     build_history_messages,
+    get_openai_response,
+    process_chat_message,
 )
+from chat.models import FAQ, ChatMessage, Conversation
 
 
 def make_chunk(content, doc_name, source_url=""):

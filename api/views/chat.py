@@ -1,18 +1,15 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from api.permissions import IsTenantMember
+from api.schemas import PublicChatResponseSerializer
 from api.serializers import ChatRequestSerializer
 from api.throttles import APIKeyRateThrottle
-from api.permissions import IsTenantMember
-from drf_spectacular.utils import OpenApiResponse, extend_schema
-
-from api.schemas import PublicChatResponseSerializer
-from accounts.models import Tenant
-from chat.models import Conversation, ChatMessage, PromptLog, ChatUsageLog
-from chat.privacy import visitor_identifier
 from api.utils.chat_engine import process_chat_message, split_billing
-from accounts.models import Subscription
-from rest_framework.throttling import ScopedRateThrottle
+from chat.models import Conversation
+from chat.privacy import visitor_identifier
 
 
 @extend_schema(

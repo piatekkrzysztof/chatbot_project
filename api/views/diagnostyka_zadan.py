@@ -28,7 +28,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Tenant
-from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
+from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from chat.models import Conversation
 from documents.models import WebsiteSource
 
@@ -101,8 +101,8 @@ def _slad_pobierania(teraz, tenant):
                 "przyklad_bledu": f"{nazwa}: {tresc[:200]}",
                 "wniosek": "nie-dziala",
                 "opis": (
-                    f"Pobieranie było próbowane i zakończyło się błędem. "
-                    f"To usterka crawlera albo samej strony, nie zaplecza."
+                    "Pobieranie było próbowane i zakończyło się błędem. "
+                    "To usterka crawlera albo samej strony, nie zaplecza."
                 ),
             }
 

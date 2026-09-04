@@ -3,12 +3,12 @@ import uuid
 from datetime import date, timedelta
 
 import pytest
-from dotenv import load_dotenv
 from django.core.files.uploadedfile import SimpleUploadedFile
+from dotenv import load_dotenv
 from reportlab.pdfgen import canvas
 from rest_framework.test import APIClient
 
-from accounts.models import Tenant, Subscription, CustomUser
+from accounts.models import CustomUser, Subscription, Tenant
 from chat.models import Conversation
 
 # Zmienne środowiskowe na czas testów (m.in. klucze API)

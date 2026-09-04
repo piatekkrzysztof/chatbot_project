@@ -4,7 +4,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from chat.models import Conversation, ChatMessage, PromptLog, FAQ
+from chat.models import FAQ, ChatMessage, Conversation, PromptLog
 
 
 def auth_client(user, tenant, role="owner"):

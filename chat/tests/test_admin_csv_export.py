@@ -1,9 +1,10 @@
 import pytest
 from django.contrib.admin.sites import AdminSite
-from chat.models import PromptLog, Tenant, Conversation
-from chat.admin import PromptLogAdmin
-from django.utils.timezone import now
 from django.http import HttpRequest
+from django.utils.timezone import now
+
+from chat.admin import PromptLogAdmin
+from chat.models import Conversation, PromptLog, Tenant
 
 
 @pytest.mark.django_db

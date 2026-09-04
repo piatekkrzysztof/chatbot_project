@@ -1,53 +1,53 @@
-from django.urls import path, include
-from .views.chat import ChatWithGPTView
-from .views.chat_csv import ExportPromptLogsCSVView, ImportPromptLogsCSVView
-from .views.widget import (
-    WidgetSettingsAPIView,
-    PublicFAQView,
-    PublicChatView,
-    PublicChatStreamView,
-    TenantWidgetSettingsView,
-)
-from .views.feedback import PublicFeedbackView, SubmitFeedbackView
-from .views.accounts import (
-    ClientRegisterView,
-    LoginView,
-    MeView,
-    CreateInvitationView,
-    AcceptInvitationView,
-    InvitationListView,
-    InvitationPreviewView,
-    InvitationRevokeView,
-    OdswiezTokenView,
-    WylogujView,
-    LogowanieDrugiSkladnikView,
-)
-from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
-from .views.stripe_webhook import stripe_webhook
-from drf_spectacular.utils import extend_schema
+from django.urls import include, path
 
-# TokenRefreshView z biblioteki zastąpił OdswiezTokenView, który czyta token
-# z ciasteczka HttpOnly. Opis schematu ma teraz przy sobie, w swoim module.
-from .routers import router
-from api.views.documents import UploadDocumentView, DocumentDetailView, DocumentChunkListView
-from api.views.diagnostyka import DiagnostykaAdresuView
-from api.views.dziennik import DziennikView
 from api.views.dane_rozliczeniowe import DaneRozliczenioweView
+from api.views.diagnostyka import DiagnostykaAdresuView
+from api.views.diagnostyka_zadan import DiagnostykaZadanView
+from api.views.documents import DocumentChunkListView, DocumentDetailView, UploadDocumentView
 from api.views.drugi_skladnik import (
     PotwierdzDrugiSkladnikView,
     RozpocznijDrugiSkladnikView,
     StanDrugiegoSkladnikaView,
     WylaczDrugiSkladnikView,
 )
-from api.views.diagnostyka_zadan import DiagnostykaZadanView
+from api.views.dziennik import DziennikView
 from api.views.stripe import PublicPricingView
-from .views.chat_logs import PromptLogListView
-from .views.czat_testowy import CzatTestowyView
-from .views.ustawienia_firmy import UstawieniaFirmyView
+
+# TokenRefreshView z biblioteki zastąpił OdswiezTokenView, który czyta token
+# z ciasteczka HttpOnly. Opis schematu ma teraz przy sobie, w swoim module.
+from .routers import router
+from .views.accounts import (
+    AcceptInvitationView,
+    ClientRegisterView,
+    CreateInvitationView,
+    InvitationListView,
+    InvitationPreviewView,
+    InvitationRevokeView,
+    LoginView,
+    LogowanieDrugiSkladnikView,
+    MeView,
+    OdswiezTokenView,
+    WylogujView,
+)
 from .views.analytics import TenantAnalyticsView
+from .views.chat import ChatWithGPTView
+from .views.chat_csv import ExportPromptLogsCSVView, ImportPromptLogsCSVView
+from .views.chat_logs import PromptLogListView
 from .views.contact import PublicContactRequestView
+from .views.czat_testowy import CzatTestowyView
+from .views.feedback import PublicFeedbackView, SubmitFeedbackView
 from .views.knowledge import TenantKnowledgeView
 from .views.privacy import ConversationEraseView, TenantPrivacySettingsView
+from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
+from .views.stripe_webhook import stripe_webhook
+from .views.ustawienia_firmy import UstawieniaFirmyView
+from .views.widget import (
+    PublicChatStreamView,
+    PublicChatView,
+    PublicFAQView,
+    TenantWidgetSettingsView,
+    WidgetSettingsAPIView,
+)
 
 urlpatterns = [
     path("", include(router.urls)),

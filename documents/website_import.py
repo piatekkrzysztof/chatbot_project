@@ -1,14 +1,13 @@
-import requests
-import trafilatura
 from urllib.parse import urljoin, urlparse
 
+import requests
+import trafilatura
 from bs4 import BeautifulSoup
 
 from documents.models import Document
-from documents.validators import sprawdz_limit_bazy_wiedzy
 from documents.utils.queue import enqueue
 from documents.utils.tresc_strony import TrescStrony, wyciagnij_tresc
-from documents import tasks
+from documents.validators import sprawdz_limit_bazy_wiedzy
 
 
 def fetch_text_from_url(url: str) -> TrescStrony:
@@ -86,6 +85,18 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
 
     # Przeliczenie jest idempotentne — stare fragmenty znikają przed nowymi,
     # więc odświeżony dokument nie odpowiada dwiema wersjami naraz.
+    # Import w srodku funkcji, zeby przerwac cykl: `documents.tasks` importuje
+    # z tego modulu `discover_links_recursively` i `import_website_as_document`.
+    #
+    # Cykl istnial od dawna i dzialal wylacznie dzieki kolejnosci importow -
+    # o ile cokolwiek zaladowalo `documents.tasks` PRZED tym modulem, wszystko
+    # sie skladalo. Wyszlo dopiero, gdy posortowanie importow w pliku testu
+    # zmienilo te kolejnosc i caly pakiet przestal sie zbierac.
+    #
+    # Odtworzenie starej kolejnosci naprawiloby objaw. To naprawia przyczyne:
+    # w chwili wywolania oba moduly sa juz w calosci zaladowane.
+    from documents import tasks
+
     enqueue(tasks.generate_embeddings_for_document, document.id)
     return document
 

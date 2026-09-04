@@ -1,8 +1,10 @@
-import pytest
-from rest_framework.test import APIClient
-from accounts.models import Tenant
 import uuid
+
+import pytest
 from django.core.exceptions import ValidationError
+from rest_framework.test import APIClient
+
+from accounts.models import Tenant
 
 
 @pytest.mark.django_db

@@ -1,8 +1,8 @@
-from .base import *
 import os
 
 from chatbot_project.observability import init_sentry
 
+from .base import *
 
 DEBUG = False
 

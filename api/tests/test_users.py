@@ -1,9 +1,10 @@
+from datetime import date, timedelta
+
 import pytest
 from rest_framework.test import APIClient
-from accounts.models import CustomUser, Tenant, Subscription
-from datetime import date, timedelta
-from chat.models import Conversation
 
+from accounts.models import CustomUser, Subscription, Tenant
+from chat.models import Conversation
 
 # @pytest.fixture
 # def tenant2():

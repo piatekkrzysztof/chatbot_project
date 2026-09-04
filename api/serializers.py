@@ -4,10 +4,10 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from accounts import nip as nip_pl
-from accounts.models import CustomUser, DaneRozliczeniowe, Tenant, InvitationToken, WidgetDomain
+from accounts.models import CustomUser, DaneRozliczeniowe, InvitationToken, Tenant, WidgetDomain
 from accounts.plans import PLANS, PRO
 from accounts.seats import sprawdz_limit_miejsc
-from chat.models import PromptLog, ChatMessage, ChatFeedback, FAQ, ContactRequest
+from chat.models import FAQ, ChatFeedback, ChatMessage, ContactRequest, PromptLog
 from documents.models import Document, DocumentChunk, WebsiteSource
 
 
@@ -225,7 +225,7 @@ class AcceptInvitationSerializer(serializers.Serializer):
         try:
             invitation = InvitationToken.objects.get(token=attrs["token"])
         except InvitationToken.DoesNotExist:
-            raise serializers.ValidationError("Invalid token.")
+            raise serializers.ValidationError("Invalid token.") from None
 
         if not invitation.is_valid():
             raise serializers.ValidationError("Token expired or used up.")

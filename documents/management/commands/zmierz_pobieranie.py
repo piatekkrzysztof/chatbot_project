@@ -31,14 +31,20 @@ from documents.models import Document
 # documents/website_import.py:fetch_text_from_url — inaczej porównanie
 # nie mówi nic o rzeczywistości.
 WARIANTY = {
-    "obecny": dict(include_comments=False, include_tables=False, include_formatting=False),
-    "+tabele": dict(include_comments=False, include_tables=True, include_formatting=False),
-    "+odzysk": dict(
-        include_comments=False, include_tables=True, include_formatting=False, favor_recall=True
-    ),
-    "+odzysk+struktura": dict(
-        include_comments=False, include_tables=True, include_formatting=True, favor_recall=True
-    ),
+    "obecny": {"include_comments": False, "include_tables": False, "include_formatting": False},
+    "+tabele": {"include_comments": False, "include_tables": True, "include_formatting": False},
+    "+odzysk": {
+        "include_comments": False,
+        "include_tables": True,
+        "include_formatting": False,
+        "favor_recall": True,
+    },
+    "+odzysk+struktura": {
+        "include_comments": False,
+        "include_tables": True,
+        "include_formatting": True,
+        "favor_recall": True,
+    },
     # Dwa warianty spoza logiki „wyciągnij artykuł". html2txt zamienia całą
     # stronę na tekst, bez oceniania, co jest treścią. „bez obudowy" robi to
     # samo, ale najpierw odcina nawigację, nagłówek i stopkę — czyli to,

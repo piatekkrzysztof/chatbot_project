@@ -69,7 +69,9 @@ class UstawieniaFirmyView(APIView):
                 try:
                     validate_email(adres)
                 except BladWalidacji:
-                    raise ValidationError({"owner_email": "To nie jest poprawny adres e-mail."})
+                    raise ValidationError(
+                        {"owner_email": "To nie jest poprawny adres e-mail."}
+                    ) from None
             # Pusty adres jest dozwolony i znaczy „nie powiadamiaj" — panel
             # mówi o tym wprost. Odrzucanie pustej wartości zamykałoby jedyną
             # drogę wypisania się z powiadomień.

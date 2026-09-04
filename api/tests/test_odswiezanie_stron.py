@@ -17,8 +17,8 @@ from unittest.mock import patch
 import pytest
 
 from accounts.models import Subscription, Tenant
-from documents.utils.tresc_strony import TrescStrony
 from documents.models import Document, DocumentChunk, WebsiteSource
+from documents.utils.tresc_strony import TrescStrony
 from documents.website_import import import_website_as_document
 
 ADRES = "https://dworweselny.pl/oferta"

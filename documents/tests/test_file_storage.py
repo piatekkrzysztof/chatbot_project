@@ -40,13 +40,13 @@ class TestEkstrakcjaBezSciezki:
         assert "120" in extract_text(handle, filename="cennik.pdf")
 
     def test_tekst_z_obiektu_pliku(self):
-        handle = io.BytesIO("Godziny otwarcia: 9-17".encode("utf-8"))
+        handle = io.BytesIO(b"Godziny otwarcia: 9-17")
 
         assert extract_text(handle, filename="notatki.txt") == "Godziny otwarcia: 9-17"
 
     def test_format_rozpoznany_po_atrybucie_name(self):
         """Pliki Django niosą nazwę w .name — nie trzeba jej podawać osobno."""
-        handle = io.BytesIO("# Oferta\n\nSerwis rowerowy".encode("utf-8"))
+        handle = io.BytesIO(b"# Oferta\n\nSerwis rowerowy")
         handle.name = "readme.md"
 
         assert "Serwis rowerowy" in extract_text(handle)

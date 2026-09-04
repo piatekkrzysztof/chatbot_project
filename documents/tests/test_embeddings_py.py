@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import patch
 
+import pytest
+
 from accounts.models import Tenant
-from documents.models import DocumentChunk, Document
+from documents.models import Document, DocumentChunk
 
 
 @pytest.mark.django_db

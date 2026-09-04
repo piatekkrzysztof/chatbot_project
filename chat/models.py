@@ -1,7 +1,8 @@
-from django.db import models
-from accounts.models import Tenant
-from django.utils import timezone
 import uuid
+
+from django.db import models
+
+from accounts.models import Tenant
 
 
 class Conversation(models.Model):
