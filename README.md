@@ -407,6 +407,19 @@ covered by tests that run on every build.
 The document holds the measured timings, the verification steps that actually prove a
 restore worked, and what the backup deliberately does not contain.
 
+## Scale
+
+**[How far this scales, measured](docs/skala-i-wydajnosc.md).** Retrieval takes
+7 ms at a thousand chunks, 40 ms at ten thousand and 818 ms at eighty-five
+thousand — and the Pro plan sells a hundred megabytes of knowledge base, which
+is about a hundred thousand chunks. A customer who fills that plan waits a
+second before the model writes anything.
+
+Nobody is close: the largest real knowledge base is 246 chunks. The number is
+written down so that the first customer who approaches the ceiling is not a
+surprise. The document also records a wrong conclusion drawn from the first
+query plan, and how it was checked and corrected.
+
 ---
 
 ## Known limitations
