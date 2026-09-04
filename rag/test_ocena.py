@@ -26,6 +26,22 @@ import pytest
 from rag.ocena.miary import opisz_bledy
 from rag.ocena.przebieg import ocen_na_wzorcu
 
+#: UWAGA: produkcja NIE uzywa domyslnej wartosci z kodu.
+#:
+#: base.py ma RAG_MAX_DISTANCE = 1.15, ale na Renderze stoi zmienna
+#: srodowiskowa ustawiona na 1.0 - i to jest prog, przy ktorym naprawde
+#: dziala bot. Sprawdzone 04.09.2026 komenda zmierz_prog_rag na zywej bazie
+#: (firma Sm-art, 246 fragmentow), ktora wypisala "obecny prog: 1.0".
+#:
+#: Przy 1.0 ten sam zestaw daje: trafnosc 90.9%, cisza 75.0%. Podlogi ponizej
+#: sa liczone przy 1.15, bo taka wartosc widzi CI - sluza wykrywaniu regresji
+#: w kodzie, nie opisuja zachowania produkcji.
+#:
+#: Zanim ktos zaproponuje zmiane progu na podstawie tych liczb: sprawdz
+#: najpierw, jaka wartosc ma zmienna srodowiskowa na serwerze. Ja tego nie
+#: sprawdzilem i zarekomendowalem "zejscie z 1.15 na 1.05" produktowi, ktory
+#: od dawna chodzil na 1.0 - czyli ciasniej niz moja rekomendacja.
+
 #: Zmierzone 04.09.2026 przy RAG_MAX_DISTANCE = 1.15:
 #:   trafnosc 100.0%, na 1. miejscu 81.8%, MRR 0.909, cisza 37.5%
 #:
