@@ -21,7 +21,6 @@ from api.views import diagnostyka_zadan as dz
 from chat.models import Conversation
 from documents.models import WebsiteSource
 
-
 BROKER_OK = {"broker_osiagalny": True, "odpowiedzialo_workerow": 1, "nazwy": ["celery@render"]}
 BROKER_BRAK_WORKERA = {"broker_osiagalny": True, "odpowiedzialo_workerow": 0, "nazwy": []}
 BROKER_PADL = {

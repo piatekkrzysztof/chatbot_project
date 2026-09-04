@@ -11,6 +11,8 @@ i nie dostać ani jednej wiadomości więcej.
 import json
 from unittest.mock import patch
 
+from itertools import pairwise
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -97,7 +99,10 @@ class TestKatalogPlanow:
         """Wyższy plan musi dawać więcej pod każdym względem — inaczej cennik kłamie."""
         kolejne = [PLANS["start"], PLANS["grow"], PLANS["pro"]]
 
-        for nizszy, wyzszy in zip(kolejne, kolejne[1:]):
+        # pairwise, nie zip(x, x[1:]): tu dlugosci MAJA sie roznic o jeden,
+        # wiec strict=True byloby bledem, a strict=False tylko uciszalby
+        # narzedzie. `pairwise` mowi wprost, ze chodzi o sasiednie pary.
+        for nizszy, wyzszy in pairwise(kolejne):
             assert wyzszy.price_pln > nizszy.price_pln
             assert wyzszy.message_limit > nizszy.message_limit
             assert wyzszy.knowledge_base_mb > nizszy.knowledge_base_mb

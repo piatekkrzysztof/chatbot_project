@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Tenant, CustomUser, InvitationToken, Subscription
+
 from accounts.odmowy import ZliczenieOdmow
+
+from .models import CustomUser, InvitationToken, Subscription, Tenant
 
 
 @admin.register(Tenant)

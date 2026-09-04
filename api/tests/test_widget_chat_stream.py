@@ -1,13 +1,13 @@
 import json
 import uuid
 from datetime import date, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from rest_framework.test import APIClient
 
-from accounts.models import Tenant, Subscription
-from chat.models import ChatMessage, PromptLog, Conversation
+from accounts.models import Subscription, Tenant
+from chat.models import ChatMessage, Conversation, PromptLog
 
 
 @pytest.fixture

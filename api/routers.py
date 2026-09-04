@@ -1,7 +1,9 @@
-from api.views.widget import WidgetDomainViewSet
 from rest_framework import routers
-from .views.documents import DocumentsViewSet, WebsiteSourceViewSet
+
+from api.views.widget import WidgetDomainViewSet
+
 from .views.contact import ContactRequestViewSet
+from .views.documents import DocumentsViewSet, WebsiteSourceViewSet
 from .views.faq import FAQViewSet
 from .views.users import UserViewSet  # nowy widok User
 

@@ -55,7 +55,7 @@ class Command(BaseCommand):
         try:
             tenant = Tenant.objects.get(pk=opcje["firma"])
         except Tenant.DoesNotExist:
-            raise CommandError(f"Nie ma firmy o id {opcje['firma']}.")
+            raise CommandError(f"Nie ma firmy o id {opcje['firma']}.") from None
 
         fragmentow = DocumentChunk.objects.filter(document__tenant=tenant).count()
         if not fragmentow:

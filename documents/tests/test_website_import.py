@@ -1,12 +1,14 @@
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import patch, Mock
+
+from accounts.models import Tenant
+from documents.models import Document
 from documents.website_import import (
     discover_links_recursively,
     fetch_text_from_url,
     import_website_as_document,
 )
-from accounts.models import Tenant
-from documents.models import Document
 
 HTML_MAIN = """
 <html>

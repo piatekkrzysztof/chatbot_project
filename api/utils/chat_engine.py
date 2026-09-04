@@ -2,14 +2,14 @@ import json
 import logging
 
 import openai
+from django.conf import settings
 from openai import OpenAI
 from rapidfuzz import fuzz
-from django.conf import settings
 
 from accounts.models import WIDGET_LANGUAGE_ADVERBS
 from api.utils.language import jezyk_odpowiedzi
 from api.utils.tokens import przytnij_do_budzetu
-from chat.models import ChatMessage, ChatUsageLog, PromptLog, FAQ
+from chat.models import FAQ, ChatMessage, ChatUsageLog, PromptLog
 from documents.utils.queue import enqueue
 from rag.engine import query_similar_chunks_pgvector
 

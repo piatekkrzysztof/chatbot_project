@@ -1,28 +1,26 @@
 import json
 
-from rest_framework import viewsets
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from accounts.models import BrandingMode, Tenant, WidgetDomain
-from accounts.domains import limit_domen, zarejestruj_domene
-from accounts.plans import allows_hiding_branding, allows_white_label, get_plan
-from api.throttles import APIKeyRateThrottle, VisitorRateThrottle
-from uuid import UUID
-from rest_framework.exceptions import PermissionDenied, ValidationError
-from chat.models import FAQ, Conversation
-from chat.privacy import visitor_identifier
-from api.serializers import PublicFAQSerializer, ChatRequestSerializer, WidgetDomainSerializer
-from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
-from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status, viewsets
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from accounts.domains import limit_domen, zarejestruj_domene
+from accounts.models import BrandingMode, WidgetDomain
+from accounts.plans import allows_hiding_branding, allows_white_label, get_plan
+from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.schemas import (
     ErrorSerializer,
     PublicChatResponseSerializer,
     WidgetBrandingSerializer,
 )
+from api.serializers import ChatRequestSerializer, PublicFAQSerializer, WidgetDomainSerializer
+from api.throttles import VisitorRateThrottle
+from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
+from chat.models import FAQ, Conversation
+from chat.privacy import visitor_identifier
 
 
 def _wlaczone(wartosc):
@@ -351,7 +349,9 @@ class TenantWidgetSettingsView(APIView):
                 try:
                     surowe = json.loads(surowe)
                 except ValueError:
-                    raise ValidationError({"widget_proactive_texts": "Nieprawidłowy JSON."})
+                    raise ValidationError(
+                        {"widget_proactive_texts": "Nieprawidłowy JSON."}
+                    ) from None
             if not isinstance(surowe, dict):
                 raise ValidationError(
                     {"widget_proactive_texts": "Oczekiwano obiektu kod języka → tekst."}

@@ -1,10 +1,12 @@
-import pytest
-import io
 import csv
-from rest_framework.test import APIClient
-from accounts.models import Tenant
-from chat.models import PromptLog, Conversation
+import io
 from unittest.mock import patch
+
+import pytest
+from rest_framework.test import APIClient
+
+from accounts.models import Tenant
+from chat.models import Conversation, PromptLog
 
 
 @pytest.mark.django_db
@@ -16,7 +18,7 @@ def test_export_prompt_logs_csv(api_client, user, tenant, subscribtion):
     user.role = "owner"
     user.save()
     api_client.force_authenticate(user=user)
-    conversation = Conversation.objects.create(tenant=tenant, user_identifier="test-user")
+    Conversation.objects.create(tenant=tenant, user_identifier="test-user")
 
     conv = Conversation.objects.create(id=100, tenant=tenant)
     PromptLog.objects.create(

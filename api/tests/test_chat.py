@@ -1,23 +1,23 @@
+import uuid
+from datetime import date, timedelta
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
-
-from accounts.plans import PLANS
-from rest_framework.test import APIClient
-from accounts.models import Tenant, CustomUser
-from chat.models import Conversation
-import uuid
 from rest_framework.request import Request
-from accounts.models import Subscription
-from datetime import date, timedelta
+from rest_framework.test import APIClient
+
+from accounts.models import CustomUser, Subscription, Tenant
+from accounts.plans import PLANS
+from chat.models import Conversation
+
 from .factories import (
+    ChatMessageFactory,
+    ConversationFactory,
+    SubscriptionFactory,
     TenantFactory,
     UserFactory,
-    SubscriptionFactory,
-    ConversationFactory,
-    ChatMessageFactory,
 )
-from unittest.mock import patch
 
 
 @pytest.fixture
@@ -169,7 +169,7 @@ def test_chat_view_enforces_subscription_limit(
     subscribtion.save()
     limit = PLANS["start"].rate_per_minute
 
-    for i in range(limit):
+    for _ in range(limit):
         res = client.post(
             "/api/chat/",
             {

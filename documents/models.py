@@ -1,6 +1,7 @@
 from django.db import models
-from accounts.models import Tenant
 from pgvector.django import VectorField
+
+from accounts.models import Tenant
 
 
 class Document(models.Model):
