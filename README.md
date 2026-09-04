@@ -409,16 +409,16 @@ restore worked, and what the backup deliberately does not contain.
 
 ## Scale
 
-**[How far this scales, measured](docs/skala-i-wydajnosc.md).** Retrieval takes
-7 ms at a thousand chunks, 40 ms at ten thousand and 818 ms at eighty-five
-thousand — and the Pro plan sells a hundred megabytes of knowledge base, which
-is about a hundred thousand chunks. A customer who fills that plan waits a
-second before the model writes anything.
+**[How far this scales, measured](docs/skala-i-wydajnosc.md).** On the
+production instance retrieval takes 90 ms at a thousand chunks and 1.3 s at ten
+thousand — worse than linear, with the knee between the two. Set against the
+price list that means a full Start plan spends at least 0.7 s before the model
+writes anything, and Grow and Pro are not servable at their advertised limits.
 
-Nobody is close: the largest real knowledge base is 246 chunks. The number is
-written down so that the first customer who approaches the ceiling is not a
-surprise. The document also records a wrong conclusion drawn from the first
-query plan, and how it was checked and corrected.
+The largest real knowledge base is 246 chunks, about 22 ms, so no customer is
+affected today. The document records two corrections as well as the numbers:
+a wrong conclusion drawn from a query plan, and a margin that a development
+laptop overstated by more than an order of magnitude.
 
 ---
 
