@@ -3,7 +3,7 @@ import io
 import pytest
 from reportlab.pdfgen import canvas
 
-from documents.utils.text_extraction import extract_text, UnsupportedFileType
+from documents.utils.text_extraction import UnsupportedFileType, extract_text
 
 
 def write_pdf(path, text):

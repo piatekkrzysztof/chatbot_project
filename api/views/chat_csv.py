@@ -1,19 +1,20 @@
-from django.http import HttpResponse
-from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied
 import csv
 from io import TextIOWrapper
+
+from django.http import HttpResponse
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import ListAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-from rest_framework import status
-from chat.zapytania import logi_klientow
-from chat.models import PromptLog, Tenant, Conversation
-from api.utils.mixins import TenantQuerysetMixin
-from rest_framework.generics import ListAPIView
-from api.permissions import IsTenantMember, IsOwnerOrEmployee
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework.views import APIView
 
+from api.permissions import IsOwnerOrEmployee
 from api.schemas import ErrorSerializer, MessageSerializer
+from api.utils.mixins import TenantQuerysetMixin
+from chat.models import Conversation, PromptLog, Tenant
+from chat.zapytania import logi_klientow
 
 
 @extend_schema(
@@ -39,7 +40,7 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
         try:
             tenant = Tenant.objects.get(api_key=api_key)
         except Tenant.DoesNotExist:
-            raise PermissionDenied("Niepoprawny klucz API.")
+            raise PermissionDenied("Niepoprawny klucz API.") from None
 
         # Eksport dotyczy ruchu klientów; próby właściciela to nie ich dane.
         logs = logi_klientow(tenant).order_by("-created_at")
@@ -91,7 +92,7 @@ class ImportPromptLogsCSVView(APIView):
         try:
             tenant = Tenant.objects.get(api_key=api_key)
         except Tenant.DoesNotExist:
-            raise PermissionDenied("Niepoprawny klucz API.")
+            raise PermissionDenied("Niepoprawny klucz API.") from None
 
         csv_file = request.FILES.get("file")
         if not csv_file:

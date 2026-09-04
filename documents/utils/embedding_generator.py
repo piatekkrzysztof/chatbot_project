@@ -79,7 +79,11 @@ def generate_embeddings_for_document(document):
     DocumentChunk.objects.bulk_create(
         [
             DocumentChunk(document=document, content=fragment, embedding=wektor)
-            for fragment, wektor in zip(fragmenty, wektory)
+            # strict=True: gdyby model zwrocil mniej wektorow niz fragmentow,
+            # zip po cichu pominalby koncowke dokumentu. Baza wiedzy bylaby
+            # wtedy niepelna i nic by tego nie pokazalo - bot po prostu nie
+            # odpowiadalby na pytania z ostatniej sekcji.
+            for fragment, wektor in zip(fragmenty, wektory, strict=True)
         ]
     )
     return len(fragmenty)

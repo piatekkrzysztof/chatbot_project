@@ -1,9 +1,11 @@
+from datetime import datetime, timedelta
+
 import pytest
 from django.test import RequestFactory
-from accounts.middleware import SubscriptionMiddleware
-from accounts.models import Tenant, Subscription, CustomUser
-from datetime import datetime, timedelta
 from django.utils import timezone
+
+from accounts.middleware import SubscriptionMiddleware
+from accounts.models import CustomUser, Subscription, Tenant
 
 
 @pytest.mark.django_db

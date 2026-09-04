@@ -1,12 +1,13 @@
-from datetime import timedelta
-
-from rest_framework.test import APITestCase
-from django.urls import reverse
-from accounts.models import Tenant, Subscription, CustomUser
-from django.utils import timezone
-from django.test import override_settings
 import os
 import uuid
+from datetime import timedelta
+
+from django.test import override_settings
+from django.urls import reverse
+from django.utils import timezone
+from rest_framework.test import APITestCase
+
+from accounts.models import CustomUser, Subscription, Tenant
 
 
 @override_settings(REST_FRAMEWORK={"DEFAULT_THROTTLE_CLASSES": []})

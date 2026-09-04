@@ -1,7 +1,8 @@
-from openai import OpenAI
 from django.conf import settings
-from documents.models import DocumentChunk
+from openai import OpenAI
 from pgvector.django import L2Distance
+
+from documents.models import DocumentChunk
 
 client = OpenAI()
 

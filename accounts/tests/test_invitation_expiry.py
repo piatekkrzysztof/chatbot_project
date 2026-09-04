@@ -9,7 +9,7 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from accounts.models import InvitationToken, CustomUser
+from accounts.models import CustomUser, InvitationToken
 
 
 def test_expires_at_is_none_before_save(tenant):

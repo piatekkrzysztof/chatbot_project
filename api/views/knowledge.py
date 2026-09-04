@@ -1,9 +1,8 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
-from drf_spectacular.utils import extend_schema
-
+from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.schemas import KnowledgeSerializer
 
 

@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from documents.models import Document, DocumentChunk
 from documents.tasks import generate_embeddings_for_document
 
@@ -13,11 +15,22 @@ from documents.tasks import generate_embeddings_for_document
 @patch("documents.utils.embedding_generator.get_client")
 def test_generate_embeddings_for_document_creates_chunks(mock_get_client, tenant):
     # Fabryka zwraca klienta, wiec mockujemy fabryke i podstawiamy klienta.
-    mock_response = MagicMock()
+
     # Kod sortuje odpowiedz po `index`, wiec atrapa musi go miec.
-    mock_response.data = [MagicMock(embedding=[0.01] * 1536, index=0)]
+    #
+    # Tyle wektorow, ile fragmentow. Wczesniej atrapa oddawala JEDEN wektor
+    # niezaleznie od dlugosci dokumentu, a `zip` po cichu ucinal reszte -
+    # test przechodzil, sprawdzajac zapis jednego fragmentu z kilku. Wyszlo,
+    # gdy zip dostal strict=True: prawdziwy model tez moze oddac mniej
+    # wektorow, niz dostal tekstow, i wtedy koncowka dokumentu przepadala
+    # bez sladu.
+    def odpowiedz_na_tyle_ile_tekstow(model, input, **_):
+        odp = MagicMock()
+        odp.data = [MagicMock(embedding=[0.01] * 1536, index=i) for i in range(len(input))]
+        return odp
+
     mock_openai_client = MagicMock()
-    mock_openai_client.embeddings.create.return_value = mock_response
+    mock_openai_client.embeddings.create.side_effect = odpowiedz_na_tyle_ile_tekstow
     mock_get_client.return_value = mock_openai_client
 
     # 📄 Dokument testowy

@@ -18,12 +18,12 @@ SMTP = "django.core.mail.backends.smtp.EmailBackend"
 
 def ustawienia(**zmiany):
     """Poprawna konfiguracja, w której test psuje jedną rzecz."""
-    baza = dict(
-        EMAIL_BACKEND=SMTP,
-        EMAIL_HOST="smtp.resend.com",
-        EMAIL_HOST_PASSWORD="re_klucz_api",
-        DEFAULT_FROM_EMAIL="powiadomienia@agencjasm-art.pl",
-    )
+    baza = {
+        "EMAIL_BACKEND": SMTP,
+        "EMAIL_HOST": "smtp.resend.com",
+        "EMAIL_HOST_PASSWORD": "re_klucz_api",
+        "DEFAULT_FROM_EMAIL": "powiadomienia@agencjasm-art.pl",
+    }
     baza.update(zmiany)
     return SimpleNamespace(**baza)
 

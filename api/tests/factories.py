@@ -1,14 +1,12 @@
-import pytest
-from rest_framework.test import APIClient
-from accounts.models import Tenant, CustomUser
-from accounts.models import Subscription
+import uuid
 from datetime import date, timedelta
 
 import factory
-import uuid
-from datetime import date, timedelta
-from accounts.models import Tenant, Subscription, CustomUser
-from chat.models import Conversation, ChatMessage
+import pytest
+from rest_framework.test import APIClient
+
+from accounts.models import CustomUser, Subscription, Tenant
+from chat.models import ChatMessage, Conversation
 
 
 class TenantFactory(factory.django.DjangoModelFactory):

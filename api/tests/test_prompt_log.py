@@ -1,12 +1,12 @@
+import uuid
+from datetime import timedelta
 from unittest import mock
 
 import pytest
-from rest_framework.test import APIClient
-from chat.models import PromptLog, Conversation
-
 from django.utils import timezone
-from datetime import timedelta
-import uuid
+from rest_framework.test import APIClient
+
+from chat.models import Conversation, PromptLog
 
 
 @pytest.fixture

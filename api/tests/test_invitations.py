@@ -1,10 +1,11 @@
 from datetime import timedelta
-from django.utils import timezone
+from uuid import UUID
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
-from accounts.models import Tenant, CustomUser, InvitationToken
-from uuid import UUID
+
+from accounts.models import CustomUser, InvitationToken, Tenant
 
 
 @pytest.mark.django_db

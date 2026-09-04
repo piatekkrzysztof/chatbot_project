@@ -1,5 +1,6 @@
 import pytest
 from rest_framework.test import APIClient
+
 from accounts.models import CustomUser, Tenant
 
 
@@ -25,9 +26,8 @@ def test_register_creates_user_and_tenant():
 @pytest.mark.django_db
 def test_login_returns_token_and_user_data():
     tenant = Tenant.objects.create(name="Org", owner_email="x@x.com")
-    user = CustomUser.objects.create_user(
-        username="x", email="x@x.com", password="pass123", tenant=tenant
-    )
+    # Bez przypisania: liczy sie samo powstanie konta, nie uchwyt do niego.
+    CustomUser.objects.create_user(username="x", email="x@x.com", password="pass123", tenant=tenant)
 
     client = APIClient()
     response = client.post("/api/accounts/login/", {"username": "x", "password": "pass123"})

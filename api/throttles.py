@@ -1,11 +1,9 @@
 import hashlib
-import time
 
 from django.conf import settings
-from django.core.cache import cache as default_cache
 from rest_framework.throttling import SimpleRateThrottle
 
-from accounts.models import Tenant, Subscription
+from accounts.models import Subscription, Tenant
 from accounts.plans import rate_for
 from chat.privacy import client_ip
 

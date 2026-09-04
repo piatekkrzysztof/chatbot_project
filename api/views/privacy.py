@@ -1,11 +1,10 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
-from drf_spectacular.utils import extend_schema
-
 from api.schemas import ErasureResultSerializer, ErrorSerializer, PrivacySettingsSerializer
 from chat.models import ChatUsageLog, ContactRequest, Conversation, PromptLog
 

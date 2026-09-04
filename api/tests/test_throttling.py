@@ -1,13 +1,14 @@
-import pytest
 import uuid
+from types import SimpleNamespace
 from unittest import mock
-from rest_framework.test import APIClient
+
+import pytest
 from django.core.cache import cache
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework.throttling import SimpleRateThrottle
+
 from accounts.plans import PLANS, rate_for
 from api.throttles import APIKeyRateThrottle, BaseSubscriptionThrottle
-from types import SimpleNamespace
 
 cache.clear()
 

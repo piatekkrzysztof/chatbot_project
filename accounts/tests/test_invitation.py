@@ -2,7 +2,8 @@ from datetime import timedelta
 
 import pytest
 from django.utils import timezone
-from accounts.models import Tenant, InvitationToken
+
+from accounts.models import InvitationToken, Tenant
 
 
 @pytest.mark.django_db

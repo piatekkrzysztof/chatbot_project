@@ -8,9 +8,9 @@ czyszczeniu, nie jest polityką retencji.
 """
 
 import logging
+from datetime import timedelta
 
 from django.utils import timezone
-from datetime import timedelta
 
 from accounts.models import Tenant
 from chat.models import ChatUsageLog, ContactRequest, Conversation, PromptLog

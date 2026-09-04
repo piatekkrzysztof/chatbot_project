@@ -1,7 +1,7 @@
-from rest_framework import viewsets
 from drf_spectacular.utils import extend_schema
+from rest_framework import viewsets
 
-from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
+from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.serializers import FAQSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from chat.models import FAQ

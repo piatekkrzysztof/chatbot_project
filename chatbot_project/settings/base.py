@@ -1,10 +1,11 @@
 import os
 from datetime import timedelta
-from dotenv import load_dotenv
 from pathlib import Path
-from decouple import config, Csv
+
 import dj_database_url
 from corsheaders.defaults import default_headers
+from decouple import config
+from dotenv import load_dotenv
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
 load_dotenv(dotenv_path)
