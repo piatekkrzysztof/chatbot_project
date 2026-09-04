@@ -1,6 +1,6 @@
 # 001 — No vector index on embeddings
 
-**Status:** accepted for now, but the ground moved — see *Revised* below
+**Status:** accepted for now; since 4 September 2026 the threshold is watched by an alert
 **Date:** 4 September 2026
 **Revised:** 4 September 2026, after measuring on the production instance
 
@@ -76,9 +76,17 @@ Any one of these:
   which today the system cannot serve,
 - retrieval latency appears in a customer complaint.
 
-The first can be watched rather than waited for, and there is still no alert on
-it. That remains a smaller change than the index, and it is now the one worth
-making first.
+The first is now watched rather than waited for: a daily task
+(`accounts/rozmiar_bazy.py`) reports any tenant crossing 2 500 chunks, and
+again at 5 000 — the knee itself, which is also the Start plan's own limit.
+Two levels rather than one, because a single threshold answers "has it
+happened" and two also answer "how much time is left".
+
+The alert goes to the operator, not the customer. A customer cannot act on it:
+they do not know what a chunk is, and the only lever they have — deleting their
+own knowledge — is the opposite of what they bought the product for. The
+decision between an index, different plan limits and a conversation about the
+plan belongs on our side.
 
 ## How to add the index, when it comes to that
 

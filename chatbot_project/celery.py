@@ -63,6 +63,12 @@ app.conf.beat_schedule = {
         "task": "accounts.cisza.sprawdz_cisze_zadanie",
         "schedule": crontab(minute=45, hour=8),
     },
+    # Rozmiar bazy wiedzy zmienia sie powoli, wiec raz na dobe wystarczy.
+    # Chodzi o uprzedzenie, nie o wykrycie awarii.
+    "rozmiar-bazy-wiedzy-codziennie": {
+        "task": "accounts.rozmiar_bazy.sprawdz_rozmiary_zadanie",
+        "schedule": crontab(minute=0, hour=9),
+    },
     "konce-subskrypcji-codziennie": {
         "task": "accounts.tasks_konce.sprawdz_konce_subskrypcji",
         "schedule": crontab(minute=15, hour=8),
