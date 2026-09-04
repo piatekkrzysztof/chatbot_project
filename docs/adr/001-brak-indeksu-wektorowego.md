@@ -56,6 +56,14 @@ Any one of these:
 - retrieval latency shows up in a customer complaint,
 - a Pro plan is sold to somebody who intends to use its full allowance.
 
-The first is the useful one because it can be watched rather than waited for.
-There is no alert on it today; adding one would be a smaller change than the
-index.
+The first is now watched rather than waited for: a daily task
+(`accounts/rozmiar_bazy.py`) reports any tenant crossing 2 500 chunks, and
+again at 5 000 — the knee itself, which is also the Start plan's own limit.
+Two levels rather than one, because a single threshold answers "has it
+happened" and two also answer "how much time is left".
+
+The alert goes to the operator, not the customer. A customer cannot act on it:
+they do not know what a chunk is, and the only lever they have — deleting their
+own knowledge — is the opposite of what they bought the product for. The
+decision between an index, different plan limits and a conversation about the
+plan belongs on our side.
