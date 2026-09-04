@@ -23,18 +23,39 @@ differ; the shape will not.
 
 ## The numbers
 
+Measured on the **production instance** (Render, Frankfurt) on 4 September
+2026. These are the numbers that matter; the development laptop is below for
+comparison and to show why it must not be used to draw conclusions.
+
 | chunks | median | worst |
 |---|---|---|
-| 1 000 | 7 ms | 10 ms |
-| 5 000 | 22 ms | 23 ms |
-| 10 000 | 40 ms | 43 ms |
-| 40 000 | 422 ms | 517 ms |
-| 85 000 | 818 ms | — |
+| 1 000 | 90 ms | 197 ms |
+| 5 000 | 396 ms | 902 ms |
+| 10 000 | **1 297 ms** | **2 288 ms** |
 
-Roughly linear to 10 000, then worse than linear. The query plan explains it:
-a sequential scan over the tenant's chunks, computing an L2 distance for each,
-then a sort. There is **no vector index** on the embedding column — only the
-primary key and the foreign key to the document.
+Growth is worse than linear, and the knee sits between 5 000 and 10 000:
+doubling the data multiplies the time by 3.3. Below that, five times the data
+costs 4.4 times the time.
+
+The query plan explains the shape: a sequential scan over the tenant's chunks,
+computing an L2 distance for each, then a sort. There is **no vector index** on
+the embedding column — only the primary key and the foreign key to the
+document. The knee on top of that is consistent with the working set outgrowing
+what the database instance can keep in memory: at 10 000 chunks the table is
+around 80 MB.
+
+### Why the laptop numbers are kept
+
+| chunks | laptop | production | ratio |
+|---|---|---|---|
+| 1 000 | 7 ms | 90 ms | 13× |
+| 5 000 | 22 ms | 396 ms | 18× |
+| 10 000 | 40 ms | 1 297 ms | **32×** |
+
+The ratio is not constant. A development machine is not a slower version of the
+server — it is a different shape, and it hides the knee entirely. The first
+version of this document drew a conclusion from the laptop column alone and got
+the margin wrong by more than an order of magnitude.
 
 ---
 
@@ -43,19 +64,33 @@ primary key and the foreign key to the document.
 A chunk holds at most 1200 characters and overlaps its neighbour by 180, so
 each one advances about 1020 characters of source text.
 
-| plan | knowledge base | chunks | retrieval |
+| plan | knowledge base | chunks | retrieval, production |
 |---|---|---|---|
-| start | 5 MB | ~5 100 | ~20 ms |
-| grow | 25 MB | ~25 700 | ~250 ms |
-| pro | 100 MB | ~102 800 | **~1 s** |
+| start | 5 MB | ~5 140 | **at least 0.7 s** |
+| grow | 25 MB | ~25 700 | **at least 3.3 s** |
+| pro | 100 MB | ~102 800 | **at least 13 s** |
 
-**A customer who fills a Pro plan waits about a second for retrieval alone**,
-before the model has written a single word. The answer streams, so that second
-is spent staring at nothing.
+Those are conservative: they extrapolate the linear rate from the 5 000–10 000
+segment, and the real curve is worse than linear. Read them as floors.
 
-For scale: the largest real knowledge base today is 246 chunks — 0.24% of the
-Pro limit, about 3 ms. Nobody is anywhere near this ceiling. It is written down
-so that the first customer who approaches it is not a surprise.
+**The plans as priced sell knowledge base sizes the system cannot serve.** Not
+"would be slow at" — cannot serve. Thirteen seconds before the model starts
+writing is not a slow answer, it is a broken one, and the Grow plan at three
+seconds is not much better.
+
+The Start plan is the one that matters most, because it is the cheapest and
+will be the most sold: filled to its 5 MB limit it spends around 0.7 s on
+retrieval alone, before generation begins.
+
+### Where real customers sit
+
+The largest actual knowledge base today is **246 chunks** — about 22 ms on
+production, and 0.24% of the Pro limit. No customer is in trouble.
+
+But the headroom is roughly twenty times smaller than the first version of this
+document claimed, because that version was measured on a laptop. The distance
+between "nobody is close" and "the cheapest plan is already uncomfortable when
+full" is the whole reason this was re-measured on the real machine.
 
 ---
 

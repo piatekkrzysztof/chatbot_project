@@ -69,9 +69,12 @@ answer quality has a number attached.
 
 Written here rather than left for a customer to find:
 
-- **A full Pro-plan knowledge base is slow to search** — roughly a second
-  before the model starts writing. Nobody is close to that limit today.
-  Measured in `docs/skala-i-wydajnosc.md`.
+- **The plans sell knowledge base sizes the system cannot serve.** Measured on
+  the production instance: a full Start plan spends at least 0.7 s on retrieval
+  before the model writes anything, Grow at least 3.3 s, Pro at least 13 s. The
+  largest real knowledge base today is 246 chunks, about 22 ms, so no customer
+  is affected — but the limits are advertised and unservable at their edges.
+  Numbers and options in `docs/skala-i-wydajnosc.md`.
 - **Retrieval returns nearby chunks for questions the knowledge base does not
   answer.** Vector distance cannot separate "repairs" from "replacement bikes
   during repairs". The model's refusal is what catches this, and it does —
