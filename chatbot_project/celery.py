@@ -57,6 +57,12 @@ app.conf.beat_schedule = {
         "task": "accounts.czuwanie.sprawdz_odmowy_widgetu",
         "schedule": crontab(minute=5),
     },
+    # Cisza widgetu: sygnal z natury dobowy, wiec czestsze sprawdzanie
+    # powtarzaloby te sama odpowiedz. Rano, zeby dzien ciszy byl juz pelny.
+    "cisza-widgetu-codziennie": {
+        "task": "accounts.cisza.sprawdz_cisze_zadanie",
+        "schedule": crontab(minute=45, hour=8),
+    },
     "konce-subskrypcji-codziennie": {
         "task": "accounts.tasks_konce.sprawdz_konce_subskrypcji",
         "schedule": crontab(minute=15, hour=8),

@@ -751,3 +751,7 @@ class DaneRozliczeniowe(models.Model):
 # odwiedzajacych, a nie kont - ale Django musi je zobaczyc przy wykrywaniu
 # modeli, wiec import stoi tutaj.
 from accounts.odmowy import ZliczenieOdmow  # noqa: E402,F401
+
+# To samo co wyzej: model mieszka w osobnym module tematycznym, ale Django
+# musi go zobaczyc przy wykrywaniu modeli.
+from accounts.cisza import ZgloszonaCisza  # noqa: E402,F401
