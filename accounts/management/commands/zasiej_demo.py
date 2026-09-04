@@ -36,6 +36,7 @@ from chat.models import (
     PromptLog,
 )
 from documents.models import Document, DocumentChunk
+from documents.utils.fragmenty import podziel_na_fragmenty
 
 NAZWA_FIRMY = "Rowerownia Krakowska (DEMO)"
 WYMIAR_WEKTORA = 1536
@@ -71,10 +72,157 @@ FAQ_DEMO = [
     ),
 ]
 
+# Treść dokumentów demo.
+#
+# Wcześniej stał tu wypełniacz ("x" razy N) i to był cichy błąd. Fragmenty
+# powstają z `document.content`, więc `przelicz_fragmenty` - komenda, do której
+# odsyła komunikat na końcu tego zasiewu - liczyła prawdziwe wektory
+# BEZSENSOWNEGO tekstu. Demo na produkcji miało przez to bazę wiedzy, z której
+# nie dawało się wyciągnąć ani jednego zdania: najbliższy fragment leżał 1,010
+# od pytania przy progu 1,0, więc nic nigdy nie przechodziło. Bot odpowiadał
+# wyłącznie z FAQ i wyglądało to na działające demo.
+#
+# Treść jest napisana pod dzielnik z documents/utils/fragmenty.py: krótkie
+# wiersze bez kropki na końcu są rozpoznawane jako nagłówki sekcji i wędrują
+# z każdym fragmentem tej sekcji.
+#
+# Świadomie NIE opisuje: rowerów używanych, odbioru roweru z domu, faktur
+# z odroczonym terminem ani rowerów zastępczych. To są pytania z
+# PYTANIA_BEZ_POKRYCIA - panel ma pokazywać także lukę w bazie wiedzy,
+# a nie same sukcesy. Dopisanie ich tutaj zepsułoby tamtą część demo.
+
+CENNIK_DEMO = """Cennik usług serwisowych
+
+Przeglądy okresowe
+Przegląd podstawowy kosztuje 120 zł. Obejmuje regulację hamulców i przerzutek,
+centrowanie kół, kontrolę ciśnienia w oponach, smarowanie napędu oraz kontrolę
+dokręcenia śrub.
+
+Przegląd rozszerzony kosztuje 220 zł. Dodatkowo czyścimy i smarujemy napęd
+w kąpieli ultradźwiękowej, sprawdzamy zużycie kasety i łańcucha miernikiem
+oraz przeglądamy amortyzator i sterów.
+
+Rower elektryczny to dopłata 60 zł do każdego przeglądu. W tej cenie mieści się
+diagnostyka układu wspomagania i odczyt błędów ze sterownika.
+
+Naprawy pojedyncze
+Wymiana dętki kosztuje 25 zł, opony 35 zł.
+Wymiana łańcucha kosztuje 80 zł plus cena części.
+Centrowanie pojedynczego koła kosztuje 60 zł.
+Wymiana klocków hamulcowych kosztuje 40 zł za koło.
+Wymiana linek i pancerzy kosztuje 50 zł za komplet.
+Regulacja przerzutek kosztuje 45 zł.
+
+Ceny nie obejmują części. Przed naprawą przekraczającą 200 zł dzwonimy
+z wyceną i czekamy na zgodę.
+
+Pakiety sezonowe
+Przygotowanie roweru do sezonu kosztuje 180 zł. Obejmuje przegląd podstawowy,
+wymianę smaru w piastach i sprawdzenie ogumienia po zimie.
+
+Przygotowanie do zimy kosztuje 150 zł: mycie, konserwacja napędu preparatem
+przeciw korozji i kontrola hamulców przed okresem soli na drogach.
+
+Koło i ogumienie
+Budowa koła od zera kosztuje 180 zł za sztukę plus części.
+Wymiana szprychy z centrowaniem kosztuje 45 zł.
+Uszczelnienie opony bezdętkowej kosztuje 55 zł za koło.
+
+Zapłata
+Za naprawę płaci się przy odbiorze. Przyjmujemy gotówkę, kartę i BLIK.
+Na życzenie wystawiamy paragon albo fakturę z NIP-em.
+"""
+
+SERWIS_DEMO = """Zakres serwisu i naprawy
+
+Co serwisujemy
+Naprawiamy rowery miejskie, górskie, szosowe, gravelowe i dziecięce.
+Serwisujemy rowery elektryczne z napędami Bosch, Shimano Steps i Bafang.
+
+Nie otwieramy ogniw akumulatora. Przy usterce baterii kierujemy do
+autoryzowanego serwisu producenta - to naprawa objęta osobnymi przepisami
+bezpieczeństwa i wymaga uprawnień, których nie mamy.
+
+Gwarancja na naprawę
+Na wykonaną usługę dajemy 3 miesiące gwarancji. Gwarancja obejmuje robociznę
+i wymienione przez nas części, nie obejmuje zużycia eksploatacyjnego.
+
+Zakres zlecenia
+Spisujemy usterkę przy przyjęciu i wydajemy potwierdzenie z numerem zlecenia.
+O gotowości informujemy SMS-em na podany numer.
+
+Jeśli w trakcie naprawy znajdziemy usterkę, o której nie było mowy przy
+przyjęciu, dzwonimy przed jej naprawą. Nie robimy niczego ponad zlecenie
+bez zgody właściciela roweru.
+
+Części
+Pracujemy na częściach Shimano, SRAM, Continental i Schwalbe. Jeśli klient
+przyniesie własne części, montujemy je - ale gwarancją obejmujemy wtedy
+wyłącznie robociznę.
+
+Rowery dziecięce
+Serwisujemy rowery dziecięce od 12 cali. Przegląd roweru dziecięcego kosztuje
+70 zł i obejmuje regulację hamulców, kontrolę kół i wysokość siodła.
+"""
+
+#: Terminy dostaly wlasna podstrone, a nie sekcje w dokumencie o wszystkim.
+#:
+#: Wczesniej "Jak dlugo trwa przeglad w sezonie?" wypadalo 0,010 za progiem,
+#: mimo ze tresc odpowiadala na nie wprost. Powod nie byl w slowach, tylko
+#: w rozcienczeniu: sekcja o terminach dzielila fragment z gwarancja, czesciami
+#: i rowerami dzieciecymi, wiec wektor fragmentu byl srednia z czterech
+#: tematow. Osobna, krotka podstrona daje fragment o jednym temacie - i tak
+#: samo wygladaja prawdziwe witryny klientow.
+TERMINY_DEMO = """Terminy realizacji
+
+Ile trwa przegląd
+Przegląd trwa 2-3 dni robocze poza sezonem.
+
+Przegląd w sezonie trwa dłużej. Sezon to kwiecień, maj i czerwiec - czas
+oczekiwania na przegląd wydłuża się wtedy do 5-7 dni roboczych.
+
+W sezonie warto umówić się telefonicznie z wyprzedzeniem. Rower przyjęty
+na umówiony termin czeka w kolejce krócej.
+
+Drobne naprawy
+Wymianę dętki, regulację hamulca czy dokręcenie kierownicy robimy tego samego
+dnia i zwykle bez wcześniejszych zapisów. Wystarczy przyjść w godzinach pracy
+warsztatu.
+
+Naprawy większe
+Wymiana napędu, budowa koła i serwis amortyzatora zajmują 3-5 dni roboczych,
+a w sezonie do 8 dni. Termin podajemy przy przyjęciu roweru.
+"""
+
+KONTAKT_DEMO = """Kontakt i godziny otwarcia
+
+Godziny otwarcia
+Poniedziałek-piątek 9:00-18:00.
+Sobota 10:00-14:00.
+W niedziele nieczynne.
+
+W okresie od listopada do lutego w soboty zamykamy o 13:00.
+
+Adres
+Rowerownia Krakowska, ulica Wielicka 42, 30-552 Kraków.
+Wejście od podwórza, na miejscu jest parking dla rowerów.
+
+Telefon i poczta
+Telefon: 12 345 67 89, czynny w godzinach pracy warsztatu.
+Poczta: serwis@rowerownia-demo.pl - odpowiadamy w ciągu jednego dnia roboczego.
+
+Płatności
+Przyjmujemy gotówkę, karty płatnicze i BLIK.
+"""
+
+#: Adres, nazwa i treść. `znakow_na_stronie` liczymy z treści, zamiast wpisywać
+#: wymyśloną liczbę - inaczej panel pokazywałby rozmiar bazy wiedzy, który nie
+#: ma pokrycia w tym, co w niej faktycznie jest.
 DOKUMENTY_DEMO = [
-    ("https://rowerownia-demo.pl/cennik", "Cennik usług serwisowych", 4820),
-    ("https://rowerownia-demo.pl/serwis", "Zakres serwisu i naprawy", 6310),
-    ("https://rowerownia-demo.pl/kontakt", "Kontakt i godziny otwarcia", 1240),
+    ("https://rowerownia-demo.pl/cennik", "Cennik usług serwisowych", CENNIK_DEMO),
+    ("https://rowerownia-demo.pl/serwis", "Zakres serwisu i naprawy", SERWIS_DEMO),
+    ("https://rowerownia-demo.pl/terminy", "Terminy realizacji", TERMINY_DEMO),
+    ("https://rowerownia-demo.pl/kontakt", "Kontakt i godziny otwarcia", KONTAKT_DEMO),
 ]
 
 # Pytania odwiedzających. Część trafia w wiedzę, część nie — bo panel ma
@@ -229,25 +377,50 @@ class Command(BaseCommand):
         )
 
     def _dokumenty(self, firma, losowy):
-        for adres, nazwa, znakow in DOKUMENTY_DEMO:
+        for adres, nazwa, tresc in DOKUMENTY_DEMO:
             dokument = Document.objects.create(
                 tenant=firma,
-                name=adres,
-                content="x" * int(znakow * 0.72),
-                processed=True,
+                # Nazwa czytelna, nie adres. `tekst_do_wektora` doklein ja do
+                # kazdego fragmentu przed policzeniem wektora, wiec "Cennik
+                # uslug serwisowych" daje wyszukiwaniu kontekst, ktorego
+                # "https://rowerownia-demo.pl/cennik" nie niesie. Adres i tak
+                # zostaje w source_url, ktory jest od tego.
+                name=nazwa,
+                content=tresc,
+                # processed=False na czas zakladania. Dokument oznaczony jako
+                # przetworzony, ktory nie ma jeszcze fragmentow, odpala sygnal
+                # post_save i ten generuje WLASNY komplet fragmentow przez
+                # OpenAI. Zasiew dokladal potem drugi komplet, wiec demo
+                # konczylo z dwoma kopiami tej samej tresci: jedna z wektorami
+                # prawdziwymi, druga z losowymi.
+                #
+                # Tak wlasnie wygladalo demo na produkcji. Przy okazji zasiew,
+                # ktory z zalozenia "nie wola OpenAI", wolal je po cichu przy
+                # kazdym uruchomieniu.
+                processed=False,
                 source="website",
                 source_url=adres,
-                znakow_na_stronie=znakow,
+                znakow_na_stronie=len(tresc),
             )
-            # Losowy wektor poprawnego wymiaru: wyszukiwanie ma działać
-            # mechanicznie bez klucza OpenAI. Sens przychodzi dopiero po
-            # przeliczeniu fragmentów prawdziwym modelem.
-            for numer in range(max(3, znakow // 1200)):
+
+            # Ten sam dzielnik, ktory tnie dokumenty klientow. Wlasny podzial
+            # dalby demo fragmenty innego ksztaltu niz produkcja - a wtedy
+            # demo przestaloby pokazywac, jak produkt naprawde dziala.
+            for fragment in podziel_na_fragmenty(tresc):
                 DocumentChunk.objects.create(
                     document=dokument,
-                    content=f"{nazwa} — fragment {numer + 1}",
+                    content=fragment,
+                    # Losowy wektor poprawnego wymiaru: zasiew ma dzialac bez
+                    # klucza OpenAI. Sens przychodzi po `przelicz_fragmenty`,
+                    # ktore policzy wektory z TEJ tresci - a nie, jak dotad,
+                    # z wypelniacza.
                     embedding=[losowy.uniform(-1, 1) for _ in range(WYMIAR_WEKTORA)],
                 )
+
+            # Teraz mozna. Sygnal odpali sie ponownie, ale fragmenty juz sa,
+            # wiec nie zleci ich generowania po raz drugi.
+            dokument.processed = True
+            dokument.save(update_fields=["processed"])
 
     def _faq(self, firma):
         FAQ.objects.bulk_create([FAQ(tenant=firma, question=p, answer=o) for p, o in FAQ_DEMO])
