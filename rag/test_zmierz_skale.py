@@ -90,3 +90,51 @@ class TestWyniku:
         assert "fragmentow" in tekst
         assert "mediana" in tekst
         assert "1,000" in tekst
+
+
+class TestZabezpieczeniaPrzedZapisemDoProdukcji:
+    """
+    Komenda pisze do bazy, z którą jest połączona.
+
+    Uruchomiona w powłoce hostingu pisze do bazy PRODUKCYJNEJ, a pełny przebieg
+    to ponad 680 MB - rozmiar zdolny zapełnić dysk małej instancji. Pierwsza
+    wersja miała 85 000 jako wartość domyślną i nie mówiła o tym ani słowa.
+    """
+
+    def test_duzy_pomiar_wymaga_swiadomej_zgody(self):
+        from django.core.management.base import CommandError
+
+        with pytest.raises(CommandError, match="wiem-ze-pisze-do-tej-bazy"):
+            uruchom(do=85_000)
+
+    def test_z_potwierdzeniem_przechodzi(self):
+        # Sam prog, nie caly pomiar - 85 000 fragmentow zajeloby minuty.
+        uruchom(do=1000, wiem_ze_pisze_do_tej_bazy=True)
+
+        assert DocumentChunk.objects.count() == 0
+
+    def test_odmowa_podaje_rozmiar_i_nazwe_bazy(self):
+        """
+        Komunikat bez liczby i bez nazwy bazy kaze zgadywac, czego dotyczy -
+        a to jest dokladnie ta chwila, w ktorej nie wolno zgadywac.
+        """
+        from django.conf import settings
+        from django.core.management.base import CommandError
+
+        with pytest.raises(CommandError) as blad:
+            uruchom(do=85_000)
+
+        tresc = str(blad.value)
+        assert "MB" in tresc
+        assert str(settings.DATABASES["default"]["NAME"]) in tresc
+
+    def test_domyslny_rozmiar_nie_wymaga_zgody(self):
+        from rag.management.commands.zmierz_skale import (
+            DOMYSLNY_ROZMIAR,
+            PROG_POTWIERDZENIA,
+        )
+
+        # Gdyby domyslna wartosc przekroczyla prog, kazde uruchomienie
+        # zaczynaloby sie od bledu - a zabezpieczenie, ktore blokuje normalne
+        # uzycie, zostaje wylaczone przy pierwszej okazji.
+        assert DOMYSLNY_ROZMIAR <= PROG_POTWIERDZENIA
