@@ -7,9 +7,8 @@ do nas z prośbą o edycję własnych danych.
 """
 
 from drf_spectacular.utils import extend_schema
-from rest_framework import serializers, status
+from rest_framework import serializers
 from rest_framework.generics import RetrieveUpdateAPIView
-from rest_framework.response import Response
 
 from accounts import nip as nip_pl
 from accounts.models import DaneRozliczeniowe

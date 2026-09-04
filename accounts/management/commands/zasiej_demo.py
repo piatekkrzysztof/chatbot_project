@@ -29,10 +29,10 @@ from django.utils import timezone
 
 from accounts.models import CustomUser, Subscription, Tenant, UserRole
 from chat.models import (
+    FAQ,
     ChatMessage,
     ContactRequest,
     Conversation,
-    FAQ,
     PromptLog,
 )
 from documents.models import Document, DocumentChunk
@@ -296,7 +296,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  Firma        : {firma.name}")
         self.stdout.write(f"  Login        : {uzytkownik.username}")
         self.stdout.write(f"  Hasło        : {opcje['haslo']}")
-        self.stdout.write(f"  Rola         : viewer (tylko odczyt)")
+        self.stdout.write("  Rola         : viewer (tylko odczyt)")
         self.stdout.write(f"  Klucz widgetu: {firma.api_key}")
         self.stdout.write(
             f"  Zasiane      : {rozmow} rozmów, {wiadomosci} wiadomości, "

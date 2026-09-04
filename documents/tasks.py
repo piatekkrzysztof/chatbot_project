@@ -1,20 +1,18 @@
 import logging
+from datetime import timedelta
 
 from celery import shared_task
-from documents.utils.text_extraction import extract_text, UnsupportedFileType
-from documents.models import Document, DocumentChunk, WebsiteSource
-from documents.website_import import discover_links_recursively
+from django.utils import timezone
+from trafilatura.sitemaps import sitemap_search
+
+from accounts.plans import recrawl_days_for
+from documents.models import Document, WebsiteSource
 from documents.utils.embedding_generator import (
     generate_embeddings_for_document as _generate_embeddings,
 )
 from documents.utils.queue import enqueue
-from datetime import timedelta
-
-from django.utils import timezone
-
-from accounts.plans import recrawl_days_for
-from documents.website_import import import_website_as_document
-from trafilatura.sitemaps import sitemap_search
+from documents.utils.text_extraction import UnsupportedFileType, extract_text
+from documents.website_import import discover_links_recursively, import_website_as_document
 
 logger = logging.getLogger(__name__)
 

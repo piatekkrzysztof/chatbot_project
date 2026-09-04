@@ -1,7 +1,7 @@
-from django.db import connection
-from django.core.management.color import no_style
-from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 import pytest
+from django.core.management.color import no_style
+from django.db import connection
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 
 
 @pytest.fixture(scope="session", autouse=True)

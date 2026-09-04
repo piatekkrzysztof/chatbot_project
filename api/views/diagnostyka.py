@@ -11,12 +11,12 @@ i obejść limit.
 Dlatego zamiast zgadywać, właściciel może zobaczyć wprost, co serwer widzi.
 """
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
 from django.conf import settings
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
+from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from chat.privacy import anonymize_ip, client_ip
 
 

@@ -17,7 +17,7 @@ from datetime import timedelta
 
 import stripe
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 

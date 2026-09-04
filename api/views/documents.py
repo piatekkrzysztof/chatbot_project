@@ -1,36 +1,28 @@
 import logging
 
-from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
-from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
-
-from api.schemas import DocumentUploadSerializer, ErrorSerializer, MessageSerializer
+from pypdf.errors import PyPdfError
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from pypdf.errors import PyPdfError
+from rest_framework.views import APIView
 
-from documents.utils.pdf_parser import extract_text_from_pdf
-from documents.validators import sprawdz_limit_bazy_wiedzy
-from api.serializers import DocumentSerializer
+from api.permissions import *
+from api.schemas import DocumentUploadSerializer, ErrorSerializer, MessageSerializer
+from api.serializers import DocumentChunkSerializer, DocumentSerializer, WebsiteSourceSerializer
+from api.utils.mixins import TenantQuerysetMixin
 
 # Ta sama zasada odczytu wartości logicznej co w ustawieniach widgetu:
 # formularz multipart przysyła "true"/"false" jako tekst.
 from api.views.widget import _wlaczone
 from documents.models import Document, DocumentChunk, WebsiteSource
-from documents.utils.embedding_generator import generate_embeddings_for_document
-from documents.tasks import embed_document_task, crawl_and_import_website_source
+from documents.tasks import crawl_and_import_website_source, embed_document_task
+from documents.utils.pdf_parser import extract_text_from_pdf
 from documents.utils.queue import enqueue
-from rest_framework.views import APIView
-from rest_framework.generics import RetrieveAPIView
-from rest_framework import status
-from rest_framework.exceptions import ValidationError
-from rest_framework.generics import ListAPIView
-from rest_framework.exceptions import ValidationError
-from api.serializers import DocumentChunkSerializer, WebsiteSourceSerializer
-from api.utils.mixins import TenantQuerysetMixin
-from api.permissions import *
+from documents.validators import sprawdz_limit_bazy_wiedzy
 
 logger = logging.getLogger(__name__)
 

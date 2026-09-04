@@ -6,7 +6,5 @@ class DocumentsConfig(AppConfig):
     name = "documents"
 
     def ready(self):
-        import documents.signals
-
         # Import rejestruje kontrolę ostrzegającą o ulotnym magazynie plików
         import documents.checks  # noqa: F401

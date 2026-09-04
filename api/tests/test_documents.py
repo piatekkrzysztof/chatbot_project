@@ -1,12 +1,13 @@
 import io
+
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
-
-from documents.models import Document, DocumentChunk
-from accounts.models import Tenant, CustomUser
-from rest_framework.test import APIClient
 from reportlab.pdfgen import canvas
+from rest_framework.test import APIClient
+
+from accounts.models import CustomUser, Tenant
+from documents.models import Document, DocumentChunk
 
 
 def generate_valid_pdf_bytes():

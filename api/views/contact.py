@@ -1,14 +1,13 @@
 import logging
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.utils import extend_schema
 
+from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.schemas import ErrorSerializer, MessageSerializer, PublicContactRequestSerializer
-
-from api.permissions import IsOwnerOrEmployee, IsOwnerOrEmployeeOrTenantReadOnly
 from api.serializers import ContactRequestCreateSerializer, ContactRequestSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from chat.models import ContactRequest, Conversation

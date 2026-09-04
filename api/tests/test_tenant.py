@@ -1,8 +1,9 @@
 import pytest
 from django.test import RequestFactory
+from rest_framework.test import APIClient
+
 from accounts.middleware import TenantMiddleware
 from accounts.models import Tenant
-from rest_framework.test import APIClient
 
 
 @pytest.mark.django_db

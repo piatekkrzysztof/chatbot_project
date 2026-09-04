@@ -1,9 +1,10 @@
 import uuid
 from datetime import timedelta
+
 from django.contrib.auth.models import AbstractUser, UserManager
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
-from django.core.validators import MinValueValidator
 
 from accounts.plans import PROGI_ALERTOW, PROGI_KONCA_SUBSKRYPCJI
 
@@ -155,7 +156,7 @@ class Tenant(models.Model):
     # kolejność klikania. Klient nie miał na to wpływu ani tego nie widział.
     widget_default_language = models.CharField(
         max_length=5,
-        choices=[(kod, nazwa) for kod, nazwa in WIDGET_LANGUAGES.items()],
+        choices=list(WIDGET_LANGUAGES.items()),
         default="pl",
         help_text=(
             "W trybie 'jeden język' — język odpowiedzi. W trybie 'auto' — język "
@@ -750,8 +751,7 @@ class DaneRozliczeniowe(models.Model):
 # Zliczenia odmow widgetu mieszkaja w osobnym module, bo dotycza ruchu
 # odwiedzajacych, a nie kont - ale Django musi je zobaczyc przy wykrywaniu
 # modeli, wiec import stoi tutaj.
-from accounts.odmowy import ZliczenieOdmow  # noqa: E402,F401
-
 # To samo co wyzej: model mieszka w osobnym module tematycznym, ale Django
 # musi go zobaczyc przy wykrywaniu modeli.
 from accounts.cisza import ZgloszonaCisza  # noqa: E402,F401
+from accounts.odmowy import ZliczenieOdmow  # noqa: E402,F401

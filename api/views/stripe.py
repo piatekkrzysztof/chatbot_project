@@ -68,7 +68,7 @@ def create_checkout_session(tenant, plan_code, email=None):
         raise ValidationError(
             "Nie udało się rozpocząć płatności. Spróbuj ponownie za chwilę, "
             "a jeśli problem się powtórzy — daj nam znać."
-        )
+        ) from blad
     return session.url
 
 

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from chat.retention import purge_all_tenants, purge_tenant
 from accounts.models import Tenant
+from chat.retention import purge_all_tenants, purge_tenant
 
 
 class Command(BaseCommand):

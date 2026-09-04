@@ -51,7 +51,10 @@ def poprawny(numer: str) -> bool:
     if set(cyfry) == {"0"}:
         return False
 
-    suma = sum(waga * int(cyfra) for waga, cyfra in zip(WAGI, cyfry[:9]))
+    # strict=True, choc dlugosci sa tu wymuszone wyzej. Gdyby ktos zmienil
+    # WAGI albo warunek na dlugosc, zip po cichu policzylby sume z krotszej
+    # listy - i zwrocil poprawny wynik dla niepoprawnego numeru.
+    suma = sum(waga * int(cyfra) for waga, cyfra in zip(WAGI, cyfry[:9], strict=True))
     kontrolna = suma % 11
 
     if kontrolna == 10:

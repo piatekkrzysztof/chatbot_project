@@ -1,8 +1,9 @@
 import csv
 
 from django.contrib import admin
-from chat.models import PromptLog, ChatFeedback, FAQ, ContactRequest
 from django.http import HttpResponse
+
+from chat.models import FAQ, ChatFeedback, ContactRequest, PromptLog
 
 
 @admin.register(ContactRequest)

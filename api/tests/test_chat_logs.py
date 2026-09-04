@@ -1,7 +1,8 @@
 import pytest
 from rest_framework.test import APIClient
-from chat.models import Conversation, PromptLog, ChatMessage, ChatFeedback
-from accounts.models import Tenant, CustomUser, Subscription
+
+from accounts.models import CustomUser, Subscription, Tenant
+from chat.models import ChatFeedback, ChatMessage, Conversation, PromptLog
 
 
 @pytest.mark.django_db

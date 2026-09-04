@@ -1,14 +1,16 @@
 import logging
 
-from django.utils.deprecation import MiddlewareMixin
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.exceptions import AuthenticationFailed, APIException
-from accounts.models import Tenant
+from dateutil.relativedelta import relativedelta
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.deprecation import MiddlewareMixin
+from rest_framework.exceptions import APIException, AuthenticationFailed
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from accounts.models import Tenant
+
 from .models import Subscription
 from .odmowy import PowodOdmowy, zapisz_odmowe
-from dateutil.relativedelta import relativedelta
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +91,7 @@ class TenantMiddleware:
                 try:
                     tenant = Tenant.objects.get(api_key=api_key)
                 except Tenant.DoesNotExist:
-                    raise AuthenticationFailed("Nieprawidłowy klucz API")
+                    raise AuthenticationFailed("Nieprawidłowy klucz API") from None
 
         # 4. Ostatecznie, jeśli nadal brak tenant – blokuj request
         if not tenant:
@@ -150,9 +152,6 @@ class TenantMiddleware:
             return Subscription.objects.filter(
                 tenant=tenant, is_active=True, start_date__lte=today, end_date__gte=today
             ).first()
-
-
-import time
 
 
 #: Kod odmowy dla widgetu.

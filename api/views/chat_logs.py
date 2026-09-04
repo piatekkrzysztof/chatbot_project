@@ -1,12 +1,12 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework.generics import ListAPIView
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
-from chat.models import PromptLog, Tenant, ChatFeedback, ChatMessage
+
+from api.permissions import IsTenantMember
 from api.serializers import PromptLogSerializer
 from api.utils.mixins import TenantQuerysetMixin
+from chat.models import ChatFeedback, PromptLog
 from chat.zapytania import ZRODLO_TESTOWE
-from api.permissions import IsTenantMember
-from drf_spectacular.utils import extend_schema
 
 
 @extend_schema(

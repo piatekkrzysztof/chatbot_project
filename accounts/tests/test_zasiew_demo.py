@@ -11,12 +11,11 @@ się wyciągnąć ani jednego zdania, a bot odpowiadał wyłącznie z FAQ. Wysz�
 dopiero przy pomiarze progu odległości, nie przy przeglądzie kodu.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core.management import call_command
 from django.core.management.base import OutputWrapper
-from unittest.mock import MagicMock
 
 from accounts.management.commands.zasiej_demo import DOKUMENTY_DEMO, PYTANIA_BEZ_POKRYCIA
 from accounts.models import Tenant

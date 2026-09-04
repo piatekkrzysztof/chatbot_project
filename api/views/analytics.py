@@ -5,18 +5,16 @@ from django.core.cache import cache
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import IsTenantMember
-from drf_spectacular.utils import extend_schema
-
 from api.schemas import AnalyticsSerializer
-from chat.models import Conversation, ChatMessage, PromptLog, FAQ
+from chat.models import FAQ
 from chat.raport_luk import luki_w_wiedzy
 from chat.zapytania import logi_klientow, rozmowy_klientow, wiadomosci_klientow
-from documents.models import Document, DocumentChunk, WebsiteSource
-
+from documents.models import Document, WebsiteSource
 
 UNANSWERED_LIMIT = 20
 

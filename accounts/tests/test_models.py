@@ -1,7 +1,9 @@
-import pytest
-from accounts.models import Tenant, CustomUser, InvitationToken
-from django.utils import timezone
 from datetime import timedelta
+
+import pytest
+from django.utils import timezone
+
+from accounts.models import CustomUser, InvitationToken, Tenant
 
 
 @pytest.mark.django_db

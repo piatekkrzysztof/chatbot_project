@@ -15,19 +15,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from django.contrib import admin
-from django.urls import path, include
-from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
-import os
-from django.http import JsonResponse
+from django.contrib import admin
+from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
 from chatbot_project.zdrowie import health_check
 
 
 def trigger_error(request):
-    division_by_zero = 1 / 0
+    """Celowy blad do sprawdzenia, czy Sentry odbiera zdarzenia."""
+    # Bez przypisania: zmienna istniala tylko po to, zeby wywolac wyjatek,
+    # a nazwa sugerowala, ze wynik do czegos sluzy.
+    1 / 0  # noqa: B018 - to wyrazenie JEST celem tego widoku
 
 
 urlpatterns = [
