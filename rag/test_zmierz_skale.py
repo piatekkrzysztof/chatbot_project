@@ -138,3 +138,37 @@ class TestZabezpieczeniaPrzedZapisemDoProdukcji:
         # zaczynaloby sie od bledu - a zabezpieczenie, ktore blokuje normalne
         # uzycie, zostaje wylaczone przy pierwszej okazji.
         assert DOMYSLNY_ROZMIAR <= PROG_POTWIERDZENIA
+
+
+class TestPlanuZapytania:
+    """
+    Sam pomiar mowi, ze jest wolno, i nie mowi dlaczego.
+
+    A od tego zalezy, co z tym zrobic: wiekszy RAM przesuwa sufit tylko wtedy,
+    gdy zapytanie czyta z dysku. Jesli wszystko przychodzi z pamieci, a mimo to
+    trwa, waskim gardlem jest procesor i wieksza baza nie da nic poza rachunkiem.
+    """
+
+    def test_wypisuje_liczniki_blokow(self):
+        with patch.object(OutputWrapper, "write") as pisz:
+            uruchom(do=1000)
+
+        tekst = " ".join(str(w.args[0]) for w in pisz.call_args_list if w.args)
+
+        assert "Plan zapytania" in tekst
+        # Bez licznikow blokow plan mowi tylko, ktore kroki wykonano - a pytanie
+        # brzmi, skad przyszly dane.
+        assert "Buffers" in tekst
+        assert "shared hit" in tekst
+
+    def test_tlumaczy_jak_czytac_wynik(self):
+        # Plan zapytania jest nieczytelny dla kogos, kto nie czyta ich na co
+        # dzien. Bez wyjasnienia liczby sa obecne i bezuzyteczne.
+        with patch.object(OutputWrapper, "write") as pisz:
+            uruchom(do=1000)
+
+        tekst = " ".join(str(w.args[0]) for w in pisz.call_args_list if w.args)
+
+        assert "z dysku" in tekst
+        assert "RAM" in tekst
+        assert "procesor" in tekst

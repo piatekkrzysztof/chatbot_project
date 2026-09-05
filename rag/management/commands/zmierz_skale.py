@@ -197,6 +197,41 @@ class Command(BaseCommand):
         if partia:
             DocumentChunk.objects.bulk_create(partia)
 
+    def _plan(self, firma, zapytanie):
+        """
+        Skad bierze sie czas: z procesora czy z dysku.
+
+        Sam pomiar mowi, ze jest wolno, i nie mowi dlaczego. A od tego zalezy,
+        co z tym zrobic: wiekszy RAM przesuwa sufit tylko wtedy, gdy zapytanie
+        czyta z dysku, bo tabela przestala sie miescic w pamieci podrecznej.
+        Jesli wszystko przychodzi z pamieci, a mimo to trwa - waskim gardlem
+        jest procesor i wieksza baza nic nie da.
+
+        Liczniki blokow odpowiadaja na to wprost:
+          shared hit  - przeczytane z pamieci podrecznej,
+          shared read - przeczytane z dysku.
+
+        Postgres trzyma w pamieci podrecznej okolo jednej czwartej RAM-u
+        instancji. Fragment zajmuje 8,2 kB, wiec 10 000 fragmentow to 82 MB -
+        na malej instancji to jest wiecej, niz sie tam miesci.
+        """
+        from django.db import connection
+
+        with connection.cursor() as kursor:
+            kursor.execute(
+                """
+                EXPLAIN (ANALYZE, BUFFERS)
+                SELECT dc.id
+                FROM documents_documentchunk dc
+                JOIN documents_document d ON d.id = dc.document_id
+                WHERE d.tenant_id = %s AND d.uzywaj_w_wyszukiwaniu
+                ORDER BY dc.embedding <-> %s::vector
+                LIMIT 5
+                """,
+                [firma.id, str(zapytanie)],
+            )
+            return [wiersz[0] for wiersz in kursor.fetchall()]
+
     def _czas(self, firma, zapytanie):
         czasy = []
         for _ in range(POMIAROW):
@@ -223,6 +258,23 @@ class Command(BaseCommand):
             lacznie = prog
             mediana, najgorszy = self._czas(firma, zapytanie)
             self.stdout.write(f"{lacznie:>11,} {mediana:>11.1f} {najgorszy:>13.1f}")
+
+        self.stdout.write("")
+        self.stdout.write(f"Plan zapytania przy {lacznie:,} fragmentach:")
+        for wiersz in self._plan(firma, zapytanie):
+            self.stdout.write("  " + wiersz)
+
+        self.stdout.write("")
+        self.stdout.write("Jak to czytac:")
+        self.stdout.write("  'shared hit'  - bloki przeczytane z pamieci podrecznej bazy,")
+        self.stdout.write("  'shared read' - bloki przeczytane z dysku.")
+        self.stdout.write("")
+        self.stdout.write("  Duzo 'read' znaczy, ze tabela przestala sie miescic w pamieci.")
+        self.stdout.write("  Wtedy wiekszy RAM instancji przesunie sufit, i to mniej wiecej")
+        self.stdout.write("  proporcjonalnie.")
+        self.stdout.write("")
+        self.stdout.write("  Same 'hit' przy dlugim czasie znacza cos innego: waskim gardlem")
+        self.stdout.write("  jest procesor, a wieksza baza danych nie da nic poza rachunkiem.")
 
         self.stdout.write("")
         self.stdout.write(
