@@ -122,6 +122,60 @@ about the query it was run on, not about the system in general.
 
 ---
 
+## A cheaper option than the index, measured
+
+The obvious lever is an approximate index. There is a cheaper one that nobody
+had looked at, including this document until now: **ask the embedding model for
+fewer dimensions.**
+
+`text-embedding-3-small` accepts a `dimensions` parameter. The model is trained
+so that a shorter vector degrades gracefully rather than falling apart, so 512
+dimensions is not "the first third of a 1536-dimension vector" — it is a vector
+the model produced to be used at that length.
+
+### Quality: essentially unchanged
+
+Measured on the same corpus and questions as `rag/test_ocena.py`. The method
+was checked first against the known pgvector result, and reproduced 90.9% /
+75.0% exactly before being used for anything else.
+
+| | recall | silence | MRR |
+|---|---|---|---|
+| 1536 dimensions, threshold 1.00 | 90.9% | 75.0% | 0.818 |
+| **512 dimensions, threshold 0.90** | **90.9%** | **75.0%** | **0.803** |
+
+Same recall, same silence, ranking quality 1.8% relatively worse. **The
+threshold has to move** from 1.00 to 0.90: shortening the vector changes the
+scale of the distances, and keeping the old threshold would drop silence to
+62.5%. That is a migration requirement, not a detail.
+
+### Speed and size: measured, not extrapolated
+
+| chunks | 1536 | 512 | faster | 1536 size | 512 size | smaller |
+|---|---|---|---|---|---|---|
+| 2 000 | 10.6 ms | 6.2 ms | 1.7× | 16.0 MB | 5.5 MB | 2.9× |
+| 5 000 | 23.8 ms | 15.5 ms | 1.5× | 39.9 MB | 13.7 MB | 2.9× |
+| 10 000 | 52.6 ms | 31.5 ms | 1.7× | 79.8 MB | 27.3 MB | 2.9× |
+
+The speed-up is **1.6×, not 3×** — computing distances is not the whole cost of
+the query. The size reduction is nearly the full 3×.
+
+### Why the size number may matter more than the speed one
+
+These were measured on the development laptop, where every block is already in
+memory. On production the knee between 5 000 and 10 000 chunks lines up with
+the table outgrowing what the database can cache: 82 MB at 10 000 chunks, on an
+instance whose cache is a fraction of that.
+
+At 512 dimensions the same 10 000 chunks are 27 MB — back under the cache on a
+small instance. If the production knee really is a memory effect, this removes
+it without buying anything, and the gain there would be larger than the 1.6×
+measured here.
+
+That "if" is still an if. `zmierz_skale` now prints the query plan with block
+counters, so one run on production answers it: `shared read` means disk and
+more RAM would help, `shared hit` alone means the processor is the limit.
+
 ## Options, when someone approaches the ceiling
 
 **Add an HNSW index** (pgvector supports it). It would turn the scan into an
