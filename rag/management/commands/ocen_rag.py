@@ -34,10 +34,15 @@ from rag.ocena.przebieg import ocen_na_wzorcu
 #: prog zaczyna zabierac botowi wiedze. Przy 512 wymiarach zaczyna sie to
 #: ponizej 0,85.
 #:
-#: Gesciej. Cisza przewraca sie miedzy 0,98 a 0,99, czyli dokladnie tam,
-#: gdzie stoi ustawienie produkcyjne. Krok co 0,05 przeskakiwal nad ta
-#: granica i nie pokazywal jej wcale.
-PROGI_DO_PRZEMIATANIA = [0.80, 0.85, 0.90, 0.95, 0.98, 0.99, 1.05, 1.15]
+#: Gesciej. Cisza przewraca sie miedzy 0,98 a 0,99, czyli tuz obok
+#: ustawienia produkcyjnego. Krok co 0,05 przeskakiwal nad ta granica
+#: i nie pokazywal jej wcale.
+#:
+#: Na liscie MUSI byc wartosc z settings.RAG_MAX_DISTANCE, inaczej
+#: przemiatanie nie pokazuje, gdzie stoimy - a wtedy odpowiada na pytanie
+#: "co by bylo, gdyby", nie mowiac, co jest. Pilnuje tego test
+#: rag/test_narzedzia_oceny.py.
+PROGI_DO_PRZEMIATANIA = [0.80, 0.85, 0.90, 0.95, 0.96, 0.98, 0.99, 1.05, 1.15]
 
 
 class Command(BaseCommand):

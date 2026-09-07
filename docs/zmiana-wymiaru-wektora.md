@@ -16,7 +16,7 @@ Three things move together, and they must move in one deploy:
 |---|---|---|
 | `documents/wymiar.py` | 1536 | 512 |
 | column `documents_documentchunk.embedding` | `vector(1536)` | `vector(512)` |
-| `RAG_MAX_DISTANCE` | 1.0 (Render) / 1.15 (code) | 0.98, both |
+| `RAG_MAX_DISTANCE` | 1.0 (Render) / 1.15 (code) | 0.96, both |
 
 Every call to the embeddings API now passes `dimensions=WYMIAR_WEKTORA`.
 Without it the model returns its default length and the write fails.
@@ -43,7 +43,7 @@ python manage.py przelicz_fragmenty --wykonaj
 ```
 
 Then in Render → **chatbot-backend** → Environment, set
-`RAG_MAX_DISTANCE` to `0.98`. Web service only — the worker computes vectors
+`RAG_MAX_DISTANCE` to `0.96`. Web service only — the worker computes vectors
 but asks no questions.
 
 That is the whole procedure. Everything below is what to expect and how to
@@ -83,7 +83,7 @@ without anything new being built for it.
 python manage.py ocen_rag
 ```
 
-Should print recall 90.9%, silence 75.0%, MRR 0.803 at threshold 0.98. This
+Should print recall 90.9%, silence 75.0%, MRR 0.803 at threshold 0.96. This
 runs on frozen vectors and calls no API.
 
 Then check a real knowledge base — the one thing the evaluation corpus cannot
@@ -142,9 +142,28 @@ vector pulls **everything** closer by the same factor — hits and junk alike:
 | who wrote Lalka (control) | 1.246 | 1.235 | 0.991 |
 | | | **mean** | **0.983** |
 
-1.00 × 0.983 ≈ **0.98**, and the evaluation corpus confirms it independently:
-at 0.98 it reproduces exactly what 1536 produced at 1.00. Two corpora, one
-answer.
+1.00 × 0.983 ≈ **0.98**, and the evaluation corpus agreed: at 0.98 it
+reproduces exactly what 1536 produced at 1.00.
+
+**0.98 was still wrong, and only the production history showed it.** Run against
+246 real chunks and real visitor questions, 0.98 let through "jakie są godziny
+otwarcia" — something Sm-art does not answer, whose nearest fragment is about
+technical support. The evaluation corpus could not have caught this: every
+threshold from 0.90 to 0.98 gives it the same numbers, so that corpus does not
+have an opinion about where in the window the threshold belongs.
+
+The window, from both real knowledge bases: everything genuinely covered sits at
+0.952 or below, everything genuinely uncovered at 0.975 or above. **0.96** is
+its middle. The margin is 0.01 either way — thin, and worth re-measuring once
+there is more history recorded with correct source labels.
+
+Two lessons, and the second is the one that generalises:
+
+1. A flat region in a sweep is not a licence to pick either edge. It means the
+   instrument cannot answer the question being asked of it.
+2. Every step of this decision that felt like arithmetic — translating the
+   threshold by the measured ratio — produced a defensible number that real
+   traffic then corrected.
 
 Ten fragments of an invented bike shop are enough to detect a regression. They
 are not enough to set a threshold. That is what `zmierz_prog_rag` is for, and

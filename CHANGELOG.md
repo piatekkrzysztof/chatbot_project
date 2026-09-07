@@ -20,6 +20,40 @@ Nothing yet.
 
 ---
 
+## [1.0.2] — 2026-09-07
+
+Correction to the threshold shipped hours earlier in 1.0.1, plus the production
+measurement that 1.0.1 said was missing.
+
+### Fixed
+
+- `RAG_MAX_DISTANCE` **0.98 → 0.96**. At 0.98 the bot answered a question it has
+  no knowledge of ("jakie są godziny otwarcia") from an unrelated fragment about
+  technical support. Measured on the live knowledge base with
+  `zmierz_prog_rag`: everything genuinely covered sits at 0.952 or nearer,
+  everything genuinely uncovered at 0.975 or further, and 0.96 is the middle of
+  that window. The evaluation corpus gives identical numbers anywhere from 0.90
+  to 0.98, so it could not have decided this — a flat sweep means the instrument
+  has no opinion, not that either edge is safe.
+- `manage.py ocen_rag --przemiataj` now always includes the threshold actually
+  in use, and a test fails if it does not. Without it the sweep answers "what
+  if" without saying what is.
+
+### Measured
+
+- Production at 512 dimensions: retrieval at 10 000 chunks went from 1 297 ms to
+  **388 ms**, and **`shared read` fell from 10 107 blocks to zero**. The table
+  now fits in the instance's cache, which is exactly what the migration was for.
+  The knee in the curve is gone — growth is linear above a thousand chunks.
+- Per-plan retrieval, recomputed: Start ~0.20 s (was 0.7), Grow ~1.0 s (was 3.3),
+  Pro ~3.9 s (was 13). Start is comfortable now, Grow is arguable, Pro still
+  sells more than we serve.
+- **A larger database instance is no longer the answer to slowness.** With no
+  disk reads left, the remaining cost is processor time, which more RAM does not
+  buy. An HNSW index moved up the list; `halfvec` moved down.
+
+---
+
 ## [1.0.1] — 2026-09-07
 
 Nothing a customer should notice. It is here because it required a destructive

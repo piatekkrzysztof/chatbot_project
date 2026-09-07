@@ -98,7 +98,7 @@ Two consequences for this decision.
 
 **There was a cheaper lever than the index, and it was taken.** Asking the
 embedding model for 512 dimensions instead of 1536 keeps recall and silence
-unchanged (90.9% and 75.0%, with the threshold moved from 1.00 to 0.98) and
+unchanged (90.9% and 75.0%, with the threshold moved from 1.00 to 0.96) and
 makes the table 2.9× smaller: 27 MB instead of 80 at ten thousand chunks. If
 the cache sits between those numbers, the disk reads disappear. Unlike the
 index, this keeps search exact. Shipped the same day; runbook in
