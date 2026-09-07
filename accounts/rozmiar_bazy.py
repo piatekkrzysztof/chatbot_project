@@ -17,9 +17,9 @@ Dlaczego dwa progi, a nie jeden
 Jeden próg odpowiada tylko na pytanie „czy już". Dwa odpowiadają też na „ile
 zostało czasu", a to jest różnica między informacją a wezwaniem.
 
-  • 2 500 fragmentów - połowa kolana. Nic się jeszcze nie dzieje: około 220 ms,
-    czyli mniej, niż trwa zwykłe wywołanie modelu. Jest czas, żeby spokojnie
-    zdecydować, co dalej.
+  • 2 500 fragmentów - połowa kolana. Nic się jeszcze nie dzieje: około 220 ms
+    (dziś, po skróceniu wektora, około 95 ms), czyli mniej, niż trwa zwykłe
+    wywołanie modelu. Jest czas, żeby spokojnie zdecydować, co dalej.
   • 5 000 fragmentów - samo kolano, i zarazem limit planu Start. Od tego
     miejsca każde kolejne tysiąc fragmentów kosztuje więcej niż poprzednie.
 
@@ -41,18 +41,26 @@ from django.db.models import Count
 
 logger = logging.getLogger(__name__)
 
-#: UWAGA: te progi pochodzą z pomiaru przy 1536 wymiarach wektora.
+#: UWAGA: te progi opisują świat sprzed 7 września 2026.
 #:
-#: Po przejściu na 512 wymiarów (documents/wymiar.py) fragment zajmuje 2,8 kB
-#: zamiast 8,2 kB, więc te same 10 000 fragmentów to 27 MB zamiast 80 - czyli
-#: mieszczą się w pamięci instancji tam, gdzie wcześniej się nie mieściły.
-#: Kolano krzywej przesunęło się w prawo i te progi są teraz PESYMISTYCZNE:
-#: zaalarmują wcześniej, niż trzeba.
+#: Pochodzą z kolana krzywej przy 1536 wymiarach wektora. Po przejściu na 512
+#: kolano ZNIKŁO - pomiar na produkcji przy 512 wymiarach daje 14 ms przy
+#: tysiącu fragmentów, 198 ms przy pięciu i 388 ms przy dziesięciu, czyli
+#: wzrost liniowy po 38 mikrosekund na fragment. Zero odczytów z dysku.
 #:
-#: Zostawione świadomie, bo pomyłka w tę stronę kosztuje jeden zbędny mail,
-#: a w drugą - wolnego bota u klienta, o którym dowiadujemy się od klienta.
-#: Do poprawienia po uruchomieniu `zmierz_skale` na produkcji przy 512
-#: wymiarach; wtedy będzie z czego je policzyć, a nie z czego zgadnąć.
+#: Progi są więc teraz PESYMISTYCZNE. 2 500 fragmentów to dziś około 95 ms,
+#: a nie 220; alert przyjdzie na długo przed tym, zanim cokolwiek zwolni.
+#:
+#: Zostawione świadomie, do czasu decyzji o tym, kiedy chcemy być zawiadamiani.
+#: Gdyby wiązać progi z czasem, jaki czuje odwiedzający, wychodziłoby około
+#: 13 000 fragmentów na pół sekundy wyszukiwania i 26 000 na sekundę - czyli
+#: mniej więcej limit planu Grow. To jest jednak decyzja produktowa, nie
+#: wynik pomiaru, a najbliższy klient ma 246 fragmentów, więc żaden z tych
+#: progów i tak długo nie zadziała.
+#:
+#: Kierunek pomyłki jest właściwy: zbędny mail kosztuje minutę, a próg za
+#: wysoko kosztuje wolnego bota, o którym dowiadujemy się od klienta.
+#: Liczby: docs/skala-i-wydajnosc.md, sekcja "Production, after the migration".
 
 #: Połowa zmierzonego kolana. Uprzedzenie, nie alarm.
 PROG_UWAGI = 2_500
