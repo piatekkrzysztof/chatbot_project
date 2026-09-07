@@ -88,6 +88,27 @@ own knowledge — is the opposite of what they bought the product for. The
 decision between an index, different plan limits and a conversation about the
 plan belongs on our side.
 
+## What changed on 7 September 2026
+
+The production query plan settled the question this record left open. At 10 000
+chunks the query reads **10 107 blocks — about 79 MB — from disk**, essentially
+the whole table, on every question. It is a memory effect, not a processor one.
+
+Two consequences for this decision.
+
+**There is a cheaper lever than the index, and it was measured.** Asking the
+embedding model for 512 dimensions instead of 1536 keeps recall and silence
+unchanged (90.9% and 75.0%, with the threshold moved from 1.00 to 0.90) and
+makes the table 2.9× smaller: 27 MB instead of 80 at ten thousand chunks. If
+the cache sits between those numbers, the disk reads disappear. Unlike the
+index, this keeps search exact.
+
+**The index is now third in line, not second.** Order: shorter vectors, then
+`halfvec` (pgvector 0.8 is installed), then a larger database instance, then
+the index — because only the last one trades away answer quality.
+
+Numbers in [docs/skala-i-wydajnosc.md](../skala-i-wydajnosc.md).
+
 ## How to add the index, when it comes to that
 
 Run `rag/test_ocena.py` before and after and put both sets of numbers in the
