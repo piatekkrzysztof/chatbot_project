@@ -284,8 +284,11 @@ ANALYTICS_CACHE_SECONDS = int(os.getenv("ANALYTICS_CACHE_SECONDS", "15"))
 # Próg odległości L2 dla wyszukiwania fragmentów — powyżej uznajemy, że dokument
 # nie odpowiada na pytanie. Bez tego zawsze zwracane są "jakieś" fragmenty.
 #
-# 0,98 to ta sama decyzja, którą produkcja podjęła już wcześniej, przeliczona
-# na nową skalę odległości.
+# 0,96 z pomiaru na prawdziwych pytaniach. Droga do tej liczby jest niżej,
+# bo prowadziła przez dwie wartości, które okazały się złe.
+#
+# Krok pierwszy: 0,98 jako ta sama decyzja, którą produkcja podjęła wcześniej
+# (1,00), przeliczona na nową skalę odległości.
 #
 # Skrócenie wektora do 512 wymiarów zbliża do siebie WSZYSTKO — i trafienia,
 # i śmieci — o ten sam czynnik. Zmierzone na bazie wiedzy demo, 7 września
@@ -301,21 +304,54 @@ ANALYTICS_CACHE_SECONDS = int(os.getenv("ANALYTICS_CACHE_SECONDS", "15"))
 #     kto napisał Lalkę (kontrolne)        1.246   1.235    0.991
 #                                                  średnio    0.983
 #
-# 1,00 × 0,983 ≈ 0,98. Zestaw pomiarowy potwierdza to niezależnie: przy 512
-# wymiarach i progu 0,98 daje trafność 90,9% i ciszę 75,0%, czyli dokładnie
-# to, co dawał przy 1536 wymiarach i progu 1,00.
+# 1,00 × 0,983 ≈ 0,98. Zestaw pomiarowy potwierdzał to niezależnie: przy 512
+# wymiarach i progu 0,98 dawał trafność 90,9% i ciszę 75,0%, czyli dokładnie
+# to, co przy 1536 wymiarach i progu 1,00.
 #
 # Druga zmiana: do tej pory kod miał 1,15, a serwer zmienną środowiskową
 # ustawioną na 1,0 — czyli CI mierzyło jakość przy progu, którego produkt
 # nigdy nie używał, i rag/test_ocena.py wskazywał to jako rzecz do naprawienia.
 # Teraz domyślna wartość w kodzie JEST wartością produkcyjną.
 #
-# Zapas jest wąski w obie strony i warto o tym wiedzieć przy dotykaniu tej
-# liczby: na bazie demo najdalsze pokryte pytanie leży na 0,952, a na zestawie
-# pomiarowym pierwsze pytanie kontrolne wchodzi pod próg przy 0,99. Prawdziwą
-# decyzję o progu podejmuje się komendą `zmierz_prog_rag` na żywej bazie
-# wiedzy klienta, nie na tych dwóch zestawach.
-RAG_MAX_DISTANCE = float(os.getenv("RAG_MAX_DISTANCE", "0.98"))
+# 0,98 → 0,96 po pomiarze na żywej historii pytań
+# ------------------------------------------------
+# `zmierz_prog_rag --firma 4` na produkcji, 7 września 2026, 246 fragmentów
+# bazy wiedzy Sm-art i prawdziwe pytania odwiedzających. Etykiety z PromptLog
+# są skażone (wpisy sprzed poprawki rozpoznawania odmowy mają wszystkie źródło
+# 'document'), więc poniższe są nadane ręcznie, po przeczytaniu pytań:
+#
+#     0.804  pokryte      ile kosztuje strona internetowa
+#     0.848  pokryte      jakie usługi oferujecie
+#     0.874  NIEPOKRYTE   trening personalny  <- bot odpowiedział, patrz niżej
+#     0.915  pokryte      dzień dobry, jakie usługi oferujecie
+#     0.918  pokryte      proszę o kontakt z kierownikiem
+#     0.952  pokryte      [demo] w jakich godzinach jesteście otwarci
+#     0.975  pokryte      chce kontaktu z kierwonikiem (literówki)
+#     0.975  NIEPOKRYTE   jakie są godziny otwarcia
+#     0.979  NIEPOKRYTE   kontenery z Chin
+#     1.018  NIEPOKRYTE   organizacja chrzcin
+#     1.104  NIEPOKRYTE   pogoda w Wałbrzychu
+#     1.230  NIEPOKRYTE   [kontrolne] stolica Australii
+#
+# Przy 0,98 przechodziło „jakie są godziny otwarcia" — pytanie, na które
+# Sm-art nie odpowiada, a najbliższy fragment mówi o opiece technicznej.
+# Bot dostawał jeden niezwiązany fragment i musiał z niego coś napisać. To jest
+# dokładnie ta awaria, przed którą chroni cisza.
+#
+# 0,96 leży w środku okna (0,952 – 0,975): przepuszcza wszystko, co pokryte,
+# i odcina wszystko, co nie. Na zestawie pomiarowym daje identyczne liczby co
+# 0,98 (trafność 90,9%, cisza 75,0%) — cały odcinek 0,90–0,98 jest tam płaski,
+# więc 0,98 stało na jego krawędzi, a 0,96 stoi bliżej środka.
+#
+# Zapas to 0,01 w każdą stronę. To jest mało i tak trzeba to czytać: dwie bazy
+# wiedzy i kilkanaście pytań, z ręcznie poprawionymi etykietami. Przemierzyć
+# ponownie, gdy uzbiera się historia zapisana już z poprawnym źródłem.
+#
+# Czego próg NIE naprawi: „czy Sm-art ma w ofercie trening personalny" leży na
+# 0,874, czyli poniżej każdego rozsądnego progu, i dostaje fragment o pakietach
+# SM-art Chat. Obcięcie tego zabrałoby też pytania pokryte, leżące na 0,915
+# i 0,918. To jest problem treści dokumentów albo podziału na fragmenty.
+RAG_MAX_DISTANCE = float(os.getenv("RAG_MAX_DISTANCE", "0.96"))
 
 # Minimalne podobieństwo pytania do wpisu FAQ (rapidfuzz, 0-100), by uznać trafienie
 FAQ_MATCH_THRESHOLD = int(os.getenv("FAQ_MATCH_THRESHOLD", "65"))

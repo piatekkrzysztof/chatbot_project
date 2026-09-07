@@ -89,7 +89,28 @@ class TestKomendyOcen:
 
         tekst = " ".join(str(wywolanie.args[0]) for wywolanie in pisz.call_args_list)
         assert "1.15" in tekst
-        assert "obecny" in tekst
+
+    def test_przemiatanie_zaznacza_prog_ktory_jest_ustawiony(self):
+        """
+        Bez tego przemiatanie odpowiada na "co by bylo, gdyby", nie mowiac,
+        co jest teraz - a wtedy latwo odczytac cudzy wiersz jako swoj.
+
+        Test zaczerwienil sie naprawde, przy przesunieciu progu z 0.98 na 0.96:
+        nowa wartosc nie byla na liscie przemiatanych i znacznik zniknal.
+        """
+        from django.conf import settings
+
+        wyjscie = OutputWrapper(MagicMock())
+        with patch.object(OutputWrapper, "write") as pisz:
+            call_command("ocen_rag", przemiataj=True, stdout=wyjscie)
+
+        tekst = " ".join(str(wywolanie.args[0]) for wywolanie in pisz.call_args_list)
+        assert "obecny" in tekst, (
+            f"Prog {settings.RAG_MAX_DISTANCE} nie jest na liscie "
+            f"PROGI_DO_PRZEMIATANIA w ocen_rag.py, wiec przemiatanie nie "
+            f"pokazuje, gdzie stoimy."
+        )
+        assert f"{settings.RAG_MAX_DISTANCE:.2f}" in tekst
 
     def test_komenda_nie_zostawia_smieci_w_bazie(self):
         """
