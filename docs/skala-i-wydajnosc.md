@@ -172,9 +172,46 @@ small instance. If the production knee really is a memory effect, this removes
 it without buying anything, and the gain there would be larger than the 1.6×
 measured here.
 
-That "if" is still an if. `zmierz_skale` now prints the query plan with block
-counters, so one run on production answers it: `shared read` means disk and
-more RAM would help, `shared hit` alone means the processor is the limit.
+### The "if" is answered: it is memory
+
+Run on production 7 September 2026, at 10 000 chunks:
+
+```
+Buffers: shared hit=20054 read=10107
+```
+
+**10 107 blocks — about 79 MB — came from disk.** That is essentially the whole
+table, on a query issued after nine identical ones had already run. The data
+does not stay cached: each scan evicts what the previous one loaded, so every
+question pays the full disk cost.
+
+A third of all block reads are from disk. On the laptop the same query reads
+zero blocks from disk, which is why it never showed the knee.
+
+So the answer to "would a larger database instance help" is **yes** — this is
+exactly the shape that more memory fixes.
+
+But the same table at 512 dimensions is **27 MB instead of 80**. If the cache
+is anywhere between those two numbers, shortening the vector removes the disk
+reads without renting anything. That is the cheaper path to the same effect,
+and it is measurable before committing to it.
+
+### A caveat about the timings, not the block counts
+
+Two production runs of the same measurement, days apart:
+
+| chunks | run 1 | run 2 | difference |
+|---|---|---|---|
+| 1 000 | 90.0 ms | 88.7 ms | 1% |
+| 5 000 | 396.1 ms | 595.8 ms | **50%** |
+| 10 000 | 1 297.4 ms | 991.7 ms | **31%** |
+
+Only the smallest point is stable. Above it the instance is noisy enough that a
+single number should not be trusted to two significant figures, and the exact
+position of the knee is softer than the first table suggests.
+
+The block counts do not have this problem: they are counts, not timings, and
+they say the same thing on every run.
 
 ## Options, when someone approaches the ceiling
 
