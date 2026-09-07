@@ -7,8 +7,8 @@
 > to 512 dimensions — the change this document argued for. Everything in the
 > "The numbers" section below was measured **before** that, at 1536, and is
 > kept because the *shape* of the curve is what it explains. The post-migration
-> numbers are marked as such, and the production ones do not exist yet: see
-> [What is still unmeasured](#what-is-still-unmeasured).
+> numbers are marked as such; production was re-measured after the migration,
+> in [Production, after the migration](#production-after-the-migration).
 
 The question this answers: **how many customers, and how large, before the bot
 gets slow?** Until this measurement there was no answer and no way to get one.
@@ -83,9 +83,10 @@ segment, and the real curve is worse than linear. Read them as floors.
 **These three latencies are from before the 512-dimension migration** and are
 the most stale numbers on this page. They should be better now — the chunk
 count per plan does not change, but each chunk is 2.8 kB instead of 8.2, so the
-memory effect that produced them is weaker. By how much is unmeasured;
-[What is still unmeasured](#what-is-still-unmeasured) says how to find out. The
-argument below does not depend on the exact figures, only on their order.
+memory effect that produced them turned out to be the whole story. Measured
+again after the migration, they are roughly 3.3× better: see
+[Where this meets the price list, recomputed](#where-this-meets-the-price-list-recomputed).
+The argument below does not depend on the exact figures, only on their order.
 
 **The plans as priced sell knowledge base sizes the system cannot serve.** Not
 "would be slow at" — cannot serve. Thirteen seconds before the model starts
@@ -160,12 +161,13 @@ was checked first against the known pgvector result, and reproduced 90.9% /
 | | recall | silence | MRR |
 |---|---|---|---|
 | 1536 dimensions, threshold 1.00 | 90.9% | 75.0% | 0.818 |
-| **512 dimensions, threshold 0.98** | **90.9%** | **75.0%** | **0.803** |
+| **512 dimensions, threshold 0.96** | **90.9%** | **75.0%** | **0.803** |
 
 Same recall, same silence, ranking quality 1.8% relatively worse. **The
 threshold has to move**, because shortening the vector pulls every distance in
 by the same factor — hits and junk alike. Measured across both corpora that
-factor is **0.983**, so 1.00 becomes 0.98.
+factor is **0.983**, so 1.00 becomes 0.98 — and production history then moved
+it again, to **0.96**. Both corrections are in the runbook.
 
 The first version of this section said the threshold had to move to **0.90**,
 which came from sweeping the evaluation corpus alone. It was wrong, and it
@@ -256,42 +258,81 @@ position of the knee is softer than the first table suggests.
 The block counts do not have this problem: they are counts, not timings, and
 they say the same thing on every run.
 
-## What is still unmeasured
+## Production, after the migration
 
-**Production, at 512 dimensions.** The whole "The numbers" table, the knee, and
-the per-plan latencies were measured at 1536. The disk reads that motivated the
-migration were measured at 1536. Nothing in this document says what production
-does *now*.
+Measured on the production instance 7 September 2026, at 512 dimensions, on the
+same command and the same query as the table at the top of this page.
 
-The expected direction is clear — 27 MB instead of 80 should fit in cache where
-80 did not — but expected is not measured, and this document has already been
-wrong once about the size of a margin. One run settles it:
+| chunks | 1536 | 512 | |
+|---|---|---|---|
+| 1 000 | 90.0 ms | **14.1 ms** | 6.4× |
+| 5 000 | 396.1 ms | **197.9 ms** | 2.0× |
+| 10 000 | 1 297.4 ms | **387.9 ms** | 3.3× |
+
+**The knee is gone.** Doubling the data from 5 000 to 10 000 now costs 1.96× the
+time — linear, where before it was 3.3×. Above a thousand chunks the rate is
+steady at 38–46 µs per chunk.
+
+And the reason is exactly the one this document predicted:
 
 ```
-python manage.py zmierz_skale
+Buffers: shared hit=30120          (before: hit=20054 read=10107)
 ```
 
-Around 14 MB while it runs at the default size, deleted at the end. What to
-look at: `shared read` in the query plan. If it is near zero where it was
-10 107, the migration removed the bottleneck and the per-plan table above is
-obsolete in the good direction.
+**Zero blocks from disk.** The total number of block accesses is unchanged —
+30 120 against 30 161 — so the query does the same amount of work. What changed
+is that all of it now comes from memory. The table went from 80 MB to 27.6 MB
+and stopped being evicted between queries.
 
-**Until then**, the alert thresholds in `accounts/rozmiar_bazy.py` (2 500 and
-5 000 chunks) stay where they are. They were set from the 1536 measurement and
-are now pessimistic — they will fire earlier than necessary. That is the right
-direction to be wrong in: the cost is one unnecessary email, the cost of the
-other direction is a slow bot that we hear about from the customer.
+Footprint confirmed on the real instance: 27.6 MB for 10 000 chunks, **2.8 kB
+per chunk**, matching what the code assumes with no warning printed.
+
+### What this changes about the "bigger instance" answer
+
+It obsoletes it. At 1536 dimensions a third of all block reads came from disk,
+so more RAM would have helped roughly proportionally. At 512 there are no disk
+reads left to remove — the query is now **CPU-bound**, and the command's own
+guidance applies: *"same 'hit' przy długim czasie znaczą coś innego: wąskim
+gardłem jest procesor, a większa baza danych nie da nic poza rachunkiem."*
+
+A larger instance could still help by way of a faster processor, but that is a
+different mechanism, a different price, and a much weaker effect than the
+memory argument was.
+
+### Where this meets the price list, recomputed
+
+At 38 µs per chunk, the rate measured between 5 000 and 10 000:
+
+| plan | knowledge base | chunks | before | now |
+|---|---|---|---|---|
+| start | 5 MB | ~5 140 | 0.7 s | **~0.20 s** |
+| grow | 25 MB | ~25 700 | 3.3 s | **~1.0 s** |
+| pro | 100 MB | ~102 800 | 13 s | **~3.9 s** |
+
+Read as before: floors, and extrapolated past the largest measured point. The
+extrapolation is more defensible than it was, because there is no longer a knee
+to extrapolate across — but two production runs of the same measurement have
+differed by up to 50% at 5 000 chunks, so do not read these to two significant
+figures.
+
+**The conclusion changes for two plans out of three.** Start is now comfortable
+where it was uncomfortable. Grow at about a second is arguable — slow, not
+broken. Pro at four seconds is still not a knowledge base we can serve, so the
+plan-limit question stays open, but it is now one plan's problem instead of two.
 
 ## Options, when someone approaches the ceiling
 
 Shortening the vector was the first of these and it is done. In order of what
 to reach for next:
 
-**Halve the storage again with `halfvec`.** pgvector's 16-bit float type would
-take 2.8 kB per chunk down to roughly 1.4. Same trade-off shape as this
-migration — measure quality first, on real data, not only on the corpus.
+**`halfvec` is no longer the obvious next step.** pgvector's 16-bit float type
+would take 2.8 kB per chunk down to roughly 1.4 — but the reason to shrink the
+table was to get it into memory, and it is already there. Worth reaching for
+only when the working set grows past the cache again, not now.
 
-**Add an HNSW index** (pgvector supports it). It would turn the scan into an
+**Add an HNSW index** (pgvector supports it) — now the *first* lever with real
+headroom, because the remaining cost is processor time and the index is the only
+option here that removes work rather than moving it. It would turn the scan into an
 approximate nearest-neighbour lookup and flatten the curve. The cost is that
 results become approximate: recall drops below 100%, and *by how much* is
 exactly what `rag/test_ocena.py` measures. Adding the index without re-running
@@ -300,12 +341,13 @@ without looking at the second one.
 
 **Lower the plan limits** to what is served quickly. Honest, and cheaper than
 it sounds — nobody is using more than a fraction of a percent of them today.
-Still open as of 7 September 2026, and now needs redoing against post-migration
-numbers rather than the ones above.
+Still open as of 7 September 2026, but the question shrank: Start is fine, Grow
+is arguable, only Pro clearly sells more than we serve.
 
-**Rent a bigger database.** The only option on this list with a recurring cost,
-and the only one that helps without touching anything. Worth reconsidering only
-after the production measurement above shows what is left of the problem.
+**Rent a bigger database.** Was the obvious answer while the query read 79 MB
+from disk per question. It no longer is: the disk reads are gone and the
+remaining cost is processor time, which is not what more RAM buys. The only
+option here with a recurring cost, and now the weakest of the four.
 
 ---
 
@@ -346,8 +388,8 @@ python manage.py zmierz_skale
 
 Around 27 MB while it runs, deleted at the end. Compare the 10 000-chunk row
 with the 31.5 ms measured here; the ratio is what to multiply the rest of the
-table by. Before doing that, check `shared read` — see
-[What is still unmeasured](#what-is-still-unmeasured).
+table by. Always check `shared read` first: it says whether you are measuring
+the processor or the disk, and those two answers lead to different decisions.
 
 ## When to measure again
 
@@ -355,8 +397,8 @@ table by. Before doing that, check `shared read` — see
 - after changing chunk size or overlap in `documents/utils/fragmenty.py`,
 - after changing the embedding model or its dimensionality,
 - after a PostgreSQL major version upgrade,
-- once on the production instance, to learn the constant factor between that
-  hardware and these numbers.
+- when the largest tenant passes a few thousand chunks — today the largest is
+  246, so the production numbers describe a machine nobody is stressing yet.
 
 Write the new numbers into the table above. A table with stale numbers is worse
 than none, because somebody will plan around it.

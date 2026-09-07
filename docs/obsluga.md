@@ -138,12 +138,12 @@ Za nisko — odmawia mimo posiadanej wiedzy.
 
 Wartości nie da się zgadnąć: zależy od dokumentów konkretnego klienta.
 
-> **Od 7 września 2026: 0.98.** Wcześniej na Renderze stało 1.0, a w kodzie
-> 1.15. Po skróceniu wektora do 512 wymiarów wszystkie odległości zmalały
-> o 1,7%, więc 1.0 przeliczone na nową skalę to 0.98 — ta sama decyzja, nie
-> nowa. Domyślna wartość w kodzie jest teraz TAKA SAMA jak na serwerze, więc
-> rozjazd, który tu wcześniej był, przestał istnieć. Tło:
-> [zmiana-wymiaru-wektora.md](zmiana-wymiaru-wektora.md).
+> **Od 7 września 2026: 0.96.** Wcześniej na Renderze stało 1.0, a w kodzie
+> 1.15. Wartość wzięła się z `zmierz_prog_rag` na żywej bazie Sm-art: wszystko
+> pokryte leży na 0.952 lub bliżej, wszystko niepokryte na 0.975 lub dalej,
+> a 0.96 jest środkiem tego okna. Domyślna wartość w kodzie jest teraz TAKA
+> SAMA jak na serwerze, więc rozjazd, który tu wcześniej był, przestał
+> istnieć. Tło: [zmiana-wymiaru-wektora.md](zmiana-wymiaru-wektora.md).
 
 ```bash
 python manage.py zmierz_prog_rag --firma NUMER \

@@ -34,15 +34,17 @@ from rag.ocena.przebieg import ocen_na_wzorcu
 #:     0.80 |    54.5% | 54.5% | 0.545 | 100.0%
 #:     0.85 |    63.6% | 54.5% | 0.576 | 100.0%
 #:     0.90 |    90.9% | 72.7% | 0.803 |  75.0%
-#:     0.98 |    90.9% | 72.7% | 0.803 |  75.0%   <- ustawienie obecne
+#:     0.96 |    90.9% | 72.7% | 0.803 |  75.0%   <- ustawienie obecne
+#:     0.98 |    90.9% | 72.7% | 0.803 |  75.0%
 #:     0.99 |    90.9% | 72.7% | 0.803 |  62.5%
 #:     1.05 |   100.0% | 81.8% | 0.894 |  50.0%
 #:     1.15 |   100.0% | 81.8% | 0.894 |  25.0%   <- domyslna sprzed migracji
 #:
-#: 0.98 przy 512 wymiarach daje dokladnie to, co 1.00 przy 1536: trafnosc
-#: 90.9% i cisze 75.0%. Skrocenie wektora zblizylo do siebie wszystko o ten
-#: sam czynnik 0.983 (pomiar na bazie wiedzy demo, opisany w settings/base.py),
-#: wiec prog przesunal sie o dwa procent, a nie o dziesiec.
+#: Caly odcinek 0.90-0.98 jest tu PLASKI - te same liczby przy kazdym progu.
+#: Zestaw pomiarowy nie rozstrzyga wiec, gdzie w tym oknie postawic prog,
+#: i nie nalezy go o to pytac. Rozstrzygnela to historia pytan z produkcji:
+#: przy 0.98 przechodzilo pytanie, na ktore firma nie odpowiada. Pelny wywod
+#: przy RAG_MAX_DISTANCE w settings/base.py.
 #:
 #: DLACZEGO TO JEST TU NAPISANE: pierwsza wersja tej zmiany ustawiala prog na
 #: 0.90, bo tak wychodzilo z porownania samego zestawu pomiarowego. Na
@@ -58,7 +60,7 @@ from rag.ocena.przebieg import ocen_na_wzorcu
 #:
 #: Do progu produkcyjnego sluzy zmierz_prog_rag, liczone na zywej bazie wiedzy.
 
-#: Zmierzone 07.09.2026 przy RAG_MAX_DISTANCE = 0.98:
+#: Zmierzone 07.09.2026 przy RAG_MAX_DISTANCE = 0.96:
 #:   trafnosc 90.9%, na 1. miejscu 72.7%, MRR 0.803, cisza 75.0%
 #:
 #: Podlogi z zapasem na jedno pytanie. Pytan z odpowiedzia jest 11, wiec
