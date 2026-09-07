@@ -2,6 +2,7 @@ from django.db import models
 from pgvector.django import VectorField
 
 from accounts.models import Tenant
+from documents.wymiar import WYMIAR_WEKTORA
 
 
 class Document(models.Model):
@@ -62,7 +63,7 @@ class Document(models.Model):
 class DocumentChunk(models.Model):
     document = models.ForeignKey("Document", on_delete=models.CASCADE, related_name="chunks")
     content = models.TextField()
-    embedding = VectorField(dimensions=1536)
+    embedding = VectorField(dimensions=WYMIAR_WEKTORA)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

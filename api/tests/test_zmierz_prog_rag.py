@@ -24,13 +24,12 @@ from django.core.management.base import CommandError
 from accounts.models import Tenant
 from chat.models import Conversation, PromptLog
 from documents.models import Document, DocumentChunk
-
-WYMIAR = 1536
+from documents.wymiar import WYMIAR_WEKTORA
 
 
 def wektor(pierwsza_wspolrzedna):
     """Wektor na osi — odległość L2 między dwoma takimi to różnica współrzędnych."""
-    v = [0.0] * WYMIAR
+    v = [0.0] * WYMIAR_WEKTORA
     v[0] = pierwsza_wspolrzedna
     return v
 
@@ -59,7 +58,7 @@ def udawane_wektory(monkeypatch, odleglosci):
     """
     klient = MagicMock()
 
-    def create(model, input):
+    def create(model, input, dimensions):
         tresc = input if isinstance(input, str) else input[0]
         return MagicMock(data=[MagicMock(index=0, embedding=wektor(odleglosci.get(tresc, 9.0)))])
 

@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import CustomUser, Tenant
 from documents.models import Document, DocumentChunk
+from documents.wymiar import WYMIAR_WEKTORA
 
 
 def generate_valid_pdf_bytes():
@@ -58,7 +59,9 @@ def test_list_chunks_for_document(user, tenant, subscribtion):
 
     doc = Document.objects.create(name="Doc", tenant=tenant, processed=True)
     for i in range(5):
-        DocumentChunk.objects.create(document=doc, content=f"chunk {i}", embedding=[0.1] * 1536)
+        DocumentChunk.objects.create(
+            document=doc, content=f"chunk {i}", embedding=[0.1] * WYMIAR_WEKTORA
+        )
 
     url = reverse("document-chunks", args=[doc.id])
     res = client.get(url, HTTP_X_API_KEY=str(tenant.api_key))

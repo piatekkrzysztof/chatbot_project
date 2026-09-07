@@ -20,6 +20,41 @@ Nothing yet.
 
 ---
 
+## [1.0.1] — 2026-09-07
+
+Nothing a customer should notice. It is here because it required a destructive
+migration on their data, and because the ceiling on how large a knowledge base
+we can serve moved.
+
+### Changed
+
+- Embeddings are now 512 numbers instead of 1536. Answer quality is unchanged
+  where it was measured — same recall, same silence on the evaluation corpus,
+  and the same questions answered on a real knowledge base — while the stored
+  knowledge base takes **2.9× less space** (2.8 kB per chunk instead of 8.2)
+  and distance computation is about 1.6× faster.
+- `RAG_MAX_DISTANCE` moved from 1.0 to **0.98**. This is not a new decision:
+  shortening the vector pulls every distance in by a factor of 0.983, so 0.98
+  is 1.0 expressed in the new scale.
+- The code default for `RAG_MAX_DISTANCE` now matches the value the server
+  actually runs. Before this it was 1.15 in code and 1.0 on Render, so the
+  automated quality measurement described a configuration nobody used.
+
+### Operational
+
+- Deploying this **deletes every chunk** and requires recomputing them:
+  `manage.py migrate` then `manage.py przelicz_fragmenty --wykonaj`. Between
+  those two steps the bot answers that it does not know. Full procedure and
+  rollback: [docs/zmiana-wymiaru-wektora.md](docs/zmiana-wymiaru-wektora.md).
+- `manage.py zmierz_skale` now reports the measured size of the chunk table
+  next to the figure the code assumes, and warns when they disagree. That check
+  immediately caught a wrong estimate in this very change.
+- The knowledge-base size alerts (2 500 / 5 000 chunks) were left where they
+  are and are now deliberately early: they were derived from the old, larger
+  vectors and have not been re-measured on production.
+
+---
+
 ## [1.0.0] — 2026-09-04
 
 First release considered fit to sell. The product has been running for the

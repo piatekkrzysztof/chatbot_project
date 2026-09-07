@@ -26,6 +26,7 @@ from django.utils import timezone
 from accounts.models import DaneRozliczeniowe, Subscription, Tenant
 from chat.models import FAQ, ChatMessage, Conversation
 from documents.models import Document, DocumentChunk
+from documents.wymiar import WYMIAR_WEKTORA
 
 
 @pytest.fixture
@@ -73,13 +74,13 @@ def dane_do_odtworzenia(db, django_user_model):
         processed=True,
     )
 
-    # Wektor to najbardziej podejrzany element calego zrzutu: 1536 liczb
+    # Wektor to najbardziej podejrzany element calego zrzutu: 512 liczb
     # zmiennoprzecinkowych w typie, ktorego JSON nie zna. Wartosci sa
     # rozpoznawalne, zeby dalo sie sprawdzic nie tylko DlUGOSC, ale i tresc.
     DocumentChunk.objects.create(
         document=dokument,
         content="Przeglad podstawowy 120 zl.",
-        embedding=[0.5] * 1535 + [0.25],
+        embedding=[0.5] * (WYMIAR_WEKTORA - 1) + [0.25],
     )
 
     FAQ.objects.create(
@@ -140,7 +141,7 @@ class TestProbyOdtworzenia:
         """
         Najważniejszy pojedynczy test w tym pliku.
 
-        Embedding to 1536 liczb w typie, ktorego JSON nie zna. Gdyby zrzut
+        Embedding to 512 liczb w typie, ktorego JSON nie zna. Gdyby zrzut
         gubil go po cichu albo zmienial precyzje, kopia wygladalaby na dobra:
         wiersze sa, tresc jest, liczby sie zgadzaja. Wyszloby dopiero przy
         pierwszym pytaniu do bota po odtworzeniu - czyli w najgorszym momencie.
@@ -152,7 +153,7 @@ class TestProbyOdtworzenia:
         call_command("loaddata", str(plik), verbosity=0)
 
         fragment = DocumentChunk.objects.get()
-        assert len(fragment.embedding) == 1536
+        assert len(fragment.embedding) == WYMIAR_WEKTORA
         assert fragment.embedding[0] == pytest.approx(0.5)
         assert fragment.embedding[-1] == pytest.approx(0.25)
 

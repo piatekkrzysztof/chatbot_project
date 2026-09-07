@@ -4,6 +4,7 @@ import pytest
 
 from documents.models import Document, DocumentChunk
 from documents.tasks import generate_embeddings_for_document
+from documents.wymiar import WYMIAR_WEKTORA
 
 
 @pytest.mark.django_db
@@ -26,7 +27,9 @@ def test_generate_embeddings_for_document_creates_chunks(mock_get_client, tenant
     # bez sladu.
     def odpowiedz_na_tyle_ile_tekstow(model, input, **_):
         odp = MagicMock()
-        odp.data = [MagicMock(embedding=[0.01] * 1536, index=i) for i in range(len(input))]
+        odp.data = [
+            MagicMock(embedding=[0.01] * WYMIAR_WEKTORA, index=i) for i in range(len(input))
+        ]
         return odp
 
     mock_openai_client = MagicMock()
@@ -44,4 +47,4 @@ def test_generate_embeddings_for_document_creates_chunks(mock_get_client, tenant
     # ✅ Sprawdź, czy powstały chunki
     chunks = DocumentChunk.objects.filter(document=doc)
     assert chunks.exists()
-    assert all(len(c.embedding) == 1536 for c in chunks)
+    assert all(len(c.embedding) == WYMIAR_WEKTORA for c in chunks)

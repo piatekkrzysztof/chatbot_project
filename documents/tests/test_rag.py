@@ -4,11 +4,12 @@ import pytest
 
 from accounts.models import Tenant
 from documents.models import Document, DocumentChunk
+from documents.wymiar import WYMIAR_WEKTORA
 
 
 def stub_embedding(mock_client, vector=None):
     response = MagicMock()
-    response.data = [MagicMock(embedding=vector or [0.0] * 1536)]
+    response.data = [MagicMock(embedding=vector or [0.0] * WYMIAR_WEKTORA)]
     mock_client.embeddings.create.return_value = response
 
 
@@ -19,7 +20,7 @@ def test_query_chunks_respects_top_k(mock_client, tenant):
 
     doc = Document.objects.create(name="Doc", tenant=tenant, content="abc")
     for text in ["Witamy w regulaminie", "Polityka prywatności", "Jak zarejestrować konto"]:
-        DocumentChunk.objects.create(document=doc, content=text, embedding=[0.0] * 1536)
+        DocumentChunk.objects.create(document=doc, content=text, embedding=[0.0] * WYMIAR_WEKTORA)
 
     from rag.engine import query_similar_chunks_pgvector
 
@@ -36,10 +37,14 @@ def test_query_chunks_never_leak_between_tenants(mock_client, tenant):
 
     other = Tenant.objects.create(name="Obca firma", owner_email="obca@example.com")
     other_doc = Document.objects.create(name="Obcy", tenant=other, content="x")
-    DocumentChunk.objects.create(document=other_doc, content="tajne dane", embedding=[0.0] * 1536)
+    DocumentChunk.objects.create(
+        document=other_doc, content="tajne dane", embedding=[0.0] * WYMIAR_WEKTORA
+    )
 
     mine = Document.objects.create(name="Moj", tenant=tenant, content="y")
-    DocumentChunk.objects.create(document=mine, content="moje dane", embedding=[0.0] * 1536)
+    DocumentChunk.objects.create(
+        document=mine, content="moje dane", embedding=[0.0] * WYMIAR_WEKTORA
+    )
 
     from rag.engine import query_similar_chunks_pgvector
 
