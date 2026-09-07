@@ -3,6 +3,7 @@ from openai import OpenAI
 from pgvector.django import L2Distance
 
 from documents.models import DocumentChunk
+from documents.wymiar import WYMIAR_WEKTORA
 
 client = OpenAI()
 
@@ -39,7 +40,13 @@ def query_similar_chunks_pgvector(
         max_distance = settings.RAG_MAX_DISTANCE
 
     embedding_response = client.embeddings.create(
-        input=query, model=settings.OPENAI_EMBEDDING_MODEL
+        input=query,
+        model=settings.OPENAI_EMBEDDING_MODEL,
+        # Wektor pytania musi byc tak dlugi jak wektory fragmentow. Gdyby
+        # ta linia wypadla, Postgres odmowilby liczenia odleglosci miedzy
+        # wektorem 1536 a kolumna 512 - czyli bot przestalby odpowiadac
+        # na wszystko naraz.
+        dimensions=WYMIAR_WEKTORA,
     )
     query_embedding = embedding_response.data[0].embedding
 

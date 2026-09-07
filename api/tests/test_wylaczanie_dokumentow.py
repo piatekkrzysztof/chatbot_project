@@ -19,13 +19,12 @@ from rest_framework.test import APIClient
 from accounts.models import CustomUser, Tenant
 from documents.models import Document, DocumentChunk
 from documents.utils.tresc_strony import TrescStrony
+from documents.wymiar import WYMIAR_WEKTORA
 from rag.engine import query_similar_chunks_pgvector
-
-WYMIAR = 1536
 
 
 def wektor(x):
-    v = [0.0] * WYMIAR
+    v = [0.0] * WYMIAR_WEKTORA
     v[0] = x
     return v
 

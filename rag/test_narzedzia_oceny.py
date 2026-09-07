@@ -14,6 +14,7 @@ import pytest
 from django.core.management import CommandError, call_command
 from django.core.management.base import OutputWrapper
 
+from documents.wymiar import WYMIAR_WEKTORA
 from rag.ocena.korpus import Pytanie
 from rag.ocena.miary import WynikPytania, opisz_bledy, policz
 
@@ -128,4 +129,4 @@ class TestOchronyWzorca:
         # z bledem o brakujacym kluczu zamiast o nieaktualnym wzorcu.
         assert set(wzorzec["fragmenty"]) == set(FRAGMENTY)
         assert set(wzorzec["pytania"]) == {pytanie.tresc for pytanie in PYTANIA}
-        assert wzorzec["wymiarow"] == 1536
+        assert wzorzec["wymiarow"] == WYMIAR_WEKTORA

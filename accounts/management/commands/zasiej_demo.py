@@ -37,9 +37,9 @@ from chat.models import (
 )
 from documents.models import Document, DocumentChunk
 from documents.utils.fragmenty import podziel_na_fragmenty
+from documents.wymiar import WYMIAR_WEKTORA
 
 NAZWA_FIRMY = "Rowerownia Krakowska (DEMO)"
-WYMIAR_WEKTORA = 1536
 
 FAQ_DEMO = [
     (

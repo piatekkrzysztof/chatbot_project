@@ -41,6 +41,19 @@ from django.db.models import Count
 
 logger = logging.getLogger(__name__)
 
+#: UWAGA: te progi pochodzą z pomiaru przy 1536 wymiarach wektora.
+#:
+#: Po przejściu na 512 wymiarów (documents/wymiar.py) fragment zajmuje 2,8 kB
+#: zamiast 8,2 kB, więc te same 10 000 fragmentów to 27 MB zamiast 80 - czyli
+#: mieszczą się w pamięci instancji tam, gdzie wcześniej się nie mieściły.
+#: Kolano krzywej przesunęło się w prawo i te progi są teraz PESYMISTYCZNE:
+#: zaalarmują wcześniej, niż trzeba.
+#:
+#: Zostawione świadomie, bo pomyłka w tę stronę kosztuje jeden zbędny mail,
+#: a w drugą - wolnego bota u klienta, o którym dowiadujemy się od klienta.
+#: Do poprawienia po uruchomieniu `zmierz_skale` na produkcji przy 512
+#: wymiarach; wtedy będzie z czego je policzyć, a nie z czego zgadnąć.
+
 #: Połowa zmierzonego kolana. Uprzedzenie, nie alarm.
 PROG_UWAGI = 2_500
 

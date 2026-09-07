@@ -54,6 +54,12 @@ services:
       # pokazuje, gdzie przebiega granica między pytaniami pokrytymi przez bazę
       # a resztą. Zależy od dokumentów klienta, więc nie ma tu wartości „na
       # zawsze"; po większej zmianie w bazie wiedzy warto zmierzyć ponownie.
+      #
+      # Od 7 września 2026: 0.98. Wcześniej stało tu 1.0, a w kodzie 1.15 —
+      # czyli CI mierzyło jakość przy progu, którego produkt nigdy nie używał.
+      # Teraz domyślna wartość w base.py jest identyczna z tą, więc gdyby ta
+      # zmienna zniknęła, zachowanie się nie zmieni. Przy zmianie wymiaru
+      # wektora TĘ WARTOŚĆ TRZEBA PRZELICZYĆ: docs/zmiana-wymiaru-wektora.md.
       - key: RAG_MAX_DISTANCE
         sync: false
       # UWAGA: te zmienne muszą być IDENTYCZNE na obu usługach. Render trzyma

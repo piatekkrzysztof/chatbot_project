@@ -80,7 +80,10 @@ print('wektor:', len(f.embedding), f.embedding[0])
 - **API keys must be identical to before.** They are pasted into the snippet on
   every customer's website. A restore that issues new ones means phoning every
   customer individually, on the day after an outage.
-- **Embeddings must come back at 1536 dimensions with their values intact.**
+- **Embeddings must come back at 512 dimensions with their values intact.**
+  (1536 before 7 September 2026 — a backup taken before that date restores
+  into a column that will not accept it, and has to be restored onto the
+  matching schema first.)
   A vector silently lost or rounded looks like a healthy restore — rows are
   there, text is there, counts match — and only shows up at the first question
   someone asks the bot.

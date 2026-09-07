@@ -24,6 +24,7 @@ from accounts.rozmiar_bazy import (
     sprawdz_rozmiary,
 )
 from documents.models import Document, DocumentChunk
+from documents.wymiar import WYMIAR_WEKTORA
 
 pytestmark = pytest.mark.django_db
 
@@ -40,7 +41,7 @@ def firma_z_fragmentami(nazwa, ile, uzywaj=True):
     )
     DocumentChunk.objects.bulk_create(
         [
-            DocumentChunk(document=dokument, content=f"f{i}", embedding=[0.0] * 1536)
+            DocumentChunk(document=dokument, content=f"f{i}", embedding=[0.0] * WYMIAR_WEKTORA)
             for i in range(ile)
         ],
         batch_size=500,
@@ -107,7 +108,7 @@ class TestKiedyAlarmuje:
         dokument = Document.objects.get(tenant=firma)
         DocumentChunk.objects.bulk_create(
             [
-                DocumentChunk(document=dokument, content=f"d{i}", embedding=[0.0] * 1536)
+                DocumentChunk(document=dokument, content=f"d{i}", embedding=[0.0] * WYMIAR_WEKTORA)
                 for i in range(PROG_PILNY - PROG_UWAGI)
             ],
             batch_size=500,
