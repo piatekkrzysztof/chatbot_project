@@ -83,43 +83,91 @@ class Pytanie:
     tresc: str
     oczekiwane: frozenset[str] = field(default_factory=frozenset)
     grupa: str = ""
+    #: Konkret, który MUSI paść w odpowiedzi opartej na wiedzy firmy.
+    #:
+    #: Używane tylko przez ocenę generowania (rag/ocena/generowanie.py), nie
+    #: przez ocenę wyszukiwania. Odpowiedź „ceny znajdzie Pan w cenniku" jest
+    #: dla wyszukiwania sukcesem - właściwy fragment wrócił - a dla klienta
+    #: bezużyteczna. Bez tej kolumny model, który przestał cytować liczby,
+    #: wyglądałby na tak samo dobry jak ten, który je podaje.
+    #:
+    #: Wystarczy JEDEN z podanych wariantów: model pisze raz „9-18", raz
+    #: „9:00-18:00", raz „od 9 do 18", a wszystkie trzy są tą samą wiedzą.
+    fakty: frozenset[str] = field(default_factory=frozenset)
 
     @property
     def ma_odpowiedz(self) -> bool:
         return bool(self.oczekiwane)
 
 
+#: Model pisze o terminie naprawy na kilka sposobow. Wszystkie sa ta sama
+#: wiedza z fragmentu "serwis-termin", wiec licza sie tak samo.
+DNI_NAPRAWY = frozenset({"3-5", "3–5", "3 do 5", "5 dni", "7 dni"})
+
 #: Grupa 1: pytania sformulowane blisko tresci dokumentu.
 #: Najlatwiejsze. Jesli tu spada trafnosc, cos jest powaznie zepsute.
 WPROST = [
-    Pytanie("Ile kosztuje przeglad roweru?", frozenset({"cennik-przeglad"}), "wprost"),
-    Pytanie("Ile kosztuje wymiana lancucha?", frozenset({"cennik-lancuch"}), "wprost"),
-    Pytanie("W jakich godzinach jestescie otwarci?", frozenset({"godziny"}), "wprost"),
-    Pytanie("Ile trwa naprawa roweru?", frozenset({"serwis-termin"}), "wprost"),
-    Pytanie("Ile kosztuje wysylka kurierem?", frozenset({"dostawa-koszt"}), "wprost"),
+    Pytanie(
+        "Ile kosztuje przeglad roweru?",
+        frozenset({"cennik-przeglad"}),
+        "wprost",
+        frozenset({"120"}),
+    ),
+    Pytanie(
+        "Ile kosztuje wymiana lancucha?", frozenset({"cennik-lancuch"}), "wprost", frozenset({"80"})
+    ),
+    Pytanie(
+        "W jakich godzinach jestescie otwarci?", frozenset({"godziny"}), "wprost", frozenset({"18"})
+    ),
+    Pytanie(
+        "Ile trwa naprawa roweru?",
+        frozenset({"serwis-termin"}),
+        "wprost",
+        DNI_NAPRAWY,
+    ),
+    Pytanie(
+        "Ile kosztuje wysylka kurierem?", frozenset({"dostawa-koszt"}), "wprost", frozenset({"20"})
+    ),
 ]
 
 #: Grupa 2: to samo pytanie innymi slowami. Tak pisza prawdziwi klienci -
 #: nie znaja slownictwa z dokumentu, bo go nie widzieli.
 INACZEJ = [
-    Pytanie("Jaka jest cena serwisu roweru?", frozenset({"cennik-przeglad"}), "inaczej"),
-    Pytanie("Czy pracujecie w weekend?", frozenset({"godziny"}), "inaczej"),
+    Pytanie(
+        "Jaka jest cena serwisu roweru?",
+        frozenset({"cennik-przeglad"}),
+        "inaczej",
+        frozenset({"120"}),
+    ),
+    Pytanie(
+        "Czy pracujecie w weekend?",
+        frozenset({"godziny"}),
+        "inaczej",
+        frozenset({"14", "sobot", "niedziel"}),
+    ),
     Pytanie(
         "Jak dlugo trzeba czekac na rower po oddaniu do warsztatu?",
         frozenset({"serwis-termin"}),
         "inaczej",
+        DNI_NAPRAWY,
     ),
     Pytanie(
         "Na jak dlugo macie gwarancje na ramy?",
         frozenset({"gwarancja-rama"}),
         "inaczej",
+        frozenset({"24"}),
     ),
     Pytanie(
         "Czy dostane rower na zastepstwo, kiedy moj bedzie w naprawie?",
         frozenset({"serwis-zastepczy"}),
         "inaczej",
     ),
-    Pytanie("Kiedy nadacie paczke po zaplaceniu?", frozenset({"dostawa-czas"}), "inaczej"),
+    Pytanie(
+        "Kiedy nadacie paczke po zaplaceniu?",
+        frozenset({"dostawa-czas"}),
+        "inaczej",
+        frozenset({"48"}),
+    ),
 ]
 
 #: Grupa 3: pytania spoza jakiejkolwiek bazy wiedzy sklepu rowerowego.
