@@ -165,6 +165,56 @@ próg razem z nimi.
 
 ---
 
+## Zmiana modelu czatu
+
+`OPENAI_CHAT_MODEL` (Render → **chatbot-backend** → Environment). Nie podmieniaj
+go bez pomiaru - i nie dlatego, że „lepiej sprawdzić", tylko dlatego, że jest
+tu jedna konkretna rzecz, która potrafi się zepsuć po cichu.
+
+Bot zaczyna odpowiedź od `[BRAK_ODPOWIEDZI]`, gdy nie umie odpowiedzieć
+z podanej wiedzy. Znacznik nie dociera do odwiedzającego, ale wisi na nim:
+propozycja kontaktu w widgecie, zapytanie i mail do właściciela, raport luk
+w wiedzy, alert o odmowach i grupowanie w `zmierz_prog_rag`. **To jest
+protokół, którego dotrzymuje model, nie kod.** Inny model może stawiać ten
+znacznik rzadziej - i wtedy nic nie krzyknie, po prostu przestaną przychodzić
+zapytania od klientów.
+
+`ocen_rag` tego nie pokaże: mierzy wyszukiwanie, a wektory liczy osobny model.
+Od tego jest druga komenda:
+
+```bash
+python manage.py ocen_generowanie --model gpt-4o-mini --model NOWY_MODEL
+```
+
+Trzy liczby, w kolejności ważności:
+
+| | znaczy | kierunek |
+|---|---|---|
+| odmowy trafne | pytania spoza bazy, które dostały znacznik | im więcej, tym lepiej |
+| odmowy fałszywe | pytania pokryte, które dostały znacznik | im mniej, tym lepiej |
+| oparte na wiedzy | odpowiedzi z konkretem z fragmentu | im więcej, tym lepiej |
+
+Trzecia jest tam po to, żeby wyłapać model, który przestał zmyślać, stając się
+zarazem bezużytecznym: „ceny znajdzie Pan w cenniku" nie jest ani odmową, ani
+odpowiedzią.
+
+Komenda wypisuje też tokeny na cały przebieg. Liczba tokenów wejściowych jest
+dla każdego modelu ta sama (ten sam prompt) - różni się cena za token, więc
+koszt przeliczysz wprost z cennika.
+
+**Stan na 7 września 2026, `gpt-4o-mini`:** odmowy trafne 70,8%, odmowy
+fałszywe 0,0%, oparte na wiedzy 100,0%, 470 tokenów i 0,8 s na odpowiedź.
+Wszystkie wpadki są w grupie „poza tematem" (stolica Australii, pierwiastek
+z 256) - w grupie trudniejszej i ważniejszej handlowo, czyli pytań z branży,
+na które ta firma nie odpowiada, model trzyma się znacznika.
+
+To kosztuje: 19 pytań razy liczba powtórzeń razy liczba modeli. Domyślnie
+3 powtórzenia, bo temperatura wynosi 0,2 i jeden przebieg nie rozstrzyga -
+komenda wypisuje osobno pytania, na których model raz stawia znacznik, a raz
+nie.
+
+---
+
 ## „Coś nie działa, a nie wiem co"
 
 Panel → **Stan**. Pięć kart:
