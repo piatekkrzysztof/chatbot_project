@@ -16,7 +16,32 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `manage.py ocen_generowanie` — measures what the chat model does, which
+  nothing measured before. `ocen_rag` covers retrieval only, and the chat model
+  does not touch retrieval, so it would report identical numbers no matter what
+  `OPENAI_CHAT_MODEL` was set to.
+- The thing it watches is `[BRAK_ODPOWIEDZI]` — the marker by which the model
+  says it cannot answer. Contact capture, the enquiry e-mail, the knowledge-gap
+  report, the refusal alert and the threshold measurement all hang off it, and
+  it is a protocol the **model** keeps, not the code. A model that stops
+  emitting it fails silently.
+- Takes several models at once and prints them side by side, with tokens and
+  latency, so a model change can be decided on numbers.
+
+### Measured
+
+- Baseline for `gpt-4o-mini`: correct refusals 70.8%, false refusals 0.0%,
+  answers grounded in a retrieved fact 100.0%, 470 tokens and 0.8 s per answer.
+- Every failure is in the "off topic" group — the bot answers "what is the
+  capital of Australia" from world knowledge, and once returned a wrong square
+  root. On the harder and commercially relevant group — trade questions this
+  company does not answer — it keeps to the marker.
+- One case is worse than a wrong answer: asked who wrote *Lalka*, the model
+  replied "I do not have that information, please contact the company" **without
+  the marker**. A refusal the system counts as an answer: no contact offer, no
+  entry in the gap report.
 
 ---
 
