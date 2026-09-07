@@ -86,7 +86,7 @@ flowchart TB
     end
 
     subgraph data["PostgreSQL + pgvector"]
-        chunks[("DocumentChunk<br/>1536-dim vector")]
+        chunks[("DocumentChunk<br/>512-dim vector")]
         conv[("Conversation<br/>ChatMessage · PromptLog")]
     end
 

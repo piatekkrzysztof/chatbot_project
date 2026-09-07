@@ -96,16 +96,22 @@ the whole table, on every question. It is a memory effect, not a processor one.
 
 Two consequences for this decision.
 
-**There is a cheaper lever than the index, and it was measured.** Asking the
+**There was a cheaper lever than the index, and it was taken.** Asking the
 embedding model for 512 dimensions instead of 1536 keeps recall and silence
-unchanged (90.9% and 75.0%, with the threshold moved from 1.00 to 0.90) and
+unchanged (90.9% and 75.0%, with the threshold moved from 1.00 to 0.98) and
 makes the table 2.9× smaller: 27 MB instead of 80 at ten thousand chunks. If
 the cache sits between those numbers, the disk reads disappear. Unlike the
-index, this keeps search exact.
+index, this keeps search exact. Shipped the same day; runbook in
+[docs/zmiana-wymiaru-wektora.md](../zmiana-wymiaru-wektora.md).
 
-**The index is now third in line, not second.** Order: shorter vectors, then
-`halfvec` (pgvector 0.8 is installed), then a larger database instance, then
-the index — because only the last one trades away answer quality.
+**The index is now third in line, not second.** Remaining order: `halfvec`
+(pgvector 0.8 is installed), then a larger database instance, then the
+index — because only the last one trades away answer quality.
+
+**This record's decision still stands, and is now less pressing.** No index,
+for the same reason as before: nobody is near the ceiling, and the ceiling
+just moved further away. What has not been redone is the production
+measurement at 512 dimensions, so how much further is unknown.
 
 Numbers in [docs/skala-i-wydajnosc.md](../skala-i-wydajnosc.md).
 

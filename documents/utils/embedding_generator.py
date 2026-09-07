@@ -12,6 +12,7 @@ from openai import OpenAI
 
 from documents.models import DocumentChunk
 from documents.utils.fragmenty import podziel_na_fragmenty, tekst_do_wektora
+from documents.wymiar import WYMIAR_WEKTORA
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,10 @@ def _wektory(klient, teksty):
         odpowiedz = klient.embeddings.create(
             model=settings.OPENAI_EMBEDDING_MODEL,
             input=partia,
+            # Bez tego API oddaje 1536 liczb, a kolumna przyjmuje 512 - zapis
+            # konczy sie bledem. To dobra wiadomosc: gorszy bylby wariant,
+            # w ktorym cos sie zapisuje i po cichu znaczy co innego.
+            dimensions=WYMIAR_WEKTORA,
         )
         # API gwarantuje kolejność, ale sortujemy po indeksie i tak: pomyłka
         # tutaj przypisałaby wektory do niewłaściwych fragmentów, a taki błąd

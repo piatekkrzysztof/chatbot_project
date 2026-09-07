@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from documents.models import Document, DocumentChunk
+from documents.wymiar import WYMIAR_WEKTORA
 
 
 def fake_embedding_response(vector):
@@ -15,11 +16,11 @@ def fake_embedding_response(vector):
 @patch("rag.engine.client")
 def test_query_chunks_with_pgvector(mock_client, tenant):
     """Wyszukiwanie zwraca najbliższe fragmenty, bez odpytywania prawdziwego API."""
-    mock_client.embeddings.create.return_value = fake_embedding_response([0.0] * 1536)
+    mock_client.embeddings.create.return_value = fake_embedding_response([0.0] * WYMIAR_WEKTORA)
 
     doc = Document.objects.create(name="Doc", tenant=tenant, content="abc")
     for text in ["Witamy w regulaminie", "Polityka prywatności", "Jak zarejestrować konto"]:
-        DocumentChunk.objects.create(document=doc, content=text, embedding=[0.0] * 1536)
+        DocumentChunk.objects.create(document=doc, content=text, embedding=[0.0] * WYMIAR_WEKTORA)
 
     from rag.engine import query_similar_chunks_pgvector
 
@@ -35,12 +36,14 @@ def test_distant_chunks_are_filtered_out(mock_client, tenant):
     Fragmenty powyżej progu odległości nie mogą wracać — inaczej każde pytanie
     wyglądałoby na pokryte dokumentami, nawet zupełnie niezwiązanymi.
     """
-    mock_client.embeddings.create.return_value = fake_embedding_response([1.0] + [0.0] * 1535)
+    mock_client.embeddings.create.return_value = fake_embedding_response(
+        [1.0] + [0.0] * (WYMIAR_WEKTORA - 1)
+    )
 
     doc = Document.objects.create(name="Doc", tenant=tenant, content="abc")
     # wektor odległy od zapytania o 2.0 w metryce L2 — powyżej progu
     DocumentChunk.objects.create(
-        document=doc, content="cos zupelnie innego", embedding=[-1.0] + [0.0] * 1535
+        document=doc, content="cos zupelnie innego", embedding=[-1.0] + [0.0] * (WYMIAR_WEKTORA - 1)
     )
 
     from rag.engine import query_similar_chunks_pgvector

@@ -19,6 +19,7 @@ from documents.utils.fragmenty import (
     podziel_na_fragmenty,
     tekst_do_wektora,
 )
+from documents.wymiar import WYMIAR_WEKTORA
 
 OFERTA = """OFERTA WESELNA
 
@@ -198,8 +199,10 @@ class TestZapisuDoBazy:
 
         import documents.utils.embedding_generator as generator
 
-        def create(model, input):
-            dane = [MagicMock(index=i, embedding=[0.01] * 1536) for i in range(len(input))]
+        def create(model, input, dimensions):
+            dane = [
+                MagicMock(index=i, embedding=[0.01] * WYMIAR_WEKTORA) for i in range(len(input))
+            ]
             return MagicMock(data=dane)
 
         klient = MagicMock()

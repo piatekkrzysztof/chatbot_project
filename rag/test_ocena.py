@@ -26,33 +26,55 @@ import pytest
 from rag.ocena.miary import opisz_bledy
 from rag.ocena.przebieg import ocen_na_wzorcu
 
-#: UWAGA: produkcja NIE uzywa domyslnej wartosci z kodu.
+#: Przemiatanie progu po przejsciu na 512 wymiarow.
+#: `manage.py ocen_rag --przemiataj`, 7 wrzesnia 2026:
 #:
-#: base.py ma RAG_MAX_DISTANCE = 1.15, ale na Renderze stoi zmienna
-#: srodowiskowa ustawiona na 1.0 - i to jest prog, przy ktorym naprawde
-#: dziala bot. Sprawdzone 04.09.2026 komenda zmierz_prog_rag na zywej bazie
-#: (firma Sm-art, 246 fragmentow), ktora wypisala "obecny prog: 1.0".
+#:     prog | trafnosc | na 1. | MRR   | cisza
+#:     -----+----------+-------+-------+------
+#:     0.80 |    54.5% | 54.5% | 0.545 | 100.0%
+#:     0.85 |    63.6% | 54.5% | 0.576 | 100.0%
+#:     0.90 |    90.9% | 72.7% | 0.803 |  75.0%
+#:     0.98 |    90.9% | 72.7% | 0.803 |  75.0%   <- ustawienie obecne
+#:     0.99 |    90.9% | 72.7% | 0.803 |  62.5%
+#:     1.05 |   100.0% | 81.8% | 0.894 |  50.0%
+#:     1.15 |   100.0% | 81.8% | 0.894 |  25.0%   <- domyslna sprzed migracji
 #:
-#: Przy 1.0 ten sam zestaw daje: trafnosc 90.9%, cisza 75.0%. Podlogi ponizej
-#: sa liczone przy 1.15, bo taka wartosc widzi CI - sluza wykrywaniu regresji
-#: w kodzie, nie opisuja zachowania produkcji.
+#: 0.98 przy 512 wymiarach daje dokladnie to, co 1.00 przy 1536: trafnosc
+#: 90.9% i cisze 75.0%. Skrocenie wektora zblizylo do siebie wszystko o ten
+#: sam czynnik 0.983 (pomiar na bazie wiedzy demo, opisany w settings/base.py),
+#: wiec prog przesunal sie o dwa procent, a nie o dziesiec.
 #:
-#: Zanim ktos zaproponuje zmiane progu na podstawie tych liczb: sprawdz
-#: najpierw, jaka wartosc ma zmienna srodowiskowa na serwerze. Ja tego nie
-#: sprawdzilem i zarekomendowalem "zejscie z 1.15 na 1.05" produktowi, ktory
-#: od dawna chodzil na 1.0 - czyli ciasniej niz moja rekomendacja.
+#: DLACZEGO TO JEST TU NAPISANE: pierwsza wersja tej zmiany ustawiala prog na
+#: 0.90, bo tak wychodzilo z porownania samego zestawu pomiarowego. Na
+#: prawdziwej bazie wiedzy 0.90 odcinalo pytanie "w jakich godzinach
+#: jestescie otwarci", ktore lezy na 0.952 - i lezalo na 0.953 takze przed
+#: migracja. Dziesiec fragmentow wymyslonego sklepu wystarczy, zeby wykryc
+#: regresje, i nie wystarczy, zeby ustawic prog.
+#:
+#: Czego tu juz NIE MA: rozjazdu miedzy kodem a serwerem. Wczesniej base.py
+#: mial 1.15, a Render zmienna srodowiskowa 1.0, wiec te podlogi opisywaly
+#: prog, ktorego produkt nigdy nie uzywal. Teraz domyslna wartosc w kodzie
+#: jest wartoscia produkcyjna i CI mierzy to, co robi bot.
+#:
+#: Do progu produkcyjnego sluzy zmierz_prog_rag, liczone na zywej bazie wiedzy.
 
-#: Zmierzone 04.09.2026 przy RAG_MAX_DISTANCE = 1.15:
-#:   trafnosc 100.0%, na 1. miejscu 81.8%, MRR 0.909, cisza 37.5%
+#: Zmierzone 07.09.2026 przy RAG_MAX_DISTANCE = 0.98:
+#:   trafnosc 90.9%, na 1. miejscu 72.7%, MRR 0.803, cisza 75.0%
 #:
-#: Podlogi z waskim zapasem: jedno pytanie moze sie zsunac, dwa juz nie.
-PROG_TRAFNOSCI = 0.90
-PROG_NA_PIERWSZYM = 0.72
-PROG_MRR = 0.85
+#: Podlogi z zapasem na jedno pytanie. Pytan z odpowiedzia jest 11, wiec
+#: jedno zsuniete to 9.1 punktu procentowego - dwa maja zatrzymac scalenie.
+PROG_TRAFNOSCI = 0.81
+PROG_NA_PIERWSZYM = 0.63
+PROG_MRR = 0.75
 
-#: Cisza NIE MA zapasu w dol, bo juz jest slaba. Kazde dalsze poluzowanie
-#: jest regresja i ma zatrzymac scalenie.
-PROG_CISZY = 0.375
+#: Cisza NIE MA zapasu w dol.
+#:
+#: Przed migracja powodem bylo to, ze cisza jest slaba (37.5%). Teraz jest
+#: dobra (75.0%), a powod jest inny i mocniejszy: bot, ktory pewnym glosem
+#: cytuje niezwiazany fragment, jest gorszy od takiego, ktory mowi "nie wiem",
+#: bo klient nie ma jak odroznic jednego od drugiego. Kazde poluzowanie tej
+#: liczby ma zatrzymac scalenie i wymagac decyzji, nie poprawki progu.
+PROG_CISZY = 0.75
 
 
 @pytest.mark.django_db
@@ -118,23 +140,16 @@ class TestWymianyMiedzyMiarami:
     """
     Wykonalny zapis pomiaru, nie tylko zdanie w opisie zmiany.
 
-    Przemiatanie progu 04.09.2026 dalo:
+    Liczby sa w komentarzu przy progach na gorze pliku. Tutaj sa te same
+    liczby zapisane wykonalnie: opis w komentarzu zdezaktualizuje sie po cichu,
+    asercja zaczerwieni sie od razu.
 
-        prog | trafnosc | na 1. | MRR   | cisza
-        -----+----------+-------+-------+------
-        0.90 |   81.8%  | 72.7% | 0.773 | 87.5%
-        0.95 |   90.9%  | 72.7% | 0.818 | 75.0%
-        1.05 |  100.0%  | 81.8% | 0.909 | 62.5%
-        1.15 |  100.0%  | 81.8% | 0.909 | 37.5%   <- ustawienie obecne
-        1.20 |  100.0%  | 81.8% | 0.909 | 25.0%
-
-    Wniosek: obecny prog oddaje 25 punktow ciszy za nic. Zmiana na 1.05 daje
-    pelna trafnosc i wyraznie lepsza powsciagliwosc.
-
-    NIE zmieniam go tutaj. Korpus ma dziesiec fragmentow, a odleglosci zaleza
-    od konkretnych dokumentow klienta - od tego jest `zmierz_prog_rag`, ktore
-    liczy rozklad na zywych danych. Decyzja o progu produkcyjnym wymaga
-    sprawdzenia na prawdziwej bazie wiedzy, nie na tym korpusie.
+    Dlaczego te progi, a nie inne
+    -----------------------------
+    Po zmianie wymiaru wektora skala odleglosci przesunela sie w dol, wiec
+    para, ktora pokazywala wymiane przy 1536 wymiarach (0.90 kontra 1.15),
+    lezy teraz po jednej stronie: 0.90 jest ustawieniem produkcyjnym, a nie
+    "za ciasnym". Za ciasny zaczyna sie ponizej 0.85.
     """
 
     def test_ciasniejszy_prog_poprawia_cisze_nie_psujac_trafnosci(self):
@@ -147,7 +162,7 @@ class TestWymianyMiedzyMiarami:
     def test_zbyt_ciasny_prog_zaczyna_gubic_odpowiedzi(self):
         # Druga strona wymiany. Bez tego ktos moglby "poprawic" cisze do stu
         # procent, zabierajac botowi wiedze.
-        bardzo_ciasny, _ = ocen_na_wzorcu(max_distance=0.90)
+        bardzo_ciasny, _ = ocen_na_wzorcu(max_distance=0.80)
 
-        assert bardzo_ciasny.cisza > 0.80
-        assert bardzo_ciasny.trafnosc < 0.90
+        assert bardzo_ciasny.cisza > 0.90
+        assert bardzo_ciasny.trafnosc < 0.60
