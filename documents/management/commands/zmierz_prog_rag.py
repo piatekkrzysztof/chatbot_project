@@ -24,6 +24,7 @@ from accounts.models import Tenant
 from chat.models import PromptLog
 from documents.models import DocumentChunk
 from documents.utils.embedding_generator import get_client
+from documents.wymiar import WYMIAR_WEKTORA
 from rag.engine import fragmenty_do_przeszukania
 
 # Pytania spoza jakiejkolwiek bazy wiedzy klienta. Służą za punkt odniesienia:
@@ -130,6 +131,7 @@ class Command(BaseCommand):
                 klient.embeddings.create(
                     model=settings.OPENAI_EMBEDDING_MODEL,
                     input=pytanie,
+                    dimensions=WYMIAR_WEKTORA,
                 )
                 .data[0]
                 .embedding

@@ -18,6 +18,7 @@ from accounts.models import CustomUser, Tenant
 from api.views.diagnostyka_zadan import _zdrowie_bazy_wiedzy, _zdrowie_poczty
 from chat.models import ContactRequest
 from documents.models import Document, DocumentChunk
+from documents.wymiar import WYMIAR_WEKTORA
 
 URL = "/api/diagnostyka/zadania/"
 
@@ -38,7 +39,7 @@ def dokument(tenant, nazwa, tresc="tresc dokumentu", widocznych=None, fragmenty=
     )
     for numer in range(fragmenty):
         DocumentChunk.objects.create(
-            document=dok, content=f"fragment {numer}", embedding=[0.01] * 1536
+            document=dok, content=f"fragment {numer}", embedding=[0.01] * WYMIAR_WEKTORA
         )
     return dok
 

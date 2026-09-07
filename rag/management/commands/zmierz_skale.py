@@ -26,9 +26,13 @@ kosztowałoby realne pieniądze i nic by nie wniosło.
     python manage.py zmierz_skale
     python manage.py zmierz_skale --do 85000 --wiem-ze-pisze-do-tej-bazy
 
-Domyslnie mierzy do 10 000 fragmentow, czyli zapisuje okolo 80 MB. Wieksze
-przebiegi trzeba potwierdzic, bo pelny zapisuje ponad 680 MB - a uruchomiona
+Domyslnie mierzy do 10 000 fragmentow, czyli zapisuje okolo 27 MB. Wieksze
+przebiegi trzeba potwierdzic, bo pelny zapisuje ponad 230 MB - a uruchomiona
 na serwerze komenda pisze do bazy PRODUKCYJNEJ.
+
+Przed skroceniem wektora do 512 wymiarow bylo to odpowiednio 80 MB i 680 MB.
+Zabezpieczenie zostaje mimo to: jego wartoscia jest swiadome potwierdzenie,
+nie konkretna liczba megabajtow.
 """
 
 import random
@@ -44,9 +48,9 @@ from accounts.models import Tenant
 from accounts.plans import PLANS
 from documents.models import Document, DocumentChunk
 from documents.utils.fragmenty import MAKS_ZNAKOW, ZAKLADKA
+from documents.wymiar import WYMIAR_WEKTORA
 from rag.engine import fragmenty_do_przeszukania
 
-WYMIAR = 1536
 POMIAROW = 9
 PARTIA = 500
 
@@ -55,18 +59,29 @@ PROGI = (1_000, 5_000, 10_000, 25_000, 40_000, 85_000)
 
 MB = 1024 * 1024
 
-#: Ile miejsca zajmuje jeden fragment razem z indeksami.
+#: Ile miejsca zajmuje jeden fragment razem z indeksami. Przy 512 wymiarach.
 #:
-#: Zmierzone 4 wrzesnia 2026 na PostgreSQL 16: 5 000 fragmentow zajelo 40,1 MB,
-#: czyli 8,2 kB na sztuke. Wektor to 1536 liczb po 4 bajty, wiec sam zajmuje
-#: 6 kB - reszta to naglowki wiersza i indeksy.
-KB_NA_FRAGMENT = 8.2
+#: Zmierzone, nie wyliczone - i to jest tu najwazniejsze zdanie.
+#:
+#: Pierwsza wersja tej zmiany liczyla to ze wzoru "wektor plus staly narzut":
+#: 8,2 kB przy 1536 wymiarach minus 6,0 kB samego wektora dawalo 2,2 kB
+#: narzutu, wiec przy 512 wymiarach wychodzilo 2,0 + 2,2 = 4,2 kB. Pomiar
+#: pokazal 2,8 kB. Narzut nie jest staly: wektor 1536-wymiarowy laduje
+#: w TOAST razem z jego wlasnym indeksem, a krotszy placi za to mniej.
+#:
+#: Wzor wygladal na uzasadniony i mylil sie o polowe. Dlatego stoi tu liczba
+#: z pomiaru, a `_porownaj_rozmiar` wypisuje ja obok rzeczywistego przyrostu
+#: przy kazdym przebiegu - z ostrzezeniem, gdy sie rozjada. Tak wlasnie
+#: wyszedl na jaw ten blad.
+#:
+#: Potwierdzone dwukrotnie, niezaleznie: 5 000 fragmentow -> 13,8 MB
+#: (7 wrzesnia 2026) i 10 000 fragmentow -> 27,3 MB (5 wrzesnia 2026).
+KB_NA_FRAGMENT = 2.8
 
 #: Domyslny rozmiar pomiaru dobrany tak, zeby byl bezpieczny WSZEDZIE.
 #:
-#: 10 000 fragmentow to okolo 80 MB i wystarcza, zeby zobaczyc, gdzie krzywa
-#: przestaje byc liniowa. Pelny przebieg do 85 000 zapisuje ponad 680 MB -
-#: na malej instancji hostingu to rozmiar, ktory potrafi zapelnic dysk bazy,
+#: 10 000 fragmentow to okolo 27 MB i wystarcza, zeby zobaczyc, gdzie krzywa
+#: przestaje byc liniowa. Pelny przebieg do 85 000 zapisuje ponad 230 MB,
 #: a komenda uruchomiona na serwerze pisze do bazy PRODUKCYJNEJ.
 #:
 #: Pierwsza wersja tej komendy miala 85 000 jako domyslne i nie mowila o tym
@@ -120,7 +135,7 @@ class Command(BaseCommand):
 
         Komenda zapisuje fragmenty do bazy, z ktora jest polaczona. Uruchomiona
         na serwerze pisze do bazy PRODUKCYJNEJ - a pelny przebieg to ponad
-        680 MB, czyli rozmiar zdolny zapelnic dysk malej instancji.
+        230 MB, ktore musza sie w niej zmiescic obok danych klientow.
 
         Dane sa kasowane na koncu, takze po bledzie, ale w trakcie musza sie
         gdzies zmiescic.
@@ -167,7 +182,7 @@ class Command(BaseCommand):
         self.stdout.write("")
 
     def _wektor(self, losowy):
-        return [losowy.uniform(-1, 1) for _ in range(WYMIAR)]
+        return [losowy.uniform(-1, 1) for _ in range(WYMIAR_WEKTORA)]
 
     @transaction.atomic
     def _zaloz(self, losowy):
@@ -212,8 +227,9 @@ class Command(BaseCommand):
           shared read - przeczytane z dysku.
 
         Postgres trzyma w pamieci podrecznej okolo jednej czwartej RAM-u
-        instancji. Fragment zajmuje 8,2 kB, wiec 10 000 fragmentow to 82 MB -
-        na malej instancji to jest wiecej, niz sie tam miesci.
+        instancji. Ile to znaczy w megabajtach, mowi wiersz "rozmiar tabeli"
+        wypisany razem z pomiarem - i to z niego, nie z pamieci, bierze sie
+        odpowiedz, czy dane maja gdzie sie zmiescic.
         """
         from django.db import connection
 
@@ -232,6 +248,50 @@ class Command(BaseCommand):
             )
             return [wiersz[0] for wiersz in kursor.fetchall()]
 
+    def _rozmiar_tabeli(self):
+        """
+        Ile naprawde zajmuje tabela fragmentow, razem z indeksami.
+
+        KB_NA_FRAGMENT jest liczba z pomiaru, ale z pomiaru zrobionego kiedys
+        i gdzie indziej. Bez porownania jej z tym, co dzieje sie TERAZ i w TEJ
+        bazie, bylaby oszacowaniem, ktore wyglada jak pomiar - a stoi na niej
+        i cennik wypisywany wyzej, i odmowa zapisu do produkcji.
+        """
+        from django.db import connection
+
+        with connection.cursor() as kursor:
+            kursor.execute("SELECT pg_total_relation_size('documents_documentchunk')")
+            return kursor.fetchone()[0]
+
+    def _porownaj_rozmiar(self, przed, fragmentow):
+        """
+        Zestawia oszacowanie z pomiarem i mowi, gdy sie rozjezdzaja.
+
+        Bez tego zestawienia KB_NA_FRAGMENT byloby liczba, ktorej nikt nigdy
+        nie sprawdza - a stoi na niej i cennik wyzej, i odmowa zapisu do
+        produkcji. Wartosc dla 512 wymiarow jest przeliczona, nie zmierzona;
+        ten wiersz jest miejscem, w ktorym sie to rozstrzyga.
+        """
+        przyrost = self._rozmiar_tabeli() - przed
+        zmierzone_kb = przyrost / 1024 / fragmentow
+
+        self.stdout.write("")
+        self.stdout.write(
+            f"Rozmiar tabeli: przyrost {przyrost / MB:.1f} MB na {fragmentow:,} fragmentow "
+            f"= {zmierzone_kb:.1f} kB/fragment"
+        )
+        self.stdout.write(f"  oszacowanie w kodzie: {KB_NA_FRAGMENT:.1f} kB/fragment")
+
+        # 15% zapasu: rozmiar zalezy od wypelnienia stron i od tego, kiedy
+        # autovacuum zdazyl posprzatac, wiec drobna roznica nic nie znaczy.
+        if abs(zmierzone_kb - KB_NA_FRAGMENT) > 0.15 * KB_NA_FRAGMENT:
+            self.stdout.write(
+                self.style.WARNING(
+                    "  UWAGA: rozjazd ponad 15%. KB_NA_FRAGMENT w zmierz_skale.py "
+                    "opisuje inna baze niz ta - popraw KB_NARZUTU_NA_FRAGMENT."
+                )
+            )
+
     def _czas(self, firma, zapytanie):
         czasy = []
         for _ in range(POMIAROW):
@@ -249,6 +309,12 @@ class Command(BaseCommand):
         zapytanie = self._wektor(losowy)
         progi = [p for p in PROGI if p <= maksimum]
 
+        # Rozmiar PRZED dosypaniem. Tabela jest wspolna dla wszystkich firm,
+        # wiec na produkcji jest w niej juz baza wiedzy klientow - roznica
+        # miedzy stanem przed i po jest jedynym sposobem, zeby zmierzyc
+        # fragmenty pomiarowe, a nie cudze dane.
+        przed = self._rozmiar_tabeli()
+
         self.stdout.write(f"{'fragmentow':>11} {'mediana ms':>11} {'najgorszy ms':>13}")
         self.stdout.write("-" * 38)
 
@@ -258,6 +324,8 @@ class Command(BaseCommand):
             lacznie = prog
             mediana, najgorszy = self._czas(firma, zapytanie)
             self.stdout.write(f"{lacznie:>11,} {mediana:>11.1f} {najgorszy:>13.1f}")
+
+        self._porownaj_rozmiar(przed, lacznie)
 
         self.stdout.write("")
         self.stdout.write(f"Plan zapytania przy {lacznie:,} fragmentach:")

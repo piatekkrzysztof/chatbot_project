@@ -25,7 +25,19 @@ from django.db import transaction
 from rag.ocena.miary import opisz_bledy
 from rag.ocena.przebieg import ocen_na_wzorcu
 
-PROGI_DO_PRZEMIATANIA = [0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25]
+#: Progi dobrane pod to, gdzie cos sie faktycznie zmienia.
+#:
+#: Dwie poprawki wzgledem poprzedniej listy, obie z pomiaru:
+#:
+#: Nizej. Lista zaczynajaca sie od 0,90 pokazywala juz tylko plaski kawalek
+#: wykresu i nie bylo z niej widac drugiej strony wymiany - tej, na ktorej
+#: prog zaczyna zabierac botowi wiedze. Przy 512 wymiarach zaczyna sie to
+#: ponizej 0,85.
+#:
+#: Gesciej. Cisza przewraca sie miedzy 0,98 a 0,99, czyli dokladnie tam,
+#: gdzie stoi ustawienie produkcyjne. Krok co 0,05 przeskakiwal nad ta
+#: granica i nie pokazywal jej wcale.
+PROGI_DO_PRZEMIATANIA = [0.80, 0.85, 0.90, 0.95, 0.98, 0.99, 1.05, 1.15]
 
 
 class Command(BaseCommand):

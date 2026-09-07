@@ -20,6 +20,7 @@ from accounts.models import Subscription, Tenant
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.utils.tresc_strony import TrescStrony
 from documents.website_import import import_website_as_document
+from documents.wymiar import WYMIAR_WEKTORA
 
 ADRES = "https://dworweselny.pl/oferta"
 STARA = "OFERTA\n\nSala na 120 osob. Cena w sobote 4500 zl za dobe."
@@ -102,8 +103,8 @@ class TestOdswiezania:
         import documents.utils.embedding_generator as generator
 
         klient = MagicMock()
-        klient.embeddings.create.side_effect = lambda model, input: MagicMock(
-            data=[MagicMock(index=i, embedding=[0.01] * 1536) for i in range(len(input))]
+        klient.embeddings.create.side_effect = lambda model, input, dimensions: MagicMock(
+            data=[MagicMock(index=i, embedding=[0.01] * WYMIAR_WEKTORA) for i in range(len(input))]
         )
         monkeypatch.setattr(generator, "get_client", lambda tenant=None: klient)
 

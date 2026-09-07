@@ -31,6 +31,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
+from documents.wymiar import WYMIAR_WEKTORA
 from rag.ocena.korpus import FRAGMENTY, PYTANIA, teksty_do_zamiany_na_wektory
 
 SCIEZKA_WZORCA = Path(__file__).resolve().parents[3] / "rag" / "ocena" / "wzorzec.json"
@@ -38,7 +39,7 @@ SCIEZKA_WZORCA = Path(__file__).resolve().parents[3] / "rag" / "ocena" / "wzorze
 #: Zaokrąglenie wektorów przy zapisie.
 #:
 #: Sześć miejsc po przecinku zmniejsza plik o połowę, a na odległościach
-#: L2 między wektorami o 1536 wymiarach zmienia wynik dopiero na dalekich
+#: L2 między wektorami o 512 wymiarach zmienia wynik dopiero na dalekich
 #: miejscach po przecinku - czyli poniżej progu, którym cokolwiek rozstrzygamy.
 MIEJSC_PO_PRZECINKU = 6
 
@@ -70,7 +71,13 @@ class Command(BaseCommand):
         self.stdout.write(f"Licze wektory dla {len(teksty)} tekstow...")
 
         klient = OpenAI(api_key=settings.OPENAI_API_KEY)
-        odpowiedz = klient.embeddings.create(input=teksty, model=settings.OPENAI_EMBEDDING_MODEL)
+        odpowiedz = klient.embeddings.create(
+            input=teksty,
+            model=settings.OPENAI_EMBEDDING_MODEL,
+            # Wzorzec liczony innym wymiarem niz produkcja mierzylby cudzy
+            # produkt: odleglosci nie sa porownywalne miedzy dlugosciami.
+            dimensions=WYMIAR_WEKTORA,
+        )
 
         # Kolejnosc odpowiedzi z API odpowiada kolejnosci wejscia, ale
         # sprawdzamy to wprost: ciche przestawienie wektorow daloby wzorzec,
