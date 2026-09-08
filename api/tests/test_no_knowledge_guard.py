@@ -10,10 +10,7 @@ Na stronie klienta oznacza to bota wymyślającego klientowi ofertę.
 
 import pytest
 
-from api.utils.chat_engine import (
-    build_system_prompt,
-    has_company_knowledge,
-)
+from api.utils.prompt_systemowy import build_system_prompt, has_company_knowledge
 from chat.models import FAQ
 
 NO_KNOWLEDGE_MARKER = "nie masz żadnych informacji o tej firmie"

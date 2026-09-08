@@ -22,7 +22,8 @@ from unittest.mock import patch
 import pytest
 
 from accounts.models import Tenant
-from api.utils.chat_engine import ZNACZNIK_BRAKU, determine_source, process_chat_message
+from api.utils.chat_engine import process_chat_message
+from api.utils.pokrycie import ZNACZNIK_BRAKU, determine_source
 from chat.models import (
     FAQ,
     ZRODLO_BRAK_WIEDZY,

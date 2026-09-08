@@ -16,7 +16,7 @@ from unittest.mock import patch
 import pytest
 
 from accounts.models import Tenant
-from api.utils.chat_engine import ZNACZNIK_BRAKU
+from api.utils.pokrycie import ZNACZNIK_BRAKU
 from chat.models import Conversation
 from documents.models import Document
 from rag.ocena.generowanie import OcenaGenerowania, niestabilne, ocen_generowanie

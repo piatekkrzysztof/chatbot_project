@@ -17,12 +17,8 @@ from unittest.mock import patch
 import pytest
 
 from accounts.models import Tenant
-from api.utils.chat_engine import (
-    ZNACZNIK_BRAKU,
-    ObcinaczZnacznika,
-    determine_source,
-    stream_chat_message,
-)
+from api.utils.chat_engine import stream_chat_message
+from api.utils.pokrycie import ZNACZNIK_BRAKU, ObcinaczZnacznika, determine_source
 from chat.models import Conversation
 
 
@@ -209,7 +205,7 @@ class TestInstrukcjiOPytaniachSpozaTematu:
 
     def test_prompt_mowi_o_pytaniach_niezwiazanych_z_firma(self):
         from accounts.models import Tenant
-        from api.utils.chat_engine import build_system_prompt
+        from api.utils.prompt_systemowy import build_system_prompt
 
         firma = Tenant.objects.create(name="Rowerownia")
         prompt = build_system_prompt(firma, [], [])
@@ -233,7 +229,7 @@ class TestInstrukcjiOPytaniachSpozaTematu:
         w regule ogólnej, raz w regule o pytaniach spoza tematu.
         """
         from accounts.models import Tenant
-        from api.utils.chat_engine import build_system_prompt
+        from api.utils.prompt_systemowy import build_system_prompt
 
         firma = Tenant.objects.create(name="Rowerownia")
         prompt = build_system_prompt(firma, [], [])
@@ -251,7 +247,7 @@ class TestInstrukcjiOPytaniachSpozaTematu:
         zdaniu rozmowy, plus fałszywe zapytanie dla właściciela.
         """
         from accounts.models import Tenant
-        from api.utils.chat_engine import build_system_prompt
+        from api.utils.prompt_systemowy import build_system_prompt
 
         firma = Tenant.objects.create(name="Rowerownia")
         prompt = build_system_prompt(firma, [], [])
