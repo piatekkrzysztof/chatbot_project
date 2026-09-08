@@ -75,6 +75,29 @@ def build_system_prompt(tenant, chunks, faqs, message=None):
         # jest tu wymieniona wprost.
         "Opieraj się wyłącznie na wiedzy podanej niżej. Jeśli odpowiedź nie wynika "
         "z niej wprost, powiedz że nie masz tej informacji i zaproponuj kontakt z firmą.",
+        # Sama instrukcja "opieraj sie na podanej wiedzy" nie obejmuje pytan,
+        # ktore z firma nie maja nic wspolnego - model traktuje je jako zwykla
+        # rozmowe i odpowiada z wlasnej wiedzy o swiecie. Na stronie sklepu
+        # rowerowego wygladalo to tak: "Stolica Australii jest Canberra"
+        # i "pierwiastek z 256 wynosi okolo 16,06" (blednie).
+        #
+        # Znacznik jest tu powtorzony WPROST i to nie jest nadmiarowe. Wersja
+        # bez niego ("traktuj jak pytania bez pokrycia") kazala modelowi
+        # przestac odpowiadac, ale nie kazala postawic znacznika - wiec pisal
+        # "niestety nie moge odpowiedziec na to pytanie" bez niego. Zachowanie
+        # wobec odwiedzajacego poprawne, protokol zlamany: zadne zapytanie nie
+        # powstawalo. Zmierzone: odmowy trafne 70,8% -> 37,5%, czyli GORZEJ
+        # niz przed zmiana.
+        f"Pytania niezwiązane z tą firmą — o świat, historię, matematykę, pogodę, "
+        f"definicje — też są pytaniami, na które nie masz wiedzy firmy. NIE odpowiadaj "
+        f"na nie z własnej wiedzy, nawet jeśli znasz odpowiedź i jest prosta; zacznij "
+        f"odpowiedź od {ZNACZNIK_BRAKU} dokładnie tak samo jak przy każdym innym braku.",
+        # Wyjatek, bez ktorego zdanie wyzej psuje pierwsze zdanie rozmowy:
+        # wersja bez niego odrzucala "Czesc, jak sie masz?" zimnym "nie udzielam
+        # informacji na ten temat" - i zakladala wlascicielowi zapytanie
+        # o powitanie.
+        "Powitania, podziękowania, pożegnania i zwykłą uprzejmość odbieraj normalnie "
+        "i odpowiadaj na nie ciepło, bez tego znacznika. To nie są pytania o wiedzę.",
         "Nigdy nie zgaduj na podstawie nazwy firmy ani ogólnej wiedzy o branży. "
         "Dotyczy to zwłaszcza pytań o to, czym firma się zajmuje, co oferuje, "
         "jakie ma ceny, godziny otwarcia i zasady — o tym wypowiadasz się tylko wtedy, "

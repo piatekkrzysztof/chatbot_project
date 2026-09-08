@@ -191,3 +191,67 @@ class TestSciezkiStrumieniowej:
         koniec = [z for z in zdarzenia if '"done"' in z][0]
 
         assert "Oferta wesela.pdf" in koniec
+
+
+@pytest.mark.django_db
+class TestInstrukcjiOPytaniachSpozaTematu:
+    """
+    Pytania, które z firmą nie mają nic wspólnego, mają dostać znacznik.
+
+    Skąd to się wzięło: pomiar `ocen_generowanie` na gpt-4o-mini pokazał, że
+    bot sklepu rowerowego odpowiada „Stolicą Australii jest Canberra"
+    i „pierwiastek z 256 wynosi około 16,06" (błędnie). Żadna z tych
+    odpowiedzi nie miała znacznika, więc nie powstawało zapytanie ani wpis
+    w raporcie luk - a klient płacił za nie z limitu wiadomości.
+    """
+
+    def test_prompt_mowi_o_pytaniach_niezwiazanych_z_firma(self):
+        from accounts.models import Tenant
+        from api.utils.chat_engine import build_system_prompt
+
+        firma = Tenant.objects.create(name="Rowerownia")
+        prompt = build_system_prompt(firma, [], [])
+
+        assert "niezwiązane z tą firmą" in prompt
+
+    def test_instrukcja_o_pytaniach_spoza_tematu_NAZYWA_znacznik(self):
+        """
+        Najważniejszy test w tej klasie, i jedyny, który mówi „dlaczego".
+
+        Wersja instrukcji bez nazwania znacznika - „traktuj jak pytania bez
+        pokrycia" - kazała modelowi przestać odpowiadać, ale nie kazała
+        postawić znacznika. Model pisał więc „niestety nie mogę odpowiedzieć
+        na to pytanie" i szło to jako zwykła odpowiedź.
+
+        Zachowanie wobec odwiedzającego wyglądało wtedy POPRAWNIE, a protokół
+        był złamany: żadne zapytanie nie powstawało. Zmierzone: odmowy trafne
+        spadły z 70,8% na 37,5%, czyli poniżej stanu sprzed zmiany.
+
+        Dlatego znacznik musi paść w prompcie co najmniej dwa razy: raz
+        w regule ogólnej, raz w regule o pytaniach spoza tematu.
+        """
+        from accounts.models import Tenant
+        from api.utils.chat_engine import build_system_prompt
+
+        firma = Tenant.objects.create(name="Rowerownia")
+        prompt = build_system_prompt(firma, [], [])
+
+        assert prompt.count(ZNACZNIK_BRAKU) >= 2, (
+            "Instrukcja o pytaniach spoza tematu nie nazywa znacznika. Model "
+            "przestanie wtedy odpowiadac, ale nie oznaczy tego jako braku "
+            "wiedzy - i zapytania od klientow przestana powstawac."
+        )
+
+    def test_uprzejmosci_maja_wyjatek(self):
+        """
+        Bez tego zdania reguła o pytaniach spoza tematu odrzuca „Cześć, jak
+        się masz?" - zimnym „nie udzielam informacji na ten temat", w pierwszym
+        zdaniu rozmowy, plus fałszywe zapytanie dla właściciela.
+        """
+        from accounts.models import Tenant
+        from api.utils.chat_engine import build_system_prompt
+
+        firma = Tenant.objects.create(name="Rowerownia")
+        prompt = build_system_prompt(firma, [], [])
+
+        assert "Powitania" in prompt

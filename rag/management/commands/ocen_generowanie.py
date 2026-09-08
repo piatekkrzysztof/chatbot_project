@@ -9,6 +9,11 @@ podmianie modelu czatu, jest dokładnie tą, na którą do tej pory nie było mi
 
 Trzy liczby, w kolejności ważności
 ----------------------------------
+0. **odmowy na uprzejmości** - ile powitań dostało znacznik. Jedyna dobra
+   wartość to zero. Stoi przed resztą, bo jest widoczna gołym okiem: bot, który
+   na „dzień dobry" odpowiada „nie udzielam informacji na ten temat", zniechęca
+   odwiedzającego w pierwszym zdaniu i zakłada właścicielowi fałszywe
+   zapytanie.
 1. **odmowy trafne** - ile pytań spoza bazy wiedzy dostało `[BRAK_ODPOWIEDZI]`.
    Na tym znaczniku wisi propozycja kontaktu, zapytanie do właściciela, raport
    luk i alert o odmowach. Model, który przestaje go stawiać, nie psuje się
@@ -162,6 +167,10 @@ class Command(BaseCommand):
             "(pytania pokryte, ktore dostaly znacznik - im mniej, tym lepiej)"
         )
         self.stdout.write(
+            f"  odmowy na uprzejm. {ocena.uprzejmosci_odrzucone:6.1%}   "
+            "(powitania, ktore dostaly znacznik - jedyna dobra wartosc to zero)"
+        )
+        self.stdout.write(
             f"  oparte na wiedzy   {ocena.oparte_na_wiedzy:6.1%}   "
             f"(odpowiedzi z konkretem z fragmentu, sprawdzalnych: "
             f"{ocena.sprawdzalnych_faktow})"
@@ -202,13 +211,14 @@ class Command(BaseCommand):
     def _porownaj(self, oceny):
         self.stdout.write(self.style.MIGRATE_HEADING("POROWNANIE"))
         self.stdout.write(
-            f"{'model':<28} {'odm. trafne':>12} {'odm. falsz.':>12} "
-            f"{'z wiedzy':>9} {'tokenow':>9} {'sekund':>7}"
+            f"{'model':<24} {'odm. trafne':>12} {'odm. falsz.':>12} "
+            f"{'uprzejm.':>9} {'z wiedzy':>9} {'tokenow':>9} {'sekund':>7}"
         )
         for model, ocena in oceny.items():
             self.stdout.write(
-                f"{model[:28]:<28} {ocena.odmowy_trafne:>11.1%} "
-                f"{ocena.odmowy_falszywe:>11.1%} {ocena.oparte_na_wiedzy:>8.1%} "
+                f"{model[:24]:<24} {ocena.odmowy_trafne:>11.1%} "
+                f"{ocena.odmowy_falszywe:>11.1%} {ocena.uprzejmosci_odrzucone:>8.1%} "
+                f"{ocena.oparte_na_wiedzy:>8.1%} "
                 f"{ocena.tokenow:>9,} {ocena.sekund_srednio:>7.2f}"
             )
         self.stdout.write("")
