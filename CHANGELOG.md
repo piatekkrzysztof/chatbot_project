@@ -30,6 +30,22 @@ fails if it drifts from the newest entry here.
 - Takes several models at once and prints them side by side, with tokens and
   latency, so a model change can be decided on numbers.
 
+### Fixed
+
+- **Switching to any current OpenAI model would have broken every chat request,
+  and no alert would have fired.** Newer models (gpt-5.x) reject `max_tokens`
+  and reject any `temperature` other than the default — with a 400, on every
+  question. The chat engine catches that and returns its fallback message, so
+  the bot would have told every visitor "something went wrong". Meanwhile
+  retrieval still returns fragments, so the log records source "document", the
+  refusal alert sees no rise and the silence alert sees no silence. The customer
+  would have been the one to notice.
+- Both call sites now send `max_completion_tokens` (accepted by old and new
+  models alike) via one shared helper, and send `temperature` only when it is
+  set. An empty `OPENAI_TEMPERATURE` now means "do not send the parameter".
+- `manage.py sprawdz_model` turns that outage into one line in a terminal, for
+  one API call, before deploying.
+
 ### Measured
 
 - Baseline for `gpt-4o-mini`: correct refusals 70.8%, false refusals 0.0%,
