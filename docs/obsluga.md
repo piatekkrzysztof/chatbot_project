@@ -241,18 +241,39 @@ Wszystkie wpadki obu modeli są w grupie „poza tematem" (stolica Australii,
 pierwiastek z 256). W grupie trudniejszej i ważniejszej handlowo - pytań
 z branży, na które ta firma nie odpowiada - oba trzymają się znacznika.
 
-**Prompt jest mocniejszą dźwignią niż model.** Jedna dodatkowa linijka
-w `build_system_prompt` („nie odpowiadaj z własnej wiedzy na pytania spoza
-firmy") podniosła odmowy trafne z 70,8% do **100,0%** na tym samym
-gpt-4o-mini. Nie jest to jednak zmiana za darmo: wersja druga, uzupełniona
-o wyjątek na powitania, zaczęła odrzucać „czy dostanę rower zastępczy" -
-pytanie, na które baza wiedzy odpowiada przecząco. Odmowy fałszywe skoczyły
-z 0,0% na 10,0%. Do dopracowania osobno; przyrząd do tego jest.
+**Prompt jest mocniejszą dźwignią niż model.** 8 września 2026 doszły do
+`build_system_prompt` dwie reguły - o pytaniach spoza tematu i o uprzejmościach.
+Zmierzone na gpt-4o-mini przy temperaturze produkcyjnej, 5 powtórzeń:
 
-To kosztuje: 19 pytań razy liczba powtórzeń razy liczba modeli. Domyślnie
-3 powtórzenia, bo temperatura wynosi 0,2 i jeden przebieg nie rozstrzyga -
-komenda wypisuje osobno pytania, na których model raz stawia znacznik, a raz
-nie.
+| | przed | po |
+|---|---|---|
+| odmowy trafne | 70,8% | **100,0%** |
+| odmowy fałszywe | 0,0% | 0,0% |
+| odmowy na uprzejmości | 0,0% | 0,0% |
+| oparte na wiedzy | 100,0% | 100,0% |
+| tokenów na odpowiedź | 462 | **607** |
+
+To samo na `gpt-5.6-luna`: również 100,0% / 0,0% / 0,0% / 100,0%. Reguła nie
+jest dopasowana do jednego modelu.
+
+Koszt: **+145 tokenów na każdą wiadomość**, głównie wejściowych, czyli tych
+tańszych. Płaci się je przy każdym pytaniu, więc przy dużym ruchu warto to
+przeliczyć z cennika.
+
+Droga do tej wersji miała dwie ślepe uliczki i obie warto znać, zanim się
+tę regułę ruszy:
+
+- Wersja bez nazwania znacznika („traktuj jak pytania bez pokrycia") kazała
+  modelowi przestać odpowiadać, ale nie kazała postawić znacznika. Pisał
+  „niestety nie mogę odpowiedzieć na to pytanie" i szło to jako zwykła
+  odpowiedź: **odmowy trafne 37,5%**, czyli gorzej niż przed zmianą. Wobec
+  odwiedzającego wyglądało poprawnie, protokół był złamany.
+- Wersja ze zdaniem „odpowiedź przecząca też jest odpowiedzią" sprawiła, że
+  model zaczął wymyślać przeczenia: na „czy prowadzicie wypożyczalnię
+  rowerów" odpowiedział „nie prowadzimy wypożyczalni rowerów", choć baza
+  wiedzy nie mówi o tym nic. Zdanie wypadło.
+
+Obie wyłapał `ocen_generowanie`. Bez niego pierwsza wyglądałaby na sukces.
 
 ---
 

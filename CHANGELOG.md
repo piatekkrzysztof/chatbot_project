@@ -16,6 +16,34 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+Nothing yet.
+
+---
+
+## [1.0.3] — 2026-09-08
+
+### Changed
+
+- **The bot no longer answers questions that have nothing to do with the
+  company.** Asked for the capital of Australia or a square root, a bike shop's
+  assistant used to answer from world knowledge — once with a wrong number. It
+  now says it does not have that information and offers contact, like any other
+  question it cannot answer from the knowledge base.
+- That matters beyond looking unprofessional: those answers carried no
+  `[BRAK_ODPOWIEDZI]` marker, so no enquiry reached the owner and nothing landed
+  in the knowledge-gap report, while the visitor's message still counted against
+  the customer's plan.
+- Greetings and thanks are explicitly exempt. Without that exemption the same
+  rule answered "Cześć, jak się masz?" with "I do not provide information on
+  that subject" — in the first line of the conversation — and filed it as a
+  knowledge gap.
+
+Measured on the evaluation corpus, gpt-4o-mini at production temperature,
+5 repetitions: correct refusals **70.8% → 100.0%**, with false refusals,
+wrongly-refused greetings and grounding all unchanged at 0.0% / 0.0% / 100.0%.
+Same figures on gpt-5.6-luna, so the rule is not tuned to one model. Cost:
+**+145 tokens per message**, mostly input.
+
 ### Added
 
 - `manage.py ocen_generowanie` — measures what the chat model does, which
@@ -29,6 +57,10 @@ fails if it drifts from the newest entry here.
   emitting it fails silently.
 - Takes several models at once and prints them side by side, with tokens and
   latency, so a model change can be decided on numbers.
+- The evaluation corpus now has a fifth group: greetings and small talk, with a
+  third expected behaviour distinct from both answering and refusing. The first
+  attempt at this prompt change broke greetings while the evaluation reported
+  perfect scores — there was not a single greeting in the corpus.
 
 ### Fixed
 

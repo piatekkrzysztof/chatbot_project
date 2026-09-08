@@ -28,6 +28,10 @@ i powściągliwość (czy milczy, gdy nie ma czego znaleźć).
 
 from dataclasses import dataclass, field
 
+#: Nazwa grupy w jednym miejscu - porownanie po stringu w kilku plikach
+#: rozjechaloby sie przy pierwszej literowce, i to po cichu.
+GRUPA_UPRZEJMOSC = "uprzejmosc"
+
 #: Baza wiedzy sklepu rowerowego. Ta sama firma, która przewija się przez
 #: resztę testów - łatwiej trzymać w głowie jeden przykład niż pięć.
 #:
@@ -98,6 +102,18 @@ class Pytanie:
     @property
     def ma_odpowiedz(self) -> bool:
         return bool(self.oczekiwane)
+
+    @property
+    def jest_uprzejmoscia(self) -> bool:
+        """
+        Powitanie albo podziękowanie, czyli wcale nie pytanie.
+
+        Trzecie oczekiwane zachowanie, obok „odpowiedz z bazy" i „odmów":
+        odpowiedz ciepło i nie stawiaj znacznika. Bez tego rozróżnienia
+        „dzień dobry" liczyłoby się jako pytanie bez pokrycia, czyli bot
+        dostawałby punkt za odmowę na powitanie.
+        """
+        return self.grupa == GRUPA_UPRZEJMOSC
 
 
 #: Model pisze o terminie naprawy na kilka sposobow. Wszystkie sa ta sama
@@ -195,7 +211,35 @@ BLISKIE_ALE_NIEOBECNE = [
 
 PYTANIA: list[Pytanie] = WPROST + INACZEJ + POZA_TEMATEM + BLISKIE_ALE_NIEOBECNE
 
+#: Grupa 5: wcale nie pytania.
+#:
+#: Powitania, podziekowania, zwykla uprzejmosc. Oczekiwane zachowanie jest tu
+#: TRZECIE, rozne od obu poprzednich: ani odpowiedz z bazy wiedzy, ani odmowa.
+#: Bot ma odpowiedziec cieplo i NIE stawiac znacznika - bo "dzien dobry" nie
+#: jest luka w wiedzy firmy i nie ma czego zglaszac wlascicielowi.
+#:
+#: Skad sie tu wziely: przy pierwszej probie zaostrzenia promptu ("nie
+#: odpowiadaj z wlasnej wiedzy na pytania spoza firmy") bot zaczal odrzucac
+#: "Czesc, jak sie masz?" zimnym "nie udzielam informacji na ten temat".
+#: Ocena generowania pokazywala wtedy odmowy falszywe 0,0%, bo w korpusie nie
+#: bylo ani jednego powitania. Miara nie widziala regresji, ktora widac golym
+#: okiem w oknie czatu - i to jest gorszy rodzaj bledu niz zla liczba.
+#:
+#: NIE wchodza do PYTANIA. Ocena wyszukiwania ich nie dotyczy: dla "dzien
+#: dobry" nie ma poprawnego fragmentu ani poprawnej ciszy, wiec dopisanie ich
+#: tam zmienialoby mianowniki trafnosci bez zadnego zysku.
+UPRZEJMOSCI: list[Pytanie] = [
+    Pytanie("Dzien dobry", grupa=GRUPA_UPRZEJMOSC),
+    Pytanie("Czesc, jak sie masz?", grupa=GRUPA_UPRZEJMOSC),
+    Pytanie("Dziekuje, do widzenia", grupa=GRUPA_UPRZEJMOSC),
+    Pytanie("Hej, jest tam kto?", grupa=GRUPA_UPRZEJMOSC),
+]
+
+#: Wszystko, co dostaje wektor we wzorcu. Ocena generowania przechodzi przez
+#: caly ten zestaw, ocena wyszukiwania - tylko przez PYTANIA.
+DO_WEKTOROW: list[Pytanie] = PYTANIA + UPRZEJMOSCI
+
 
 def teksty_do_zamiany_na_wektory() -> list[str]:
     """Wszystko, co trzeba raz policzyć, w ustalonej kolejności."""
-    return list(FRAGMENTY.values()) + [pytanie.tresc for pytanie in PYTANIA]
+    return list(FRAGMENTY.values()) + [pytanie.tresc for pytanie in DO_WEKTOROW]
