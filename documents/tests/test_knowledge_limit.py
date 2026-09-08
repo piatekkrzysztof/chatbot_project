@@ -36,7 +36,9 @@ class TestLimituZKatalogu:
         [
             ("start", 5),
             ("grow", 25),
-            ("pro", 100),
+            # 50 od 8.09.2026: 100 MB to okolo 5,2 s samego wyszukiwania,
+            # zmierzone na produkcji. Patrz accounts/plans.py.
+            ("pro", 50),
         ],
     )
     def test_limit_pochodzi_z_cennika(self, tenant, subscribtion, plan, limit_mb):

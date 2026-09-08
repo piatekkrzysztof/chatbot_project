@@ -108,10 +108,31 @@ index, this keeps search exact. Shipped the same day; runbook in
 (pgvector 0.8 is installed), then a larger database instance, then the
 index — because only the last one trades away answer quality.
 
-**This record's decision still stands, and is now less pressing.** No index,
-for the same reason as before: nobody is near the ceiling, and the ceiling
-just moved further away. What has not been redone is the production
-measurement at 512 dimensions, so how much further is unknown.
+## What changed again on 8 September 2026
+
+Production was re-measured at 512 dimensions, up to 40 000 chunks. The ceiling
+moved by roughly 4×, and then reappeared:
+
+| chunks | median | from disk |
+|---|---|---|
+| 10 000 | 305 ms | nothing |
+| 25 000 | 1 001 ms | — |
+| 40 000 | 1 802 ms | **110 MB, the whole table** |
+
+**The decision still stands, and the reason is unchanged:** the largest real
+knowledge base is 246 chunks. Nobody is within two orders of magnitude of the
+point where an index would earn its cost in answer quality.
+
+What did change is the price list. Pro was selling 100 MB — about 5.2 s of
+retrieval — and was cut to 50 MB the same day, with a test in
+`api/tests/test_billing.py` that fails if any plan sells more than 3 s of it.
+The cheap fix was the honest one: stop promising what we cannot serve.
+
+And a larger instance is back on the list, ahead of the index. Below 10 000
+chunks the query is CPU-bound and more RAM buys nothing; at 40 000 it reads the
+whole table from disk and more RAM is precisely the fix. A customer who fills a
+50 MB Pro plan is both the first reason to buy one and the only one paying
+for it.
 
 Numbers in [docs/skala-i-wydajnosc.md](../skala-i-wydajnosc.md).
 

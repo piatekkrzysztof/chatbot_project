@@ -65,7 +65,9 @@ class TestKatalogPlanow:
         [
             ("start", 149, 119, 2_000, 5, 1, 1),
             ("grow", 349, 279, 8_000, 25, 3, 3),
-            ("pro", 899, 719, 25_000, 100, 10, 10),
+            # 50, nie 100: sto megabajtow to 5,2 s samego wyszukiwania,
+            # zmierzone na produkcji 8.09.2026. Patrz accounts/plans.py.
+            ("pro", 899, 719, 25_000, 50, 10, 10),
         ],
     )
     def test_cennik_zgodny_z_badaniem(
@@ -556,3 +558,52 @@ class TestRejestracjiZOkresemProbnym:
         )
 
         assert response.status_code == 200, response.data
+
+
+@pytest.mark.django_db
+class TestLimitowBazyWiedzy:
+    """
+    Limit bazy wiedzy jest obietnicą wydajnościową, nie tylko handlową.
+
+    Cennik może sprzedać dowolną liczbę megabajtów; wyszukiwanie musi je
+    potem przeszukać, zanim model zacznie pisać. Do 8 września 2026 plan Pro
+    obiecywał 100 MB, czyli 5,2 s samego wyszukiwania - nie „wolną odpowiedź",
+    tylko zepsutą.
+    """
+
+    #: Zmierzone na produkcji 8 września 2026, 512 wymiarów.
+    #: Fragment to 1020 znaków treści, 2,8 kB w bazie.
+    #:
+    #:     fragmentów   mediana
+    #:          1 000      9 ms
+    #:          5 000    188 ms
+    #:         10 000    305 ms   <- do tego miejsca tabela mieści się w pamięci
+    #:         25 000  1 001 ms
+    #:         40 000  1 802 ms   <- 110 MB czytane z dysku przy każdym pytaniu
+    #: NAJWYZSZE zaobserwowane tempo, nie srednie. Ono wlasnie obowiazuje
+    #: przy pelnym planie, bo tam tabela jest najwieksza - a poza tym
+    #: bledzic po stronie ostroznosci znaczy tu obiecac mniej, niz damy
+    #: rade, zamiast wiecej.
+    US_NA_FRAGMENT = 53.4
+    ZNAKOW_NA_FRAGMENT = 1020
+
+    #: Sekundy wyszukiwania, powyżej których odpowiedź przestaje być odpowiedzią.
+    #: Do tego dochodzi jeszcze około 0,87 s na model.
+    SUFIT_SEKUND = 3.0
+
+    def test_zaden_plan_nie_sprzedaje_bazy_wiekszej_niz_obsluzymy(self):
+        """
+        Test, którego brak kosztował plan Pro obiecujący 100 MB przez cztery
+        miesiące. Liczba w cenniku i liczba z pomiaru nie miały ze sobą nic
+        wspólnego, bo nic ich nie łączyło.
+        """
+        for plan in PLANS.values():
+            fragmentow = plan.knowledge_base_mb * 1024 * 1024 / self.ZNAKOW_NA_FRAGMENT
+            sekundy = fragmentow * self.US_NA_FRAGMENT / 1e6
+
+            assert sekundy <= self.SUFIT_SEKUND, (
+                f"Plan {plan.code} sprzedaje {plan.knowledge_base_mb} MB, czyli "
+                f"{fragmentow:,.0f} fragmentow i okolo {sekundy:.1f} s samego "
+                f"wyszukiwania. Albo obniz limit, albo zmierz ponownie "
+                f"(manage.py zmierz_skale) i popraw US_NA_FRAGMENT."
+            )
