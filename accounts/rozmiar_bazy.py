@@ -4,24 +4,27 @@ Ostrzeżenie, gdy baza wiedzy klienta zbliża się do progu wydajności.
 Skąd to się wzięło
 ------------------
 Pomiar na produkcji ([docs/skala-i-wydajnosc.md]) pokazał, że wyszukiwanie
-rośnie gorzej niż liniowo, a kolano krzywej leży między 5 a 10 tysiącami
-fragmentów. Przy tysiącu jest 90 ms, przy pięciu tysiącach 396 ms, przy
-dziesięciu już 1,3 sekundy.
-
-Do tej pory jedynym sposobem, żeby się o tym dowiedzieć, było uruchomienie
-komendy pomiarowej i pamiętanie, żeby to zrobić. `docs/adr/001` nazywa ten
-brak wprost: „można to obserwować, zamiast na to czekać, a alertu nie ma".
+rośnie gorzej niż liniowo. Do tej pory jedynym sposobem, żeby się o tym
+dowiedzieć, było uruchomienie komendy pomiarowej i pamiętanie, żeby to zrobić.
+`docs/adr/001` nazywa ten brak wprost: „można to obserwować, zamiast na to
+czekać, a alertu nie ma".
 
 Dlaczego dwa progi, a nie jeden
 -------------------------------
 Jeden próg odpowiada tylko na pytanie „czy już". Dwa odpowiadają też na „ile
 zostało czasu", a to jest różnica między informacją a wezwaniem.
 
-  • 2 500 fragmentów - połowa kolana. Nic się jeszcze nie dzieje: około 220 ms
-    (dziś, po skróceniu wektora, około 95 ms), czyli mniej, niż trwa zwykłe
-    wywołanie modelu. Jest czas, żeby spokojnie zdecydować, co dalej.
-  • 5 000 fragmentów - samo kolano, i zarazem limit planu Start. Od tego
-    miejsca każde kolejne tysiąc fragmentów kosztuje więcej niż poprzednie.
+  • 15 000 fragmentów - wyszukiwanie przekracza pół sekundy (537 ms). Nic się
+    jeszcze nie psuje, ale klient rośnie i jest czas, żeby spokojnie
+    zdecydować, co dalej.
+  • 25 000 fragmentów - sekunda, kolano krzywej i limit planu Grow naraz.
+    W tym miejscu tabela przestaje mieścić się w pamięci instancji, więc każdy
+    kolejny fragment kosztuje dwa razy więcej niż poniżej.
+
+Progi są liczone z czasu, jaki czuje odwiedzający, a nie z liczby wierszy.
+Poprzednia para (2 500 i 5 000) pochodziła z kolana sprzed skrócenia wektora
+do 512 wymiarów; po tamtej zmianie odpowiadała 60 i 120 ms, czyli alarmowała
+pięciokrotnie za wcześnie.
 
 Dlaczego do nas, a nie do klienta
 ---------------------------------
@@ -41,40 +44,57 @@ from django.db.models import Count
 
 logger = logging.getLogger(__name__)
 
-#: UWAGA: te progi opisują świat sprzed 7 września 2026.
+#: Krzywa wyszukiwania zmierzona na produkcji 8 września 2026, 512 wymiarów.
+#: `manage.py zmierz_skale --do 40000`, szczegóły w docs/skala-i-wydajnosc.md.
 #:
-#: Pochodzą z kolana krzywej przy 1536 wymiarach wektora. Po przejściu na 512
-#: kolano ZNIKŁO - pomiar na produkcji przy 512 wymiarach daje 14 ms przy
-#: tysiącu fragmentów, 198 ms przy pięciu i 388 ms przy dziesięciu, czyli
-#: wzrost liniowy po 38 mikrosekund na fragment. Zero odczytów z dysku.
-#:
-#: Progi są więc teraz PESYMISTYCZNE. 2 500 fragmentów to dziś około 95 ms,
-#: a nie 220; alert przyjdzie na długo przed tym, zanim cokolwiek zwolni.
-#:
-#: Zostawione świadomie, do czasu decyzji o tym, kiedy chcemy być zawiadamiani.
-#: Gdyby wiązać progi z czasem, jaki czuje odwiedzający, wychodziłoby około
-#: 13 000 fragmentów na pół sekundy wyszukiwania i 26 000 na sekundę - czyli
-#: mniej więcej limit planu Grow. To jest jednak decyzja produktowa, nie
-#: wynik pomiaru, a najbliższy klient ma 246 fragmentów, więc żaden z tych
-#: progów i tak długo nie zadziała.
-#:
-#: Kierunek pomyłki jest właściwy: zbędny mail kosztuje minutę, a próg za
-#: wysoko kosztuje wolnego bota, o którym dowiadujemy się od klienta.
-#: Liczby: docs/skala-i-wydajnosc.md, sekcja "Production, after the migration".
+#: Punkty, nie współczynnik, bo krzywa NIE jest prostą. Do 10 000 fragmentów
+#: tabela mieści się w pamięci instancji i fragment kosztuje 23 µs; od około
+#: 25 000 zapytanie czyta z dysku całą tabelę i fragment kosztuje 53 µs.
+#: Jeden współczynnik zaniżałby albo górę, albo dół - a poprzednia wersja tego
+#: modułu miała właśnie taki (88 µs) i opisywała nim świat sprzed migracji.
+KRZYWA_MS = ((1_000, 9), (5_000, 188), (10_000, 305), (25_000, 1_001), (40_000, 1_802))
 
-#: Połowa zmierzonego kolana. Uprzedzenie, nie alarm.
-PROG_UWAGI = 2_500
 
-#: Samo kolano, i zarazem limit planu Start.
-PROG_PILNY = 5_000
+def milisekundy(fragmentow: int) -> float:
+    """
+    Ile trwa wyszukiwanie przy tylu fragmentach, wprost ze zmierzonych punktów.
 
-#: Ile mikrosekund na fragment poniżej kolana.
+    Interpolacja liniowa między nimi, a powyżej ostatniego - przedłużenie
+    ostatniego odcinka. To ostatnie jest ekstrapolacją i zaniża, bo nachylenie
+    krzywej wciąż rosło; wiadomość o firmie powyżej 40 000 fragmentów poda
+    więc czas mniejszy niż rzeczywisty. Lepiej to niż liczba wzięta znikąd.
+    """
+    if fragmentow <= KRZYWA_MS[0][0]:
+        return fragmentow * KRZYWA_MS[0][1] / KRZYWA_MS[0][0]
+
+    for (a, ta), (b, tb) in zip(KRZYWA_MS, KRZYWA_MS[1:], strict=False):
+        if a <= fragmentow <= b:
+            return ta + (tb - ta) * (fragmentow - a) / (b - a)
+
+    (przed, t_przed), (ostatni, t_ostatni) = KRZYWA_MS[-2], KRZYWA_MS[-1]
+    tempo = (t_ostatni - t_przed) / (ostatni - przed)
+    return t_ostatni + (fragmentow - ostatni) * tempo
+
+
+#: Pierwszy próg: wyszukiwanie przekracza pół sekundy.
 #:
-#: Z pomiaru na produkcji: 1 000 fragmentow -> 90 ms, 5 000 -> 396 ms, czyli
-#: okolo 80-90 us na sztuke. Uzywane wylacznie do tego, zeby wiadomosc podawala
-#: czas, a nie samą liczbę wierszy - „2 500 fragmentow" nic nie mowi komus,
-#: kto nie pamieta tamtej tabeli.
-MIKROSEKUND_NA_FRAGMENT = 88
+#: 15 000 fragmentów to około 540 ms - tyle, ile trwa zauważalna pauza, zanim
+#: model w ogóle zacznie pisać. Nic się jeszcze nie psuje, ale od tego miejsca
+#: warto wiedzieć, że klient rośnie.
+PROG_UWAGI = 15_000
+
+#: Drugi próg: wyszukiwanie przekracza sekundę, i to nie przez przypadek.
+#:
+#: Przy 25 000 fragmentów (69 MB) tabela przestaje mieścić się w pamięci
+#: podręcznej instancji: przy 40 000 zapytanie czyta z dysku 110 MB, czyli
+#: całą tabelę, przy KAŻDYM pytaniu. Koszt fragmentu podwaja się z 23 na 53 µs.
+#: To jest dzisiejsze kolano krzywej i zarazem limit planu Grow.
+PROG_PILNY = 25_000
+
+#: Poprzednie wartości: 2 500 i 5 000, dobrane pod kolano sprzed skrócenia
+#: wektora do 512 wymiarów. Po migracji odpowiadały 60 i 120 ms - alarmowały
+#: pięć razy za wcześnie. Zostawione świadomie do czasu tego pomiaru, bo
+#: pomyłka w tę stronę kosztuje zbędny mail, a w drugą wolnego bota.
 
 
 class ZgloszonyRozmiar(models.Model):
@@ -141,7 +161,7 @@ def _tresc(znalezione: list[dict]) -> str:
 
     for wpis in znalezione:
         firma = wpis["tenant"]
-        ms = wpis["fragmentow"] * MIKROSEKUND_NA_FRAGMENT / 1000
+        ms = milisekundy(wpis["fragmentow"])
         pilne = wpis["prog"] == PROG_PILNY
 
         akapity.append(f"• {firma.name}")
@@ -150,15 +170,16 @@ def _tresc(znalezione: list[dict]) -> str:
         )
         if pilne:
             akapity.append(
-                f"  To jest kolano krzywej ({PROG_PILNY:,} fragmentow) i zarazem limit planu Start."
+                f"  To jest kolano krzywej ({PROG_PILNY:,} fragmentow) i zarazem limit planu Grow."
             )
             akapity.append(
-                "  Powyzej tego miejsca kazde kolejne tysiac fragmentow kosztuje "
-                "wiecej niz poprzednie."
+                "  W tym miejscu tabela przestaje miescic sie w pamieci instancji, "
+                "wiec zapytanie zaczyna czytac ja z dysku - i kazdy kolejny "
+                "fragment kosztuje dwa razy wiecej niz ponizej tego progu."
             )
         else:
             akapity.append(
-                f"  To polowa kolana ({PROG_PILNY:,}). Jeszcze nic sie nie dzieje, "
+                f"  Kolano krzywej jest przy {PROG_PILNY:,}. Jeszcze nic sie nie dzieje, "
                 "ale jest czas, zeby zdecydowac."
             )
         akapity.append("")

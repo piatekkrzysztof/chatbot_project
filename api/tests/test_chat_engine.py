@@ -5,12 +5,12 @@ from openai import OpenAIError
 
 from accounts.models import Tenant
 from api.utils.chat_engine import (
-    ZNACZNIK_BRAKU,
     build_chat_messages,
     build_history_messages,
     get_openai_response,
     process_chat_message,
 )
+from api.utils.pokrycie import ZNACZNIK_BRAKU
 from chat.models import FAQ, ChatMessage, Conversation
 
 

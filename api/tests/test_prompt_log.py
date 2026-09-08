@@ -6,7 +6,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from api.utils.chat_engine import ZNACZNIK_BRAKU
+from api.utils.pokrycie import ZNACZNIK_BRAKU
 from chat.models import Conversation, PromptLog
 
 

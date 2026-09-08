@@ -51,12 +51,8 @@ from unittest.mock import MagicMock, patch
 
 from django.conf import settings
 
-from api.utils.chat_engine import (
-    ObcinaczZnacznika,
-    build_chat_messages,
-    determine_source,
-    get_openai_response,
-)
+from api.utils.chat_engine import build_chat_messages, get_openai_response
+from api.utils.pokrycie import ObcinaczZnacznika, determine_source
 from chat.models import ZRODLO_BRAK_WIEDZY, Conversation
 from rag.ocena.korpus import DO_WEKTOROW, Pytanie
 from rag.ocena.przebieg import wczytaj_wzorzec, zaloz_baze_wiedzy

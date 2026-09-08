@@ -15,8 +15,8 @@ import pytest
 from rest_framework.test import APIClient
 
 from accounts.models import Tenant
-from api.utils.chat_engine import build_system_prompt, language_instruction
 from api.utils.language import jezyk_odpowiedzi, wykryj_jezyk
+from api.utils.prompt_systemowy import build_system_prompt, language_instruction
 
 
 class TestParsowanieJezykow:

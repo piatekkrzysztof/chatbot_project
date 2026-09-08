@@ -16,7 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- The knowledge-base size alerts move from 2 500 / 5 000 chunks to **15 000 /
+  25 000**. The old pair came from the knee of the curve before the vectors were
+  shortened; afterwards it described 60 ms and 120 ms — an alert firing five
+  times earlier than anything a visitor could feel. The new pair is derived from
+  the time itself: half a second and one second of retrieval, taken from the
+  production curve rather than from a single rate.
+- The alert message now interpolates over the measured points instead of
+  multiplying by one constant. The curve is not a straight line — 23 µs per
+  chunk while the table fits in cache, 53 µs once it does not — so one constant
+  had to be wrong at one end.
+
+### Internal
+
+- `api/utils/chat_engine.py` split into three: the `[BRAK_ODPOWIEDZI]` protocol
+  moved to `api/utils/pokrycie.py`, the system prompt to
+  `api/utils/prompt_systemowy.py`, leaving 401 lines from 636. Not for the line
+  count — both are concepts with several consumers, their own tests and their own
+  way of failing silently.
 
 ---
 
