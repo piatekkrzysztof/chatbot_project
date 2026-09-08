@@ -78,7 +78,7 @@ def panel(firma):
 def rozmawiaj(klient, tresc, odpowiedz="Sala miesci 120 osob."):
     with (
         patch("api.utils.chat_engine.get_client") as openai,
-        patch("api.utils.chat_engine.build_chat_messages", return_value=([], [], [])),
+        patch("api.utils.chat_engine.build_chat_messages", return_value=([], [], [], False)),
     ):
         openai.return_value.chat.completions.create.return_value = StrumienUdawany([odpowiedz])
         wynik = klient.post(URL, {"message": tresc}, format="json")
