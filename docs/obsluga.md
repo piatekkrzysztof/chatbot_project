@@ -182,9 +182,32 @@ zapytania od klientów.
 `ocen_rag` tego nie pokaże: mierzy wyszukiwanie, a wektory liczy osobny model.
 Od tego jest druga komenda:
 
+**Najpierw jedno wywołanie, zanim zrobisz sto:**
+
 ```bash
-python manage.py ocen_generowanie --model gpt-4o-mini --model NOWY_MODEL
+python manage.py sprawdz_model --model NOWY_MODEL
 ```
+
+Nowsze modele odrzucają parametry, które wysyłamy. `gpt-5.6-luna` nie przyjmuje
+`temperature` innej niż domyślna - błędem 400, przy KAŻDYM pytaniu. A czat łapie
+wyjątek i oddaje komunikat awaryjny, więc bot odpowiadałby „coś poszło nie tak"
+wszystkim klientom naraz. **I nic by tego nie zgłosiło:** fragmenty wracają
+normalnie, więc wpis idzie ze źródłem „document", alert o odmowach nie widzi
+wzrostu, alert o ciszy nie widzi ciszy. Dowiedziałbyś się od klienta.
+
+Jeśli komenda każe wyczyścić `OPENAI_TEMPERATURE` - zrób to, ale pamiętaj, że
+przy domyślnej temperaturze model chętniej uzupełnia luki własnymi domysłami.
+Zmierz to poniżej.
+
+**Potem porównanie jakości:**
+
+```bash
+python manage.py ocen_generowanie --bez-temperatury   --model gpt-4o-mini --model NOWY_MODEL
+```
+
+`--bez-temperatury`, bo to jedyne ustawienie, które przyjmują i stare, i nowe
+modele. Porównanie modelu przy 0,2 z modelem przy domyślnej mierzy dwie zmiany
+naraz.
 
 Trzy liczby, w kolejności ważności:
 
@@ -202,11 +225,29 @@ Komenda wypisuje też tokeny na cały przebieg. Liczba tokenów wejściowych jes
 dla każdego modelu ta sama (ten sam prompt) - różni się cena za token, więc
 koszt przeliczysz wprost z cennika.
 
-**Stan na 7 września 2026, `gpt-4o-mini`:** odmowy trafne 70,8%, odmowy
-fałszywe 0,0%, oparte na wiedzy 100,0%, 470 tokenów i 0,8 s na odpowiedź.
-Wszystkie wpadki są w grupie „poza tematem" (stolica Australii, pierwiastek
-z 256) - w grupie trudniejszej i ważniejszej handlowo, czyli pytań z branży,
-na które ta firma nie odpowiada, model trzyma się znacznika.
+**Zmierzone 8 września 2026:**
+
+| model | temperatura | odmowy trafne | odm. fałszywe | z wiedzy | tokenów | sekund |
+|---|---|---|---|---|---|---|
+| gpt-4o-mini | 0,2 (produkcja) | 70,8% | 0,0% | 100,0% | 26 777 | 0,80 |
+| gpt-4o-mini | domyślna | 75,0% | 0,0% | 100,0% | 26 726 | 0,85 |
+| gpt-5.6-luna | domyślna | 79,2% | 0,0% | 100,0% | 27 325 | 1,25 |
+
+Różnica między modelami to **jedna odpowiedź na 24** - w granicach szumu,
+zwłaszcza że luna miała dwa pytania niestabilne. Liczby tokenów są niemal
+identyczne, więc różnica w koszcie to wyłącznie różnica ceny za token.
+
+Wszystkie wpadki obu modeli są w grupie „poza tematem" (stolica Australii,
+pierwiastek z 256). W grupie trudniejszej i ważniejszej handlowo - pytań
+z branży, na które ta firma nie odpowiada - oba trzymają się znacznika.
+
+**Prompt jest mocniejszą dźwignią niż model.** Jedna dodatkowa linijka
+w `build_system_prompt` („nie odpowiadaj z własnej wiedzy na pytania spoza
+firmy") podniosła odmowy trafne z 70,8% do **100,0%** na tym samym
+gpt-4o-mini. Nie jest to jednak zmiana za darmo: wersja druga, uzupełniona
+o wyjątek na powitania, zaczęła odrzucać „czy dostanę rower zastępczy" -
+pytanie, na które baza wiedzy odpowiada przecząco. Odmowy fałszywe skoczyły
+z 0,0% na 10,0%. Do dopracowania osobno; przyrząd do tego jest.
 
 To kosztuje: 19 pytań razy liczba powtórzeń razy liczba modeli. Domyślnie
 3 powtórzenia, bo temperatura wynosi 0,2 i jeden przebieg nie rozstrzyga -

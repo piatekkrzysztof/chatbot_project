@@ -182,7 +182,7 @@ def _wektor_pytania(wzorzec, pytanie):
     return odpowiedz
 
 
-def zapytaj(firma, pytanie, wzorzec, model=None) -> Odpowiedz:
+def zapytaj(firma, pytanie, wzorzec, model=None, temperatura=...) -> Odpowiedz:
     """
     Jedno pytanie przez prawdziwą ścieżkę czatu, z zamrożonym wektorem.
 
@@ -197,7 +197,7 @@ def zapytaj(firma, pytanie, wzorzec, model=None) -> Odpowiedz:
         wiadomosci, fragmenty, _faqs = build_chat_messages(firma, rozmowa, pytanie.tresc)
 
     start = time.perf_counter()
-    wynik = get_openai_response(wiadomosci, model=model)
+    wynik = get_openai_response(wiadomosci, model=model, temperatura=temperatura)
     sekund = time.perf_counter() - start
 
     obcinacz = ObcinaczZnacznika()
@@ -213,12 +213,18 @@ def zapytaj(firma, pytanie, wzorzec, model=None) -> Odpowiedz:
     )
 
 
-def ocen_generowanie(model=None, powtorzen=1, po_pytaniu=None) -> OcenaGenerowania:
+def ocen_generowanie(model=None, powtorzen=1, po_pytaniu=None, temperatura=...) -> OcenaGenerowania:
     """
     Cały korpus przez model, `powtorzen` razy.
 
     `po_pytaniu` dostaje każdą odpowiedź od razu po jej otrzymaniu - przebieg
     na dużym modelu trwa minutę i bez tego wygląda jak zawieszenie.
+
+    `temperatura=None` pomija parametr. Potrzebne do porównywania modeli:
+    `gpt-5.6-luna` odrzuca każdą wartość poza domyślną, więc jedynym
+    ustawieniem WSPÓLNYM dla niego i dla gpt-4o-mini jest brak parametru.
+    Porównanie modelu przy 0,2 z modelem przy domyślnej mierzyłoby dwie
+    zmiany naraz i nie dałoby się powiedzieć, która co zrobiła.
     """
     wzorzec = wczytaj_wzorzec()
     firma, _po_id = zaloz_baze_wiedzy(wzorzec)
@@ -226,7 +232,13 @@ def ocen_generowanie(model=None, powtorzen=1, po_pytaniu=None) -> OcenaGenerowan
     odpowiedzi = []
     for _ in range(powtorzen):
         for pytanie in PYTANIA:
-            odpowiedz = zapytaj(firma, pytanie, wzorzec, model=model or settings.OPENAI_CHAT_MODEL)
+            odpowiedz = zapytaj(
+                firma,
+                pytanie,
+                wzorzec,
+                model=model or settings.OPENAI_CHAT_MODEL,
+                temperatura=temperatura,
+            )
             odpowiedzi.append(odpowiedz)
             if po_pytaniu:
                 po_pytaniu(odpowiedz)

@@ -201,14 +201,47 @@ def build_chat_messages(tenant, conversation, message_text):
     return messages, chunks, faqs
 
 
-def get_openai_response(messages, model=None, tenant=None):
+def parametry_modelu(temperatura=...):
+    """
+    Parametry wywołania, które rozumieją i stare, i nowe modele.
+
+    Jedno miejsce, bo call sites są dwa - zwykły i strumieniowy - i rozjazd
+    między nimi znaczyłby, że czat działa, a strumień pada (albo odwrotnie),
+    zależnie od tego, którą ścieżką poszło zapytanie.
+
+    Dwie rzeczy, obie wymuszone przez nowsze modele:
+
+    `max_completion_tokens` zamiast `max_tokens`. Modele od gpt-5.x odrzucają
+    `max_tokens` błędem 400 („Use 'max_completion_tokens' instead"), a starsze,
+    w tym gpt-4o-mini, przyjmują obie nazwy. Nowa działa więc wszędzie.
+
+    `temperature` wysyłamy tylko wtedy, gdy jest ustawiona. `gpt-5.6-luna`
+    odrzuca każdą wartość poza domyślną. Przy pustym `OPENAI_TEMPERATURE`
+    parametr nie leci wcale i model używa swojej.
+
+    Sprawdzone 8 września 2026 na gpt-4o-mini i gpt-5.6-luna. To nie jest
+    ostrożność na zapas: bez tej poprawki zmiana modelu na nowszy zwracała 400
+    przy każdym pytaniu, a `process_chat_message` łapie wyjątek i oddaje
+    komunikat awaryjny - czyli bot odpowiadałby „coś poszło nie tak" wszystkim
+    klientom naraz i ŻADEN alert by tego nie zgłosił. Wpis w PromptLog szedłby
+    ze źródłem „document", bo fragmenty przecież wróciły.
+    """
+    if temperatura is ...:
+        temperatura = settings.OPENAI_TEMPERATURE
+
+    parametry = {"max_completion_tokens": settings.OPENAI_MAX_OUTPUT_TOKENS}
+    if temperatura is not None:
+        parametry["temperature"] = temperatura
+    return parametry
+
+
+def get_openai_response(messages, model=None, tenant=None, temperatura=...):
     model = model or settings.OPENAI_CHAT_MODEL
     try:
         response = get_client(tenant).chat.completions.create(
             model=model,
             messages=messages,
-            temperature=settings.OPENAI_TEMPERATURE,
-            max_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
+            **parametry_modelu(temperatura),
         )
         return {
             "content": response.choices[0].message.content,
@@ -474,8 +507,7 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
         stream = get_client(tenant).chat.completions.create(
             model=model,
             messages=messages,
-            temperature=settings.OPENAI_TEMPERATURE,
-            max_tokens=settings.OPENAI_MAX_OUTPUT_TOKENS,
+            **parametry_modelu(),
             stream=True,
             stream_options={"include_usage": True},
         )

@@ -61,6 +61,14 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--bez-temperatury",
+            action="store_true",
+            help=(
+                "Nie wysyłaj parametru temperature. Wymagane przez nowsze modele "
+                "i jedyne ustawienie wspólne dla nich i dla gpt-4o-mini."
+            ),
+        )
+        parser.add_argument(
             "--pokaz-odpowiedzi",
             action="store_true",
             help="Wypisz treść każdej odpowiedzi, nie tylko rozstrzygnięcie.",
@@ -79,7 +87,13 @@ class Command(BaseCommand):
             f"{len(PYTANIA)} pytan x {opcje['powtorzen']} powtorzen x {len(modele)} "
             f"model(e) = {wywolan} platnych wywolan API."
         )
-        self.stdout.write(f"Temperatura: {settings.OPENAI_TEMPERATURE}")
+        temperatura = None if opcje["bez_temperatury"] else ...
+        opis_temp = (
+            "domyslna modelu (parametr nie wysylany)"
+            if opcje["bez_temperatury"]
+            else settings.OPENAI_TEMPERATURE
+        )
+        self.stdout.write(f"Temperatura: {opis_temp}")
         self.stdout.write("")
 
         oceny = {}
@@ -89,13 +103,26 @@ class Command(BaseCommand):
             # do bazy jako prawdziwe dokumenty, wiec bez tego komenda
             # diagnostyczna zostawialaby w bazie klienta wymyslony sklep
             # rowerowy - i to przy kazdym uruchomieniu.
-            with transaction.atomic():
-                oceny[model] = ocen_generowanie(
-                    model=model,
-                    powtorzen=opcje["powtorzen"],
-                    po_pytaniu=self._kropka,
+            try:
+                with transaction.atomic():
+                    oceny[model] = ocen_generowanie(
+                        model=model,
+                        powtorzen=opcje["powtorzen"],
+                        po_pytaniu=self._kropka,
+                        temperatura=temperatura,
+                    )
+                    transaction.set_rollback(True)
+            except Exception as blad:
+                # Pojedynczy model, ktory odrzuca ustawienia, nie moze zabrac
+                # wyniku pozostalym - a wlasnie po to sie je porownuje.
+                self.stdout.write("")
+                self.stdout.write(self.style.ERROR(f"  {model}: {str(blad)[:220]}"))
+                self.stdout.write(
+                    "  Sprawdz `manage.py sprawdz_model --model "
+                    f"{model}` - to jedno wywolanie zamiast dziesiatek."
                 )
-                transaction.set_rollback(True)
+                self.stdout.write("")
+                continue
             self.stdout.write("")
             self._wypisz(oceny[model], opcje["pokaz_odpowiedzi"])
             self.stdout.write("")
