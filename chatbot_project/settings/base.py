@@ -249,7 +249,19 @@ OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 # Bot obsługi klienta ma odtwarzać wiedzę firmy, nie tworzyć. Domyślna temperatura
 # 1.0 sprzyja uzupełnianiu luk własnymi domysłami — przy pustym kontekście model
 # potrafił opisać profil firmy zgadnięty z jej nazwy.
-OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.2"))
+#
+# Pusta wartość znaczy „nie wysyłaj tego parametru w ogóle" — i nie jest to
+# wygoda, tylko warunek uruchomienia nowszych modeli. `gpt-5.6-luna` odrzuca
+# każdą wartość poza domyślną:
+#
+#     Unsupported value: 'temperature' does not support 0.2 with this model.
+#     Only the default (1) value is supported.
+#
+# Odrzuca to całym żądaniem, kodem 400, przy KAŻDYM pytaniu. Zmiana modelu na
+# nowszy bez wyczyszczenia tej zmiennej wywala więc czat u wszystkich klientów
+# naraz. Sprawdź `manage.py sprawdz_model` przed podmianą.
+_temperatura = os.getenv("OPENAI_TEMPERATURE", "0.2").strip()
+OPENAI_TEMPERATURE = float(_temperatura) if _temperatura else None
 OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
 # Ile ostatnich wiadomości konwersacji trafia do modelu jako kontekst
