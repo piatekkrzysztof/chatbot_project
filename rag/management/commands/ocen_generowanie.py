@@ -171,6 +171,10 @@ class Command(BaseCommand):
             "(powitania, ktore dostaly znacznik - jedyna dobra wartosc to zero)"
         )
         self.stdout.write(
+            f"  uprzejm. jako luka {ocena.uprzejmosci_jako_luka:6.1%}   "
+            "(powitania zapisane jako brak wiedzy - widget prosi wtedy o kontakt)"
+        )
+        self.stdout.write(
             f"  oparte na wiedzy   {ocena.oparte_na_wiedzy:6.1%}   "
             f"(odpowiedzi z konkretem z fragmentu, sprawdzalnych: "
             f"{ocena.sprawdzalnych_faktow})"
