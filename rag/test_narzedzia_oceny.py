@@ -140,7 +140,7 @@ class TestOchronyWzorca:
             call_command("zbuduj_wzorzec_rag")
 
     def test_wzorzec_ma_ksztalt_ktorego_oczekuje_ocena(self):
-        from rag.ocena.korpus import FRAGMENTY, PYTANIA
+        from rag.ocena.korpus import DO_WEKTOROW, FRAGMENTY
         from rag.ocena.przebieg import SCIEZKA_WZORCA
 
         wzorzec = json.loads(SCIEZKA_WZORCA.read_text(encoding="utf-8"))
@@ -149,5 +149,9 @@ class TestOchronyWzorca:
         # przeliczenia wektorow wywalilo by ocene dopiero w trakcie przebiegu,
         # z bledem o brakujacym kluczu zamiast o nieaktualnym wzorcu.
         assert set(wzorzec["fragmenty"]) == set(FRAGMENTY)
-        assert set(wzorzec["pytania"]) == {pytanie.tresc for pytanie in PYTANIA}
+        # DO_WEKTOROW, nie PYTANIA: uprzejmosci tez potrzebuja wektora, bo
+        # ocena generowania przepuszcza je przez prawdziwe wyszukiwanie.
+        # Wzorzec bez nich wywalilby sie dopiero w trakcie przebiegu, bledem
+        # o brakujacym kluczu zamiast o nieaktualnym wzorcu.
+        assert set(wzorzec["pytania"]) == {pytanie.tresc for pytanie in DO_WEKTOROW}
         assert wzorzec["wymiarow"] == WYMIAR_WEKTORA

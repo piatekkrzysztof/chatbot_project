@@ -57,7 +57,7 @@ from api.utils.chat_engine import (
     get_openai_response,
 )
 from chat.models import Conversation
-from rag.ocena.korpus import PYTANIA, Pytanie
+from rag.ocena.korpus import DO_WEKTOROW, Pytanie
 from rag.ocena.przebieg import wczytaj_wzorzec, zaloz_baze_wiedzy
 
 
@@ -96,8 +96,22 @@ class OcenaGenerowania:
     def _z_odpowiedzia(self):
         return [o for o in self.odpowiedzi if o.pytanie.ma_odpowiedz]
 
-    def _bez_odpowiedzi(self):
-        return [o for o in self.odpowiedzi if not o.pytanie.ma_odpowiedz]
+    def _wymagaja_znacznika(self):
+        """
+        Pytania, na które znacznik jest POPRAWNĄ odpowiedzią.
+
+        Uprzejmości są wyłączone: „dzień dobry" nie jest luką w wiedzy firmy
+        i odmowa na nie jest błędem, nie sukcesem. Wliczanie ich tutaj dawałoby
+        punkt za zachowanie, którego nie chcemy.
+        """
+        return [
+            o
+            for o in self.odpowiedzi
+            if not o.pytanie.ma_odpowiedz and not o.pytanie.jest_uprzejmoscia
+        ]
+
+    def _uprzejmosci(self):
+        return [o for o in self.odpowiedzi if o.pytanie.jest_uprzejmoscia]
 
     @property
     def odmowy_trafne(self) -> float:
@@ -109,7 +123,7 @@ class OcenaGenerowania:
         się o tym nie dowiaduje, bo cały mechanizm zgłaszania luk wisi na tym
         jednym ciągu znaków.
         """
-        bez = self._bez_odpowiedzi()
+        bez = self._wymagaja_znacznika()
         return sum(o.odmowil for o in bez) / len(bez) if bez else 0.0
 
     @property
@@ -137,6 +151,25 @@ class OcenaGenerowania:
         """
         sprawdzalne = [o for o in self.odpowiedzi if o.trafil_fakt is not None]
         return sum(o.trafil_fakt for o in sprawdzalne) / len(sprawdzalne) if sprawdzalne else 0.0
+
+    @property
+    def uprzejmosci_odrzucone(self) -> float:
+        """
+        Ile powitań i podziękowań dostało znacznik. Im mniej, tym lepiej; zero
+        jest jedyną dobrą wartością.
+
+        Odmowa na „dzień dobry" jest widoczna gołym okiem w oknie czatu i to
+        jest właśnie powód, dla którego ta liczba tu stoi: pierwsza próba
+        zaostrzenia promptu odrzucała „Cześć, jak się masz?" zimnym „nie
+        udzielam informacji na ten temat", a ocena pokazywała wtedy same
+        dobre liczby. Korpus nie miał ani jednego powitania.
+
+        Do tego każda taka odmowa zakłada właścicielowi zapytanie i wpis
+        w raporcie luk - czyli zaśmieca dokładnie te dwa mechanizmy, dla
+        których znacznik istnieje.
+        """
+        uprzejme = self._uprzejmosci()
+        return sum(o.odmowil for o in uprzejme) / len(uprzejme) if uprzejme else 0.0
 
     @property
     def sprawdzalnych_faktow(self) -> int:
@@ -231,7 +264,7 @@ def ocen_generowanie(model=None, powtorzen=1, po_pytaniu=None, temperatura=...) 
 
     odpowiedzi = []
     for _ in range(powtorzen):
-        for pytanie in PYTANIA:
+        for pytanie in DO_WEKTOROW:
             odpowiedz = zapytaj(
                 firma,
                 pytanie,
@@ -281,6 +314,11 @@ def opisz_bledy(ocena: OcenaGenerowania) -> list[str]:
                 opisy.append(f"  ODMOWA, ale bez fragmentow (pudlo wyszukiwania): {pytanie.tresc}")
             else:
                 opisy.append(f"  ODMOWA mimo pokrycia: {pytanie.tresc}")
+        elif pytanie.jest_uprzejmoscia:
+            if odpowiedz.odmowil:
+                opisy.append(
+                    f"  ODMOWA NA UPRZEJMOSC: {pytanie.tresc}\n      -> {odpowiedz.tresc[:110]}"
+                )
         elif not pytanie.ma_odpowiedz and not odpowiedz.odmowil:
             opisy.append(
                 f"  ODPOWIEDZIAL mimo braku pokrycia [{pytanie.grupa}]: {pytanie.tresc}\n"

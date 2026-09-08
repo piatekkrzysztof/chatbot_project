@@ -20,7 +20,10 @@ from api.utils.chat_engine import ZNACZNIK_BRAKU
 from chat.models import Conversation
 from documents.models import Document
 from rag.ocena.generowanie import OcenaGenerowania, niestabilne, ocen_generowanie
-from rag.ocena.korpus import PYTANIA
+from rag.ocena.korpus import (
+    DO_WEKTOROW,
+    PYTANIA,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -116,7 +119,7 @@ class TestUczciwosciPomiaru:
 
         _, wolanie = uruchom(lambda *a, **k: udawany_model("Odpowiedz."), powtorzen=2)
 
-        assert Conversation.objects.count() - rozmow_przed == len(PYTANIA) * 2
+        assert Conversation.objects.count() - rozmow_przed == len(DO_WEKTOROW) * 2
 
         for zapis in wolanie.call_args_list:
             role = [w["role"] for w in zapis.args[0]]
@@ -126,8 +129,8 @@ class TestUczciwosciPomiaru:
     def test_pyta_kazde_pytanie_tyle_razy_ile_powtorzen(self):
         ocena, wolanie = uruchom(lambda *a, **k: udawany_model("Odpowiedz."), powtorzen=3)
 
-        assert wolanie.call_count == len(PYTANIA) * 3
-        assert len(ocena.odpowiedzi) == len(PYTANIA) * 3
+        assert wolanie.call_count == len(DO_WEKTOROW) * 3
+        assert len(ocena.odpowiedzi) == len(DO_WEKTOROW) * 3
 
     def test_uzywa_wskazanego_modelu(self):
         # Bez tego porownanie dwoch modeli mierzyloby dwa razy ten sam.
@@ -210,7 +213,7 @@ class TestNiestabilnosci:
 
         ocena, _ = uruchom(raz_tak_raz_nie, powtorzen=2)
 
-        assert len(niestabilne(ocena)) == len(PYTANIA)
+        assert len(niestabilne(ocena)) == len(DO_WEKTOROW)
 
     def test_zgodne_powtorzenia_nie_sa_zglaszane(self):
         # Ostrzezenie, ktore pojawia sie zawsze, przestaje cokolwiek znaczyc.
@@ -277,3 +280,64 @@ class TestPudelWyszukiwania:
         assert ocena.odmowy_falszywe == 0.0, (
             f"Pudlo wyszukiwania weszlo do liczby opisujacej model: {ocena.pytania_bez_fragmentow}"
         )
+
+
+class TestUprzejmosci:
+    """
+    Powitania mają trzecie oczekiwane zachowanie: odpowiedz ciepło, bez
+    znacznika. Ani odpowiedź z bazy wiedzy, ani odmowa.
+
+    Cała ta grupa istnieje, bo miara jej wcześniej nie miała: pierwsza próba
+    zaostrzenia promptu odrzucała „Cześć, jak się masz?", a ocena pokazywała
+    same dobre liczby. Nie było w korpusie ani jednego powitania.
+    """
+
+    def test_odmowa_na_powitanie_jest_liczona(self):
+        ocena, _ = uruchom(lambda *a, **k: udawany_model(f"{ZNACZNIK_BRAKU} Nie wiem."))
+
+        assert ocena.uprzejmosci_odrzucone == 1.0
+
+    def test_cieple_powitanie_nie_jest_odmowa(self):
+        ocena, _ = uruchom(lambda *a, **k: udawany_model("Dzien dobry! W czym moge pomoc?"))
+
+        assert ocena.uprzejmosci_odrzucone == 0.0
+
+    def test_powitania_nie_licza_sie_jako_trafna_odmowa(self):
+        """
+        Najważniejszy test w tej klasie.
+
+        Gdyby uprzejmości wpadały do mianownika odmów trafnych, miara
+        nagradzałaby zachowanie, które psuje pierwsze zdanie rozmowy.
+
+        Podstawiony model zachowuje się WZOROWO: odmawia na wszystkim, na czym
+        trzeba, i wita się normalnie. Przy poprawnym liczeniu ma 100% odmów
+        trafnych. Wersja wliczająca powitania dałaby mu 66,7% - karę za
+        zachowanie, którego oczekujemy.
+
+        Pierwsza wersja tego testu podstawiała model odmawiający na WSZYSTKIM
+        i przechodziła w obu wariantach: 12/12 i 8/8 to tak samo 100%.
+        """
+        uprzejme = {p.tresc for p in DO_WEKTOROW if p.jest_uprzejmoscia}
+
+        def wzorowy(wiadomosci, *args, **kwargs):
+            pytanie = wiadomosci[-1]["content"]
+            if pytanie in uprzejme:
+                return udawany_model("Dzien dobry! W czym moge pomoc?")
+            return udawany_model(f"{ZNACZNIK_BRAKU} Nie mam tej informacji.")
+
+        ocena, _ = uruchom(wzorowy)
+
+        assert ocena.uprzejmosci_odrzucone == 0.0
+        assert ocena.odmowy_trafne == 1.0, (
+            "Powitania weszly do mianownika odmow trafnych - model dostaje kare "
+            "za to, ze wita sie normalnie."
+        )
+
+    def test_uprzejmosci_nie_sa_oceniane_pod_katem_konkretu(self):
+        # "Dzien dobry" nie ma faktu do zacytowania. Wliczanie go do mianownika
+        # zanizaloby oparcie na wiedzy o cztery pytania, ktore nigdy nie mialy
+        # szansy go trafic.
+        ocena, _ = uruchom(lambda *a, **k: udawany_model("Dzien dobry!"))
+
+        uprzejme = [o for o in ocena.odpowiedzi if o.pytanie.jest_uprzejmoscia]
+        assert all(o.trafil_fakt is None for o in uprzejme)

@@ -32,7 +32,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from documents.wymiar import WYMIAR_WEKTORA
-from rag.ocena.korpus import FRAGMENTY, PYTANIA, teksty_do_zamiany_na_wektory
+from rag.ocena.korpus import DO_WEKTOROW, FRAGMENTY, teksty_do_zamiany_na_wektory
 
 SCIEZKA_WZORCA = Path(__file__).resolve().parents[3] / "rag" / "ocena" / "wzorzec.json"
 
@@ -96,7 +96,7 @@ class Command(BaseCommand):
             "fragmenty": dict(zip(klucze_fragmentow, zaokraglone[:granica], strict=True)),
             "pytania": {
                 pytanie.tresc: wektor
-                for pytanie, wektor in zip(PYTANIA, zaokraglone[granica:], strict=True)
+                for pytanie, wektor in zip(DO_WEKTOROW, zaokraglone[granica:], strict=True)
             },
         }
 
