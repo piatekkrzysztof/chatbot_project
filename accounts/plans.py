@@ -47,6 +47,18 @@ class Plan:
     # Limity pojemnościowe z badania. Każdy z nich ma egzekwowanie w kodzie —
     # pole bez pilnującej go reguły to obietnica, o której nikt nie pamięta.
     #
+    # `knowledge_base_mb` ma drugie ograniczenie, mocniejsze od badania rynku:
+    # ile jesteśmy w stanie PRZESZUKAĆ szybko. Zmierzone na produkcji
+    # 8 września 2026 (docs/skala-i-wydajnosc.md), fragment liczy 1020 znaków:
+    #
+    #      5 MB =   5 140 fragmentów -> 0,19 s wyszukiwania   (zmierzone)
+    #     25 MB =  25 700 fragmentów -> 1,04 s                (zmierzone)
+    #     50 MB =  51 400 fragmentów -> 2,41 s                (ekstrapolacja)
+    #    100 MB = 102 801 fragmentów -> 5,16 s                (ekstrapolacja)
+    #
+    # Do tego dochodzi około 0,87 s na odpowiedź modelu, zanim odwiedzający
+    # zobaczy pierwsze słowo.
+    #
     # Dlatego nie ma tu max_bots. Cennik obiecywał 1, 3 i 10 botów, a modelu
     # wielu botów nigdy nie zbudowano; limit szedł w odpowiedzi API i nikt go
     # nie sprawdzał, bo nie było czego. Wróci razem z funkcją, nie przed nią.
@@ -99,7 +111,19 @@ PLANS = {
         719,
         25_000,
         branding=BRANDING_WLASNY,
-        knowledge_base_mb=100,
+        # 100 -> 50 MB, 8 wrzesnia 2026. Sto megabajtow to 5,2 s samego
+        # wyszukiwania, zanim model zacznie pisac - nie "wolna odpowiedz",
+        # tylko zepsuta. Cennik obiecywal wielkosc, ktorej nie obsluzymy.
+        #
+        # 50 MB to 2,4 s i jest to jedyna z trzech liczb w tym katalogu, ktora
+        # nadal jest EKSTRAPOLACJA - o cwierc powyzej najwiekszego zmierzonego
+        # punktu (40 000 fragmentow, 1,80 s). Tempo na tym odcinku wciaz rosnie
+        # (23 us/fragment przy 10 tys., 53 us przy 40 tys.), wiec 2,4 s to
+        # podloga, nie wartosc srodkowa.
+        #
+        # Klient, ktory naprawde zapelni te 50 MB, bedzie pierwszym powodem,
+        # zeby kupic wieksza instancje bazy - i jedynym, ktory za nia placi.
+        knowledge_base_mb=50,
         max_domains=10,
         max_seats=10,
         recrawl_days=1,

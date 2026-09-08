@@ -20,6 +20,40 @@ Nothing yet.
 
 ---
 
+## [1.0.5] — 2026-09-08
+
+### Changed
+
+- **The Pro plan's knowledge base limit drops from 100 MB to 50 MB.** Measured
+  on production, 100 MB is about 5.2 seconds of retrieval before the model
+  writes its first word. That is not a slow answer, it is a broken one, and the
+  price list was selling it. Nobody is affected today: the largest real
+  knowledge base is 246 chunks, 0.24% of the old limit.
+- Start (5 MB) and Grow (25 MB) are unchanged and now sit on measured points:
+  0.19 s and 1.04 s of retrieval.
+
+### Added
+
+- A test that fails if any plan sells a knowledge base costing more than three
+  seconds of retrieval. Before it, the figure in the price list and the figure
+  from the measurement had nothing connecting them — which is why 100 MB
+  survived four months.
+
+### Measured
+
+- Production up to 40 000 chunks. **The knee did not disappear with the shorter
+  vectors, it moved.** Up to 10 000 chunks nothing is read from disk and a chunk
+  costs 23 µs; at 40 000 the query reads 110 MB — the whole table — on every
+  question, and a chunk costs 53 µs.
+- This corrects what was written here yesterday. "The query is CPU-bound and a
+  larger instance would not help" was measured at 10 000 chunks and is true only
+  there. Above roughly 25 000 it is memory-bound again, and more RAM is exactly
+  the fix. Any answer to "would a bigger database help" has to name the size it
+  is answering for.
+- Chunk footprint confirmed a third time: 2.8 kB, now at 40 000 chunks.
+
+---
+
 ## [1.0.4] — 2026-09-08
 
 ### Fixed
