@@ -81,12 +81,15 @@ Those are conservative: they extrapolate the linear rate from the 5 000–10 000
 segment, and the real curve is worse than linear. Read them as floors.
 
 **These three latencies are from before the 512-dimension migration** and are
-the most stale numbers on this page. They should be better now — the chunk
-count per plan does not change, but each chunk is 2.8 kB instead of 8.2, so the
-memory effect that produced them turned out to be the whole story. Measured
-again after the migration, they are roughly 3.3× better: see
-[Where this meets the price list, recomputed](#where-this-meets-the-price-list-recomputed).
-The argument below does not depend on the exact figures, only on their order.
+superseded. They were re-measured afterwards, up to 40 000 chunks, and the
+improvement is not a single factor: 4.3× at 10 000 chunks where the table now
+fits in cache, but only about 2× at 25 000 where it no longer does. The current
+figures, and the plan limits that follow from them, are in
+[Where this meets the price list](#where-this-meets-the-price-list-1).
+
+The argument below does not depend on the exact numbers, only on their order —
+and it held: the price list was selling a knowledge base the system could not
+serve, and on 8 September the Pro limit was cut from 100 MB to 50.
 
 **The plans as priced sell knowledge base sizes the system cannot serve.** Not
 "would be slow at" — cannot serve. Thirteen seconds before the model starts
@@ -260,75 +263,87 @@ they say the same thing on every run.
 
 ## Production, after the migration
 
-Measured on the production instance 7 September 2026, at 512 dimensions, on the
-same command and the same query as the table at the top of this page.
+Measured on the production instance, at 512 dimensions. Two runs: 7 September
+up to 10 000 chunks, 8 September up to 40 000.
 
-| chunks | 1536 | 512 | |
-|---|---|---|---|
-| 1 000 | 90.0 ms | **14.1 ms** | 6.4× |
-| 5 000 | 396.1 ms | **197.9 ms** | 2.0× |
-| 10 000 | 1 297.4 ms | **387.9 ms** | 3.3× |
-
-**The knee is gone.** Doubling the data from 5 000 to 10 000 now costs 1.96× the
-time — linear, where before it was 3.3×. Above a thousand chunks the rate is
-steady at 38–46 µs per chunk.
-
-And the reason is exactly the one this document predicted:
-
-```
-Buffers: shared hit=30120          (before: hit=20054 read=10107)
-```
-
-**Zero blocks from disk.** The total number of block accesses is unchanged —
-30 120 against 30 161 — so the query does the same amount of work. What changed
-is that all of it now comes from memory. The table went from 80 MB to 27.6 MB
-and stopped being evicted between queries.
-
-Footprint confirmed on the real instance: 27.6 MB for 10 000 chunks, **2.8 kB
-per chunk**, matching what the code assumes with no warning printed.
-
-### What this changes about the "bigger instance" answer
-
-It obsoletes it. At 1536 dimensions a third of all block reads came from disk,
-so more RAM would have helped roughly proportionally. At 512 there are no disk
-reads left to remove — the query is now **CPU-bound**, and the command's own
-guidance applies: *"same 'hit' przy długim czasie znaczą coś innego: wąskim
-gardłem jest procesor, a większa baza danych nie da nic poza rachunkiem."*
-
-A larger instance could still help by way of a faster processor, but that is a
-different mechanism, a different price, and a much weaker effect than the
-memory argument was.
-
-### Where this meets the price list, recomputed
-
-At 38 µs per chunk, the rate measured between 5 000 and 10 000:
-
-| plan | knowledge base | chunks | before | now |
+| chunks | 1536 | 512 | table size | µs per chunk on this segment |
 |---|---|---|---|---|
-| start | 5 MB | ~5 140 | 0.7 s | **~0.20 s** |
-| grow | 25 MB | ~25 700 | 3.3 s | **~1.0 s** |
-| pro | 100 MB | ~102 800 | 13 s | **~3.9 s** |
+| 1 000 | 90.0 ms | 9.4 ms | 3 MB | |
+| 5 000 | 396.1 ms | 188.4 ms | 14 MB | 44.8 |
+| 10 000 | 1 297.4 ms | 304.7 ms | 27 MB | **23.3** |
+| 25 000 | — | 1 000.6 ms | 69 MB | 46.4 |
+| 40 000 | — | 1 802.1 ms | 110 MB | **53.4** |
 
-Read as before: floors, and extrapolated past the largest measured point. The
-extrapolation is more defensible than it was, because there is no longer a knee
-to extrapolate across — but two production runs of the same measurement have
-differed by up to 50% at 5 000 chunks, so do not read these to two significant
-figures.
+Footprint confirmed again on the real instance: 109.7 MB for 40 000 chunks,
+**2.8 kB per chunk**, matching what the code assumes.
 
-**The conclusion changes for two plans out of three.** Start is now comfortable
-where it was uncomfortable. Grow at about a second is arguable — slow, not
-broken. Pro at four seconds is still not a knowledge base we can serve, so the
-plan-limit question stays open, but it is now one plan's problem instead of two.
+### The knee is not gone. It moved.
+
+Up to 10 000 chunks the query reads nothing from disk and costs 23 µs per chunk.
+At 40 000:
+
+```
+Buffers: shared hit=106468 read=14024
+```
+
+**14 024 blocks — about 110 MB — from disk.** The table is 109.7 MB, so
+essentially all of it, on every question. The cost per chunk more than doubles.
+
+Between those two points the working set outgrows the instance's cache again.
+That is the same effect the 1536-dimension vectors produced at 10 000 chunks;
+shortening the vector moved the boundary out by roughly 4×, it did not remove
+it. The cache limit sits somewhere between **27 MB and 110 MB**, and the timing
+curve bends between 10 000 and 25 000 chunks, so probably nearer the lower end.
+
+### Correcting what this document said on 7 September
+
+> *"At 512 there are no disk reads left to remove — the query is now
+> CPU-bound, and a larger instance would not help."*
+
+That was measured at 10 000 chunks and is true only there. At 40 000 the query
+is memory-bound again, and a larger database instance **would** help, roughly
+in proportion to the memory it adds.
+
+The honest statement is not about the vector length, it is about the ratio: the
+query is CPU-bound while the tenant's chunks fit in cache and memory-bound once
+they do not. Any answer to "would more RAM help" has to name the size it is
+answering for.
+
+### Where this meets the price list
+
+At the rate measured on the largest segment, 53.4 µs per chunk:
+
+| plan | knowledge base | chunks | retrieval | + model | basis |
+|---|---|---|---|---|---|
+| start | 5 MB | ~5 140 | **0.19 s** | 1.06 s | measured |
+| grow | 25 MB | ~25 700 | **1.04 s** | 1.91 s | measured |
+| pro | 50 MB | ~51 400 | **2.41 s** | 3.28 s | extrapolated 25% past |
+| ~~pro, until 8 Sep~~ | ~~100 MB~~ | ~~102 800~~ | ~~5.16 s~~ | ~~6.03 s~~ | not servable |
+
+**Pro dropped from 100 MB to 50 MB on 8 September.** Five seconds before the
+model writes its first word is not a slow answer, it is a broken one, and the
+price list was selling it.
+
+`accounts/plans.py` now carries these numbers, and `api/tests/test_billing.py`
+fails if any plan sells a knowledge base costing more than 3 s of retrieval.
+Before that test the figure in the price list and the figure from the
+measurement had nothing connecting them — which is why 100 MB survived four
+months.
+
+Two of the three limits now sit on measured points. Pro at 50 MB is the one
+that does not: it is a quarter past the largest measurement, on a curve whose
+slope is still rising, so read 2.41 s as a floor.
 
 ## Options, when someone approaches the ceiling
 
 Shortening the vector was the first of these and it is done. In order of what
 to reach for next:
 
-**`halfvec` is no longer the obvious next step.** pgvector's 16-bit float type
-would take 2.8 kB per chunk down to roughly 1.4 — but the reason to shrink the
-table was to get it into memory, and it is already there. Worth reaching for
-only when the working set grows past the cache again, not now.
+**`halfvec` is back on the list.** pgvector's 16-bit float type would take
+2.8 kB per chunk down to roughly 1.4 — which is another 2× of headroom before
+the table leaves the cache, exactly the boundary the 40 000-chunk measurement
+found. On 7 September this looked unnecessary because the table fitted; at Pro
+scale it does not.
 
 **Add an HNSW index** (pgvector supports it) — now the *first* lever with real
 headroom, because the remaining cost is processor time and the index is the only
@@ -344,10 +359,11 @@ it sounds — nobody is using more than a fraction of a percent of them today.
 Still open as of 7 September 2026, but the question shrank: Start is fine, Grow
 is arguable, only Pro clearly sells more than we serve.
 
-**Rent a bigger database.** Was the obvious answer while the query read 79 MB
-from disk per question. It no longer is: the disk reads are gone and the
-remaining cost is processor time, which is not what more RAM buys. The only
-option here with a recurring cost, and now the weakest of the four.
+**Rent a bigger database.** Back on the table, and for the first time it has an
+obvious buyer. Below ~10 000 chunks the query is CPU-bound and more RAM buys
+nothing; above ~25 000 it reads the whole table from disk on every question, and
+more RAM is exactly the fix. A customer who genuinely fills a 50 MB Pro plan is
+both the first reason to buy a larger instance and the only one paying for it.
 
 ---
 
