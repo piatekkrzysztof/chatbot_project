@@ -341,3 +341,45 @@ class TestUprzejmosci:
 
         uprzejme = [o for o in ocena.odpowiedzi if o.pytanie.jest_uprzejmoscia]
         assert all(o.trafil_fakt is None for o in uprzejme)
+
+
+class TestZrodlaOdpowiedzi:
+    """
+    Znacznik to nie to samo, co źródło - i ta różnica ma konsekwencje.
+
+    Powitanie, na które model odpowiada ciepło, przechodzi miarę znacznika bez
+    zarzutu. Do 8 września 2026 szło mimo to jako „gpt", bo wyszukiwarka nic
+    nie zwróciła - i wtedy widget prosił odwiedzającego o dane kontaktowe
+    w pierwszej wymianie zdań. Miara mówiła „w porządku" o czymś, co widać
+    było na ekranie.
+    """
+
+    def test_cieple_powitanie_nie_jest_luka(self):
+        ocena, _ = uruchom(lambda *a, **k: udawany_model("Dzien dobry! W czym moge pomoc?"))
+
+        assert ocena.uprzejmosci_odrzucone == 0.0
+        assert ocena.uprzejmosci_jako_luka == 0.0
+
+    def test_odmowa_na_powitanie_jest_liczona_w_obu_miarach(self):
+        # Model, ktory odmawia na powitanie, psuje jedno i drugie: stawia
+        # znacznik i przez to zapisuje uprzejmosc jako brak wiedzy.
+        ocena, _ = uruchom(lambda *a, **k: udawany_model(f"{ZNACZNIK_BRAKU} Nie wiem."))
+
+        assert ocena.uprzejmosci_odrzucone == 1.0
+        assert ocena.uprzejmosci_jako_luka == 1.0
+
+    def test_zrodlo_pochodzi_z_prawdziwej_funkcji_produkcyjnej(self):
+        """
+        Pomiar liczy źródło tym samym `determine_source`, którego używa czat.
+
+        Własna kopia jego reguł rozjechałaby się z produkcją przy pierwszej
+        zmianie, a pomiar opisywałby wtedy produkt, którego nie ma.
+        """
+        ocena, _ = uruchom(lambda *a, **k: udawany_model("Kosztuje 120 zl."))
+
+        pokryte = [o for o in ocena.odpowiedzi if o.pytanie.ma_odpowiedz and o.fragmentow]
+        assert pokryte
+        assert all(o.zrodlo == "document" for o in pokryte)
+
+        uprzejme = [o for o in ocena.odpowiedzi if o.pytanie.jest_uprzejmoscia]
+        assert all(o.zrodlo == "rozmowa" for o in uprzejme)

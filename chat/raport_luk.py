@@ -19,6 +19,7 @@ from collections import OrderedDict
 
 from django.utils import timezone
 
+from chat.models import ZRODLO_BRAK_WIEDZY
 from chat.zapytania import logi_klientow
 
 # Zamiana polskich znaków na łacińskie — tylko na potrzeby porównania
@@ -72,7 +73,18 @@ NIE_PYTANIA = {
 
 
 def _nie_pytanie(tresc):
-    """Czy cała wypowiedź jest tylko uprzejmością."""
+    """
+    Czy cała wypowiedź jest tylko uprzejmością.
+
+    Od 8 września 2026 powitania nie docierają tu w ogóle: dostają źródło
+    „rozmowa", a raport bierze wyłącznie „gpt". Ten filtr obsługuje więc już
+    tylko WPISY HISTORYCZNE - te sprzed zmiany, zapisane jako „gpt".
+
+    Nie usuwam go z dwóch powodów. Skasowany zmieniłby raporty za poprzednie
+    tygodnie, a poza tym jest to lista dokładnych dopasowań: łapie „cześć",
+    nie łapie „cześć, jest tam kto?". Jako jedyne zabezpieczenie był dziurawy
+    i to właśnie dlatego rozstrzyga teraz źródło, a nie słownik.
+    """
     znormalizowana = "".join(
         znak for znak in tresc.lower().translate(BEZ_OGONKOW) if znak.isalnum() or znak.isspace()
     )
@@ -97,7 +109,9 @@ def luki_w_wiedzy(tenant, od=None, do=None, limit=LIMIT_POZYCJI):
     """
     # Bez rozmów testowych właściciela: sam wpisywałby sobie na tę listę
     # pytania, o których z góry wie, że są trudne.
-    wpisy = logi_klientow(tenant).filter(source="gpt")
+    # Tylko "gpt": to zrodlo znaczy, ze model SAM powiedzial, ze nie ma tej
+    # wiedzy. Powitania maja teraz "rozmowa" i nie docieraja tu wcale.
+    wpisy = logi_klientow(tenant).filter(source=ZRODLO_BRAK_WIEDZY)
     if od is not None:
         wpisy = wpisy.filter(created_at__gte=od)
     if do is not None:

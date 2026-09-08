@@ -165,6 +165,35 @@ próg razem z nimi.
 
 ---
 
+## Skąd pochodzi odpowiedź (`source`)
+
+Jedno pole w `PromptLog` steruje trzema rzeczami naraz, więc warto wiedzieć,
+co znaczy:
+
+| źródło | znaczy | skutek |
+|---|---|---|
+| `document` | odpowiedź z fragmentów bazy wiedzy | źródła pod odpowiedzią w widgecie |
+| `faq` | odpowiedź z wpisu FAQ | jw. |
+| `gpt` | **model powiedział, że nie ma tej wiedzy** | widget proponuje kontakt, pozycja w raporcie luk, obniża pokrycie |
+| `rozmowa` | powitanie, podziękowanie, „ok" | nic - to nie jest luka |
+
+**Od 8 września 2026** o `gpt` decyduje wyłącznie znacznik `[BRAK_ODPOWIEDZI]`
+albo awaria wyszukiwania. Wcześniej wystarczał brak fragmentów - i to był błąd
+widoczny na produkcji: na „cześć, jest tam kto?" widget od razu prosił
+odwiedzającego o dane kontaktowe, w pierwszej wymianie zdań, a wpis szedł do
+raportu luk jako brakująca wiedza.
+
+Awaria wyszukiwania jest celowo po stronie `gpt`, nie `rozmowa`: pytanie mogło
+być prawdziwe, a bot odpowiadał bez bazy wiedzy - to należy do raportu luk,
+nawet gdy model nie postawił znacznika.
+
+**Na wnioski historyczne uwaga:** wpisy sprzed tej daty mają powitania zapisane
+jako `gpt`. Wykres pokrycia za poprzednie tygodnie jest więc zaniżony, a raport
+luk broni się tylko listą `NIE_PYTANIA` w `raport_luk.py` - dokładnych
+dopasowań, które łapią „cześć", ale nie „cześć, jest tam kto?".
+
+---
+
 ## Zmiana modelu czatu
 
 `OPENAI_CHAT_MODEL` (Render → **chatbot-backend** → Environment). Nie podmieniaj

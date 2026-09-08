@@ -61,7 +61,7 @@ class ChatSourceSerializer(serializers.Serializer):
 class PublicChatResponseSerializer(serializers.Serializer):
     response = serializers.CharField(help_text="Odpowiedź bota.")
     source = serializers.ChoiceField(
-        choices=["document", "faq", "gpt"],
+        choices=["document", "faq", "gpt", "rozmowa"],
         help_text=(
             "Na czym oparta jest odpowiedź: 'document' — fragmenty wgranych "
             "materiałów, 'faq' — wpis FAQ, 'gpt' — brak pokrycia w materiałach firmy."

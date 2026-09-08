@@ -6,6 +6,7 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from api.utils.chat_engine import ZNACZNIK_BRAKU
 from chat.models import Conversation, PromptLog
 
 
@@ -47,7 +48,7 @@ def test_prompt_log_records_raw_user_question(
     assert log is not None
     assert log.prompt == payload["message"]
     assert log.response == "Embedding to reprezentacja wektorowa."
-    assert log.source in ["faq", "document", "gpt"]
+    assert log.source in ["faq", "document", "gpt", "rozmowa"]
     assert log.tokens == 42
     assert log.model
 
@@ -81,7 +82,13 @@ def test_prompt_log_fallback_source(
     client.defaults["HTTP_X_API_KEY"] = str(tenant.api_key)
 
     mock_pgvector.return_value = []
-    mock_openai_response.return_value = {"content": "Fallback response", "tokens": 42}
+    # Ze znacznikiem: "fallback" w nazwie testu znaczy "bot nie mial czym
+    # odpowiedziec", a od 8 wrzesnia mowi o tym model, nie pustka w wynikach
+    # wyszukiwania. Bez znacznika ta sama sytuacja to zwykla rozmowa.
+    mock_openai_response.return_value = {
+        "content": f"{ZNACZNIK_BRAKU} Fallback response",
+        "tokens": 42,
+    }
 
     payload = {
         "message": "Fallback test",

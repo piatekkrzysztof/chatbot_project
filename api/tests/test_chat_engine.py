@@ -5,6 +5,7 @@ from openai import OpenAIError
 
 from accounts.models import Tenant
 from api.utils.chat_engine import (
+    ZNACZNIK_BRAKU,
     build_chat_messages,
     build_history_messages,
     get_openai_response,
@@ -31,7 +32,7 @@ def test_regulamin_lands_in_system_prompt(mock_chunks):
     )
     conversation = Conversation.objects.create(tenant=tenant)
 
-    messages, _, _ = build_chat_messages(tenant, conversation, "jaki jest regulamin?")
+    messages, _, _, _ = build_chat_messages(tenant, conversation, "jaki jest regulamin?")
 
     assert messages[0]["role"] == "system"
     assert "Mój regulamin." in messages[0]["content"]
@@ -44,7 +45,7 @@ def test_faq_lands_in_system_prompt(mock_chunks):
     FAQ.objects.create(tenant=tenant, question="Godziny otwarcia?", answer="9-17")
     conversation = Conversation.objects.create(tenant=tenant)
 
-    messages, _, faqs = build_chat_messages(tenant, conversation, "kiedy otwarte?")
+    messages, _, faqs, _ = build_chat_messages(tenant, conversation, "kiedy otwarte?")
 
     assert "Godziny otwarcia?" in messages[0]["content"]
     assert "9-17" in messages[0]["content"]
@@ -189,7 +190,11 @@ def test_unrelated_question_is_not_counted_as_faq_coverage(mock_gpt, mock_chunks
     Istnienie wpisów FAQ nie może samo w sobie oznaczać pokrycia — inaczej
     raport luk w wiedzy byłby pusty u każdego klienta, który dodał jedno FAQ.
     """
-    mock_gpt.return_value = {"content": "Nie wiem.", "tokens": 5}
+    # Znacznik w podstawionej odpowiedzi, bo tak zachowuje sie prawdziwy model
+    # od 8 wrzesnia: gdy nie ma czym odpowiedziec, MOWI o tym wprost. Bez niego
+    # ten sam brak fragmentow znaczy "powitanie" - a wtedy test sprawdzalby
+    # zachowanie, ktorego produkt juz nie ma.
+    mock_gpt.return_value = {"content": f"{ZNACZNIK_BRAKU} Nie wiem.", "tokens": 5}
     tenant = Tenant.objects.create(name="Firma", owner_email="x@example.com")
     FAQ.objects.create(tenant=tenant, question="Czy naprawiacie rowery elektryczne?", answer="Tak")
     conversation = Conversation.objects.create(tenant=tenant)

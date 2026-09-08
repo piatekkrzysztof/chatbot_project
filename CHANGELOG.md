@@ -20,6 +20,39 @@ Nothing yet.
 
 ---
 
+## [1.0.4] — 2026-09-08
+
+### Fixed
+
+- **Saying hello no longer triggers a request for the visitor's contact
+  details.** A visitor typing "cześć, jest tam kto?" got a warm reply and then,
+  in the same breath, a contact form. Verified on production before the fix.
+- The same greetings were filed as knowledge gaps, so the weekly report advised
+  the owner to "add an answer for «hello»" to their knowledge base, and the
+  coverage figure on the dashboard was pulled down by visitors being polite.
+- One line caused all three: when retrieval returned nothing, the answer was
+  recorded as "the bot did not know". That was the only signal available before
+  the model started declaring gaps itself with `[BRAK_ODPOWIEDZI]`. Now the
+  marker decides, and small talk is recorded as `rozmowa` — a source with no
+  consequences.
+- A retrieval failure is deliberately still counted as a gap. The question may
+  have been real and the bot answered without its knowledge base; recording that
+  as a friendly chat would have hidden a fault exactly when it matters.
+
+This fix is only safe because of 1.0.3. Until yesterday the model often answered
+off-topic questions without the marker, so "no marker" did not mean "nothing to
+report". It does now: correct refusals measure 100%, and `ocen_generowanie`
+watches that number.
+
+### Added
+
+- `ocen_generowanie` now measures the recorded **source**, not only the marker.
+  The gap it closes is the one that produced this release: a greeting answered
+  warmly passed every existing check while still asking the visitor for their
+  phone number.
+
+---
+
 ## [1.0.3] — 2026-09-08
 
 ### Changed

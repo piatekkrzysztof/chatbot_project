@@ -149,7 +149,9 @@ class TestSciezkiStrumieniowej:
             patch("api.utils.chat_engine.get_client") as klient,
             patch(
                 "api.utils.chat_engine.build_chat_messages",
-                return_value=([], [FragmentUdawany()], []),
+                # Czwarta wartosc: czy wyszukiwanie padlo. Tu nie padlo -
+                # fragmenty sa, wiec to zwykla odpowiedz z bazy wiedzy.
+                return_value=([], [FragmentUdawany()], [], False),
             ),
         ):
             klient.return_value.chat.completions.create.return_value = StrumienUdawany(kawalki)

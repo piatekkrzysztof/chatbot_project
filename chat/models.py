@@ -91,14 +91,42 @@ class ChatUsageLog(models.Model):
         )
 
 
+#: Skąd wzięła się odpowiedź bota. Steruje trzema rzeczami naraz: raportem
+#: luk w wiedzy, propozycją kontaktu w widgecie i wykresem pokrycia w panelu.
+ZRODLO_DOKUMENT = "document"
+ZRODLO_FAQ = "faq"
+
+#: Bot POWIEDZIAŁ, że nie ma tej wiedzy - postawił [BRAK_ODPOWIEDZI].
+#: To jest luka w wiedzy firmy: właściciel dostaje zapytanie, pozycja ląduje
+#: w raporcie, widget proponuje kontakt.
+ZRODLO_BRAK_WIEDZY = "gpt"
+
+#: Bot obsłużył wiadomość rozmową: powitanie, podziękowanie, „ok".
+#:
+#: Nie ma tu żadnej wiedzy firmy i nie ma czego uzupełniać, więc to NIE jest
+#: luka. Do 8 września 2026 takie wiadomości szły jako „gpt", bo jedyną
+#: przesłanką był brak fragmentów - i skutek widać było na produkcji: na
+#: „cześć, jest tam kto?" widget od razu prosił odwiedzającego o dane
+#: kontaktowe, w pierwszej wymianie zdań.
+#:
+#: Rozróżnienie stało się możliwe dopiero wtedy, gdy o braku wiedzy zaczął
+#: decydować znacznik od modelu, a nie pustka w wynikach wyszukiwania.
+ZRODLO_ROZMOWY = "rozmowa"
+
+ZRODLA_ODPOWIEDZI = [
+    (ZRODLO_FAQ, "FAQ"),
+    (ZRODLO_DOKUMENT, "RAG"),
+    (ZRODLO_BRAK_WIEDZY, "Brak wiedzy firmy"),
+    (ZRODLO_ROZMOWY, "Rozmowa bez wiedzy firmy"),
+]
+
+
 class PromptLog(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
     conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
     model = models.CharField(max_length=50)
     prompt = models.TextField()
-    source = models.CharField(
-        max_length=50, choices=[("faq", "FAQ"), ("document", "RAG"), ("gpt", "GPT fallback")]
-    )
+    source = models.CharField(max_length=50, choices=ZRODLA_ODPOWIEDZI)
     tokens = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     response = models.TextField(blank=True, null=True)

@@ -54,9 +54,10 @@ from django.conf import settings
 from api.utils.chat_engine import (
     ObcinaczZnacznika,
     build_chat_messages,
+    determine_source,
     get_openai_response,
 )
-from chat.models import Conversation
+from chat.models import ZRODLO_BRAK_WIEDZY, Conversation
 from rag.ocena.korpus import DO_WEKTOROW, Pytanie
 from rag.ocena.przebieg import wczytaj_wzorzec, zaloz_baze_wiedzy
 
@@ -71,6 +72,10 @@ class Odpowiedz:
     fragmentow: int
     tokenow: int
     sekund: float
+    #: To, co trafia do PromptLog i steruje widgetem, raportem luk i wykresem
+    #: pokrycia. Znacznik jest tylko JEDNĄ z przesłanek, po których się je
+    #: ustala - i dlatego stoi tu obok `odmowil`, a nie zamiast niego.
+    zrodlo: str = ""
 
     @property
     def trafil_fakt(self) -> bool | None:
@@ -172,6 +177,26 @@ class OcenaGenerowania:
         return sum(o.odmowil for o in uprzejme) / len(uprzejme) if uprzejme else 0.0
 
     @property
+    def uprzejmosci_jako_luka(self) -> float:
+        """
+        Ile powitań zostało zapisanych jako brak wiedzy firmy. Zero albo źle.
+
+        Osobno od `uprzejmosci_odrzucone`, bo mierzą co innego i rozjechały się
+        naprawdę. Znacznik to jedna przesłanka źródła, a nie jedyna: powitanie,
+        na które model odpowiada ciepło, przechodziło tamtą miarę bez zarzutu
+        i mimo to szło jako „gpt" - bo wyszukiwarka nic nie zwróciła.
+
+        Konsekwencje ma dopiero źródło: widget prosi wtedy o dane kontaktowe
+        w pierwszej wymianie zdań, a pozycja ląduje w raporcie luk. Miara, która
+        tego nie widzi, mówi „w porządku" o czymś, co odwiedzający widzi
+        na ekranie.
+        """
+        uprzejme = self._uprzejmosci()
+        if not uprzejme:
+            return 0.0
+        return sum(o.zrodlo == ZRODLO_BRAK_WIEDZY for o in uprzejme) / len(uprzejme)
+
+    @property
     def sprawdzalnych_faktow(self) -> int:
         return sum(1 for o in self.odpowiedzi if o.trafil_fakt is not None)
 
@@ -227,7 +252,7 @@ def zapytaj(firma, pytanie, wzorzec, model=None, temperatura=...) -> Odpowiedz:
 
     with patch("rag.engine.client") as klient:
         klient.embeddings.create.return_value = _wektor_pytania(wzorzec, pytanie)
-        wiadomosci, fragmenty, _faqs = build_chat_messages(firma, rozmowa, pytanie.tresc)
+        wiadomosci, fragmenty, faqi, padlo = build_chat_messages(firma, rozmowa, pytanie.tresc)
 
     start = time.perf_counter()
     wynik = get_openai_response(wiadomosci, model=model, temperatura=temperatura)
@@ -243,6 +268,10 @@ def zapytaj(firma, pytanie, wzorzec, model=None, temperatura=...) -> Odpowiedz:
         fragmentow=len(fragmenty),
         tokenow=wynik["tokens"],
         sekund=sekund,
+        # Prawdziwe `determine_source`, nie wlasna kopia jego regul. Kopia
+        # rozjechalaby sie z produkcja przy pierwszej zmianie i pomiar
+        # opisywalby wtedy produkt, ktorego nie ma.
+        zrodlo=determine_source(fragmenty, faqi, pytanie.tresc, obcinacz.brak_pokrycia, padlo),
     )
 
 
@@ -315,6 +344,10 @@ def opisz_bledy(ocena: OcenaGenerowania) -> list[str]:
             else:
                 opisy.append(f"  ODMOWA mimo pokrycia: {pytanie.tresc}")
         elif pytanie.jest_uprzejmoscia:
+            if odpowiedz.zrodlo == ZRODLO_BRAK_WIEDZY and not odpowiedz.odmowil:
+                opisy.append(
+                    f"  UPRZEJMOSC ZAPISANA JAKO LUKA (zrodlo {odpowiedz.zrodlo}): {pytanie.tresc}"
+                )
             if odpowiedz.odmowil:
                 opisy.append(
                     f"  ODMOWA NA UPRZEJMOSC: {pytanie.tresc}\n      -> {odpowiedz.tresc[:110]}"
