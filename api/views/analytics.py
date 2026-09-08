@@ -156,6 +156,12 @@ class TenantAnalyticsView(APIView):
                 "document": by_source.get("document", 0),
                 "faq": by_source.get("faq", 0),
                 "gpt": by_source.get("gpt", 0),
+                # Powitania i podziekowania. Osobno, bo nie sa ani odpowiedzia
+                # z wiedzy firmy, ani luka do uzupelnienia - wliczone do
+                # ktorejkolwiek z tamtych kolumn zaklamywalyby pokrycie.
+                # Panel liczy pokrycie z trzech pierwszych i dlatego przestal
+                # je zanizac o to, ze odwiedzajacy sie przywital.
+                "rozmowa": by_source.get("rozmowa", 0),
             },
             "usage": {
                 "used": subscription.current_message_count if subscription else 0,

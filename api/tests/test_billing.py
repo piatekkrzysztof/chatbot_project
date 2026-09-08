@@ -9,9 +9,8 @@ i nie dostać ani jednej wiadomości więcej.
 """
 
 import json
-from unittest.mock import patch
-
 from itertools import pairwise
+from unittest.mock import patch
 
 import pytest
 from rest_framework.test import APIClient

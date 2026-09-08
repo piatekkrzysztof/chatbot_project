@@ -9,7 +9,16 @@ from rapidfuzz import fuzz
 from accounts.models import WIDGET_LANGUAGE_ADVERBS
 from api.utils.language import jezyk_odpowiedzi
 from api.utils.tokens import przytnij_do_budzetu
-from chat.models import FAQ, ChatMessage, ChatUsageLog, PromptLog
+from chat.models import (
+    FAQ,
+    ZRODLO_BRAK_WIEDZY,
+    ZRODLO_DOKUMENT,
+    ZRODLO_FAQ,
+    ZRODLO_ROZMOWY,
+    ChatMessage,
+    ChatUsageLog,
+    PromptLog,
+)
 from documents.utils.queue import enqueue
 from rag.engine import query_similar_chunks_pgvector
 
@@ -170,7 +179,9 @@ def zrodla_do_pokazania(chunks, source):
     odpowiedzi, tylko najbliższe trafienia wyszukiwarki — czyli podpis
     pod czymś, czego nie ma.
     """
-    return [] if source == "gpt" else collect_sources(chunks)
+    # Rozmowa (powitanie) tez nie ma zrodel, ale przez pusta liste fragmentow,
+    # nie przez ten warunek - dlatego wystarczy tu samo "brak wiedzy".
+    return [] if source == ZRODLO_BRAK_WIEDZY else collect_sources(chunks)
 
 
 def collect_sources(chunks):
@@ -201,13 +212,22 @@ def collect_sources(chunks):
 def build_chat_messages(tenant, conversation, message_text):
     """
     Składa komplet wiadomości do modelu: system (wiedza) + historia + bieżące pytanie.
-    Zwraca też chunki, żeby wywołujący mógł zbudować listę źródeł.
+
+    Zwraca `(wiadomości, fragmenty, faq, wyszukiwanie_padło)`.
+
+    Czwarta wartość istnieje, bo od 8 września pusta lista fragmentów przestała
+    znaczyć jedno. Brak trafień to normalny wynik — tak wygląda „dzień dobry".
+    Awaria wyszukiwania to co innego: pytanie mogło być prawdziwe, a bot i tak
+    odpowiadał bez bazy wiedzy. Bez tego rozróżnienia awaria pgvectora byłaby
+    zapisywana jako miła pogawędka i znikała z raportu luk.
     """
+    wyszukiwanie_padlo = False
     try:
         chunks = query_similar_chunks_pgvector(tenant.id, message_text, top_k=5)
     except Exception as e:
         logger.exception("Błąd podczas pobierania chunków: %s", e)
         chunks = []
+        wyszukiwanie_padlo = True
 
     faqs = list(FAQ.objects.filter(tenant=tenant).order_by("id")[:MAX_FAQ_IN_PROMPT])
 
@@ -221,7 +241,7 @@ def build_chat_messages(tenant, conversation, message_text):
     # i liczbą wpisów FAQ, a płacimy za każdy token przy każdej wiadomości.
     messages = przytnij_do_budzetu(messages, settings.OPENAI_MAX_INPUT_TOKENS)
 
-    return messages, chunks, faqs
+    return messages, chunks, faqs, wyszukiwanie_padlo
 
 
 def parametry_modelu(temperatura=...):
@@ -349,7 +369,7 @@ class ObcinaczZnacznika:
         return tekst
 
 
-def determine_source(chunks, faqs, message_text, brak_pokrycia=False):
+def determine_source(chunks, faqs, message_text, brak_pokrycia=False, wyszukiwanie_padlo=False):
     """
     Skąd realnie pochodzi pokrycie odpowiedzi — steruje raportem luk w wiedzy
     i tym, czy widget zaproponuje kontakt z firmą.
@@ -363,12 +383,32 @@ def determine_source(chunks, faqs, message_text, brak_pokrycia=False):
     podobieństwo, nie przydatność.
     """
     if brak_pokrycia:
-        return "gpt"
+        return ZRODLO_BRAK_WIEDZY
+    # Awaria wyszukiwania to nie jest pogawedka. Pytanie moglo byc prawdziwe,
+    # a bot odpowiadal bez bazy wiedzy - to nalezy do raportu luk, nawet gdy
+    # model nie postawil znacznika.
+    if wyszukiwanie_padlo:
+        return ZRODLO_BRAK_WIEDZY
     if chunks:
-        return "document"
+        return ZRODLO_DOKUMENT
     if faq_matches_question(faqs, message_text):
-        return "faq"
-    return "gpt"
+        return ZRODLO_FAQ
+
+    # Model nie postawil znacznika, a wyszukiwarka nic nie podala. Znaczy to,
+    # ze obsluzyl wiadomosc rozmowa: powitanie, podziekowanie, "ok".
+    #
+    # Do 8 wrzesnia 2026 stalo tu "gpt" i bylo to jedyne dostepne wyjscie -
+    # przed znacznikiem brak fragmentow byl JEDYNA przeslanka braku wiedzy.
+    # Skutek widac bylo na produkcji: na "czesc, jest tam kto?" widget od razu
+    # prosil odwiedzajacego o dane kontaktowe, w pierwszej wymianie zdan,
+    # a wpis szedl do raportu luk jako brakujaca wiedza.
+    #
+    # Ta zmiana jest bezpieczna DOPIERO teraz. Wczoraj model czesto odpowiadal
+    # na pytania spoza tematu bez znacznika ("Stolica Australii jest Canberra"),
+    # wiec "brak znacznika" nie znaczyl "wszystko w porzadku". Po poprawce
+    # promptu znaczy: zmierzone 100% trafnych odmow, `manage.py
+    # ocen_generowanie`. Gdyby model to stracil, ten sam pomiar to pokaze.
+    return ZRODLO_ROZMOWY
 
 
 def zapisz_pytanie_i_zglos_start(tenant, conversation, message_text):
@@ -444,7 +484,9 @@ def process_chat_message(tenant, conversation, message_text):
 
     zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
 
-    messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
+    messages, chunks, faqs, wyszukiwanie_padlo = build_chat_messages(
+        tenant, conversation, message_text
+    )
 
     # Nieudane wywołanie modelu nie może kosztować klienta wiadomości z planu.
     # Wcześniej widok naliczał bezwarunkowo, więc awaria po naszej stronie
@@ -461,7 +503,9 @@ def process_chat_message(tenant, conversation, message_text):
 
     obcinacz = ObcinaczZnacznika()
     response_text = obcinacz.podaj(response_text) + obcinacz.zakoncz()
-    source = determine_source(chunks, faqs, message_text, obcinacz.brak_pokrycia)
+    source = determine_source(
+        chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
+    )
 
     wiadomosc = persist_exchange(
         tenant,
@@ -516,7 +560,9 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
 
     zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
 
-    messages, chunks, faqs = build_chat_messages(tenant, conversation, message_text)
+    messages, chunks, faqs, wyszukiwanie_padlo = build_chat_messages(
+        tenant, conversation, message_text
+    )
 
     # Znacznik braku odpowiedzi stoi na początku strumienia i nie może dotrzeć
     # do przeglądarki — obcinacz wstrzymuje pierwsze kilkanaście znaków, dopóki
@@ -558,7 +604,9 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
         yield _sse({"type": "delta", "content": reszta})
 
     response_text = "".join(pieces)
-    source = determine_source(chunks, faqs, message_text, obcinacz.brak_pokrycia)
+    source = determine_source(
+        chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
+    )
 
     # Urwany strumień też się liczy: odwiedzający zobaczył treść od modelu,
     # a my zapłaciliśmy za tokeny. Nie liczy się wyłącznie sama awaria,
