@@ -15,12 +15,12 @@ from unittest.mock import patch
 import pytest
 from django.core import mail
 
+from accounts import rozmiar_bazy
 from accounts.models import Tenant
 from accounts.rozmiar_bazy import (
-    PROG_PILNY,
-    PROG_UWAGI,
     ZgloszonyRozmiar,
     firmy_przy_progu,
+    milisekundy,
     sprawdz_rozmiary,
 )
 from documents.models import Document, DocumentChunk
@@ -32,6 +32,29 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture(autouse=True)
 def adres_alertow(settings):
     settings.EMAIL_ALERTOW = "alerty@example.com"
+
+
+@pytest.fixture(autouse=True)
+def male_progi(monkeypatch, request):
+    """
+    Progi sprowadzone do liczb, które da się wpisać do bazy w ułamku sekundy.
+
+    Prawdziwe wynoszą 15 000 i 25 000 fragmentów. Każdy test zakładający firmę
+    „przy progu" wstawiałby tyle wierszy z 512-liczbowym wektorem - dziesiątki
+    megabajtów na test, kilka minut na plik. Sprawdzamy tu LOGIKĘ progów:
+    kiedy się odzywa, kiedy milczy, czy powtarza. Ta jest identyczna przy
+    dowolnych wartościach.
+
+    Same wartości produkcyjne sprawdza `TestWartosciProgow` - osobno, bez
+    wstawiania czegokolwiek do bazy.
+    """
+    # Furtka dla testow, ktore sprawdzaja same wartosci produkcyjne. Marker
+    # robi z tego decyzje widoczna w kodzie testu, zamiast cichego wyjatku.
+    if request.node.get_closest_marker("prawdziwe_progi"):
+        return
+
+    monkeypatch.setattr(rozmiar_bazy, "PROG_UWAGI", 20)
+    monkeypatch.setattr(rozmiar_bazy, "PROG_PILNY", 40)
 
 
 def firma_z_fragmentami(nazwa, ile, uzywaj=True):
@@ -51,12 +74,14 @@ def firma_z_fragmentami(nazwa, ile, uzywaj=True):
 
 class TestKiedyMilczy:
     def test_mala_baza_nie_alarmuje(self):
-        firma_z_fragmentami("Rowerownia", 300)
+        # Ulamek progu, nie stala liczba: "mala" znaczy "daleko od progu",
+        # a prog sie zmienia razem z pomiarem.
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI // 4)
 
         assert firmy_przy_progu() == []
 
     def test_tuz_ponizej_progu_milczy(self):
-        firma_z_fragmentami("Rowerownia", PROG_UWAGI - 1)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI - 1)
 
         assert firmy_przy_progu() == []
 
@@ -66,7 +91,7 @@ class TestKiedyMilczy:
         znacznika ta sama firma wysylalaby wiadomosc kazdego ranka i po tygodniu
         nikt by ich nie czytal - lacznie z ta, ktora bylaby o kims innym.
         """
-        firma_z_fragmentami("Rowerownia", PROG_UWAGI)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI)
 
         assert sprawdz_rozmiary() == 1
         assert sprawdz_rozmiary() == 0
@@ -75,41 +100,41 @@ class TestKiedyMilczy:
 
 class TestKiedyAlarmuje:
     def test_polowa_kolana_daje_uprzedzenie(self):
-        firma_z_fragmentami("Rowerownia", PROG_UWAGI)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI)
 
         znalezione = firmy_przy_progu()
 
         assert len(znalezione) == 1
-        assert znalezione[0]["prog"] == PROG_UWAGI
+        assert znalezione[0]["prog"] == rozmiar_bazy.PROG_UWAGI
 
     def test_kolano_daje_sygnal_pilny(self):
-        firma_z_fragmentami("Rowerownia", PROG_PILNY)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_PILNY)
 
-        assert firmy_przy_progu()[0]["prog"] == PROG_PILNY
+        assert firmy_przy_progu()[0]["prog"] == rozmiar_bazy.PROG_PILNY
 
     def test_firma_ktora_przeskoczyla_oba_progi_dostaje_jedna_wiadomosc(self):
         """
         Klient, ktory wgral duzo naraz, przekracza oba progi tego samego dnia.
         Dwie wiadomosci o tym samym zdarzeniu ucza traktowac je jak szum.
         """
-        firma_z_fragmentami("Rowerownia", PROG_PILNY + 100)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_PILNY + 100)
 
         znalezione = firmy_przy_progu()
 
         assert len(znalezione) == 1
-        assert znalezione[0]["prog"] == PROG_PILNY
+        assert znalezione[0]["prog"] == rozmiar_bazy.PROG_PILNY
 
     def test_przekroczenie_drugiego_progu_odzywa_sie_na_nowo(self):
         # Uprzedzenie i wezwanie to dwa rozne zdarzenia. Firma, ktora rosla
         # powoli, ma uslyszec o kolanie, mimo ze o polowie juz slyszala.
-        firma = firma_z_fragmentami("Rowerownia", PROG_UWAGI)
+        firma = firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI)
         assert sprawdz_rozmiary() == 1
 
         dokument = Document.objects.get(tenant=firma)
         DocumentChunk.objects.bulk_create(
             [
                 DocumentChunk(document=dokument, content=f"d{i}", embedding=[0.0] * WYMIAR_WEKTORA)
-                for i in range(PROG_PILNY - PROG_UWAGI)
+                for i in range(rozmiar_bazy.PROG_PILNY - rozmiar_bazy.PROG_UWAGI)
             ],
             batch_size=500,
         )
@@ -122,7 +147,7 @@ class TestKiedyAlarmuje:
         „2 500 fragmentow" nic nie mowi komus, kto nie pamieta tabeli
         z pomiaru. Milisekundy mowia od razu, czy to juz boli.
         """
-        firma_z_fragmentami("Rowerownia", PROG_UWAGI)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI)
 
         sprawdz_rozmiary()
         tresc = mail.outbox[0].body
@@ -140,13 +165,13 @@ class TestCoLiczymy:
         kosztuje. Ale klient wlacza go jednym kliknieciem w panelu i wtedy
         koszt wraca - a alert przyszedlby po fakcie.
         """
-        firma_z_fragmentami("Rowerownia", PROG_UWAGI, uzywaj=False)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI, uzywaj=False)
 
         assert len(firmy_przy_progu()) == 1
 
     def test_kazda_firma_liczona_osobno(self):
-        firma_z_fragmentami("Duza", PROG_UWAGI)
-        firma_z_fragmentami("Mala", 100)
+        firma_z_fragmentami("Duza", rozmiar_bazy.PROG_UWAGI)
+        firma_z_fragmentami("Mala", rozmiar_bazy.PROG_UWAGI // 4)
 
         znalezione = firmy_przy_progu()
 
@@ -155,7 +180,7 @@ class TestCoLiczymy:
 
 class TestNiezawodnosci:
     def test_nieudana_wysylka_nie_stawia_znacznika(self):
-        firma_z_fragmentami("Rowerownia", PROG_UWAGI)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI)
 
         with patch(
             "accounts.rozmiar_bazy.send_mail", side_effect=RuntimeError("SMTP nie odpowiada")
@@ -167,10 +192,52 @@ class TestNiezawodnosci:
         assert sprawdz_rozmiary() == 1
 
     def test_zero_doreczen_bez_wyjatku_tez_jest_porazka(self):
-        firma_z_fragmentami("Rowerownia", PROG_UWAGI)
+        firma_z_fragmentami("Rowerownia", rozmiar_bazy.PROG_UWAGI)
 
         with patch("accounts.rozmiar_bazy.send_mail", return_value=0):
             with pytest.raises(RuntimeError):
                 sprawdz_rozmiary()
 
         assert ZgloszonyRozmiar.objects.count() == 0
+
+
+@pytest.mark.prawdziwe_progi
+class TestWartosciProgow:
+    """
+    Wartości produkcyjne progów, bez wstawiania czegokolwiek do bazy.
+
+    Reszta pliku sprawdza logikę na progach sprowadzonych do dwudziestu
+    fragmentów. Tutaj sprawdzamy same liczby - bo to one decydują, czy alert
+    przyjdzie na czas, czy pięć razy za wcześnie.
+
+    Poprzednia para (2 500 i 5 000) pochodziła z kolana sprzed skrócenia
+    wektora do 512 wymiarów. Po tamtej migracji odpowiadała 60 i 120 ms,
+    czyli mniej, niż trwa mrugnięcie - i nikt tego nie zauważył, bo nic nie
+    łączyło progu z czasem, który on opisuje.
+    """
+
+    def test_prog_uwagi_to_okolo_pol_sekundy(self):
+        assert 450 <= milisekundy(rozmiar_bazy.PROG_UWAGI) <= 650
+
+    def test_prog_pilny_to_okolo_sekundy(self):
+        assert 900 <= milisekundy(rozmiar_bazy.PROG_PILNY) <= 1200
+
+    def test_progi_sa_we_wlasciwej_kolejnosci(self):
+        assert rozmiar_bazy.PROG_UWAGI < rozmiar_bazy.PROG_PILNY
+
+    def test_krzywa_jest_rosnaca(self):
+        # Interpolacja po punktach nie ma prawa dac czasu malejacego -
+        # a to jest wlasnie ten rodzaj bledu, ktory w wiadomosci do operatora
+        # wyglada jak liczba, a nie jak pomylka.
+        czasy = [
+            milisekundy(n) for n in (500, 1_000, 5_000, 10_000, 15_000, 25_000, 40_000, 60_000)
+        ]
+        assert czasy == sorted(czasy)
+
+    def test_powyzej_zmierzonego_zakresu_dalej_liczy(self):
+        """
+        Firma z 60 000 fragmentow to ekstrapolacja, ale wiadomosc ma podac
+        jakas liczbe, a nie sie wywalic. Zaniza - i tak jest napisane
+        w docstringu `milisekundy`.
+        """
+        assert milisekundy(60_000) > milisekundy(40_000)

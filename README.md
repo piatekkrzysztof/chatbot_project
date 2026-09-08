@@ -494,9 +494,13 @@ Honest list. These are measured or known, not hypothetical.
 
 **Now — engineering quality.** Ruff, formatter, type checking, `pip-audit`, Bandit and
 coverage in CI, with the threshold set just below the first measured value and raised from
-there. Docker image build in CI. Split `api/utils/chat_engine.py` (524 lines) into
-single-responsibility services — retrieval, prompt assembly, streaming, persistence —
-because it is the file every feature touches, not because it is long.
+there. Docker image build in CI.
+
+`api/utils/chat_engine.py` was split on 8 September 2026: the coverage protocol moved to
+`api/utils/pokrycie.py` and the system prompt to `api/utils/prompt_systemowy.py`, leaving
+401 lines. Not for the line count — each of the two is a concept with its own consumers,
+its own tests and its own way of failing. Retrieval, streaming and persistence stay
+together for now, because nothing has yet made a case for separating them.
 
 **Next — provable AI quality.** A versioned set of 50–100 evaluation questions with
 expected sources, then Recall@k, source precision, faithfulness, abstention accuracy,
