@@ -1,7 +1,6 @@
 import uuid
 
 import pytest
-from django.core.exceptions import ValidationError
 from rest_framework.test import APIClient
 
 from accounts.models import Tenant
@@ -77,5 +76,7 @@ def test_widget_settings_missing_key(api_client, tenant, user, subscribtion):
 @pytest.mark.django_db
 def test_widget_settings_invalid_uuid_format(api_client, tenant, user, subscribtion):
     api_client.force_authenticate(user=user)
-    with pytest.raises(ValidationError):
-        api_client.get("/api/widget-settings/", HTTP_X_API_KEY="not-a-uuid")
+    # Niepoprawny klucz to odmowa uwierzytelnienia, a nie nieobsłużony wyjątek/500.
+    response = api_client.get("/api/widget-settings/", HTTP_X_API_KEY="not-a-uuid")
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Nieprawidłowy klucz API"}

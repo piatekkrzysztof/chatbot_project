@@ -79,6 +79,9 @@ def test_cache_key_generation(tenant, user):
 
     factory = APIRequestFactory()
     request = factory.get("/api/chat/", HTTP_X_API_KEY=str(tenant.api_key))
+    # Firmę ustala uwierzytelnianie/middleware, nigdy licznik żądań.
+    request.tenant = tenant
+    request.user = user
     throttle = APIKeyRateThrottle()
     key = throttle.get_cache_key(request, None)
     assert key.startswith("throttle_chat_tenant-")
