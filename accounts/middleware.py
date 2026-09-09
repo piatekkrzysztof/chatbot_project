@@ -1,6 +1,7 @@
 import logging
 
 from dateutil.relativedelta import relativedelta
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
@@ -8,6 +9,7 @@ from rest_framework.exceptions import APIException, AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import Tenant
+from accounts.tenancy import verified_request_tenant
 
 from .models import Subscription
 from .odmowy import PowodOdmowy, zapisz_odmowe
@@ -64,33 +66,26 @@ class TenantMiddleware:
         ):
             return
 
+        # Nieprawidłowy lub wygasły JWT kończy uwierzytelnianie. Nie wolno
+        # po jego błędzie przejść na mniej uprzywilejowany tryb klucza widgetu.
+        user_auth_tuple = JWTAuthentication().authenticate(request)
+        if user_auth_tuple:
+            request.user, _ = user_auth_tuple
+
         tenant = None
-
-        # 1. Jeśli user jest już zalogowany (force_authenticate albo login przez DRF/JWT)
-        if hasattr(request, "user") and getattr(request.user, "is_authenticated", False):
-            tenant = getattr(request.user, "tenant", None)
-            if tenant:
-                request.tenant = tenant
-
-        # 2. Jeśli nie user, to JWT
-        if not tenant:
-            try:
-                jwt_auth = JWTAuthentication()
-                user_auth_tuple = jwt_auth.authenticate(request)
-                if user_auth_tuple:
-                    user, _ = user_auth_tuple
-                    request.user = user
-                    tenant = getattr(user, "tenant", None)
-            except Exception:
-                pass
-
-        # 3. Jeśli nie user, nie JWT, to spróbuj po API Key
-        if not tenant:
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            tenant = getattr(user, "tenant", None)
+            if tenant is None:
+                raise AuthenticationFailed("Nie rozpoznano tenanta")
+        else:
+            # Klucz rozpoznaje firmę odwiedzającego. Dostęp do panelu nadal
+            # wymaga JWT w widoku; sam publiczny klucz go nie uwierzytelnia.
             api_key = request.headers.get("X-API-Key")
             if api_key:
                 try:
                     tenant = Tenant.objects.get(api_key=api_key)
-                except Tenant.DoesNotExist:
+                except (Tenant.DoesNotExist, DjangoValidationError):
                     raise AuthenticationFailed("Nieprawidłowy klucz API") from None
 
         # 4. Ostatecznie, jeśli nadal brak tenant – blokuj request
@@ -98,6 +93,7 @@ class TenantMiddleware:
             raise AuthenticationFailed("Nie rozpoznano tenanta")
 
         request.tenant = tenant
+        verified_request_tenant(request)
 
     #: Sciezki, ktore obsluguja odwiedzajacego strone klienta.
     #:
@@ -313,7 +309,9 @@ class DziennikAudytuMiddleware(MiddlewareMixin):
         try:
             WpisDziennika.objects.create(
                 tenant=getattr(request, "tenant", None),
-                uzytkownik=uzytkownik,
+                # Usunięte własne konto ma już pk=None; nazwa autora zostaje
+                # w osobnym polu także po takim poprawnym zakończeniu żądania.
+                uzytkownik_id=getattr(uzytkownik, "pk", None),
                 nazwa_uzytkownika=getattr(uzytkownik, "username", "") or "",
                 metoda=request.method,
                 sciezka=request.path[:255],

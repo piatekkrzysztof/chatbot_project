@@ -4,7 +4,6 @@ from io import TextIOWrapper
 from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import ListAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -13,7 +12,7 @@ from rest_framework.views import APIView
 from api.permissions import IsOwnerOrEmployee
 from api.schemas import ErrorSerializer, MessageSerializer
 from api.utils.mixins import TenantQuerysetMixin
-from chat.models import Conversation, PromptLog, Tenant
+from chat.models import Conversation, PromptLog
 from chat.zapytania import logi_klientow
 
 
@@ -32,16 +31,7 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
     queryset = PromptLog.objects.all()
 
     def get(self, request, *args, **kwargs):
-        logs = self.get_queryset().order_by("-created_at")
-        api_key = request.headers.get("X-API-KEY")
-        if not api_key:
-            raise PermissionDenied("Brak klucza API.")
-
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-        except Tenant.DoesNotExist:
-            raise PermissionDenied("Niepoprawny klucz API.") from None
-
+        tenant = request.user.tenant
         # Eksport dotyczy ruchu klientów; próby właściciela to nie ich dane.
         logs = logi_klientow(tenant).order_by("-created_at")
 
@@ -85,14 +75,7 @@ class ImportPromptLogsCSVView(APIView):
     permission_classes = [IsOwnerOrEmployee]
 
     def post(self, request):
-        api_key = request.headers.get("X-API-KEY")
-        if not api_key:
-            raise PermissionDenied("Brak klucza API.")
-
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-        except Tenant.DoesNotExist:
-            raise PermissionDenied("Niepoprawny klucz API.") from None
+        tenant = request.user.tenant
 
         csv_file = request.FILES.get("file")
         if not csv_file:

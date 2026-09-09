@@ -1,7 +1,23 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
+from accounts.tenancy import verified_request_tenant
 
-class IsOwner(BasePermission):
+
+class IsTenantMember(BasePermission):
+    """Aktywny użytkownik i zgodna, wcześniej ustalona firma żądania."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        return bool(
+            user
+            and user.is_authenticated
+            and user.is_active
+            and getattr(user, "tenant_id", None)
+            and verified_request_tenant(request)
+        )
+
+
+class IsOwner(IsTenantMember):
     """
     Pozwala tylko użytkownikom z rolą 'owner'.
     """
@@ -13,38 +29,22 @@ class IsOwner(BasePermission):
         # wyjątkami przy każdym przypadkowym wejściu bota z internetu.
         # IsOwnerOrEmployee obok zabezpiecza się przed tym od dawna.
         return bool(
-            request.user
-            and getattr(request.user, "is_authenticated", False)
-            and getattr(request.user, "role", None) == "owner"
+            super().has_permission(request, view) and getattr(request.user, "role", None) == "owner"
         )
 
 
-class IsOwnerOrEmployee(BasePermission):
+class IsOwnerOrEmployee(IsTenantMember):
     """
     Pozwala użytkownikom z rolą 'owner' lub 'employee'.
     """
 
     def has_permission(self, request, view):
         return bool(
-            hasattr(request, "user")
-            and hasattr(request.user, "role")
-            and request.user.role in ["owner", "employee"]
+            super().has_permission(request, view) and request.user.role in ["owner", "employee"]
         )
 
 
-class IsTenantMember(BasePermission):
-    """
-    Użytkownik musi należeć do tenantowego systemu (czyli dowolna rola).
-    Można stosować jako ogólne sprawdzenie obecności w systemie.
-    """
-
-    def has_permission(self, request, view):
-        return bool(
-            request.user and request.user.is_authenticated and hasattr(request.user, "tenant")
-        )
-
-
-class IsOwnerOrEmployeeOrTenantReadOnly(BasePermission):
+class IsOwnerOrEmployeeOrTenantReadOnly(IsTenantMember):
     """
     Zapis dla właściciela i pracownika, odczyt dla każdego członka firmy.
 
@@ -66,11 +66,8 @@ class IsOwnerOrEmployeeOrTenantReadOnly(BasePermission):
     """
 
     def has_permission(self, request, view):
-        uzytkownik = getattr(request, "user", None)
-        if not (uzytkownik and getattr(uzytkownik, "is_authenticated", False)):
-            return False
-        if not getattr(uzytkownik, "tenant_id", None):
+        if not super().has_permission(request, view):
             return False
         if request.method in SAFE_METHODS:
             return True
-        return getattr(uzytkownik, "role", None) in ("owner", "employee")
+        return request.user.role in ("owner", "employee")

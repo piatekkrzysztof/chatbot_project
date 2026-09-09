@@ -3,8 +3,9 @@ import hashlib
 from django.conf import settings
 from rest_framework.throttling import SimpleRateThrottle
 
-from accounts.models import Subscription, Tenant
+from accounts.models import Subscription
 from accounts.plans import rate_for
+from accounts.tenancy import verified_request_tenant
 from chat.privacy import client_ip
 
 
@@ -28,14 +29,14 @@ class BaseSubscriptionThrottle(SimpleRateThrottle):
         czyli klient planu Pro chodził po panelu na stawce darmowej. Limit
         z cennika obowiązywał tylko tam, gdzie akurat przeszedł middleware.
 
-        Wynik zapisujemy na żądaniu, bo get_cache_key obu klas throttle robi
-        dokładnie to samo zapytanie — w sumie wychodzi ich mniej, nie więcej.
+        Wynik zapisujemy na żądaniu, aby oba throttle korzystały z jednej
+        subskrypcji bez ponownego zapytania. Nie zmieniamy tożsamości firmy.
         """
+        tenant = verified_request_tenant(self.request)
         subskrypcja = getattr(self.request, "subscription", None)
         if subskrypcja is not None:
             return subskrypcja
 
-        tenant = getattr(self.request, "tenant", None)
         if tenant is None:
             return None
 
@@ -79,24 +80,11 @@ class APIKeyRateThrottle(BaseSubscriptionThrottle):
     scope = "chat"
 
     def get_cache_key(self, request, view):
+        tenant = verified_request_tenant(request)
         api_key = request.headers.get("X-API-KEY")
-        if not api_key:
+        if not api_key or tenant is None:
             return None
-
-        try:
-            tenant = Tenant.objects.get(api_key=api_key)
-            request.tenant = tenant
-
-            # Pobierz aktywną subskrypcję (jeśli istnieje)
-            subscription = (
-                Subscription.objects.filter(tenant=tenant, is_active=True)
-                .order_by("-end_date")
-                .first()
-            )
-            request.subscription = subscription
-            return self.cache_format % {"scope": self.scope, "ident": f"tenant-{tenant.pk}"}
-        except Tenant.DoesNotExist:
-            return None
+        return self.cache_format % {"scope": self.scope, "ident": f"tenant-{tenant.pk}"}
 
     def get_plan_rate(self, plan):
         # Stawki pochodzą z katalogu planów — patrz accounts/plans.py
@@ -145,23 +133,9 @@ class SubscriptionRateThrottle(BaseSubscriptionThrottle):
     scope = "subscription"
 
     def get_cache_key(self, request, view):
-        tenant = getattr(request, "tenant", None)
-        if not tenant:
-            api_key = request.headers.get("X-API-KEY")
-            if not api_key:
-                return None
-
-            try:
-                tenant = Tenant.objects.get(api_key=api_key)
-                request.tenant = tenant
-            except Tenant.DoesNotExist:
-                return None
-
-        # Pobierz aktywną subskrypcję
-        subscription = (
-            Subscription.objects.filter(tenant=tenant, is_active=True).order_by("-end_date").first()
-        )
-        request.subscription = subscription
+        tenant = verified_request_tenant(request)
+        if tenant is None:
+            return None
         return self.cache_format % {"scope": self.scope, "ident": f"tenant-{tenant.pk}"}
 
     def get_plan_rate(self, plan):
