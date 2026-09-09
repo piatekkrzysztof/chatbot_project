@@ -385,7 +385,10 @@ jobs:
               'chatbot_project/media/private.py', 'chatbot_project/backups/private.py',
               '.venv/private.py', 'chatbot_project/private.key',
               'chatbot_project/private.sqlite3',
+              'chatbot_project/settings/private.json',
           ]
+          for package in ('accounts', 'api', 'chat', 'chatbot_project', 'documents', 'rag'):
+              paths.append(f'{package}/private.txt')
           for name in paths:
               Path(name).write_text('SYNTHETIC_IMAGE_EXCLUSION_CHECK', encoding='utf-8')
           PY
@@ -410,12 +413,18 @@ jobs:
           assert os.geteuid() != 0, 'Aplikacja działa jako root'
           for path in root.rglob('*'):
               if path.is_file():
+                  relative = path.relative_to(root).as_posix()
+                  assert path.suffix == '.py' or relative in (
+                      'requirements.txt', 'rag/ocena/wzorzec.json',
+                  ), relative
                   assert not path.name.startswith('.env'), path
                   assert b'SYNTHETIC_IMAGE_EXCLUSION_CHECK' not in path.read_bytes(), path
           for name in ('.git', '.venv', 'venv', 'media', 'backups', 'conftest.py',
                        'requirements-dev.txt', 'documents/test.pdf'):
               assert not (root / name).exists(), name
           assert not list(root.rglob('test_*.py'))
+          assert not list(root.rglob('tests.py'))
+          assert not list(root.rglob('tests'))
           for package in ('pytest', 'factory', 'reportlab'):
               assert importlib.util.find_spec(package) is None, package
           for name in ('accounts/models.py', 'api/views/widget.py', 'chat/models.py',
