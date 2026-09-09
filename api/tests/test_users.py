@@ -85,6 +85,9 @@ def test_user_cannot_access_users_from_another_tenant(
     user,
     subscribtion,
 ):
+    # Lista zespołu jest przeznaczona dla właściciela i pracownika.
+    user.role = "employee"
+    user.save(update_fields=["role"])
     tenant2 = Tenant.objects.create(name="T2", owner_email="a@t2.com")
     Subscription.objects.create(
         tenant=tenant2,
