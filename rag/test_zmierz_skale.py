@@ -223,7 +223,16 @@ class TestPorownaniaRozmiaru:
         znaczyc po trzecim uruchomieniu - a wtedy pierwsze prawdziwe przejdzie
         niezauwazone.
         """
-        with patch.object(OutputWrapper, "write") as pisz:
+        # pg_total_relation_size zależy od wolnych stron i autovacuum. Test
+        # komunikatu dostaje znany przyrost 2,8 kB/fragment; rzeczywisty odczyt
+        # z PostgreSQL pozostaje w test_wypisuje_zmierzony_rozmiar_obok_oszacowania.
+        with (
+            patch(
+                "rag.management.commands.zmierz_skale.Command._rozmiar_tabeli",
+                side_effect=[0, 2_867_200],
+            ),
+            patch.object(OutputWrapper, "write") as pisz,
+        ):
             uruchom(do=1000)
 
         tekst = " ".join(str(w.args[0]) for w in pisz.call_args_list if w.args)
@@ -248,7 +257,15 @@ class TestPorownaniaRozmiaru:
             ]
         )
 
-        with patch.object(OutputWrapper, "write") as pisz:
+        # Duża tabela przed pomiarem i znany przyrost. Odczyt zależny od
+        # autovacuum nie dowodził poprawności odejmowania i losowo psuł CI.
+        with (
+            patch(
+                "rag.management.commands.zmierz_skale.Command._rozmiar_tabeli",
+                side_effect=[10_485_760, 13_352_960],
+            ),
+            patch.object(OutputWrapper, "write") as pisz,
+        ):
             uruchom(do=1000)
 
         tekst = " ".join(str(w.args[0]) for w in pisz.call_args_list if w.args)
@@ -256,3 +273,5 @@ class TestPorownaniaRozmiaru:
             "Cudze fragmenty weszly do pomiaru - komenda liczy rozmiar tabeli "
             "zamiast jego przyrostu."
         )
+        assert "2.8 kB/fragment" in tekst
+        assert DocumentChunk.objects.filter(document=dokument).count() == 2000
