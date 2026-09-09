@@ -127,6 +127,14 @@ Po naprawie 46 testów retencji/czatu/prywatności przeszło. Rozszerzone przypa
 zostały dołączone do pełnej regresji. Wynik CI dla bieżącego commita jest
 warunkiem scalenia; lokalna weryfikacja używa Pythona 3.12 i PostgreSQL 15.
 
+Pierwsza pełna regresja: 1266 testów przeszło, 2 testy porównania fizycznego
+rozmiaru tabeli nie przeszły; pokrycie 87,91%. Ten sam problem wystąpił już
+8.09.2026 w [CI wcześniejszego main](https://github.com/piatekkrzysztof/chatbot_project/actions/runs/34251506770).
+Testy obliczania przyrostu i ostrzeżeń używają teraz znanych odczytów rozmiaru,
+zamiast wymagać od każdej bazy takiego samego przyrostu przy autovacuum i ponownym
+wykorzystywaniu wolnych stron. Test rzeczywistego odczytu PostgreSQL pozostaje.
+Kod narzędzia pomiarowego oraz jego próg ostrzegania nie zostały zmienione.
+
 Wersja aplikacji wzrasta do 1.0.6. Nie dodano migracji ani zmiennych środowiskowych.
 Wdrożenie wymaga aktualizacji backendu i workera z tym samym commitem; nie wymaga
 ponownego importu wiedzy ani ręcznego uruchamiania retencji na produkcji.
