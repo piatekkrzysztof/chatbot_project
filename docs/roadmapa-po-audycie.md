@@ -12,8 +12,8 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 
 | Etap | Ustalenia | Zakres i warunek odbioru | Status |
 |---|---|---|---|
-| 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | Zakończony lokalnie; bez wdrożenia |
-| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | Do wykonania |
+| 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | Scalony w PR #38; CI main przeszło; produkcja niezweryfikowana |
+| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | 2a: poprawka retencji, Docker i DRF w bieżącej gałęzi; 2b: prywatne magazyny oraz pozostałe repozytoria do wykonania |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | Kontrola SSRF/DNS/redirectów i uploadu, budżety oraz rezerwacje wiadomości; formularze odporne na awarie i spam | Do wykonania |
 | 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | Do wykonania |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
@@ -95,3 +95,66 @@ Pełny zakres usprawnień dziennika z F20 nadal pozostaje otwarty.
   schematu danych, zależności ani kodu frontendu/witryny; nie wykonywano wdrożenia.
 - Gałąź: `codex/audit-access-control`. Następny etap: prywatność dokumentów
   i backupów, poprawność retencji, kontekst Docker i podatne zależności.
+
+## Etap 2a — retencja, obraz i zależności backendu
+
+Gałąź `codex/audit-data-protection` powstała ze scalonego PR #38
+(`8015bcb136f6e47c0149558e511a8ba7564f043d`). Przebieg CI tego commita na main
+zakończył się powodzeniem. Stan wdrożenia usług nie został sprawdzony.
+
+- F13: zwykły zapis wiadomości blokuje rozmowę i atomowo odświeża jej aktywność.
+  Retencja pomija zablokowane rozmowy oraz ponownie sprawdza ich datę i faktyczne
+  wiadomości pod blokadą. Chroni to także wiadomości zapisane przed naprawą,
+  mimo nieaktualnego `last_message_at`.
+- Polityka rozmów: usuwamy całą rozmowę po okresie nieaktywności. Świeża
+  wiadomość zachowuje również starszy kontekst tej rozmowy. PromptLog,
+  ChatUsageLog i ContactRequest wygasają niezależnie według `created_at`.
+- F05: `.dockerignore` dopuszcza wybrane pliki runtime. Produkcyjny Dockerfile
+  kopiuje wskazane pakiety i instaluje tylko `requirements.txt`; Compose wybiera
+  osobny etap development z narzędziami testowymi.
+- CI buduje obraz z syntetycznymi plikami przypominającymi sekrety i dane,
+  następnie sprawdza ich nieobecność, kompletność kodu runtime i użytkownika
+  bez uprawnień root. Lokalny silnik Docker jest niedostępny.
+- F12, backend: DRF 3.16.0 → 3.17.2, poprawka CVE-2026-73228 i CVE-2026-73229.
+  Skan `pip-audit -r requirements.txt` z 9.09.2026 nie zgłosił znanych podatności.
+  Nie jest to wynik skanowania frontendu ani strony marketingowej.
+- Nowe regresje odtwarzają utratę świeżych wiadomości, aktualizację aktywności,
+  granicę okresu retencji, rollback zapisu, retencję logów/kontaktów, współbieżny
+  zapis oraz limit wielkości JSON i formularzy na uwierzytelnionym API.
+
+Pierwsza próba nowych testów retencji przed naprawą: 5 niepowodzeń i 2 sukcesy.
+Po naprawie 46 testów retencji/czatu/prywatności przeszło. Rozszerzone przypadki
+zostały dołączone do pełnej regresji. Wynik CI dla bieżącego commita jest
+warunkiem scalenia; lokalna weryfikacja używa Pythona 3.12 i PostgreSQL 15.
+
+Pierwsza pełna regresja: 1266 testów przeszło, 2 testy porównania fizycznego
+rozmiaru tabeli nie przeszły; pokrycie 87,91%. Ten sam problem wystąpił już
+8.09.2026 w [CI wcześniejszego main](https://github.com/piatekkrzysztof/chatbot_project/actions/runs/34251506770).
+Testy obliczania przyrostu i ostrzeżeń używają teraz znanych odczytów rozmiaru,
+zamiast wymagać od każdej bazy takiego samego przyrostu przy autovacuum i ponownym
+wykorzystywaniu wolnych stron. Test rzeczywistego odczytu PostgreSQL pozostaje.
+Kod narzędzia pomiarowego oraz jego próg ostrzegania nie zostały zmienione.
+
+Końcowa pełna regresja: **1268 testów przeszło**, 8 ostrzeżeń Django o przyszłej
+zmianie domyślnego schematu URL, 421,33 s; **87,92% pokrycia** przy progu 83%.
+Etap dodaje 17 przypadków (13 retencji i 4 rozmiaru żądań). Ruff: 47 istniejących
+zgłoszeń, 254 pliki zgodne z formatowaniem. Bandit zmienionego kodu produkcyjnego:
+0 zgłoszeń. Wszystkie 7 zmienionych plików Python ma tę samą strukturę AST
+co kod użyty do testów. Budowę i zawartość obrazu musi jeszcze sprawdzić CI.
+
+Wersja aplikacji wzrasta do 1.0.6. Nie dodano migracji ani zmiennych środowiskowych.
+Wdrożenie wymaga aktualizacji backendu i workera z tym samym commitem; nie wymaga
+ponownego importu wiedzy ani ręcznego uruchamiania retencji na produkcji.
+
+## Etap 2b — następny krok
+
+- Potwierdzić dostawcę i rzeczywiste ustawienia publicznych oraz prywatnych
+  magazynów. Kod nie dowodzi, że obecnie zapisane dokumenty są prywatne.
+- Oddzielić zapis dokumentów i zaszyfrowanych kopii od publicznych logo;
+  przygotować kontrolowaną migrację istniejących plików, weryfikację dostępu
+  i odtworzenia oraz instrukcję konfiguracji usług przed przełączeniem zapisu.
+- Usunąć podatności zależności frontendu i strony marketingowej w ich osobnych
+  repozytoriach, z odpowiednimi testami i PR-ami.
+
+F04 i całościowe F12 pozostają otwarte. Bieżąca poprawka nie zmienia istniejących
+plików w magazynie, sekretów produkcyjnych ani konfiguracji usług hostingowych.

@@ -35,6 +35,7 @@ def _old_conversation(tenant, days_ago):
     stamp = timezone.now() - timedelta(days=days_ago)
     # auto_now/auto_now_add pomijają zwykły save(), stąd update() na queryset
     Conversation.objects.filter(pk=conversation.pk).update(last_message_at=stamp)
+    ChatMessage.objects.filter(conversation=conversation).update(timestamp=stamp)
     return conversation, stamp
 
 

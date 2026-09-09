@@ -1,6 +1,7 @@
 import uuid
 
-from django.db import models
+from django.db import models, router, transaction
+from django.db.models.functions import Greatest
 
 from accounts.models import Tenant
 
@@ -66,6 +67,17 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"{self.sender.title()}: {self.message[:50]}"
+
+    def save(self, *args, **kwargs):
+        using = kwargs.get("using") or router.db_for_write(type(self), instance=self)
+        # Retencja blokuje ten sam rekord, zanim sprawdzi wiadomości i usunie
+        # rozmowę. Zapis i aktualizacja aktywności muszą być jedną transakcją.
+        with transaction.atomic(using=using):
+            Conversation.objects.using(using).select_for_update().get(pk=self.conversation_id)
+            super().save(*args, **kwargs)
+            Conversation.objects.using(using).filter(pk=self.conversation_id).update(
+                last_message_at=Greatest("last_message_at", self.timestamp)
+            )
 
 
 class FAQ(models.Model):
