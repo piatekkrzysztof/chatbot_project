@@ -1,6 +1,7 @@
 import os
 
 from chatbot_project.observability import init_sentry
+from chatbot_project.storage import private_storage_config
 
 from .base import *
 
@@ -153,6 +154,10 @@ STORAGES = {
         )
     },
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "private_documents": private_storage_config("DOCUMENTS", AWS_STORAGE_BUCKET_NAME),
+    "private_backups": private_storage_config(
+        "BACKUPS", AWS_STORAGE_BUCKET_NAME, os.getenv("DOCUMENTS_STORAGE_BUCKET_NAME", "")
+    ),
 }
 
 # Klucze Stripe definiuje base.py — tutaj nie powtarzamy.

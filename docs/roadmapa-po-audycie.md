@@ -12,8 +12,8 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 
 | Etap | Ustalenia | Zakres i warunek odbioru | Status |
 |---|---|---|---|
-| 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | Scalony w PR #38; CI main przeszło; produkcja niezweryfikowana |
-| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | 2a: poprawka retencji, Docker i DRF w bieżącej gałęzi; 2b: prywatne magazyny oraz pozostałe repozytoria do wykonania |
+| 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
+| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | 2a: PR #39 scalony i wdrożony; 2b: kod prywatnych magazynów w przygotowaniu, konfiguracja i migracja produkcyjna pozostają otwarte; zależności pozostałych repozytoriów do wykonania |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | Kontrola SSRF/DNS/redirectów i uploadu, budżety oraz rezerwacje wiadomości; formularze odporne na awarie i spam | Do wykonania |
 | 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | Do wykonania |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
@@ -158,3 +158,17 @@ ponownego importu wiedzy ani ręcznego uruchamiania retencji na produkcji.
 
 F04 i całościowe F12 pozostają otwarte. Bieżąca poprawka nie zmienia istniejących
 plików w magazynie, sekretów produkcyjnych ani konfiguracji usług hostingowych.
+
+### Aktualizacja 2b — prywatne pliki
+
+Gałąź `codex/audit-private-storage`, wydanie 2.0.0. Wymaga konfiguracji przed
+automatycznym wdrożeniem: nowy zapis dokumentów jest zamknięty bez prywatnego
+magazynu, a kopie wymagają niezależnego klucza Fernet. Odczyt starych dokumentów
+pozostaje dostępny podczas migracji; nie ma publicznego URL w API ani polu pliku.
+
+Render potwierdził 9.09.2026 wdrożenie `4ac315871eab5ca54d0747a62c3595a10b444490`
+na web i workerze. Web używa Cloudflare R2, worker nie ma zmiennych `AWS_*`.
+Nie sprawdzono polityk dostępu bezpośrednio w Cloudflare i nie zmieniano produkcji.
+[Instrukcja konfiguracji i migracji](prywatne-pliki-i-kopie.md) opisuje kolejność,
+zakres narzędzia oraz warunki zamknięcia F04. Zależności frontendu i witryny
+marketingowej pozostają osobnymi PR-ami.

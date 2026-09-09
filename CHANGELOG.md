@@ -16,6 +16,32 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-09-09
+
+### Security
+
+- New documents use a dedicated private store and unpredictable names scoped to
+  the company. Downloads check the authenticated company before opening a file;
+  public widget keys cannot download originals. Public logos retain their store.
+- Backups are authenticated Fernet ciphertext, including local copies. Remote
+  backups require a separate private bucket and never create a local plaintext
+  dump. Missing keys, damaged copies and existing output files stop the command.
+- A resumable migration copies and verifies legacy documents and encrypts legacy
+  JSON backups. Source deletion requires a separate explicit option. Existing
+  files remain readable during the transition, without publishing their URLs.
+
+### Deployment required
+
+- This major release changes storage configuration and the backup format.
+  Configure private document storage on web and worker before deployment, and
+  private backup storage plus an independent encryption key on the backup host.
+  New document uploads return 503 until configured. Restore encrypted backups
+  using `decrypt_backup` before `loaddata`.
+- Run the field-state migration, migrate existing objects, verify cloud access
+  policies and then disable legacy reads. Follow
+  [the deployment and migration guide](docs/prywatne-pliki-i-kopie.md).
+  The SQL schema and existing document keys do not change.
+
 ## [1.0.6] — 2026-09-09
 
 ### Security

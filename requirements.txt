@@ -78,3 +78,6 @@ PyYAML==6.0.2
 
 # Monitoring błędów
 sentry-sdk==2.29.1
+
+# Szyfrowanie uwierzytelnione kopii zapasowych (Fernet).
+cryptography==50.0.1

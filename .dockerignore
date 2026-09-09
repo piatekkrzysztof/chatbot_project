@@ -25,6 +25,7 @@
 **/*.key
 **/*.sqlite*
 **/media/**
+**/private-media/**
 **/backups/**
 **/.git/**
 **/venv/**
