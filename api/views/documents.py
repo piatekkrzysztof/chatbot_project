@@ -1,5 +1,8 @@
 import logging
 
+from django.core.exceptions import ImproperlyConfigured
+from django.core.files.storage import storages
+from django.http import FileResponse, Http404
 from drf_spectacular.utils import extend_schema
 from pypdf.errors import PyPdfError
 from rest_framework import status, viewsets
@@ -18,6 +21,7 @@ from api.utils.mixins import TenantQuerysetMixin
 # Ta sama zasada odczytu wartości logicznej co w ustawieniach widgetu:
 # formularz multipart przysyła "true"/"false" jako tekst.
 from api.views.widget import _wlaczone
+from chatbot_project.storage import UnconfiguredPrivateStorage
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.tasks import crawl_and_import_website_source, embed_document_task
 from documents.utils.pdf_parser import extract_text_from_pdf
@@ -55,6 +59,29 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return super().get_queryset().order_by("-uploaded_at")
+
+    @extend_schema(responses={(200, "application/octet-stream"): bytes})
+    @action(detail=True, methods=["get"], url_path="download")
+    def download(self, request, pk=None):
+        document = self.get_object()
+        if not document.file:
+            raise Http404
+        try:
+            handle = document.file.open("rb")
+        except FileNotFoundError as error:
+            raise Http404 from error
+        except ImproperlyConfigured:
+            return Response({"error": "Prywatny magazyn dokumentów jest niedostępny."}, status=503)
+        response = FileResponse(
+            handle,
+            as_attachment=True,
+            filename=document.name,
+            content_type="application/octet-stream",
+        )
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "sandbox"
+        return response
 
     @extend_schema(
         tags=["Panel — baza wiedzy"],
@@ -113,6 +140,12 @@ class UploadDocumentView(APIView):
 
         if not file:
             return Response({"error": "No file provided."}, status=400)
+
+        if isinstance(storages["private_documents"], UnconfiguredPrivateStorage):
+            return Response(
+                {"error": "Magazyn dokumentów nie jest skonfigurowany. Skontaktuj się z obsługą."},
+                status=503,
+            )
 
         # Treść wyodrębniamy przed zapisem, bo bez niej nie da się sprawdzić
         # limitu bazy wiedzy — a dokument zapisany i zaraz usunięty zostawiałby

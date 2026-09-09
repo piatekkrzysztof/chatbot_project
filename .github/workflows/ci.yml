@@ -377,6 +377,7 @@ jobs:
       - name: Syntetyczne sekrety i dane poza kontekstem obrazu
         run: |
           mkdir -p media backups chatbot_project/media chatbot_project/backups .venv
+          mkdir -p chatbot_project/private-media
           python - <<'PY'
           from pathlib import Path
           paths = [
@@ -386,6 +387,7 @@ jobs:
               '.venv/private.py', 'chatbot_project/private.key',
               'chatbot_project/private.sqlite3',
               'chatbot_project/settings/private.json',
+              'chatbot_project/private-media/private.py',
           ]
           for package in ('accounts', 'api', 'chat', 'chatbot_project', 'documents', 'rag'):
               paths.append(f'{package}/private.txt')

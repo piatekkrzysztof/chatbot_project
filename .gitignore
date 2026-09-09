@@ -18,6 +18,7 @@ chroma_db/
 
 # Pliki wgrywane przez użytkowników
 media/
+private-media/
 
 # Django
 staticfiles/

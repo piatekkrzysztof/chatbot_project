@@ -1,115 +1,69 @@
-"""
-Zrzut danych aplikacji do pliku.
+"""Szyfrowana kopia danych aplikacji; zdalny zapis tylko do osobnego magazynu."""
 
-Darmowa baza na Renderze nie ma żadnych kopii zapasowych i wygasa 30 dni po
-utworzeniu — dokumentacja Rendera mówi to wprost. Ta komenda zdejmuje zależność
-od planu bazy: najgorszy scenariusz to odtworzenie z pliku, a nie zaczynanie
-od zera.
-
-Pomijamy tabele, które migracje i tak odtwarzają (typy zawartości, uprawnienia,
-sesje, log adminstracyjny). Ich zrzut nie tylko zajmuje miejsce, ale przy
-odtwarzaniu koliduje z rekordami tworzonymi przez migracje.
-"""
-
-import datetime
-import io
-import json
-import os
+import uuid
+from pathlib import Path
 
 from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
+from django.core.files.storage import storages
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
-# Odtwarzane przez migracje — w zrzucie tylko przeszkadzają
-POMIJANE = [
-    "contenttypes",
-    "auth.permission",
-    "sessions",
-    "admin.logentry",
-]
+from accounts.backups import (
+    BackupBuffer,
+    backup_cipher,
+    encrypt_backup,
+    validate_backup,
+    write_new_file,
+)
+from chatbot_project.storage import PrivateS3Storage
+
+POMIJANE = ["contenttypes", "auth.permission", "sessions", "admin.logentry"]
 
 
 class Command(BaseCommand):
-    help = "Zapisuje dane aplikacji do pliku JSON. Odtworzenie: manage.py loaddata <plik>"
+    help = "Szyfruje dane aplikacji. Odtworzenie: decrypt_backup, a następnie loaddata."
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--output",
-            help="Ścieżka pliku. Domyślnie backups/kopia-RRRRMMDD-GGMM.json",
-        )
+        parser.add_argument("--output", help="Nowy lokalny plik zaszyfrowanej kopii.")
         parser.add_argument(
             "--to-storage",
             action="store_true",
-            help=(
-                "Wyślij kopię do skonfigurowanego magazynu obiektowego "
-                "(R2/S3). Bez tego plik zostaje na dysku, który na Renderze "
-                "znika przy wdrożeniu."
-            ),
+            help="Wyślij szyfrogram do private_backups; bez --output nie powstaje plik lokalny.",
         )
 
     def handle(self, *args, **options):
-        znacznik = datetime.datetime.now().strftime("%Y%m%d-%H%M")
-        sciezka = options.get("output") or os.path.join("backups", f"kopia-{znacznik}.json")
-
-        katalog = os.path.dirname(sciezka)
-        if katalog:
-            os.makedirs(katalog, exist_ok=True)
-
-        bufor = io.StringIO()
-        call_command(
-            "dumpdata",
-            *[f"--exclude={etykieta}" for etykieta in POMIJANE],
-            indent=2,
-            stdout=bufor,
-        )
-        tresc = bufor.getvalue()
-
-        # Liczymy obiekty po sparsowaniu, a nie porownujemy tekst.
-        #
-        # Poprzednia wersja sprawdzala `tresc.strip() == "[]"`. Django przy
-        # `indent=2` zwraca dla pustej bazy nawias otwierajacy, przelamanie
-        # wiersza i nawias zamykajacy - a nie dwa znaki obok siebie. Ten
-        # warunek nigdy nie byl prawdziwy i zabezpieczenie NIE ZADZIALALO ani
-        # razu: komenda spokojnie zapisywala pusty plik na miejsce dobrej
-        # kopii. Dokladnie to, przed czym miala chronic.
-        #
-        # Wyszlo dopiero przy pierwszej probie odtworzenia - czyli przy
-        # pierwszym sprawdzeniu, czy kopia zapasowa robi to, co obiecuje.
-        try:
-            obiekty = json.loads(tresc)
-        except json.JSONDecodeError as blad:
-            raise CommandError(
-                f"Zrzut nie jest poprawnym JSON-em ({blad}) — przerywam. "
-                "Plik, którego nie da się wczytać, nie jest kopią zapasową."
-            ) from blad
-
-        if not obiekty:
-            raise CommandError(
-                "Zrzut jest pusty — przerywam, żeby nie nadpisać dobrej kopii pustą. "
-                "Jeśli baza naprawdę ma być pusta, skasuj plik docelowy ręcznie."
-            )
-
-        with open(sciezka, "w", encoding="utf-8") as plik:
-            plik.write(tresc)
-
-        rozmiar = os.path.getsize(sciezka)
-        liczba_obiektow = len(obiekty)
-        self.stdout.write(self.style.SUCCESS(f"Zapisano: {sciezka}"))
-        self.stdout.write(f"  rozmiar: {rozmiar / 1024:.1f} kB")
-        self.stdout.write(f"  obiektów: {liczba_obiektow}")
-
+        backup_cipher()  # Walidacja przed odczytaniem danych i sekretów.
+        storage = None
         if options["to_storage"]:
-            nazwa = f"backups/{os.path.basename(sciezka)}"
-            zapisana = default_storage.save(nazwa, ContentFile(tresc.encode("utf-8")))
-            self.stdout.write(self.style.SUCCESS(f"Wysłano do magazynu: {zapisana}"))
-            if default_storage.__class__.__name__ == "FileSystemStorage":
-                self.stdout.write(
-                    self.style.WARNING(
-                        "  Uwaga: magazynem jest dysk lokalny, a nie R2/S3. "
-                        "Na Renderze taki plik znika przy wdrożeniu."
-                    )
+            storage = storages["private_backups"]
+            if not isinstance(storage, PrivateS3Storage):
+                raise CommandError(
+                    "--to-storage wymaga skonfigurowanego prywatnego magazynu obiektowego."
                 )
 
-        self.stdout.write("")
-        self.stdout.write(f"Odtworzenie: manage.py loaddata {sciezka}")
+        with BackupBuffer() as buffer:
+            call_command(
+                "dumpdata",
+                *[f"--exclude={label}" for label in POMIJANE],
+                indent=2,
+                stdout=buffer,
+            )
+            plaintext = buffer.getvalue().encode("utf-8")
+        count = validate_backup(plaintext)
+        ciphertext = encrypt_backup(plaintext)
+        name = f"kopia-{timezone.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex}.json.fernet"
+        output = options.get("output")
+        if not options["to_storage"] and not output:
+            output = str(Path("backups") / name)
+        if output:
+            write_new_file(output, ciphertext)
+            self.stdout.write("Zapisano zaszyfrowaną kopię lokalną.")
+        if storage is not None:
+            saved = storage.save(f"backups/{name}", ContentFile(ciphertext))
+            self.stdout.write(f"Wysłano zaszyfrowaną kopię: {saved}")
+        self.stdout.write(f"Obiektów: {count}; rozmiar szyfrogramu: {len(ciphertext)} B.")
+        self.stdout.write(
+            "Odtworzenie: decrypt_backup <kopia> --output <nowy.json>, "
+            "potem loaddata <nowy.json> w przygotowanej bazie."
+        )

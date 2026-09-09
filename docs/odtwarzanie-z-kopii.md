@@ -1,5 +1,11 @@
 # Restoring from backup — runbook and drill record
 
+> Since 2.0.0, `backup_data` produces encrypted `.json.fernet` files. First use
+> `decrypt_backup <file> --output <new.json>` with the matching independent
+> `BACKUP_ENCRYPTION_KEY`, then follow the database restore steps below. Protect
+> the decrypted JSON: it contains database secrets. Legacy plaintext JSON can
+> still be restored. See [private storage and backups](prywatne-pliki-i-kopie.md).
+
 **Last drilled:** 3 September 2026.
 **Result:** restore works. Two bugs were found by running it, both fixed.
 
