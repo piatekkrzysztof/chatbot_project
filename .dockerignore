@@ -1,0 +1,31 @@
+# Do kontekstu buildu trafia wyłącznie kod i jawnie wskazane pliki runtime.
+# Wyjątki dla .env działają także wewnątrz pakietów aplikacji.
+# Nie dopuszczamy całych katalogów: taki wyjątek dopuszcza również ich dane.
+**
+!requirements.txt
+!requirements-dev.txt
+!manage.py
+!accounts/**/*.py
+!api/**/*.py
+!chat/**/*.py
+!chatbot_project/**/*.py
+!documents/**/*.py
+!rag/**/*.py
+!rag/ocena/wzorzec.json
+
+**/tests
+**/tests/**
+**/tests.py
+**/test_*.py
+**/conftest.py
+**/__pycache__
+**/__pycache__/**
+**/.env*
+**/*.pem
+**/*.key
+**/*.sqlite*
+**/media/**
+**/backups/**
+**/.git/**
+**/venv/**
+**/.venv/**

@@ -16,6 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [1.0.6] — 2026-09-09
+
+### Security
+
+- Tenant isolation and team authorization now bind access to the authenticated
+  user's company, reject conflicting widget keys, and protect the last active
+  owner. CSV imports and exports use the authenticated company (audit stage 1).
+- Production Docker builds include only selected application files and runtime
+  dependencies. Environment files, backups, local databases and test tools are
+  excluded. Docker Compose explicitly uses the development target.
+- Django REST framework 3.17.2 fixes CVE-2026-73228 and CVE-2026-73229: request
+  body size limits and protected-data exposure through AdminRenderer.
+
+### Fixed
+
+- Retention preserves old conversations with recent messages, including data
+  saved before this fix. Message writes update activity atomically; retention
+  skips conversations locked by concurrent writes. Prompt logs, usage logs and
+  contact requests still expire independently by their creation time.
+
 ### Changed
 
 - The knowledge-base size alerts move from 2 500 / 5 000 chunks to **15 000 /

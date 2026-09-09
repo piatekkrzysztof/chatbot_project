@@ -39,7 +39,9 @@ services:
       retries: 10
 
   web:
-    build: .
+    build:
+      context: .
+      target: development
     command: >
       bash -c "python manage.py migrate --noinput &&
                python manage.py runserver 0.0.0.0:8000"
@@ -68,7 +70,9 @@ services:
         condition: service_healthy
 
   worker:
-    build: .
+    build:
+      context: .
+      target: development
     command: celery -A chatbot_project worker --loglevel=info
     volumes:
       - .:/app
@@ -83,7 +87,9 @@ services:
   # tygodniowy raport luk. Bez tego usługi projekt działa, tylko nic nie
   # dzieje się samo.
   beat:
-    build: .
+    build:
+      context: .
+      target: development
     command: celery -A chatbot_project beat --loglevel=info
     volumes:
       - .:/app
