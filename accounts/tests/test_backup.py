@@ -15,6 +15,7 @@ import pytest
 from django.core.management import CommandError, call_command
 
 from accounts.models import Tenant
+from accounts.tests.backup_helpers import make_readable_backup
 from chat.models import ChatMessage, Conversation
 
 
@@ -22,7 +23,7 @@ from chat.models import ChatMessage, Conversation
 def test_kopia_zawiera_dane_firmy(tenant, tmp_path):
     plik = tmp_path / "kopia.json"
 
-    call_command("backup_data", output=str(plik))
+    make_readable_backup(plik)
 
     dane = json.loads(plik.read_text(encoding="utf-8"))
     modele = {wpis["model"] for wpis in dane}
@@ -38,7 +39,7 @@ def test_kopia_obejmuje_rozmowy_i_wiadomosci(tenant, tmp_path):
     ChatMessage.objects.create(conversation=rozmowa, sender="user", message="Pytanie")
 
     plik = tmp_path / "kopia.json"
-    call_command("backup_data", output=str(plik))
+    make_readable_backup(plik)
 
     modele = {w["model"] for w in json.loads(plik.read_text(encoding="utf-8"))}
     assert {"chat.conversation", "chat.chatmessage"} <= modele
@@ -52,7 +53,7 @@ def test_kopia_pomija_tabele_odtwarzane_przez_migracje(tenant, tmp_path):
     """
     plik = tmp_path / "kopia.json"
 
-    call_command("backup_data", output=str(plik))
+    make_readable_backup(plik)
 
     modele = {w["model"] for w in json.loads(plik.read_text(encoding="utf-8"))}
     assert "contenttypes.contenttype" not in modele
@@ -74,7 +75,7 @@ def test_pusty_zrzut_przerywa_zamiast_nadpisac(tmp_path, monkeypatch):
     monkeypatch.setattr(modul, "call_command", pusty_zrzut)
 
     with pytest.raises(CommandError, match="pusty"):
-        call_command("backup_data", output=str(tmp_path / "kopia.json"))
+        make_readable_backup(tmp_path / "kopia.json")
 
 
 @pytest.mark.django_db
@@ -85,7 +86,7 @@ def test_dane_z_kopii_daja_sie_wczytac(tenant, tmp_path):
     bitu). Tutaj pilnujemy, żeby format zrzutu pozostał wczytywalny.
     """
     plik = tmp_path / "kopia.json"
-    call_command("backup_data", output=str(plik))
+    make_readable_backup(plik)
 
     nazwa = tenant.name
     Tenant.objects.filter(pk=tenant.pk).delete()

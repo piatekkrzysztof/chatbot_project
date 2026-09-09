@@ -2,6 +2,7 @@ from django.db import models
 from pgvector.django import VectorField
 
 from accounts.models import Tenant
+from documents.storage import DocumentStorage, private_document_name
 from documents.wymiar import WYMIAR_WEKTORA
 
 
@@ -9,7 +10,9 @@ class Document(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="documents")
     name = models.CharField(max_length=255, default="Untitled")
     content = models.TextField(blank=True)
-    file = models.FileField(upload_to="documents/", null=True, blank=True)
+    file = models.FileField(
+        upload_to=private_document_name, storage=DocumentStorage(), null=True, blank=True
+    )
     processed = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     source = models.CharField(max_length=50, blank=True, null=True)
