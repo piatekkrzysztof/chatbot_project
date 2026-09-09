@@ -215,6 +215,22 @@ USE_TZ = True
 STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+PRIVATE_MEDIA_ROOT = os.getenv("PRIVATE_MEDIA_ROOT") or os.path.join(BASE_DIR, "private-media")
+ALLOW_LEGACY_DOCUMENT_READS = os.getenv("ALLOW_LEGACY_DOCUMENT_READS", "true").lower() == "true"
+BACKUP_ENCRYPTION_KEY = os.getenv("BACKUP_ENCRYPTION_KEY", "")
+BACKUP_MAX_BYTES = 100 * 1024 * 1024
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "private_documents": {
+        "BACKEND": "chatbot_project.storage.PrivateFileSystemStorage",
+        "OPTIONS": {"subdir": "documents"},
+    },
+    "private_backups": {
+        "BACKEND": "chatbot_project.storage.PrivateFileSystemStorage",
+        "OPTIONS": {"subdir": "backups"},
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

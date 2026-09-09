@@ -24,6 +24,7 @@ from django.core.management import call_command
 from django.utils import timezone
 
 from accounts.models import DaneRozliczeniowe, Subscription, Tenant
+from accounts.tests.backup_helpers import make_readable_backup
 from chat.models import FAQ, ChatMessage, Conversation
 from documents.models import Document, DocumentChunk
 from documents.wymiar import WYMIAR_WEKTORA
@@ -124,7 +125,7 @@ class TestProbyOdtworzenia:
     def test_pelny_cykl_utraty_i_odtworzenia(self, dane_do_odtworzenia, tmp_path):
         plik = tmp_path / "kopia.json"
 
-        call_command("backup_data", output=str(plik))
+        make_readable_backup(plik)
         przed = _policz_wszystko()
         assert przed["firmy"] == 1, "dane testowe nie powstaly"
 
@@ -147,7 +148,7 @@ class TestProbyOdtworzenia:
         pierwszym pytaniu do bota po odtworzeniu - czyli w najgorszym momencie.
         """
         plik = tmp_path / "kopia.json"
-        call_command("backup_data", output=str(plik))
+        make_readable_backup(plik)
 
         call_command("flush", interactive=False, verbosity=0)
         call_command("loaddata", str(plik), verbosity=0)
@@ -166,7 +167,7 @@ class TestProbyOdtworzenia:
         wygladalaby na kompletna, a nikt nie moglby wejsc do panelu.
         """
         plik = tmp_path / "kopia.json"
-        call_command("backup_data", output=str(plik))
+        make_readable_backup(plik)
 
         call_command("flush", interactive=False, verbosity=0)
         call_command("loaddata", str(plik), verbosity=0)
@@ -190,7 +191,7 @@ class TestProbyOdtworzenia:
         klucz_przed = str(firma.api_key)
 
         plik = tmp_path / "kopia.json"
-        call_command("backup_data", output=str(plik))
+        make_readable_backup(plik)
 
         call_command("flush", interactive=False, verbosity=0)
         call_command("loaddata", str(plik), verbosity=0)
@@ -212,7 +213,7 @@ class TestProbyOdtworzenia:
         przerwania w polowie - w dniu, w ktorym wszystko juz raz padlo.
         """
         plik = tmp_path / "kopia.json"
-        call_command("backup_data", output=str(plik))
+        make_readable_backup(plik)
         call_command("flush", interactive=False, verbosity=0)
 
         with patch("documents.signals.enqueue") as zlecenie:
@@ -242,7 +243,7 @@ class TestProbyOdtworzenia:
         # W zrzucie nie tylko zajmuja miejsce, ale KOLIDUJA z tym, co migracje
         # juz zalozyly - i wtedy odtwarzanie przerywa sie w polowie.
         plik = tmp_path / "kopia.json"
-        call_command("backup_data", output=str(plik))
+        make_readable_backup(plik)
 
         with open(plik, encoding="utf-8") as otwarty:
             modele = {wpis["model"] for wpis in json.load(otwarty)}
@@ -267,7 +268,7 @@ class TestZabezpieczen:
         plik.write_text('[{"model": "wazne.dane"}]', encoding="utf-8")
 
         with pytest.raises(CommandError):
-            call_command("backup_data", output=str(plik))
+            make_readable_backup(plik)
 
         # Poprzednia kopia nietknieta.
         assert "wazne.dane" in plik.read_text(encoding="utf-8")
@@ -275,6 +276,6 @@ class TestZabezpieczen:
     def test_kopia_powstaje_w_katalogu_ktorego_nie_ma(self, dane_do_odtworzenia, tmp_path):
         sciezka = tmp_path / "gleboko" / "schowane" / "kopia.json"
 
-        call_command("backup_data", output=str(sciezka))
+        make_readable_backup(sciezka)
 
         assert os.path.exists(sciezka)
