@@ -4,7 +4,7 @@
 # Ani jedno, ani drugie nie było potrzebne: psycopg2-binary to gotowe koło
 # (żadnej kompilacji), a pgvector siedzi w requirements.txt. Ten apt-get
 # dokładał ~250 MB i ponad minutę do każdego budowania.
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 # PYTHONUNBUFFERED: bez tego logi Pythona wiszą w buforze i `docker compose logs`
 #   pokazuje pustkę, dopóki proces nie zapisze 8 KB albo nie padnie.
@@ -18,13 +18,28 @@ WORKDIR /app
 
 # Zależności osobną warstwą przed kodem: zmiana pliku .py nie unieważnia
 # wtedy cache'u pip i przebudowa trwa sekundy zamiast minut.
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --upgrade pip && pip install -r requirements-dev.txt
+COPY requirements.txt ./
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-COPY . .
+# docker-compose używa tego etapu i podmontowuje kod z hosta.
+FROM base AS development
+COPY requirements-dev.txt ./
+RUN pip install -r requirements-dev.txt
+RUN useradd --create-home --uid 10001 aplikacja
+USER aplikacja
 
-# Aplikacja nie potrzebuje roota. Gdyby ktoś wyszedł poza kontener przez
-# lukę w zależności, trafia na konto bez uprawnień do zapisu w /app.
+# Ostatni etap jest domyślnym obrazem produkcyjnym. Nie dziedziczy narzędzi
+# testowych, lokalnych danych ani plików środowiska z etapu development.
+FROM base AS production
+COPY manage.py ./
+COPY accounts/ ./accounts/
+COPY api/ ./api/
+COPY chat/ ./chat/
+COPY chatbot_project/ ./chatbot_project/
+COPY documents/ ./documents/
+COPY rag/ ./rag/
+
+# Procesy aplikacji działają jako zwykły użytkownik.
 RUN useradd --create-home --uid 10001 aplikacja \
     && chown -R aplikacja:aplikacja /app
 USER aplikacja
