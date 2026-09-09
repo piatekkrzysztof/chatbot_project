@@ -135,6 +135,13 @@ zamiast wymagać od każdej bazy takiego samego przyrostu przy autovacuum i pono
 wykorzystywaniu wolnych stron. Test rzeczywistego odczytu PostgreSQL pozostaje.
 Kod narzędzia pomiarowego oraz jego próg ostrzegania nie zostały zmienione.
 
+Końcowa pełna regresja: **1268 testów przeszło**, 8 ostrzeżeń Django o przyszłej
+zmianie domyślnego schematu URL, 421,33 s; **87,92% pokrycia** przy progu 83%.
+Etap dodaje 17 przypadków (13 retencji i 4 rozmiaru żądań). Ruff: 47 istniejących
+zgłoszeń, 254 pliki zgodne z formatowaniem. Bandit zmienionego kodu produkcyjnego:
+0 zgłoszeń. Wszystkie 7 zmienionych plików Python ma tę samą strukturę AST
+co kod użyty do testów. Budowę i zawartość obrazu musi jeszcze sprawdzić CI.
+
 Wersja aplikacji wzrasta do 1.0.6. Nie dodano migracji ani zmiennych środowiskowych.
 Wdrożenie wymaga aktualizacji backendu i workera z tym samym commitem; nie wymaga
 ponownego importu wiedzy ani ręcznego uruchamiania retencji na produkcji.
