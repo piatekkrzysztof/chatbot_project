@@ -13,7 +13,8 @@
 # na 5.1.15, a nowsze podatnosci maja latki dopiero od 5.2.15. Zostanie na
 # 5.1 znaczyloby swiadome uzywanie wersji, ktorej nikt juz nie lata.
 Django==5.2.17
-djangorestframework==3.16.0
+# 3.17.2 zamyka CVE-2026-73228 i CVE-2026-73229 (limity wejścia i AdminRenderer).
+djangorestframework==3.17.2
 djangorestframework_simplejwt==5.5.1
 # PyJWT wchodzi jako zaleznosc simplejwt, ale przypinamy go jawnie: to on
 # weryfikuje podpisy naszych tokenow dostepu, wiec jego wersja jest decyzja

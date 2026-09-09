@@ -374,6 +374,22 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      - name: Syntetyczne sekrety i dane poza kontekstem obrazu
+        run: |
+          mkdir -p media backups chatbot_project/media chatbot_project/backups .venv
+          python - <<'PY'
+          from pathlib import Path
+          paths = [
+              '.env.image-check', 'chatbot_project/.env.image-check',
+              'media/private.txt', 'backups/private.json',
+              'chatbot_project/media/private.py', 'chatbot_project/backups/private.py',
+              '.venv/private.py', 'chatbot_project/private.key',
+              'chatbot_project/private.sqlite3',
+          ]
+          for name in paths:
+              Path(name).write_text('SYNTHETIC_IMAGE_EXCLUSION_CHECK', encoding='utf-8')
+          PY
+
       - name: Budowa obrazu
         uses: docker/build-push-action@v6
         with:
@@ -383,6 +399,31 @@ jobs:
           tags: chatbot-backend:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Obraz nie zawiera sekretów, danych ani zależności testowych
+        run: |
+          docker run --rm -i chatbot-backend:ci python - <<'PY'
+          import importlib.util
+          import os
+          from pathlib import Path
+          root = Path('/app')
+          assert os.geteuid() != 0, 'Aplikacja działa jako root'
+          for path in root.rglob('*'):
+              if path.is_file():
+                  assert not path.name.startswith('.env'), path
+                  assert b'SYNTHETIC_IMAGE_EXCLUSION_CHECK' not in path.read_bytes(), path
+          for name in ('.git', '.venv', 'venv', 'media', 'backups', 'conftest.py',
+                       'requirements-dev.txt', 'documents/test.pdf'):
+              assert not (root / name).exists(), name
+          assert not list(root.rglob('test_*.py'))
+          for package in ('pytest', 'factory', 'reportlab'):
+              assert importlib.util.find_spec(package) is None, package
+          for name in ('accounts/models.py', 'api/views/widget.py', 'chat/models.py',
+                       'documents/models.py', 'chatbot_project/settings/prod.py',
+                       'rag/ocena/wzorzec.json'):
+              assert (root / name).is_file(), name
+          print('Kod runtime obecny; sekrety, dane i narzędzia testowe wykluczone')
+          PY
 
       - name: Obraz wstaje i widzi swoją konfigurację
         run: |
