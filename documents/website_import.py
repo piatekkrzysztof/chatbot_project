@@ -1,10 +1,9 @@
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
-import requests
-import trafilatura
 from bs4 import BeautifulSoup
 
 from documents.models import Document
+from documents.safe_http import FetchError, FetchLimitExceeded, fetch_page, same_site, validate_url
 from documents.utils.queue import enqueue
 from documents.utils.tresc_strony import TrescStrony, wyciagnij_tresc
 from documents.validators import sprawdz_limit_bazy_wiedzy
@@ -18,7 +17,7 @@ def fetch_text_from_url(url: str) -> TrescStrony:
     „strona jest krótka" od „wyciągnęliśmy z niej 3%". Ta druga sytuacja
     trwała u klienta tygodniami i nie było jej po czym poznać.
     """
-    downloaded = trafilatura.fetch_url(url)
+    downloaded = fetch_page(url).body
     if not downloaded:
         raise ValueError(f"Nie udało się pobrać zawartości URL: {url}")
 
@@ -105,9 +104,13 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
     """
     Heurystyczny crawler: podąża za linkami wewnętrznymi w obrębie jednej domeny.
     """
+    normalized_base = validate_url(base_url)
+    max_pages = max(0, min(max_pages, 20))
+    max_depth = max(0, min(max_depth, 2))
     visited = set()
-    to_visit = [(base_url, 0)]
-    base_domain = urlparse(base_url).netloc
+    # Keep the original root spelling for updates of already imported documents.
+    scheduled = {normalized_base}
+    to_visit = [(base_url, 0)] if max_pages else []
 
     while to_visit and len(visited) < max_pages:
         current_url, depth = to_visit.pop()
@@ -117,18 +120,25 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
         visited.add(current_url)
 
         try:
-            resp = requests.get(current_url, timeout=5)
-            resp.raise_for_status()
-        except Exception:
+            resp = fetch_page(current_url)
+        except FetchLimitExceeded:
+            raise
+        except FetchError:
             continue
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        for link_tag in soup.find_all("a", href=True):
+        if depth == max_depth:
+            continue
+        soup = BeautifulSoup(resp.body, "html.parser")
+        for link_tag in soup.find_all("a", href=True, limit=200):
+            if len(scheduled) >= max_pages:
+                break
             href = link_tag["href"]
-            absolute_url = urljoin(current_url, href)
-            parsed = urlparse(absolute_url)
-
-            if parsed.netloc == base_domain and parsed.scheme.startswith("http"):
+            try:
+                absolute_url = validate_url(urljoin(resp.url, href))
+            except FetchError:
+                continue
+            if same_site(absolute_url, base_url) and absolute_url not in scheduled:
+                scheduled.add(absolute_url)
                 to_visit.append((absolute_url, depth + 1))
 
     return visited

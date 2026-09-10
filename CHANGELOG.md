@@ -16,6 +16,30 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.2] — 2026-09-10
+
+### Fixed
+
+- Website imports, crawling and sitemap discovery only connect to verified public
+  HTTP/HTTPS addresses on ports 80/443. Every redirect is checked again; DNS
+  rebinding cannot change the address used by the connection. HTTPS still checks
+  the original hostname and certificate. Local network URLs and URLs containing
+  credentials are rejected, including sources saved before this release.
+- Downloads have time, size and redirect limits, with a shared network budget
+  for each crawl. Compressed responses and nested sitemaps cannot expand without
+  limits; sitemap XML cannot load external entities. Crawling uses exact hostname
+  matching and bounded link queues.
+- Existing document contents and URL spelling remain unchanged. Failed imports
+  retain their error status; an empty set of allowed links is not reported as a
+  successful refresh.
+
+### Operations
+
+- Deploy backend and worker together. There are no migrations or new environment
+  variables. See `docs/bezpieczne-pobieranie-stron.md` for the limits and supported
+  website behavior. Private sites, custom ports, and oversized pages now fail
+  explicitly instead of being fetched.
+
 ## [2.0.1] — 2026-09-10
 
 ### Fixed

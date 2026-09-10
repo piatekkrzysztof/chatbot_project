@@ -4,6 +4,7 @@ import pytest
 
 from accounts.models import Tenant
 from documents.models import Document
+from documents.safe_http import Page
 from documents.website_import import (
     discover_links_recursively,
     fetch_text_from_url,
@@ -29,35 +30,27 @@ HTML_FAQ = """
 """
 
 TRAFILATURA_EXTRACT_MOCK = {
-    "http://test.local/": "Witamy na stronie\nFAQ\n" + "To jest główna strona. " * 10,
-    "http://test.local/faq": "Najczęstsze pytania\n" + "Jak działa system? " * 10,
+    "http://example.com/": "Witamy na stronie\nFAQ\n" + "To jest główna strona. " * 10,
+    "http://example.com/faq": "Najczęstsze pytania\n" + "Jak działa system? " * 10,
 }
 
 
 @pytest.mark.django_db
-@patch("documents.website_import.requests.get")
-@patch("documents.website_import.trafilatura.extract")
-@patch("documents.website_import.trafilatura.fetch_url")
-def test_import_website_deep_crawl(mock_fetch_url, mock_extract, mock_get, tenant: Tenant):
-    # przygotuj mocki response
-    def mocked_requests_get(url, timeout=5):
+@patch("documents.utils.tresc_strony.trafilatura.extract")
+@patch("documents.website_import.fetch_page")
+def test_import_website_deep_crawl(mock_fetch_page, mock_extract, tenant: Tenant):
+    def mocked_fetch_page(url):
         html = HTML_MAIN if url.endswith("/") else HTML_FAQ
-        response = Mock()
-        response.status_code = 200
-        response.text = html
-        response.raise_for_status = Mock()
-        return response
+        return Page(url, html.encode())
 
-    mock_get.side_effect = mocked_requests_get
-
-    mock_fetch_url.side_effect = lambda url: HTML_MAIN if url.endswith("/") else HTML_FAQ
+    mock_fetch_page.side_effect = mocked_fetch_page
     mock_extract.side_effect = lambda html, **kwargs: TRAFILATURA_EXTRACT_MOCK.get(
-        "http://test.local/" if "Witamy" in html else "http://test.local/faq"
+        "http://example.com/" if b"Witamy" in html else "http://example.com/faq"
     )
 
-    discovered_urls = discover_links_recursively("http://test.local/", max_depth=1)
-    assert "http://test.local/" in discovered_urls
-    assert "http://test.local/faq" in discovered_urls
+    discovered_urls = discover_links_recursively("http://example.com/", max_depth=1)
+    assert "http://example.com/" in discovered_urls
+    assert "http://example.com/faq" in discovered_urls
 
     for url in discovered_urls:
         doc = import_website_as_document(tenant=tenant, url=url, name=url)

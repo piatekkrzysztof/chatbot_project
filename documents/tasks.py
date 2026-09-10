@@ -3,10 +3,11 @@ from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
-from trafilatura.sitemaps import sitemap_search
 
 from accounts.plans import recrawl_days_for
 from documents.models import Document, WebsiteSource
+from documents.safe_http import crawl_fetch_budget, same_site
+from documents.sitemaps import sitemap_search
 from documents.utils.embedding_generator import (
     generate_embeddings_for_document as _generate_embeddings,
 )
@@ -56,6 +57,12 @@ MAX_PAGES_PER_CRAWL = 20
 
 @shared_task
 def crawl_and_import_website_source(source_id):
+    # One budget covers robots, nested sitemaps, redirects, discovery and imports.
+    with crawl_fetch_budget():
+        _crawl_and_import_website_source(source_id)
+
+
+def _crawl_and_import_website_source(source_id):
     # Znacznik próby stawiamy PRZED pracą, nie po. Dzięki temu zadanie, które
     # wywali się w połowie, zostawia ślad — inaczej nieudane pobranie wygląda
     # dokładnie tak samo jak takie, którego nigdy nie zlecono.
@@ -79,7 +86,7 @@ def crawl_and_import_website_source(source_id):
         pobranych, nieudanych = 0, []
 
         for suburl in urls:
-            if not suburl.startswith(url):  # zabezpieczenie przed ucieczką poza domenę
+            if not same_site(suburl, url):
                 continue
 
             # Znane podstrony ODŚWIEŻAMY, nie pomijamy. Wcześniej stało tu
@@ -105,6 +112,9 @@ def crawl_and_import_website_source(source_id):
             pobranych,
             pobranych + len(nieudanych),
         )
+
+        if pobranych == 0 and not nieudanych:
+            raise ValueError("Nie znaleziono dozwolonych podstron w domenie źródła.")
 
         if pobranych == 0 and nieudanych:
             # Zero pobranych podstron to awaria, nie sukces — nawet jeśli każda

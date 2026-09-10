@@ -49,6 +49,8 @@ RapidFuzz==3.12.2
 pypdf==6.16.2
 docx2txt==0.9
 trafilatura==2.0
+# Sitemaps may contain hostile XML; external entities and DTDs are forbidden.
+defusedxml==0.7.1
 # Nic nie importuje tego wprost, ale trafilatura sięga po lxml.html.clean,
 # które od lxml 5 jest osobnym pakietem i nie instaluje się samo. Bez tego
 # gunicorn w ogóle nie wstaje: ImportError przy imporcie aplikacji WSGI.
