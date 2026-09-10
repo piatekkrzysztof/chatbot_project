@@ -14,7 +14,7 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 |---|---|---|---|
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
 | 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | PR #39 i #40 scalone i wdrożone; prywatne magazyny oraz dostęp sprawdzone, odczyt legacy wyłączony; operacyjny zakres kopii, pełny restore i zależności pozostałych repozytoriów pozostają otwarte |
-| 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | Kontrola SSRF/DNS/redirectów i uploadu, budżety oraz rezerwacje wiadomości; formularze odporne na awarie i spam | F06: PR #42, wspólna ochrona pobierania i testy regresyjne; odbiór wdrożenia otwarty. Następne: F09 uploady, F08 koszty i rezerwacje, F23 formularz marketingowy |
+| 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | Kontrola SSRF/DNS/redirectów i uploadu, budżety oraz rezerwacje wiadomości; formularze odporne na awarie i spam | F06: PR #42; F09: gałąź `codex/audit-safe-file-uploads`, walidacja i ograniczone procesy parserów. Odbiór wdrożenia otwarty. Następne: F08 koszty i rezerwacje, F23 formularz marketingowy |
 | 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | Do wykonania |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
@@ -202,3 +202,27 @@ potrzebne są działające harmonogramy i alarmy, niezależne wykrywanie braku
 przebiegów, PostgreSQL/PITR, kopie bajtów uploadów oraz pełny restore na stagingu.
 Nie jest to odbiór komercyjny całej aplikacji. Po pracach nad kopiami kolejnym
 etapem kodu pozostają SSRF, walidacja wejść i atomowe limity kosztów.
+
+### Etap 3b — bezpieczne uploady (F09)
+
+Gałąź `codex/audit-safe-file-uploads`, wydanie 2.0.3, zależne od PR #42:
+
+- Dozwolone formaty i rzeczywista zawartość dokumentów sprawdzane przed zapisem;
+  osobne limity odebranych bajtów, rozpakowania, stron i wyodrębnionego tekstu.
+- Parser w osobnym procesie z limitami pamięci/czasu, bez sekretów w środowisku;
+  globalna blokada na instancję odrzuca równoległy upload z czytelnym 503.
+- Logo/awatar: dekodowanie PNG/JPEG/WebP, limity pikseli i zapis oczyszczonego PNG.
+- Jedno zlecenie embeddingów po udanym odczycie. Błędy ekstrakcji w tle otrzymują
+  `processing_error`/`failed`; przekroczenie limitu wiedzy zachowuje dotychczasową treść.
+- Osobna gałąź frontendu `codex/audit-upload-feedback`: informacje o formatach i
+  limitach, błędy dostępne dla czytników, ponowienie i polskie statusy dokumentów.
+
+Pierwsze testy przed poprawką odtworzyły 8 niepowodzeń. Regresje obejmują też
+rzeczywiste zabicie procesu po timeout, odrzucenie alokacji pamięci, blokadę
+między procesami oraz zachowanie przezroczystości/orientacji obrazów.
+Wynik końcowej regresji i CI jest zapisany w opisie PR-a.
+
+Wymagana migracja `documents.0015_document_processing_error`. Brak nowych zmiennych
+środowiskowych; w tej gałęzi nie zmieniamy produkcji. Szczegółowe limity, odbiór
+i ograniczenia opisuje [instrukcja uploadów](bezpieczne-uploady.md). F08 oraz
+atomowość limitu wiedzy i cykl życia plików/embeddingów pozostają osobnymi etapami.

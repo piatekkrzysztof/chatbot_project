@@ -157,7 +157,7 @@ class TestEgzekwowaniaPrzyUploadzie:
 
     def test_upload_ponad_limit_jest_odrzucany(self, user, tenant, subscribtion, mocker):
         mocker.patch(
-            "api.views.documents.extract_text_from_pdf",
+            "api.views.documents.parse_document",
             return_value="x" * (6 * MB),
         )
         klient = self.zaloguj(user, tenant, "start")
@@ -173,10 +173,10 @@ class TestEgzekwowaniaPrzyUploadzie:
 
     def test_upload_w_limicie_przechodzi(self, user, tenant, subscribtion, mocker):
         mocker.patch(
-            "api.views.documents.extract_text_from_pdf",
+            "api.views.documents.parse_document",
             return_value="treść firmy",
         )
-        mocker.patch("api.views.documents.enqueue")
+        mocker.patch("documents.signals.enqueue")
         klient = self.zaloguj(user, tenant, "start")
 
         response = klient.post(
@@ -194,10 +194,10 @@ class TestEgzekwowaniaPrzyUploadzie:
         zostawiłby plik w magazynie i zadanie embeddingów w kolejce.
         """
         mocker.patch(
-            "api.views.documents.extract_text_from_pdf",
+            "api.views.documents.parse_document",
             return_value="x" * (6 * MB),
         )
-        kolejka = mocker.patch("api.views.documents.enqueue")
+        kolejka = mocker.patch("documents.signals.enqueue")
         klient = self.zaloguj(user, tenant, "start")
 
         klient.post(

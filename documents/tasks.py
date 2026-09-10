@@ -3,8 +3,10 @@ from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from accounts.plans import recrawl_days_for
+from documents.file_limits import MAX_DOCUMENT_BYTES, InvalidUpload, UploadTooLarge
 from documents.models import Document, WebsiteSource
 from documents.safe_http import crawl_fetch_budget, same_site
 from documents.sitemaps import sitemap_search
@@ -13,6 +15,7 @@ from documents.utils.embedding_generator import (
 )
 from documents.utils.queue import enqueue
 from documents.utils.text_extraction import UnsupportedFileType, extract_text
+from documents.validators import sprawdz_limit_bazy_wiedzy
 from documents.website_import import discover_links_recursively, import_website_as_document
 
 logger = logging.getLogger(__name__)
@@ -30,17 +33,35 @@ def extract_text_from_document(document_id):
         doc = Document.objects.get(id=document_id)
         if not doc.file:
             return
-
+        # Reject oversized legacy/admin files before remote storage downloads them.
+        if doc.file.size > MAX_DOCUMENT_BYTES:
+            raise UploadTooLarge("Dokument przekracza limit 10 MiB.")
         # Otwieramy przez magazyn, nie przez ścieżkę na dysku: .path istnieje
         # tylko dla FileSystemStorage i na S3/R2 rzuca NotImplementedError.
         with doc.file.open("rb") as handle:
-            doc.content = extract_text(handle, filename=doc.file.name)
+            content = extract_text(handle, filename=doc.file.name)
+        if not content:
+            raise InvalidUpload("Brak tekstu w dokumencie. Dla skanu najpierw wykonaj OCR.")
+        sprawdz_limit_bazy_wiedzy(doc.tenant, content, zastepowany_tekst=doc.content)
+        doc.content = content
         doc.processed = True
+        doc.processing_error = ""
         doc.save()
-    except UnsupportedFileType as e:
-        logger.warning("Dokument %s: %s", document_id, e)
-    except Exception as e:
-        logger.exception("Błąd przetwarzania dokumentu %s: %s", document_id, e)
+    except (InvalidUpload, UnsupportedFileType, ValidationError) as error:
+        message = (
+            "Dokument przekracza limit bazy wiedzy w Twoim planie. Zmniejsz plik."
+            if isinstance(error, ValidationError)
+            else "Obsługiwane dokumenty: PDF, DOCX, TXT i MD."
+            if isinstance(error, UnsupportedFileType)
+            else str(error)
+        )
+        Document.objects.filter(pk=document_id).update(processing_error=message[:300])
+        logger.warning("Odrzucono przetwarzanie dokumentu %s", document_id)
+    except Exception:
+        Document.objects.filter(pk=document_id).update(
+            processing_error="Nie udało się przetworzyć pliku. Spróbuj wgrać go ponownie."
+        )
+        logger.error("Błąd przetwarzania dokumentu %s", document_id)
 
 
 @shared_task

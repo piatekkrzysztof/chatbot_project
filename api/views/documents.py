@@ -1,15 +1,15 @@
 import logging
 
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import storages
+from django.core.files.uploadedfile import UploadedFile
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import extend_schema
-from pypdf.errors import PyPdfError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, RetrieveAPIView
-from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -22,9 +22,11 @@ from api.utils.mixins import TenantQuerysetMixin
 # formularz multipart przysyła "true"/"false" jako tekst.
 from api.views.widget import _wlaczone
 from chatbot_project.storage import UnconfiguredPrivateStorage
+from documents.file_limits import InvalidUpload, UploadTooLarge
+from documents.isolated_parser import ParserUnavailable, parse_document
 from documents.models import Document, DocumentChunk, WebsiteSource
-from documents.tasks import crawl_and_import_website_source, embed_document_task
-from documents.utils.pdf_parser import extract_text_from_pdf
+from documents.tasks import crawl_and_import_website_source
+from documents.uploads import LimitedMultiPartParser
 from documents.utils.queue import enqueue
 from documents.validators import sprawdz_limit_bazy_wiedzy
 
@@ -37,18 +39,6 @@ class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
 
     def get_queryset(self):
         return super().get_queryset().order_by("-uploaded_at")
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        data = DocumentSerializer(instance).data
-        data["chunk_count"] = instance.chunks.count()
-        data["status"] = (
-            "ready"
-            if instance.processed and instance.chunks.exists()
-            else ("processing" if not instance.processed else "processed_no_chunks")
-        )
-        data["preview"] = instance.content[:500] if instance.content else ""
-        return Response(data)
 
 
 @extend_schema(tags=["Panel — baza wiedzy"])
@@ -124,10 +114,15 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     summary="Wgraj dokument",
     description="PDF, DOCX, TXT lub MD. Treść trafia do wyszukiwania po przetworzeniu.",
     request={"multipart/form-data": DocumentUploadSerializer},
-    responses={201: DocumentSerializer, 400: ErrorSerializer},
+    responses={
+        201: MessageSerializer,
+        400: ErrorSerializer,
+        413: ErrorSerializer,
+        503: ErrorSerializer,
+    },
 )
 class UploadDocumentView(APIView):
-    parser_classes = [MultiPartParser]
+    parser_classes = [LimitedMultiPartParser]
     permission_classes = [IsOwnerOrEmployee]
 
     def post(self, request):
@@ -136,10 +131,12 @@ class UploadDocumentView(APIView):
             return Response({"error": "Brak tenanta."}, status=403)
 
         file = request.data.get("file")
-        name = request.data.get("name") or file.name if file else "Untitled"
-
-        if not file:
+        if not isinstance(file, UploadedFile):
             return Response({"error": "No file provided."}, status=400)
+        name = request.data.get("name") or file.name
+
+        if not isinstance(name, str) or len(name) > 255:
+            return Response({"error": "Nazwa dokumentu może mieć do 255 znaków."}, status=400)
 
         if isinstance(storages["private_documents"], UnconfiguredPrivateStorage):
             return Response(
@@ -150,39 +147,32 @@ class UploadDocumentView(APIView):
         # Treść wyodrębniamy przed zapisem, bo bez niej nie da się sprawdzić
         # limitu bazy wiedzy — a dokument zapisany i zaraz usunięty zostawiałby
         # plik w magazynie i zadanie embeddingów w kolejce.
-        text = ""
-        if file.name.lower().endswith(".pdf"):
-            try:
-                text = extract_text_from_pdf(file)
-            except PyPdfError as blad:
-                # Uszkodzony PDF to nie przypadek brzegowy: urwane pobieranie,
-                # plik ze skanera, dokument zapisany przez program, ktory sie
-                # wysypal. Uzytkownik nie ma jak tego rozpoznac przed wgraniem.
-                #
-                # Bez tej obslugi wychodzila piecsetka - dla wgrywajacego
-                # nieodroznialna od awarii serwisu, a w Sentry szum zamiast
-                # sygnalu. pypdf 6 zglasza tu takze LimitReachedError, czyli
-                # przerwana probe przetworzenia pliku zbudowanego tak, zeby
-                # zajac caly czas procesora; to rowniez ma byc odmowa, nie awaria.
-                logger.info("Nie udalo sie odczytac PDF-a %s: %s", file.name, blad)
-                return Response(
-                    {
-                        "error": "Nie udało się odczytać tego pliku PDF. Sprawdź, czy nie jest uszkodzony."
-                    },
-                    status=400,
-                )
+        try:
+            text = parse_document(file, file.name, settings.DOCUMENT_MAX_UPLOAD_BYTES)
+        except ParserUnavailable as error:
+            return Response({"error": str(error)}, status=503)
+        except UploadTooLarge as error:
+            return Response({"error": str(error)}, status=413)
+        except InvalidUpload as error:
+            return Response({"error": str(error)}, status=400)
+        if not text:
+            return Response(
+                {"error": "Nie znaleziono tekstu w pliku. Dla skanu najpierw wykonaj OCR."},
+                status=400,
+            )
 
         sprawdz_limit_bazy_wiedzy(tenant, text)
 
-        document = Document.objects.create(
+        Document.objects.create(
             tenant=tenant,
             name=name,
             file=file,
             content=text,
+            processed=True,
         )
 
-        # Embeddingi już przez Celery (async)
-        enqueue(embed_document_task, document.id)
+        # The post_save signal schedules embeddings once. The file is already
+        # parsed, so it must not schedule a second extraction or duplicate embedding job.
 
         return Response({"message": "Uploaded successfully."}, status=201)
 

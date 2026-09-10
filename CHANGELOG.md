@@ -16,6 +16,30 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.3] — 2026-09-10
+
+### Fixed
+
+- Document uploads validate the actual PDF, DOCX, TXT or Markdown content before
+  saving or scheduling embeddings. Limits apply to received bytes, extracted
+  text, PDF pages/streams and expanded DOCX archives. Empty, encrypted or
+  unsupported documents return an actionable error.
+- File parsing runs in a separate process with memory, CPU and wall-clock limits,
+  a clean environment and one parser at a time per application instance. Busy
+  or unavailable parsers reject uploads without storing them. Embeddings are
+  scheduled once after successful extraction.
+- New logos and avatars accept PNG, JPEG and WebP, enforce size/pixel limits,
+  reject animation, and are rebuilt as PNG without metadata or appended content.
+  Transparency and photo orientation are preserved.
+- Failed background file extraction exposes a readable error instead of leaving
+  the document indefinitely processing. Storage exception details stay private.
+
+### Operations
+
+- Deploy backend and worker together and run the additive migration
+  `documents.0015_document_processing_error`. No new environment variables.
+  See `docs/bezpieczne-uploady.md` for limits, rollout and remaining boundaries.
+
 ## [2.0.2] — 2026-09-10
 
 ### Fixed
