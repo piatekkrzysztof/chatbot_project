@@ -9,6 +9,7 @@ from accounts.plans import PLANS, PRO
 from accounts.seats import sprawdz_limit_miejsc
 from chat.models import FAQ, ChatFeedback, ChatMessage, ContactRequest, PromptLog
 from documents.models import Document, DocumentChunk, WebsiteSource
+from documents.safe_http import FetchError, validate_url
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -309,6 +310,14 @@ class WidgetDomainSerializer(serializers.ModelSerializer):
 
 
 class WebsiteSourceSerializer(serializers.ModelSerializer):
+    def validate_url(self, value):
+        try:
+            validate_url(value)
+        except FetchError as error:
+            raise serializers.ValidationError(str(error)) from None
+        # Preserve stored spelling and existing duplicate checks; normalize at fetch time.
+        return value
+
     class Meta:
         model = WebsiteSource
         fields = ["id", "name", "url", "is_active", "created_at"]
