@@ -7,7 +7,7 @@ from documents.models import Document
 
 
 @pytest.mark.django_db
-@patch("api.views.documents.embed_document_task.delay")
+@patch("documents.tasks.generate_embeddings_for_document.delay")
 def test_document_upload_dispatches_embedding_task(
     mock_embedding_task, api_client, tenant, user, valid_pdf_file, subscribtion
 ):

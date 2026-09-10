@@ -14,6 +14,7 @@ class Document(models.Model):
         upload_to=private_document_name, storage=DocumentStorage(), null=True, blank=True
     )
     processed = models.BooleanField(default=False)
+    processing_error = models.CharField(max_length=300, blank=True, default="")
     uploaded_at = models.DateTimeField(auto_now_add=True)
     source = models.CharField(max_length=50, blank=True, null=True)
 
