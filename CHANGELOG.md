@@ -16,6 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-09-10
+
+### Fixed
+
+- Remote backups report success only after reading the stored ciphertext back
+  and verifying that it matches the uploaded bytes. Storage failures stop the
+  command without printing provider error details that may contain credentials.
+- Backup jobs validate models without importing HTTP routes, so a dedicated
+  backup host does not need an OpenAI API key merely to start the command.
+- Operators can run `check_backup` to detect missing, stale, corrupt or
+  undecryptable copies. Its age check uses the authenticated encryption timestamp;
+  renaming or re-uploading an old copy does not make it fresh.
+
+### Operations
+
+- Added a separate, opt-in Render cron template and a deployment/restore runbook.
+  Merging this release does not create scheduled jobs or enable notifications.
+  Database PITR, uploaded-file backups and a full staging restore remain separate
+  acceptance requirements.
+
 ## [2.0.0] — 2026-09-09
 
 ### Security

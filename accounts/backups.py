@@ -1,15 +1,75 @@
 """Format kopii, szyfrowanie i zapis bez nadpisywania poprzedniej kopii."""
 
+import hmac
 import io
 import json
 import os
+import re
+import time
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
+from django.core.files.storage import storages
 from django.core.management.base import CommandError
 
+from chatbot_project.storage import PrivateS3Storage
+
 MAGIC = b"SAAS-BACKUP-1\n"
+BACKUP_NAME = re.compile(r"kopia-[0-9]{8}-[0-9]{6}-[a-f0-9]{32}\.json\.fernet\Z")
+
+
+def private_backup_storage():
+    storage = storages["private_backups"]
+    if not isinstance(storage, PrivateS3Storage):
+        raise CommandError("Operacja wymaga skonfigurowanego prywatnego magazynu obiektowego.")
+    return storage
+
+
+def read_remote_backup(storage, name):
+    try:
+        with storage.open(name, "rb") as stream:
+            return read_backup(stream, encrypted=True)
+    except CommandError:
+        raise
+    except Exception:
+        # Wyjątki dostawcy mogą zawierać podpisany URL lub identyfikatory kluczy.
+        raise CommandError("Nie można odczytać kopii z prywatnego magazynu.") from None
+
+
+def verify_remote_backup(storage, name, expected):
+    actual = read_remote_backup(storage, name)
+    if not hmac.compare_digest(actual, expected):
+        raise CommandError("Błąd weryfikacji kopii: odczytane bajty różnią się od wysłanych.")
+
+
+def latest_remote_backup(storage):
+    try:
+        _, names = storage.listdir("backups")
+    except Exception:
+        raise CommandError("Nie można odczytać listy kopii z prywatnego magazynu.") from None
+    name = max((name for name in names if BACKUP_NAME.fullmatch(name)), default=None)
+    if name is None:
+        raise CommandError("Brak zaszyfrowanych kopii utworzonych przez backup_data.")
+    return f"backups/{name}"
+
+
+def check_backup_age(data, max_age_seconds):
+    plaintext = decrypt_backup(data)
+    # extract_timestamp weryfikuje podpis. Nazwa lub data uploadu starego pliku
+    # nie mogą odmłodzić kopii. Nie ufamy LastModified z magazynu.
+    created = backup_cipher().extract_timestamp(data[len(MAGIC) :])
+    age = time.time() - created
+    if age < -60:
+        raise CommandError("Kopia ma datę z przyszłości; sprawdź zegary usług.")
+    if age > max_age_seconds:
+        raise CommandError("Najnowsza kopia jest starsza niż dopuszczalny próg.")
+    return {
+        "status": "ok",
+        "created_at": created,
+        "age_seconds": max(0, int(age)),
+        "objects": validate_backup(plaintext),
+    }
 
 
 def backup_cipher():

@@ -13,7 +13,7 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | Etap | Ustalenia | Zakres i warunek odbioru | Status |
 |---|---|---|---|
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
-| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | 2a: PR #39 scalony i wdrożony; 2b: kod prywatnych magazynów w przygotowaniu, konfiguracja i migracja produkcyjna pozostają otwarte; zależności pozostałych repozytoriów do wykonania |
+| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | PR #39 i #40 scalone i wdrożone; prywatne magazyny oraz dostęp sprawdzone, odczyt legacy wyłączony; operacyjny zakres kopii, pełny restore i zależności pozostałych repozytoriów pozostają otwarte |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | Kontrola SSRF/DNS/redirectów i uploadu, budżety oraz rezerwacje wiadomości; formularze odporne na awarie i spam | Do wykonania |
 | 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | Do wykonania |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
@@ -172,3 +172,33 @@ Nie sprawdzono polityk dostępu bezpośrednio w Cloudflare i nie zmieniano produ
 [Instrukcja konfiguracji i migracji](prywatne-pliki-i-kopie.md) opisuje kolejność,
 zakres narzędzia oraz warunki zamknięcia F04. Zależności frontendu i witryny
 marketingowej pozostają osobnymi PR-ami.
+
+### Odbiór 2b — aktualizacja z 10.09.2026
+
+PR #40 jest scalony i wdrożony na web oraz workerze. Sprawdzono prywatność
+magazynów, zakresy poświadczeń, autoryzację pobierania i rzeczywisty przepływ
+syntetycznego pliku przez worker. Szyfrowanie, odczyt i odszyfrowanie syntetycznej
+kopii oraz odtworzenie jej relacji w izolowanym PostgreSQL przeszły.
+Użytkownik potwierdził zabezpieczenie kopii klucza szyfrowania poza hostingiem.
+Odczyt legacy wyłączono; po rozpoznaniu zależności i potwierdzeniu użytkownika
+odwołano dwa nieużywane przez SaaS tokeny o nadmiernych uprawnieniach.
+Kontrola po odwołaniu potwierdziła zachowany dostęp aplikacji do magazynów.
+Szczegółowe dowody infrastruktury pozostają w lokalnym raporcie audytu.
+
+### Etap 2c — kontrola kopii i przygotowanie harmonogramu
+
+Gałąź `codex/audit-backup-monitoring`, wydanie 2.0.1:
+
+- Kopia zdalna zgłasza sukces dopiero po odczycie i porównaniu szyfrogramu.
+- `check_backup` wykrywa brak, przekroczony wiek, uszkodzenie i błędny klucz.
+  Wiek wynika z podpisanego czasu Fernet; polecenie nie odczytuje bazy danych.
+- Osobny przykład konfiguracji zadań kopii i kontroli na Renderze oraz
+  [instrukcja wdrożenia i odtwarzania](harmonogram-i-kontrola-kopii.md).
+- Test cyklu zdalnej kopii odtwarza syntetyczne dane w PostgreSQL, w tym relacje,
+  klucze widgetu, hasła i wektory. Magazyn S3 jest w tym teście atrapą.
+
+Ten etap nie uruchamia usług produkcyjnych. F04 pozostaje częściowo otwarte:
+potrzebne są działające harmonogramy i alarmy, niezależne wykrywanie braku
+przebiegów, PostgreSQL/PITR, kopie bajtów uploadów oraz pełny restore na stagingu.
+Nie jest to odbiór komercyjny całej aplikacji. Po pracach nad kopiami kolejnym
+etapem kodu pozostają SSRF, walidacja wejść i atomowe limity kosztów.

@@ -91,6 +91,9 @@ def test_to_storage_wysyla_tylko_szyfrogram_bez_lokalnego_pliku(
         return name
 
     monkeypatch.setattr(PrivateS3Storage, "save", capture)
+    from django.core.files.base import ContentFile
+
+    monkeypatch.setattr(PrivateS3Storage, "open", lambda *a, **k: ContentFile(saved[-1][1]))
     monkeypatch.chdir(tmp_path)
     call_command("backup_data", to_storage=True)
     assert len(saved) == 1

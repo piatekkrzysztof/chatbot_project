@@ -111,12 +111,19 @@ obejmuje bajtów uploadów — osobno zapewnij wersjonowanie/backup prywatnych p
 
 ## Warunki zamknięcia F04
 
+Od 2.0.1 zdalna kopia jest odczytywana i porównywana po zapisie. Polecenie
+`check_backup` sprawdza integralność i wiek ostatniej kopii. Konfigurację
+osobnych zadań i odbiór alarmów opisuje
+[harmonogram i kontrola kopii](harmonogram-i-kontrola-kopii.md).
+
 - Dwa prywatne buckety nie pozwalają na anonimowe pobranie ani listowanie.
 - Użytkownik A pobiera własny plik; użytkownik B i publiczny klucz widgetu nie.
 - Nowy upload oraz zadanie przetwarzające działają na web i workerze.
 - Istniejące pliki przeniesiono, publiczne kopie i cache zinwentaryzowano/usunięto.
 - Wyłączono odczyt starego magazynu; logo widgetu nadal działa.
 - Zaszyfrowaną kopię odtworzono w osobnej bazie, razem z danymi i embeddingami.
+- Harmonogram i alarmy działają; ustalono PostgreSQL/PITR, kopie bajtów plików
+  oraz RPO/RTO potwierdzone pełnym odtworzeniem na stagingu.
 - `python manage.py check --deploy` nie zgłasza brakującej konfiguracji prywatnych
   magazynów na właściwej usłudze. Sama kontrola ustawień nie sprawdza ACL w chmurze.
 
