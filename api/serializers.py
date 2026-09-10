@@ -266,6 +266,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "processed",
+            "processing_error",
             "uploaded_at",
             "chunk_count",
             "status",
@@ -273,15 +274,18 @@ class DocumentSerializer(serializers.ModelSerializer):
             "uzywaj_w_wyszukiwaniu",
             "source_url",
         ]
+        read_only_fields = ["processing_error"]
 
     @extend_schema_field(serializers.IntegerField())
     def get_chunk_count(self, obj):
         return obj.chunks.count()
 
     @extend_schema_field(
-        serializers.ChoiceField(choices=["ready", "processed_no_chunks", "processing"])
+        serializers.ChoiceField(choices=["ready", "processed_no_chunks", "processing", "failed"])
     )
     def get_status(self, obj):
+        if obj.processing_error:
+            return "failed"
         if obj.processed:
             if obj.chunks.exists():
                 return "ready"

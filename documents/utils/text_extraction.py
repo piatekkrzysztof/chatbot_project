@@ -15,9 +15,7 @@ dokumentów przestałoby działać w momencie przepięcia magazynu na zewnętrzn
 import os
 from pathlib import Path
 
-import docx2txt
-
-from documents.utils.pdf_parser import extract_text_from_pdf
+from documents.isolated_parser import parse_document
 
 SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".txt", ".md")
 
@@ -44,15 +42,8 @@ def extract_text(source, filename: str | None = None) -> str:
 def _extract(handle, name: str) -> str:
     extension = os.path.splitext(name or "")[1].lower()
 
-    if extension == ".pdf":
-        return extract_text_from_pdf(handle)
-
-    if extension == ".docx":
-        # docx2txt czyta archiwum zip, więc przyjmuje też obiekt pliku
-        return (docx2txt.process(handle) or "").strip()
-
-    if extension in (".txt", ".md"):
-        return handle.read().decode("utf-8", errors="replace").strip()
+    if extension in SUPPORTED_EXTENSIONS:
+        return parse_document(handle, name)
 
     raise UnsupportedFileType(
         f"Nieobsługiwany format pliku: {extension or 'brak rozszerzenia'}. "

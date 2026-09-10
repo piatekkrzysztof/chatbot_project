@@ -1,9 +1,13 @@
 import json
+import uuid
 
+from django.conf import settings
+from django.core.files.base import ContentFile
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -21,6 +25,9 @@ from api.throttles import VisitorRateThrottle
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
 from chat.models import FAQ, Conversation
 from chat.privacy import visitor_identifier
+from documents.file_limits import InvalidUpload, UploadTooLarge, bounded_read
+from documents.isolated_parser import ParserUnavailable, parse_bytes
+from documents.uploads import LimitedMultiPartParser
 
 
 def _wlaczone(wartosc):
@@ -277,6 +284,7 @@ class TenantWidgetSettingsView(APIView):
     """
 
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
+    parser_classes = [LimitedMultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
         return Response(branding_dla_panelu(request.user.tenant, request))
@@ -361,7 +369,17 @@ class TenantWidgetSettingsView(APIView):
 
         for file_field in ("widget_logo", "widget_avatar"):
             if file_field in request.FILES:
-                setattr(tenant, file_field, request.FILES[file_field])
+                upload = request.FILES[file_field]
+                try:
+                    data = bounded_read(upload, settings.BRANDING_MAX_UPLOAD_BYTES)
+                    safe_image = parse_bytes(data, upload.name, image=True)
+                except ParserUnavailable as error:
+                    return Response({"error": str(error)}, status=503)
+                except UploadTooLarge as error:
+                    return Response({"error": str(error)}, status=413)
+                except InvalidUpload as error:
+                    return Response({"error": str(error)}, status=400)
+                setattr(tenant, file_field, ContentFile(safe_image, name=f"{uuid.uuid4().hex}.png"))
                 changed_fields.append(file_field)
 
         if changed_fields:
