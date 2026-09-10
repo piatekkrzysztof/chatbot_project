@@ -81,8 +81,7 @@ class APIKeyRateThrottle(BaseSubscriptionThrottle):
 
     def get_cache_key(self, request, view):
         tenant = verified_request_tenant(request)
-        api_key = request.headers.get("X-API-KEY")
-        if not api_key or tenant is None:
+        if tenant is None:
             return None
         return self.cache_format % {"scope": self.scope, "ident": f"tenant-{tenant.pk}"}
 

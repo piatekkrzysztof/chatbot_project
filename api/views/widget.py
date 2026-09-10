@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.domains import limit_domen, zarejestruj_domene
+from accounts.message_quota import ReservedStream, reserve_message
 from accounts.models import BrandingMode, WidgetDomain
 from accounts.plans import allows_hiding_branding, allows_white_label, get_plan
 from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
@@ -21,7 +22,7 @@ from api.schemas import (
     WidgetBrandingSerializer,
 )
 from api.serializers import ChatRequestSerializer, PublicFAQSerializer, WidgetDomainSerializer
-from api.throttles import VisitorRateThrottle
+from api.throttles import APIKeyRateThrottle, VisitorRateThrottle
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
 from chat.models import FAQ, Conversation
 from chat.privacy import visitor_identifier
@@ -170,13 +171,11 @@ class PublicChatView(APIView):
     permission_classes = []
     # Limit per firma chroni nas, limit per odwiedzający chroni klienta przed
     # jednym rozmówcą wyczerpującym mu cały miesięczny pakiet
-    throttle_classes = [VisitorRateThrottle]
+    throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
 
     def post(self, request):
         if not getattr(request, "tenant", None):
             raise PermissionDenied("Nieprawidłowy klucz API")
-
-        subscription = getattr(request, "subscription", None)
 
         serializer = ChatRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -194,12 +193,18 @@ class PublicChatView(APIView):
             },
         )
 
-        result = process_chat_message(tenant, conversation, data["message"].strip())
-
-        # Awaria modelu nie zjada limitu, za który klient zapłacił
-        payload, billable = split_billing(result)
-        if billable and subscription:
-            subscription.increment_usage()
+        reservation = reserve_message(tenant)
+        try:
+            result = process_chat_message(
+                tenant, conversation, data["message"].strip(), on_billable=reservation.charge
+            )
+            payload, billable = split_billing(result)
+            reservation.settle(billable)
+        except BaseException:
+            reservation.settle(None)
+            raise
+        else:
+            reservation.settle(False)
 
         return Response(payload)
 
@@ -228,7 +233,7 @@ class PublicChatStreamView(APIView):
 
     authentication_classes = []
     permission_classes = []
-    throttle_classes = [VisitorRateThrottle]
+    throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
 
     def post(self, request):
         if not getattr(request, "tenant", None):
@@ -250,18 +255,17 @@ class PublicChatStreamView(APIView):
             },
         )
 
-        # Naliczamy dopiero, gdy odwiedzający realnie dostanie treść od modelu.
-        # Wcześniej limit schodził z góry, więc awaria po naszej stronie
-        # kosztowała klienta wiadomość. Samego limitu to nie osłabia — sprawdza
-        # go SubscriptionMiddleware, zanim ten widok w ogóle się wykona.
-        subscription = getattr(request, "subscription", None)
+        reservation = reserve_message(tenant)
 
         response = StreamingHttpResponse(
-            stream_chat_message(
-                tenant,
-                conversation,
-                data["message"].strip(),
-                on_billable=subscription.increment_usage if subscription else None,
+            ReservedStream(
+                stream_chat_message(
+                    tenant,
+                    conversation,
+                    data["message"].strip(),
+                    on_billable=reservation.charge,
+                ),
+                reservation,
             ),
             content_type="text/event-stream",
         )

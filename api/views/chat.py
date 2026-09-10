@@ -3,6 +3,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.message_quota import reserve_message
 from api.permissions import IsTenantMember
 from api.schemas import PublicChatResponseSerializer
 from api.serializers import ChatRequestSerializer
@@ -27,7 +28,6 @@ class ChatWithGPTView(APIView):
     permission_classes = [IsTenantMember]
 
     def post(self, request):
-        subscription = request.subscription
         serializer = ChatRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -44,11 +44,17 @@ class ChatWithGPTView(APIView):
 
         user_message = data["message"].strip()
 
-        result = process_chat_message(tenant, conversation, user_message)
-
-        # Awaria modelu nie zjada limitu, za który klient zapłacił
-        payload, billable = split_billing(result)
-        if billable:
-            subscription.increment_usage()
+        reservation = reserve_message(tenant)
+        try:
+            result = process_chat_message(
+                tenant, conversation, user_message, on_billable=reservation.charge
+            )
+            payload, billable = split_billing(result)
+            reservation.settle(billable)
+        except BaseException:
+            reservation.settle(None)
+            raise
+        else:
+            reservation.settle(False)
 
         return Response(payload)
