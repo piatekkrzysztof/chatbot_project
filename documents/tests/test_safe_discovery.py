@@ -115,6 +115,15 @@ def test_crawl_caps_pages_even_with_thousands_of_links(monkeypatch):
     assert fetch.call_count == 20
 
 
+def test_crawler_preserves_short_unicode_source_urls(monkeypatch):
+    path = "/" + "ż" * 45
+    fetch = Mock(side_effect=lambda url: Page(url, f'<a href="{path}">Page</a>'.encode()))
+    monkeypatch.setattr(website_import, "fetch_page", fetch)
+    urls = website_import.discover_links_recursively(ROOT, max_depth=1)
+    assert ROOT.rstrip("/") + path in urls
+    assert all(len(url) < 200 for url in urls)
+
+
 @pytest.mark.parametrize(
     "module,function",
     [

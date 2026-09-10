@@ -160,6 +160,13 @@ def test_proxy_and_netrc_environment_cannot_inject_credentials(network, monkeypa
     assert b"Cookie" not in wires[0].sent
 
 
+def test_unicode_is_percent_encoded_only_on_the_wire(network):
+    _, _, wires = network(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK")
+    result = http.fetch_page("http://example.com/ż?q=ó")
+    assert result.url == "http://example.com/ż?q=ó"
+    assert b"GET /%C5%BC?q=%C3%B3 HTTP/1.1\r\n" in wires[0].sent
+
+
 def test_redirect_loop_stops_without_second_request(network):
     _, connect, _ = network(b"HTTP/1.1 302 Found\r\nLocation: /#same\r\n\r\n")
     with pytest.raises(http.FetchError, match="Pętla"):
@@ -372,9 +379,7 @@ def test_crawl_deadline_prevents_network(network):
 
 
 def test_unicode_normalization_and_exact_host_scope():
-    assert http.validate_url("https://ŻÓŁĆ.pl/żółć#sekcja") == (
-        "https://xn--kda4b0koi.pl/%C5%BC%C3%B3%C5%82%C4%87"
-    )
+    assert http.validate_url("https://ŻÓŁĆ.pl/żółć#sekcja") == ("https://xn--kda4b0koi.pl/żółć")
     assert http.same_site("https://example.com/faq", "http://EXAMPLE.com./old")
     assert not http.same_site("https://example.com.evil.org/", "https://example.com")
     assert not http.same_site("https://example.com@evil.org/", "https://example.com")
