@@ -5,8 +5,8 @@ Do tej pory widoki naliczały bezwarunkowo: awaria modelu po naszej stronie
 zjadała klientowi wiadomość z limitu, za który zapłacił, i zwracała mu w zamian
 komunikat o błędzie. Wersja strumieniowa odejmowała limit jeszcze przed
 rozpoczęciem strumienia, z uzasadnieniem, że później nie da się już odrzucić
-żądania — ale to myliło dwie różne rzeczy. Limit egzekwuje SubscriptionMiddleware,
-zanim widok się wykona; naliczanie może więc spokojnie poczekać na wynik.
+żądania. Teraz miejsce w pakiecie rezerwujemy atomowo przed wywołaniem AI,
+a naliczamy odpowiedź dopiero po otrzymaniu treści od modelu.
 
 Reguła: płacimy za treść od modelu. Urwany strumień też się liczy (odwiedzający
 zobaczył odpowiedź, my zapłaciliśmy za tokeny), sama awaria — nie.

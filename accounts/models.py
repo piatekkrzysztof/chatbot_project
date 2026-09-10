@@ -1,9 +1,9 @@
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from accounts.plans import PROGI_ALERTOW, PROGI_KONCA_SUBSKRYPCJI
@@ -416,6 +416,9 @@ class Subscription(models.Model):
     billing_cycle_start = models.DateField(
         auto_now_add=True, verbose_name="Start cyklu rozliczeniowego"
     )
+    billing_cycle_id: "models.UUIDField[uuid.UUID, uuid.UUID]" = models.UUIDField(
+        default=uuid.uuid4
+    )
 
     # Najwyższy próg zużycia, o którym już powiadomiliśmy w tym cyklu.
     # Bez tego pola alert leciałby przy każdej kolejnej wiadomości powyżej progu,
@@ -491,21 +494,30 @@ class Subscription(models.Model):
         """Czy firma ma dostępne wiadomości w bieżącym cyklu"""
         return self.current_message_count < self.message_limit
 
-    def reset_usage(self):
+    def reset_usage(self, only_if_due=False):
         """Resetuj licznik na początku nowego cyklu"""
-        self.current_message_count = 0
-        self.billing_cycle_start = timezone.now().date()
+        from dateutil.relativedelta import relativedelta
+
+        with transaction.atomic():
+            current = Subscription.objects.select_for_update().get(pk=self.pk)
+            today = timezone.now().date()
+            if not only_if_due or today >= current.billing_cycle_start + relativedelta(months=1):
+                current.current_message_count = 0
+                current.billing_cycle_start = today
+                current.billing_cycle_id = uuid.uuid4()
+                current.alert_threshold_sent = 0
+                current.save(
+                    update_fields=[
+                        "current_message_count",
+                        "billing_cycle_start",
+                        "billing_cycle_id",
+                        "alert_threshold_sent",
+                    ]
+                )
+            self.refresh_from_db()
         # Bez wyzerowania progu klient nie dostałby już nigdy żadnego alertu:
         # w nowym cyklu zużycie startuje od zera, więc nic nie przekroczyłoby
         # progu zapamiętanego z poprzedniego miesiąca.
-        self.alert_threshold_sent = 0
-        self.save(
-            update_fields=[
-                "current_message_count",
-                "billing_cycle_start",
-                "alert_threshold_sent",
-            ]
-        )
 
     def increment_usage(self):
         """Atomowe zwiększenie licznika wiadomości"""
@@ -526,6 +538,40 @@ class Subscription(models.Model):
             self.alert_threshold_sent = prog
             self.save(update_fields=["alert_threshold_sent"])
             enqueue(powiadom_o_zuzyciu, self.pk, prog)
+
+
+class MessageReservation(models.Model):
+    """Durable admission ticket; no prompt, response or visitor data."""
+
+    id: "models.UUIDField[uuid.UUID, uuid.UUID]" = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    tenant: "models.ForeignKey[Tenant, Tenant]" = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE
+    )
+    subscription: "models.ForeignKey[Subscription | None, Subscription | None]" = models.ForeignKey(
+        Subscription, null=True, on_delete=models.CASCADE
+    )
+    cycle_id: "models.UUIDField[uuid.UUID | None, uuid.UUID | None]" = models.UUIDField(null=True)
+    is_test: "models.BooleanField[bool, bool]" = models.BooleanField(default=False)
+    finished: "models.BooleanField[bool, bool]" = models.BooleanField(default=False)
+    state: "models.CharField[str, str]" = models.CharField(
+        max_length=12,
+        default="pending",
+        choices=[(value, value) for value in ("pending", "charged", "released", "uncertain")],
+    )
+    created_at: "models.DateTimeField[datetime, datetime]" = models.DateTimeField(auto_now_add=True)
+    expires_at: "models.DateTimeField[datetime, datetime]" = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["tenant", "finished", "expires_at"], name="reservation_active"),
+            models.Index(fields=["subscription", "cycle_id", "state"], name="reservation_quota"),
+            models.Index(
+                fields=["tenant", "is_test", "created_at"], name="reservation_test_budget"
+            ),
+            models.Index(fields=["tenant", "created_at"], name="reservation_attempt_rate"),
+        ]
 
 
 class WidgetDomain(models.Model):
