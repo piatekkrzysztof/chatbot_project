@@ -22,10 +22,11 @@ from drf_spectacular.utils import (
     extend_schema,
     extend_schema_view,
 )
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.message_quota import ReservedStream, reserve_message
 from api.permissions import IsTenantMember
 from api.schemas import (
     CzatTestowyHistoriaSerializer,
@@ -87,17 +88,18 @@ class CzatTestowyView(APIView):
         if tenant is None:
             raise PermissionDenied("Brak uprawnień.")
 
-        wiadomosc = str(request.data.get("message", "")).strip()
-        if not wiadomosc:
-            # 400, nie 403: to błąd w treści żądania, nie brak uprawnień
-            raise ValidationError({"message": "Wiadomość nie może być pusta."})
+        serializer = CzatTestowyZadanieSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        wiadomosc = serializer.validated_data["message"]
 
         rozmowa = rozmowa_testowa(tenant, request.user)
 
-        # on_billable pominięte świadomie: to jedyne miejsce, w którym rozmowa
-        # nie jest naliczana. Właściciel sprawdzający własnego bota nie może
-        # płacić za tę wiedzę wiadomościami ze swojego pakietu.
-        strumien = stream_chat_message(tenant, rozmowa, wiadomosc)
+        # Oddzielny budżet testów; nie zmniejsza miesięcznego pakietu klienta.
+        reservation = reserve_message(tenant, is_test=True)
+        strumien = ReservedStream(
+            stream_chat_message(tenant, rozmowa, wiadomosc, on_billable=reservation.charge),
+            reservation,
+        )
 
         odpowiedz = StreamingHttpResponse(strumien, content_type="text/event-stream")
         odpowiedz["Cache-Control"] = "no-cache"

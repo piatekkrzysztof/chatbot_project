@@ -241,7 +241,7 @@ class SubscriptionMiddleware(MiddlewareMixin):
             # Bezpieczne sprawdzenie czy minął miesiąc (uwzględnia lata)
             next_billing_date = subscription.billing_cycle_start + relativedelta(months=1)
             if today >= next_billing_date:
-                subscription.reset_usage()
+                subscription.reset_usage(only_if_due=True)
 
             # 5. Sprawdź limit wiadomości
             if not subscription.has_message_quota():
