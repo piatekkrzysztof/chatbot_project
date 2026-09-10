@@ -26,6 +26,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import Tenant
 from documents.models import Document
+from documents.safe_http import FetchError, fetch_page
 
 # Wariant „obecny" musi dokładnie odpowiadać temu, co robi
 # documents/website_import.py:fetch_text_from_url — inaczej porównanie
@@ -129,7 +130,10 @@ class Command(BaseCommand):
 
         zyski = []
         for adres in adresy:
-            pobrane = trafilatura.fetch_url(adres)
+            try:
+                pobrane = fetch_page(adres).body
+            except FetchError:
+                pobrane = None
             if not pobrane:
                 self.stdout.write(f"{adres[:43]:<44}{'NIE POBRANO':>10}")
                 continue

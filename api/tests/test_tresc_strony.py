@@ -14,6 +14,7 @@ Testy pilnują dwóch rzeczy naraz, bo obie da się zepsuć jedną zmianą:
 
 import pytest
 
+from documents.safe_http import Page
 from documents.utils.tresc_strony import bez_obudowy, wyciagnij_tresc
 
 # Strona sprzedażowa ze znacznikami semantycznymi — tak zbudowana jest witryna
@@ -172,7 +173,7 @@ class TestSciezkiImportu:
 
         tenant = Tenant.objects.create(name="Firma", owner_email="a@b.pl")
         monkeypatch.setattr(
-            "documents.website_import.trafilatura.fetch_url", lambda url: SEMANTYCZNA
+            "documents.website_import.fetch_page", lambda url: Page(url, SEMANTYCZNA.encode())
         )
 
         import_website_as_document(tenant, "https://firma.pl/", name="https://firma.pl/")
@@ -188,8 +189,8 @@ class TestSciezkiImportu:
 
         tenant = Tenant.objects.create(name="Firma", owner_email="a@b.pl")
         monkeypatch.setattr(
-            "documents.website_import.trafilatura.fetch_url",
-            lambda url: "<html><body><nav>Menu</nav></body></html>",
+            "documents.website_import.fetch_page",
+            lambda url: Page(url, b"<html><body><nav>Menu</nav></body></html>"),
         )
 
         with pytest.raises(ValueError, match="firma.pl"):
