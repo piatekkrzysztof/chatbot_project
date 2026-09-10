@@ -118,9 +118,9 @@ def validate_url(url):
     default_port = 443 if parsed.scheme == "https" else 80
     if port is not None and port != default_port:
         authority += f":{port}"
-    path = quote(parsed.path or "/", safe="/%:@!$&'()*+,;=-._~")
-    query = quote(parsed.query, safe="/%?:@!$&'()*+,;=-._~")
-    return urlunsplit((parsed.scheme, authority, path, query, ""))
+    # Keep readable Unicode in discovered source URLs. Escaping here would expand
+    # short paths beyond the database URL field; only the HTTP request needs it.
+    return urlunsplit((parsed.scheme, authority, parsed.path or "/", parsed.query, ""))
 
 
 def same_site(url, base_url):
@@ -262,7 +262,9 @@ def _request(url, address, deadline, budget):
     timer.start()
     try:
         _remaining(deadline)
-        target = urlunsplit(("", "", parsed.path, parsed.query, ""))
+        path = quote(parsed.path, safe="/%:@!$&'()*+,;=-._~")
+        query = quote(parsed.query, safe="/%?:@!$&'()*+,;=-._~")
+        target = urlunsplit(("", "", path, query, ""))
         connection.request(
             "GET",
             target,

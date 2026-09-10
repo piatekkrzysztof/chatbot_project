@@ -106,3 +106,28 @@ def test_task_does_not_report_success_when_every_link_is_outside_site(monkeypatc
     source.refresh_from_db()
     assert source.last_crawled_at is None
     assert source.last_error
+
+
+@pytest.mark.django_db
+def test_refresh_preserves_original_root_spelling_without_duplicate_document(monkeypatch, tenant):
+    from documents.safe_http import Page, validate_url
+    from documents.utils.tresc_strony import TrescStrony
+
+    url = "https://example.com"  # An existing record without a trailing slash.
+    source = WebsiteSource.objects.create(tenant=tenant, url=url)
+    original = Document.objects.create(
+        tenant=tenant, source="website", source_url=url, name="Existing", content="Old"
+    )
+    monkeypatch.setattr("documents.tasks.sitemap_search", lambda url: [])
+    monkeypatch.setattr(
+        "documents.website_import.fetch_page",
+        lambda url: Page(validate_url(url), b"<p>No links</p>"),
+    )
+    monkeypatch.setattr(
+        "documents.website_import.fetch_text_from_url", lambda url: TrescStrony("New content", 11)
+    )
+    crawl_and_import_website_source(source.id)
+    original.refresh_from_db()
+    assert Document.objects.filter(tenant=tenant).count() == 1
+    assert original.content == "New content"
+    assert original.source_url == url
