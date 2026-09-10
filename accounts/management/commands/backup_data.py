@@ -3,8 +3,8 @@
 import uuid
 from pathlib import Path
 
+from django.core.checks import Tags
 from django.core.files.base import ContentFile
-from django.core.files.storage import storages
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
@@ -13,16 +13,20 @@ from accounts.backups import (
     BackupBuffer,
     backup_cipher,
     encrypt_backup,
+    private_backup_storage,
     validate_backup,
+    verify_remote_backup,
     write_new_file,
 )
-from chatbot_project.storage import PrivateS3Storage
 
 POMIJANE = ["contenttypes", "auth.permission", "sessions", "admin.logentry"]
 
 
 class Command(BaseCommand):
     help = "Szyfruje dane aplikacji. Odtworzenie: decrypt_backup, a następnie loaddata."
+    # Kontrola URL importuje klienta AI. Host kopii nie potrzebuje jego klucza;
+    # sprawdzamy modele, a klucz i magazyn walidujemy bezpośrednio w handle.
+    requires_system_checks = [Tags.models]
 
     def add_arguments(self, parser):
         parser.add_argument("--output", help="Nowy lokalny plik zaszyfrowanej kopii.")
@@ -36,11 +40,7 @@ class Command(BaseCommand):
         backup_cipher()  # Walidacja przed odczytaniem danych i sekretów.
         storage = None
         if options["to_storage"]:
-            storage = storages["private_backups"]
-            if not isinstance(storage, PrivateS3Storage):
-                raise CommandError(
-                    "--to-storage wymaga skonfigurowanego prywatnego magazynu obiektowego."
-                )
+            storage = private_backup_storage()
 
         with BackupBuffer() as buffer:
             call_command(
@@ -60,8 +60,12 @@ class Command(BaseCommand):
             write_new_file(output, ciphertext)
             self.stdout.write("Zapisano zaszyfrowaną kopię lokalną.")
         if storage is not None:
-            saved = storage.save(f"backups/{name}", ContentFile(ciphertext))
-            self.stdout.write(f"Wysłano zaszyfrowaną kopię: {saved}")
+            try:
+                saved = storage.save(f"backups/{name}", ContentFile(ciphertext))
+            except Exception:
+                raise CommandError("Nie można zapisać kopii w prywatnym magazynie.") from None
+            verify_remote_backup(storage, saved, ciphertext)
+            self.stdout.write(f"Wysłano i zweryfikowano zaszyfrowaną kopię: {saved}")
         self.stdout.write(f"Obiektów: {count}; rozmiar szyfrogramu: {len(ciphertext)} B.")
         self.stdout.write(
             "Odtworzenie: decrypt_backup <kopia> --output <nowy.json>, "

@@ -1,0 +1,62 @@
+# Osobny, opcjonalny Blueprint. Nie jest podłączony przez główny render.yaml.
+# Przed utworzeniem usług: docs/harmonogram-i-kontrola-kopii.md.
+services:
+  - type: cron
+    name: chatbot-encrypted-backup
+    runtime: python
+    region: frankfurt
+    schedule: "0 3 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py backup_data --to-storage
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.1
+      - key: DJANGO_SETTINGS_MODULE
+        value: chatbot_project.settings.prod
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+      - key: BACKUPS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: BACKUPS_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUPS_SECRET_ACCESS_KEY
+        sync: false
+      - key: BACKUPS_S3_ENDPOINT_URL
+        sync: false
+      - key: BACKUPS_S3_REGION_NAME
+        value: auto
+
+  - type: cron
+    name: chatbot-backup-check
+    runtime: python
+    region: frankfurt
+    schedule: "15 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py check_backup --max-age-hours 30
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.1
+      - key: DJANGO_SETTINGS_MODULE
+        value: chatbot_project.settings.prod
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      # Kontrola magazynu nie łączy się z bazą; nie przekazuj produkcyjnego URL.
+      - key: DATABASE_URL
+        value: postgresql://unused@127.0.0.1/unused
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+      - key: BACKUPS_STORAGE_BUCKET_NAME
+        sync: false
+      # Osobny token tylko do odczytu bucketa kopii.
+      - key: BACKUPS_ACCESS_KEY_ID
+        sync: false
+      - key: BACKUPS_SECRET_ACCESS_KEY
+        sync: false
+      - key: BACKUPS_S3_ENDPOINT_URL
+        sync: false
+      - key: BACKUPS_S3_REGION_NAME
+        value: auto
