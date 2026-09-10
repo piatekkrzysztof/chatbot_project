@@ -420,6 +420,15 @@ EMAIL_ALERTOW = os.getenv("EMAIL_ALERTOW", "")
 
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))
 
+# Hard upload caps (the memory upload threshold alone only spills files to disk).
+DOCUMENT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+BRANDING_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+FILE_UPLOAD_HANDLERS = [
+    "documents.uploads.LimitedUploadHandler",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
+
 # Sprawdzenie poprawności tych ustawień siedzi w ChatConfig.ready()
 # (chat/kontrola_poczty.py). Było tutaj, ale pytało wyłącznie o OBECNOŚĆ
 # zmiennych — a obie awarie, które realnie wystąpiły, były wartościami
