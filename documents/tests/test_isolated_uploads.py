@@ -71,6 +71,13 @@ def test_docx_rejects_external_entities():
         parser.parse_bytes(docx(content), "entity.docx")
 
 
+def test_docx_rejects_names_truncated_by_zip_reader():
+    data = docx(extras={"word/null_bad": b"ignored"})
+    data = data.replace(b"word/null_bad", b"word/null\x00bad")
+    with pytest.raises(InvalidUpload):
+        parser.parse_bytes(data, "null.docx")
+
+
 def test_docx_bounds_decompressed_member_and_count():
     with pytest.raises(UploadTooLarge):
         parser.parse_bytes(

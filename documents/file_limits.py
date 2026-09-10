@@ -73,7 +73,8 @@ def inspect_docx(data):
         for member in members:
             path = PurePosixPath(member.filename)
             if (
-                path.is_absolute()
+                member.orig_filename != member.filename
+                or path.is_absolute()
                 or ".." in path.parts
                 or "\\" in member.filename
                 or ":" in member.filename
