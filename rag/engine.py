@@ -5,7 +5,7 @@ from pgvector.django import L2Distance
 from documents.models import DocumentChunk
 from documents.wymiar import WYMIAR_WEKTORA
 
-client = OpenAI()
+client = OpenAI(timeout=settings.CHAT_OPENAI_TIMEOUT_SECONDS, max_retries=0)
 
 
 def fragmenty_do_przeszukania(tenant_id: int):

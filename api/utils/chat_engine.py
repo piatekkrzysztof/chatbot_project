@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 import openai
 from django.conf import settings
@@ -29,7 +30,7 @@ MAX_FAQ_IN_PROMPT = 20
 
 def get_client(tenant=None):
     api_key = tenant.openai_api_key if tenant and tenant.openai_api_key else settings.OPENAI_API_KEY
-    return OpenAI(api_key=api_key)
+    return OpenAI(api_key=api_key, timeout=settings.CHAT_OPENAI_TIMEOUT_SECONDS, max_retries=0)
 
 
 def build_history_messages(conversation, limit=None):
@@ -240,7 +241,7 @@ def persist_exchange(tenant, conversation, response_text, source, tokens, model,
     return wiadomosc
 
 
-def process_chat_message(tenant, conversation, message_text):
+def process_chat_message(tenant, conversation, message_text, on_billable=None):
     """
     Procesuje wiadomość użytkownika w ramach konwersacji: zapisuje pytanie,
     buduje kontekst (dokumenty + FAQ + historia), odpytuje model i zapisuje odpowiedź.
@@ -265,6 +266,9 @@ def process_chat_message(tenant, conversation, message_text):
         response_text = FALLBACK_MESSAGE
         tokens = 0
         billable = False
+
+    if billable and on_billable:
+        on_billable()
 
     obcinacz = ObcinaczZnacznika()
     response_text = obcinacz.podaj(response_text) + obcinacz.zakoncz()
@@ -311,84 +315,79 @@ def _sse(payload):
 
 
 def stream_chat_message(tenant, conversation, message_text, on_billable=None):
-    """
-    Wariant strumieniowy: oddaje odpowiedź token po tokenie jako SSE,
-    a po zakończeniu strumienia zapisuje ją tak samo jak wersja synchroniczna.
-
-    `on_billable` wywołujemy dopiero wtedy, gdy odwiedzający realnie dostał
-    treść od modelu. Rozliczenie musi dziać się tutaj, w generatorze: widok
-    kończy się, zanim strumień zostanie skonsumowany, więc nie ma jak sprawdzić
-    wyniku po fakcie. Sam limit jest egzekwowany wcześniej, w middleware —
-    to dwie różne rzeczy i wcześniej były mylone.
-    """
+    """Close the provider and persist partial replies even on GeneratorExit."""
     model = settings.OPENAI_CHAT_MODEL
-
     zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
-
     messages, chunks, faqs, wyszukiwanie_padlo = build_chat_messages(
         tenant, conversation, message_text
     )
-
-    # Znacznik braku odpowiedzi stoi na początku strumienia i nie może dotrzeć
-    # do przeglądarki — obcinacz wstrzymuje pierwsze kilkanaście znaków, dopóki
-    # nie wiadomo, czy to on.
     obcinacz = ObcinaczZnacznika()
     pieces = []
     tokens = 0
     awaria = False
+    charged = False
+    stream = None
+    deadline = time.monotonic() + settings.CHAT_STREAM_SECONDS
+
+    def charge():
+        nonlocal charged
+        if not charged and on_billable:
+            on_billable()
+        charged = True
 
     try:
-        stream = get_client(tenant).chat.completions.create(
-            model=model,
-            messages=messages,
-            **parametry_modelu(),
-            stream=True,
-            stream_options={"include_usage": True},
+        try:
+            stream = get_client(tenant).chat.completions.create(
+                model=model,
+                messages=messages,
+                **parametry_modelu(),
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+            for event in stream:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("Chat stream deadline exceeded")
+                if getattr(event, "usage", None):
+                    tokens = event.usage.total_tokens
+                if event.choices and event.choices[0].delta.content:
+                    piece = obcinacz.podaj(event.choices[0].delta.content)
+                    if piece:
+                        charge()
+                        pieces.append(piece)
+                        yield _sse({"type": "delta", "content": piece})
+        except Exception:
+            logger.exception("Błąd podczas streamowania odpowiedzi")
+            if not pieces:
+                pieces.append(FALLBACK_MESSAGE)
+                awaria = True
+                yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
+
+        reszta = "" if awaria else obcinacz.zakoncz()
+        if reszta:
+            charge()
+            pieces.append(reszta)
+            yield _sse({"type": "delta", "content": reszta})
+    finally:
+        if stream is not None:
+            close = getattr(stream, "close", None)
+            if close:
+                try:
+                    close()
+                except Exception:
+                    logger.exception("Could not close OpenAI stream")
+        response_text = "".join(pieces)
+        source = determine_source(
+            chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
         )
-        for event in stream:
-            if getattr(event, "usage", None):
-                tokens = event.usage.total_tokens
-            if event.choices and event.choices[0].delta.content:
-                piece = obcinacz.podaj(event.choices[0].delta.content)
-                if piece:
-                    pieces.append(piece)
-                    yield _sse({"type": "delta", "content": piece})
-    except Exception as e:
-        logger.exception("Błąd podczas streamowania odpowiedzi: %s", e)
-        if not pieces:
-            pieces.append(FALLBACK_MESSAGE)
-            awaria = True
-            yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
-
-    # Odpowiedź krótsza niż znacznik nigdy nie wyszła z bufora — bez tego
-    # przepadłaby w całości. Po komunikacie o awarii bufor zostawiamy: urwany
-    # początek zdania dokleiłby się do niego i wyszłaby z tego sieczka.
-    reszta = "" if awaria else obcinacz.zakoncz()
-    if reszta:
-        pieces.append(reszta)
-        yield _sse({"type": "delta", "content": reszta})
-
-    response_text = "".join(pieces)
-    source = determine_source(
-        chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
-    )
-
-    # Urwany strumień też się liczy: odwiedzający zobaczył treść od modelu,
-    # a my zapłaciliśmy za tokeny. Nie liczy się wyłącznie sama awaria,
-    # po której poszedł jedynie komunikat zastępczy.
-    billable = bool(pieces) and response_text != FALLBACK_MESSAGE
-    if billable and on_billable:
-        on_billable()
-
-    wiadomosc = persist_exchange(
-        tenant,
-        conversation,
-        response_text,
-        source,
-        tokens,
-        model,
-        prompt_text=message_text,
-    )
+        wiadomosc = persist_exchange(
+            tenant,
+            conversation,
+            response_text,
+            source,
+            tokens,
+            model,
+            prompt_text=message_text,
+        )
 
     yield _sse(
         {

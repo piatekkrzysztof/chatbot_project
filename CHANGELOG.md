@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.4] — 2026-09-10
+
+### Fixed
+
+- Równoległe pytania rezerwują miejsce w miesięcznym pakiecie przed wywołaniem AI.
+  Przerwanie strumienia zamyka połączenie z modelem, zapisuje częściową odpowiedź
+  i nalicza ją tylko raz; awaria bez odpowiedzi zwalnia rezerwację.
+- Odpowiedź rozpoczęta w poprzednim cyklu nie obciąża nowego pakietu.
+- Czat testowy nadal nie zużywa płatnego pakietu. Ma osobny limit 100 prób na firmę
+  na dobę UTC, walidację długości pytania i wspólny limit równoległych wywołań.
+- Limity prób AI działają atomowo w bazie, również dla panelu z JWT i po restarcie
+  cache. Operator może sprawdzić i uzgodnić rezerwacje pozostałe po awarii procesu.
+
 ## [2.0.3] — 2026-09-10
 
 ### Fixed

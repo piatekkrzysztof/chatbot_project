@@ -5,9 +5,11 @@ Część widoków to zwykłe APIView zwracające Response(dict). Bez tych opisó
 generator nie ma czego pokazać i po cichu pomija endpoint — a pominięte były
 akurat te publiczne, od których zaczyna każdy integrujący widget.
 
-Te serializery nic nie walidują: opisują to, co widoki i tak zwracają.
+Większość opisuje odpowiedzi. Czat testowy używa swojego serializera także
+do walidacji wejścia, aby dokumentacja i ograniczenia długości były zgodne.
 """
 
+from django.conf import settings
 from rest_framework import serializers
 
 
@@ -267,7 +269,9 @@ class BillingOverviewSerializer(serializers.Serializer):
 class CzatTestowyZadanieSerializer(serializers.Serializer):
     """Pytanie właściciela do własnego bota."""
 
-    message = serializers.CharField(help_text="Treść pytania.")
+    message = serializers.CharField(
+        max_length=settings.MAX_WIADOMOSC_ZNAKOW, help_text="Treść pytania."
+    )
 
 
 class CzatTestowyWiadomoscSerializer(serializers.Serializer):
