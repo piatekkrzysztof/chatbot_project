@@ -11,6 +11,36 @@ from rest_framework.test import APIClient
 from accounts.models import CustomUser, Subscription, Tenant
 from chat.models import Conversation
 
+
+@pytest.fixture
+def mfa_admin_login(client):
+    """Use the real MFA login before exercising admin model pages."""
+    from django.utils import timezone
+
+    from accounts import totp
+    from accounts.models import DrugiSkladnik
+
+    def login(user):
+        factor = DrugiSkladnik.objects.create(
+            uzytkownik=user,
+            sekret=totp.nowy_sekret(),
+            potwierdzony_od=timezone.now(),
+        )
+        response = client.post(
+            "/admin/login/?next=/admin/",
+            {
+                "username": user.username,
+                "password": "Tajne123!",
+                "kod": totp.kod(factor.sekret),
+                "next": "/admin/",
+            },
+        )
+        assert response.status_code == 302
+        assert client.session.get("admin_mfa")
+
+    return login
+
+
 # Zmienne środowiskowe na czas testów (m.in. klucze API)
 load_dotenv(".env.test", override=True)
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import dj_database_url
 from corsheaders.defaults import default_headers
-from decouple import config
+from decouple import Csv, config
 from dotenv import load_dotenv
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
@@ -17,12 +17,13 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 SECRET_KEY = config("DJANGO_SECRET_KEY")
+SECRET_KEY_FALLBACKS = config("DJANGO_SECRET_KEY_FALLBACKS", default="", cast=Csv())
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_HEADERS = list(default_headers) + ["x-api-key"]
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    "accounts.admin_apps.MFAAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
