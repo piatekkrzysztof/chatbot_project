@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, PR #48 scalony i MFA wdrożone. F15 część 1 przygotowana do testów/PR.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, PR #48 scalony i MFA wdrożone. F15 część 1 w PR #49.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -77,7 +77,7 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F12 | DRF i zależności strony poprawione; skany tych zakresów zaliczone | Zależności frontendu, ponowne skany całości przed wydaniem |
 | F13 | Retencja aktywnych rozmów naprawiona, #39 | Końcowy odbiór polityki retencji |
 | F14 | #48 scalony i wdrożony, migracja 0035 oraz rzeczywiste logowanie API/admin z MFA sprawdzone; CI 1606 testów, 87,50% pokrycia | Rotacja/retencja operacyjna, świeże hasło przy konfiguracji i odzyskiwanie MFA |
-| F15 | Część 1 w kodzie: host-only cookie, Origin/Referer, no-store, refresh poza JSON | CI i odbiór produkcyjny tej części; atomowa rotacja, wiele kart i unieważnianie sesji |
+| F15 | Część 1 w #49: host-only cookie, Origin/Referer, no-store, refresh poza JSON; 69 nowych regresji i izolowany test transportu w Chrome | CI i odbiór produkcyjny tej części; atomowa rotacja, wiele kart i unieważnianie sesji |
 | F16 | Otwarte | Paginacja, N+1, pomiary opóźnień i obciążenia |
 | F17 | Otwarte | Powtarzalne zadania i atomowa publikacja embeddingów |
 | F18 | Otwarte | Spójne usuwanie i limity wiedzy/plików/pochodnych |

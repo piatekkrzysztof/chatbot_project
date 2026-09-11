@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.8] — 2026-09-11
+
+### Security
+
+- Token sesji pozostaje na hoście API i nie trafia do serwerów innych subdomen.
+  Produkcja używa cookie __Host-refresh_token (Secure, HttpOnly, Path=/).
+- Logowanie, drugi krok MFA, odświeżenie i wylogowanie odrzucają żądania bez
+  zaufanego Origin/Referer, także z obcej subdomeny tej samej witryny.
+- Token odświeżania nie jest zwracany ani przyjmowany w JSON. Odpowiedzi sesji
+  nie mogą być przechowywane w cache; wylogowanie działa z wygasłym access JWT.
+
+### Operations
+
+- Po wdrożeniu trzeba zalogować się ponownie. Panel nie wymaga zmian;
+  klient skryptowy musi obsługiwać cookies i podawać zaufany Origin.
+  Brak migracji bazy i nowych usług. Instrukcja: docs/sesje-i-csrf.md.
+
 ## [2.0.7] — 2026-09-11
 
 ### Security
