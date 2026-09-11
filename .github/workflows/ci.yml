@@ -418,6 +418,7 @@ jobs:
                   relative = path.relative_to(root).as_posix()
                   assert path.suffix == '.py' or relative in (
                       'requirements.txt', 'rag/ocena/wzorzec.json',
+                      'accounts/templates/admin/mfa_login.html',
                   ), relative
                   assert not path.name.startswith('.env'), path
                   assert b'SYNTHETIC_IMAGE_EXCLUSION_CHECK' not in path.read_bytes(), path
@@ -431,7 +432,7 @@ jobs:
               assert importlib.util.find_spec(package) is None, package
           for name in ('accounts/models.py', 'api/views/widget.py', 'chat/models.py',
                        'documents/models.py', 'chatbot_project/settings/prod.py',
-                       'rag/ocena/wzorzec.json'):
+                       'rag/ocena/wzorzec.json', 'accounts/templates/admin/mfa_login.html'):
               assert (root / name).is_file(), name
           print('Kod runtime obecny; sekrety, dane i narzędzia testowe wykluczone')
           PY

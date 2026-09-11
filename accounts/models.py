@@ -6,6 +6,7 @@ from django.core.validators import MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
 
+from accounts.mfa_crypto import EncryptedMFAField
 from accounts.plans import PROGI_ALERTOW, PROGI_KONCA_SUBSKRYPCJI
 
 
@@ -706,7 +707,7 @@ class DrugiSkladnik(models.Model):
         on_delete=models.CASCADE,
         related_name="drugi_skladnik",
     )
-    sekret = models.CharField(max_length=64)
+    sekret: models.TextField = EncryptedMFAField()
 
     #: Puste, dopóki użytkownik nie przepisze poprawnego kodu z aplikacji.
     potwierdzony_od = models.DateTimeField(null=True, blank=True)
@@ -731,6 +732,15 @@ class DrugiSkladnik(models.Model):
     def __str__(self):
         stan = "włączony" if self.wlaczony else "w trakcie konfiguracji"
         return f"{self.uzytkownik} - {stan}"
+
+
+class MfaChallenge(models.Model):
+    id: models.UUIDField = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user: models.ForeignKey = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    fingerprint: models.CharField = models.CharField(max_length=64)
+    expires_at: models.DateTimeField = models.DateTimeField(db_index=True)
+    used_at: models.DateTimeField = models.DateTimeField(null=True)
+    failures: models.PositiveSmallIntegerField = models.PositiveSmallIntegerField(default=0)
 
 
 class KodZapasowy(models.Model):

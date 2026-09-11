@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, F07 część 1 scalona, część 2 przygotowana.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, F07 scalone; backend wdrożony. F14 przygotowywane.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -19,7 +19,7 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
 | 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; bezpieczna retencja, Docker i zależności | PR #39–#41 scalone; prywatny storage i niezależny klucz kopii sprawdzone. PITR instancji dostępny. Nadal: alarmy/harmonogramy kopii, pełny restore SaaS z plikami i zależności frontendu |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | SSRF, upload, rezerwacje wiadomości, odporne formularze | Backend #42–#44 oraz frontend #11 scalone. Backend web live na `e5259ce` (F08). Strona marketingowa #1 live na `43a36d0`; rzeczywista wiadomość przeszła kolejkę i SMTP, właściciel potwierdził odbiór. Nadal: odbiór uploadu, kontrola rezerwacji/alertów i końcowy odbiór F23 opisany niżej |
-| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07 część 1: #46 scalony. Część 2: przygotowano backend i panel aktywacji, bez wdrożenia. Nadal: odbiór poczty/retencji, MFA, sesje i reset |
+| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07: backend #46/#47 oraz panel #12 scalone; web i worker live na 7236475. F14: MFA admina, atomowe kody/bilety i szyfrowanie przygotowane w kodzie, bez wdrożenia. Nadal: odbiór poczty/retencji, konfiguracja MFA, sesje i reset |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
 | 7. Wydajność i obsługa | F16, F20, F21, F24; pozostałe F22 | Paginacja/N+1, SLO, dziennik i minimalizacja danych, alarmy/kopie/restore, obowiązkowe bramki CI, pełne stany UI | Do wykonania |
@@ -33,16 +33,17 @@ sprawdzamy także przy równoległych operacjach i po awarii.
    Podłączyć kontrolę kolejki, kopii i rezerwacji do alarmów na obecnych zasobach;
    sprawdzić, że brak kolejnego przebiegu też wywołuje alarm. Odtworzyć dane i pliki
    w izolacji oraz zapisać zmierzone RPO/RTO. Dostępny PITR nie zastępuje testu restore.
-2. **Bieżące PR-y: F07 część 2 — potwierdzenie e-maila i panel aktywacji.**
-   Część 1 scalona w #46 (`d65172e`). Nowy przepływ tworzy konto i trial dopiero
-   po jednorazowym potwierdzeniu oraz ustawieniu hasła. Panel obsługuje błędy,
-   wygaśnięcie i ponowienie. Wymagane skoordynowane wdrożenie obu repozytoriów,
-   odbiór rzeczywistej poczty oraz harmonogram retencji zgłoszeń na obecnych
-   zasobach. Instrukcja: [aktywacja konta](aktywacja-konta.md).
-3. **F14/F15 i odzyskiwanie konta z F22.** MFA na wszystkich ścieżkach admina,
-   atomowe kody i limity drugiego kroku, ochrona sekretów w bazie, refresh wyłącznie
-   w bezpiecznym cookie, CSRF/Origin, reset i unieważnianie sesji. Zmiany kontraktu
-   sesji wymagają wspólnej weryfikacji backendu i panelu.
+2. **F07 część 2 scalona.** Backend #47 i panel #12 po merge. Read-only Render
+   potwierdził web i worker live na `7236475`. Nadal wymagany rzeczywisty odbiór
+   poczty aktywacyjnej, kontrola wdrożenia panelu i harmonogram retencji zgłoszeń
+   na obecnych zasobach. Instrukcja: [aktywacja konta](aktywacja-konta.md).
+3. **Bieżący etap F14: MFA.** Przygotowano obowiązkowy drugi składnik admina,
+   atomowe kody i jednorazowe bilety, limity prób i szyfrowanie sekretów w bazie.
+   Wdrożenie wymaga okna serwisowego i zabezpieczonego DJANGO_SECRET_KEY;
+   [instrukcja MFA](mfa-bezpieczenstwo.md). Produkcja nie została zmieniona.
+   Następnie świeże potwierdzenie hasła przy konfiguracji MFA, F15 i reset z F22:
+   cookies/CSRF, rotacja i unieważnianie sesji, odzyskiwanie konta. Te zmiany
+   wymagają wspólnego sprawdzenia backendu i panelu.
 4. **F10/F17/F18/F19/F25 — wiedza i RAG.** Import wszystkich formatów, idempotentne
    zadania, atomowa publikacja i usuwanie plików/embeddingów, bezpieczne CSV,
    poprawność feedbacku, wyszukiwanie FAQ i regresja jakości/izolacji.
@@ -68,14 +69,14 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F04 | Prywatne magazyny, szyfrowane kopie i klucz poza hostingiem; #40/#41 | Harmonogram/alerty, pełna kopia plików i restore SaaS |
 | F05 | Bezpieczny kontekst/obraz, #39 | Końcowy skan używanego obrazu |
 | F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
-| F07 | #46 scalony; część 2 przygotowana: konto i trial po e-mailu, hasło przy aktywacji, jednorazowe tokeny, retry i limity, panel | Wspólne wdrożenie i odbiór SMTP; retencja/alerty zgłoszeń, IP za proxy i ocena nadużyć przez wiele skrzynek/aliasów |
+| F07 | Backend #46/#47 i panel #12 scalone; backend web/worker live 7236475 | Kontrola wdrożenia panelu i odbiór SMTP; retencja/alerty zgłoszeń, IP za proxy i ocena nadużyć przez wiele skrzynek/aliasów |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Kontrola wdrożenia workera, alarmy i uzgadnianie wygasłych rezerwacji; pomiar kosztów |
 | F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
 | F10 | Otwarte; F09 poprawił część walidacji plików | Pełny proces budowy wiedzy i wszystkie formaty |
 | F11 | Otwarte | Spójność i idempotencja płatności oraz webhooków |
 | F12 | DRF i zależności strony poprawione; skany tych zakresów zaliczone | Zależności frontendu, ponowne skany całości przed wydaniem |
 | F13 | Retencja aktywnych rozmów naprawiona, #39 | Końcowy odbiór polityki retencji |
-| F14 | Otwarte | MFA admina, atomowe kody, sekrety w DB |
+| F14 | Kod przygotowany: MFA admina, atomowe TOTP/kody zapasowe, jednorazowe bilety, limity i szyfrowanie DB | CI, wdrożenie z migracją, rotacja/retencja i odbiór operacyjny; świeże hasło przy konfiguracji w następnym PR |
 | F15 | Otwarte | Refresh/cookies/CSRF, wiele kart i unieważnianie sesji |
 | F16 | Otwarte | Paginacja, N+1, pomiary opóźnień i obciążenia |
 | F17 | Otwarte | Powtarzalne zadania i atomowa publikacja embeddingów |

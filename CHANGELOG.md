@@ -16,6 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.7] — 2026-09-11
+
+### Security
+
+- Django admin wymaga MFA także przy wejściu przez starą sesję lub bezpośredni
+  adres modelu. Formularz przyjmuje kod z aplikacji lub kod zapasowy.
+- Kody MFA i bilety logowania są jednorazowe także przy równoległych żądaniach.
+  Bilety wygasają po zmianie hasła lub MFA i mają własny limit błędnych prób.
+- JWT powstaje dopiero po obu krokach logowania; awaria wspólnego limitera
+  blokuje próby MFA.
+- Sekrety TOTP są szyfrowane w bazie i eksporcie Django. Migracja zachowuje
+  działające konfiguracje, a polecenie rotacji umożliwia zmianę klucza.
+
+### Operations
+
+- Wdrożenie wymaga okna serwisowego dla migracji sekretów i zachowania
+  DJANGO_SECRET_KEY poza hostingiem. Instrukcja: docs/mfa-bezpieczenstwo.md.
+- Dodano ręczną komendę retencji wygasłych biletów; harmonogram i odbiór
+  produkcyjny pozostają do wykonania.
+
 ## [2.0.6] — 2026-09-11
 
 ### Fixed
