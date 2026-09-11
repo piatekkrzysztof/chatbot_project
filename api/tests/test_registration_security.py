@@ -11,6 +11,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import CustomUser, DaneRozliczeniowe, InvitationToken, Subscription, Tenant
 from api.serializers import AcceptInvitationSerializer, RegisterSerializer
+from api.tests.signup_helpers import complete_registration
 
 PASSWORD = "v7!Independent-Phrase-739"
 
@@ -53,6 +54,7 @@ def test_registration_rejects_weak_password_without_creating_company(password):
 def test_password_spaces_are_preserved():
     password = "  " + PASSWORD + "  "
     response = APIClient().post("/api/accounts/register/", registration(password=password))
+    response = complete_registration(response, password)
     assert response.status_code == 201
     assert CustomUser.objects.get(email="new@example.com").check_password(password)
 
@@ -62,6 +64,7 @@ def test_registration_normalizes_email_and_rejects_case_variant(user):
     response = APIClient().post("/api/accounts/register/", registration(email=user.email.upper()))
     assert response.status_code == 400
     response = APIClient().post("/api/accounts/register/", registration(email=" NEW@EXAMPLE.COM "))
+    response = complete_registration(response, PASSWORD)
     assert response.status_code == 201
     assert CustomUser.objects.filter(email="new@example.com", username="new@example.com").exists()
 
@@ -236,9 +239,9 @@ def test_failed_trial_creation_rolls_back_whole_registration(monkeypatch):
     def fail(*args):
         raise RuntimeError("synthetic subscription failure")
 
-    monkeypatch.setattr("api.views.accounts.zalozenie_okresu_probnego", fail)
+    monkeypatch.setattr("api.views.activation.zalozenie_okresu_probnego", fail)
     with pytest.raises(RuntimeError):
-        APIClient().post("/api/accounts/register/", registration())
+        complete_registration(APIClient().post("/api/accounts/register/", registration()), PASSWORD)
     assert not CustomUser.objects.exists()
     assert not Tenant.objects.exists()
     assert not DaneRozliczeniowe.objects.exists()
@@ -364,6 +367,7 @@ def test_migration_refuses_ambiguous_emails_without_deleting_accounts():
     from django.db.migrations.executor import MigrationExecutor
 
     executor = MigrationExecutor(connection)
+    latest_targets = executor.loader.graph.leaf_nodes()
     old_target = [("accounts", "0032_message_reservations")]
     new_target = [("accounts", "0033_unique_account_email")]
     executor.migrate(old_target)
@@ -381,7 +385,7 @@ def test_migration_refuses_ambiguous_emails_without_deleting_accounts():
         assert User.objects.filter(pk__in=[first.pk, second.pk]).count() == 2
     finally:
         second.delete()
-        MigrationExecutor(connection).migrate(new_target)
+        MigrationExecutor(connection).migrate(latest_targets)
 
 
 @pytest.mark.django_db(transaction=True)

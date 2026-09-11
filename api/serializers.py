@@ -185,7 +185,21 @@ class RegisterSerializer(serializers.Serializer):
         }
 
 
+class RegistrationStartSerializer(RegisterSerializer):
+    # Old clients may supply a password: validate it, but never retain it.
+    password = serializers.CharField(
+        required=False, write_only=True, trim_whitespace=False, max_length=1024
+    )
+
+    def validate(self, attrs):
+        return super().validate(attrs) if "password" in attrs else attrs
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password"].trim_whitespace = False
+
     def validate(self, attrs):
         data = super().validate(attrs)
         data["user"] = {
