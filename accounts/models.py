@@ -345,6 +345,15 @@ class CustomUser(AbstractUser):
 
     objects = MenedzerUzytkownikow()
 
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                models.functions.Lower(models.functions.Trim("email")),
+                condition=~models.Q(email=""),
+                name="account_email_ci_unique",
+            )
+        ]
+
     def __str__(self):
         return f"{self.username} [{self.tenant.name}]"
 
@@ -384,7 +393,7 @@ class InvitationToken(models.Model):
         expires_at = self.expires_at
         if expires_at is None:
             return False
-        return expires_at > timezone.now() and self.users < self.max_users
+        return expires_at > timezone.now() and self.max_users > 0 and self.users == 0
 
     def use(self):
         self.users += 1

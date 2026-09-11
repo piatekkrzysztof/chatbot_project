@@ -37,7 +37,7 @@ def test_accept_invitation_creates_user(user, tenant, subscribtion):
     user.save()
     tenant.save()
     client.force_authenticate(user=user)
-    token = InvitationToken.objects.create(tenant=tenant, role="employee")
+    token = InvitationToken.objects.create(tenant=tenant, role="employee", email="new@x.com")
 
     client = APIClient()
     response = client.post(

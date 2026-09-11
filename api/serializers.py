@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import IntegrityError, transaction
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -6,6 +7,14 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from accounts import nip as nip_pl
 from accounts.models import CustomUser, DaneRozliczeniowe, InvitationToken, Tenant, WidgetDomain
 from accounts.plans import PLANS, PRO
+from accounts.registration import (
+    account_conflict,
+    check_password,
+    create_user,
+    lock_invitation_team,
+    normalized_email,
+    unique_email,
+)
 from accounts.seats import sprawdz_limit_miejsc
 from chat.models import FAQ, ChatFeedback, ChatMessage, ContactRequest, PromptLog
 from documents.models import Document, DocumentChunk, WebsiteSource
@@ -13,6 +22,23 @@ from documents.safe_http import FetchError, validate_url
 
 
 class UserSerializer(serializers.ModelSerializer):
+    def validate_email(self, value):
+        return unique_email(value, self.instance)
+
+    def create(self, validated_data):
+        try:
+            with transaction.atomic():
+                return super().create(validated_data)
+        except IntegrityError as exc:
+            account_conflict(exc)
+
+    def update(self, instance, validated_data):
+        try:
+            with transaction.atomic():
+                return super().update(instance, validated_data)
+        except IntegrityError as exc:
+            account_conflict(exc)
+
     class Meta:
         model = CustomUser
         fields = [
@@ -70,8 +96,8 @@ class RegisterSerializer(serializers.Serializer):
     imie = serializers.CharField(max_length=60)
     nazwisko = serializers.CharField(max_length=60)
 
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(max_length=150)
+    password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=1024)
 
     # Nazwa widoczna w panelu i w widgecie - krótka, robocza.
     company_name = serializers.CharField(max_length=100)
@@ -105,10 +131,19 @@ class RegisterSerializer(serializers.Serializer):
         return nip_pl.znormalizuj(value)
 
     def validate_email(self, value):
-        if CustomUser.objects.filter(email=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
-        return value
+        return unique_email(value)
 
+    def validate(self, attrs):
+        check_password(
+            attrs["password"],
+            username=attrs["email"],
+            email=attrs["email"],
+            first_name=attrs["imie"],
+            last_name=attrs["nazwisko"],
+        )
+        return attrs
+
+    @transaction.atomic
     def create(self, validated_data):
         use_trial = validated_data.pop("use_trial")
         plan = validated_data.pop("plan")
@@ -132,7 +167,7 @@ class RegisterSerializer(serializers.Serializer):
             kraj=(validated_data.get("kraj") or "PL").upper(),
         )
 
-        user = CustomUser.objects.create_user(
+        user = create_user(
             username=validated_data["email"],
             email=validated_data["email"],
             password=validated_data["password"],
@@ -165,12 +200,21 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class InvitationCreateSerializer(serializers.ModelSerializer):
+    def validate_email(self, value):
+        return unique_email(value)
+
+    def validate_max_users(self, value):
+        if value != 1:
+            raise serializers.ValidationError("Zaproszenie jest przeznaczone dla jednej osoby.")
+        return value
+
     class Meta:
         model = InvitationToken
         fields = ["email", "role", "duration", "max_users"]
 
+    @transaction.atomic
     def create(self, validated_data):
-        tenant = self.context["request"].user.tenant
+        tenant = lock_invitation_team(self.context["request"].user)
         # Wcześnie, żeby właściciel dowiedział się teraz, a nie po tym, jak
         # pracownik kliknie w link i zobaczy błąd
         sprawdz_limit_miejsc(tenant)
@@ -213,14 +257,19 @@ class InvitationReadSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.IntegerField())
     def get_seats_left(self, obj):
-        return max(obj.max_users - obj.users, 0)
+        return int(obj.max_users > 0 and obj.users == 0)
 
 
 class AcceptInvitationSerializer(serializers.Serializer):
     token = serializers.UUIDField()
-    username = serializers.CharField()
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    username = serializers.CharField(
+        max_length=150, validators=CustomUser._meta.get_field("username").validators
+    )
+    email = serializers.EmailField(max_length=254)
+    password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=1024)
+
+    def validate_email(self, value):
+        return unique_email(value)
 
     def validate(self, attrs):
         try:
@@ -231,6 +280,9 @@ class AcceptInvitationSerializer(serializers.Serializer):
         if not invitation.is_valid():
             raise serializers.ValidationError("Token expired or used up.")
 
+        self.check_recipient(invitation, attrs["email"])
+        check_password(attrs["password"], username=attrs["username"], email=attrs["email"])
+
         # Ponownie, bo między wystawieniem zaproszenia a jego przyjęciem mogą
         # minąć dni — w tym czasie miejsca mogły się zapełnić albo firma mogła
         # zejść na niższy plan
@@ -239,11 +291,30 @@ class AcceptInvitationSerializer(serializers.Serializer):
         attrs["invitation"] = invitation
         return attrs
 
-    def create(self, validated_data):
-        invitation = validated_data["invitation"]
-        tenant = invitation.tenant
+    @staticmethod
+    def check_recipient(invitation, email):
+        if not invitation.email or normalized_email(invitation.email) != email:
+            raise serializers.ValidationError(
+                {"email": "Użyj adresu, na który wysłano zaproszenie."}
+            )
 
-        user = CustomUser.objects.create_user(
+    @transaction.atomic
+    def create(self, validated_data):
+        original = validated_data["invitation"]
+        # Same lock order as direct team creation: tenant, then invitation.
+        try:
+            tenant = Tenant.objects.select_for_update().get(pk=original.tenant_id)
+            invitation = InvitationToken.objects.select_for_update().get(
+                pk=original.pk, tenant=tenant
+            )
+        except (InvitationToken.DoesNotExist, Tenant.DoesNotExist):
+            raise serializers.ValidationError("Invalid token.") from None
+        if not invitation.is_valid():
+            raise serializers.ValidationError("Token expired or used up.")
+        self.check_recipient(invitation, validated_data["email"])
+        sprawdz_limit_miejsc(tenant)
+
+        user = create_user(
             username=validated_data["username"],
             email=validated_data["email"],
             password=validated_data["password"],
