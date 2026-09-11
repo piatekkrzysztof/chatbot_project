@@ -112,9 +112,12 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
   opisuje mechanizm instancji, ale samo API nie dowodzi udanego odtworzenia.
   Eksport jednej logicznej bazy SaaS nie jest kopią nowej bazy formularza.
 - Rzeczywisty `pg_dump` nowej bazy wykonano ze spójnego snapshotu po potwierdzeniu,
-  że outbox zawiera tylko oznaczoną wiadomość testową. Odtworzenie lokalne nie
-  zostało wykonane: automatyczna kontrola uruchomienia narzędzia dwukrotnie
-  zwróciła błąd dostępności modelu kontrolnego. To otwarty test, nie sukces restore.
+  że outbox zawiera tylko oznaczoną wiadomość testową. **Lokalny restore przeszedł**:
+  trzy tabele, pięć indeksów, ograniczenia outboxa, identyczne payload/digest/status
+  i liczba prób testowej wiadomości. PostgreSQL źródłowy 16, klient dump/restore 17,
+  lokalny serwer 15; pominięto tylko nieobsługiwane lokalnie `SET transaction_timeout=0`.
+  Lokalny serwer zatrzymano. Próba nie obejmowała odtworzenia ról/grantów, PITR
+  dostawcy ani pełnego SaaS z plikami; odbiór na identycznej wersji pozostaje otwarty.
 - W odczytanej liście usług Rendera nie ma zadań cron kopii/kontroli, strona
   nie ma health-check path ani rozpoznanych zmiennych zewnętrznego monitora.
   Nie wyklucza to monitora poza Renderem. Sam `contact-check` i logi nie dowodzą
