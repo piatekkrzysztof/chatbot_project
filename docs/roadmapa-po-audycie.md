@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, po wdrożeniu F23.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, F07 część 1 przygotowana do przeglądu.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -19,7 +19,7 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
 | 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; bezpieczna retencja, Docker i zależności | PR #39–#41 scalone; prywatny storage i niezależny klucz kopii sprawdzone. PITR instancji dostępny. Nadal: alarmy/harmonogramy kopii, pełny restore SaaS z plikami i zależności frontendu |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | SSRF, upload, rezerwacje wiadomości, odporne formularze | Backend #42–#44 oraz frontend #11 scalone. Backend web live na `e5259ce` (F08). Strona marketingowa #1 live na `43a36d0`; rzeczywista wiadomość przeszła kolejkę i SMTP, właściciel potwierdził odbiór. Nadal: odbiór uploadu, kontrola rezerwacji/alertów i końcowy odbiór F23 opisany niżej |
-| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | Do wykonania |
+| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07 część 1: backend przygotowany do przeglądu, bez wdrożenia. Weryfikacja skrzynki i UX aktywacji, MFA, sesje i reset pozostają otwarte |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
 | 7. Wydajność i obsługa | F16, F20, F21, F24; pozostałe F22 | Paginacja/N+1, SLO, dziennik i minimalizacja danych, alarmy/kopie/restore, obowiązkowe bramki CI, pełne stany UI | Do wykonania |
@@ -33,10 +33,13 @@ sprawdzamy także przy równoległych operacjach i po awarii.
    Podłączyć kontrolę kolejki, kopii i rezerwacji do alarmów na obecnych zasobach;
    sprawdzić, że brak kolejnego przebiegu też wywołuje alarm. Odtworzyć dane i pliki
    w izolacji oraz zapisać zmierzone RPO/RTO. Dostępny PITR nie zastępuje testu restore.
-2. **Następny PR kodu: F07 — rejestracja i zaproszenia.** Walidacja hasła w API,
-   spójna unikalność e-maili, adresat zaproszenia, atomowe zużycie tokena i miejsc,
-   limity rejestracji. Odbiór: dwa równoległe żądania nie używają tego samego
-   zaproszenia ani ostatniego miejsca; słabe hasło nie przechodzi żadną ścieżką.
+2. **Bieżący PR: F07 część 1 — rejestracja i zaproszenia.** Przygotowano walidację
+   hasła w API, unikalność e-maili w bazie, adresata zaproszenia, atomowe zużycie
+   tokena i miejsc oraz limity rejestracji. Testy obejmują równoległe rejestracje,
+   przyjęcia zaproszeń i bezpośrednie dodawanie konta na ostatnie miejsce.
+   Po przeglądzie i scaleniu wymagany odbiór wdrożenia. **Następnie F07 część 2:**
+   weryfikacja skrzynki, jednorazowa aktywacja i ponawianie wiadomości, ograniczenie
+   nadużywania triali oraz ekrany panelu, w tym usunięcie wielokrotnych zaproszeń.
 3. **F14/F15 i odzyskiwanie konta z F22.** MFA na wszystkich ścieżkach admina,
    atomowe kody i limity drugiego kroku, ochrona sekretów w bazie, refresh wyłącznie
    w bezpiecznym cookie, CSRF/Origin, reset i unieważnianie sesji. Zmiany kontraktu
@@ -66,7 +69,7 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F04 | Prywatne magazyny, szyfrowane kopie i klucz poza hostingiem; #40/#41 | Harmonogram/alerty, pełna kopia plików i restore SaaS |
 | F05 | Bezpieczny kontekst/obraz, #39 | Końcowy skan używanego obrazu |
 | F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
-| F07 | Otwarte | Hasła, adresy, zaproszenia, miejsca, weryfikacja i limity rejestracji |
+| F07 | Część 1 przygotowana do przeglądu: hasła, unikalność e-maili, adresat, atomowe tokeny/miejsca i limity API; bez wdrożenia | Część 2: potwierdzanie skrzynki, aktywacja/ponowienia w panelu, nadużycia triali; odbiór produkcyjny całości |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Kontrola wdrożenia workera, alarmy i uzgadnianie wygasłych rezerwacji; pomiar kosztów |
 | F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
 | F10 | Otwarte; F09 poprawił część walidacji plików | Pełny proces budowy wiedzy i wszystkie formaty |
@@ -122,6 +125,22 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
   nie ma health-check path ani rozpoznanych zmiennych zewnętrznego monitora.
   Nie wyklucza to monitora poza Renderem. Sam `contact-check` i logi nie dowodzą
   działającego alarmowania; wymagany jest kontrolowany test alarmu i jego odbioru.
+
+## F07 część 1 — przygotowanie backendu
+
+Gałąź `codex/audit-registration-invitations`, wersja 2.0.5.
+[Kontrakt API i instrukcja migracji](rejestracja-i-zaproszenia.md) opisują
+jednorazowe zaproszenia, limity i zależność od istniejącego Redisa.
+Migracja `accounts.0033_unique_account_email` odmawia wykonania przy konflikcie
+adresów; nie scala ani nie usuwa kont. Odczyt kontrolny produkcji 11.09.2026
+wykazał zero grup duplikatów oraz zero zaproszeń bez adresata lub z limitem
+większym niż jeden. Nie wykonywano migracji ani wdrożenia na produkcji.
+
+Przed poprawką 17 nowych przypadków odtworzyło błędy. Końcowy wynik regresji
+i CI zapisujemy w opisie PR-a. Testy używają syntetycznych danych i lokalnego
+PostgreSQL; obejmują też odmowę migracji przy duplikatach, awarię licznika prób
+oraz rollback konta, firmy i subskrypcji. F07 pozostaje otwarte do ukończenia
+weryfikacji skrzynki, panelu i odbioru całego przepływu.
 
 ## Historia etapów (statusy na dzień danego wpisu)
 

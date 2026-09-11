@@ -1,7 +1,13 @@
 import logging
+from datetime import timedelta
 
 from django.conf import settings
-from rest_framework import generics, status
+from django.db import transaction
+from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics, serializers, status
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,8 +15,24 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from accounts.models import InvitationToken
+from accounts import dwuskladnikowe
+from accounts.models import InvitationToken, Subscription
+from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
+from accounts.registration import lock_invitation_team
 from accounts.utils.email import send_invitation_email
+from api.permissions import IsOwner
+from api.registration_throttles import (
+    InvitationAcceptThrottle,
+    InvitationPreviewThrottle,
+    RegistrationThrottle,
+)
+from api.schemas import (
+    AcceptInvitationRequestSerializer,
+    ErrorSerializer,
+    InvitationPreviewSerializer,
+    MeSerializer,
+    MessageSerializer,
+)
 from api.serializers import (
     AcceptInvitationSerializer,
     CustomTokenObtainPairSerializer,
@@ -19,35 +41,16 @@ from api.serializers import (
     RegisterSerializer,
     UserSerializer,
 )
+from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
 from api.utils.ciasteczka import (
     odczytaj_token_odswiezania,
     ustaw_ciasteczko_odswiezania,
     usun_ciasteczko_odswiezania,
 )
-
-logger = logging.getLogger(__name__)
-from datetime import timedelta
-
-from django.utils import timezone
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
-from rest_framework import serializers
-from rest_framework.generics import ListAPIView
-
-from accounts import dwuskladnikowe
-from accounts.models import Subscription
-from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
-from api.permissions import *
-from api.schemas import (
-    AcceptInvitationRequestSerializer,
-    ErrorSerializer,
-    InvitationPreviewSerializer,
-    MeSerializer,
-    MessageSerializer,
-)
-from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
 from api.utils.mixins import TenantQuerysetMixin
 from api.views.stripe import create_checkout_session
+
+logger = logging.getLogger(__name__)
 
 
 def zalozenie_okresu_probnego(tenant):
@@ -76,10 +79,17 @@ def zalozenie_okresu_probnego(tenant):
     responses={201: MessageSerializer, 400: ErrorSerializer},
 )
 class ClientRegisterView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+    throttle_classes = [RegistrationThrottle]
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        result = serializer.save()
+        with transaction.atomic():
+            result = serializer.save()
+            if result["use_trial"]:
+                zalozenie_okresu_probnego(result["tenant"])
 
         tenant = result["tenant"]
         use_trial = result["use_trial"]
@@ -88,7 +98,6 @@ class ClientRegisterView(APIView):
             # Subskrypcja musi powstać już teraz. SubscriptionMiddleware wymaga
             # jej dla /api/widget/chat/, więc bez tego klient skonfigurowałby
             # bota, wkleił kod na stronę i zobaczył odmowę zamiast odpowiedzi.
-            zalozenie_okresu_probnego(tenant)
             return Response(
                 {"detail": "Konto założone w okresie próbnym."},
                 status=status.HTTP_201_CREATED,
@@ -387,6 +396,7 @@ class AcceptInvitationView(APIView):
     # Zapraszany jeszcze nie ma konta, więc nie może być uwierzytelniony
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [InvitationAcceptThrottle]
 
     def post(self, request):
         serializer = AcceptInvitationSerializer(data=request.data)
@@ -413,6 +423,7 @@ class InvitationPreviewView(APIView):
 
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [InvitationPreviewThrottle]
 
     def get(self, request, token):
         invitation = InvitationToken.objects.filter(token=token).first()
@@ -446,6 +457,11 @@ class InvitationRevokeView(generics.DestroyAPIView):
 
     permission_classes = [IsOwner]
     serializer_class = InvitationReadSerializer
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        lock_invitation_team(request.user)
+        return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         return InvitationToken.objects.filter(tenant=self.request.user.tenant)
