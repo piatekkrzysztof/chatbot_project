@@ -16,6 +16,27 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.6] — 2026-09-11
+
+### Fixed
+
+- Konto, firma i okres próbny powstają dopiero po potwierdzeniu e-maila oraz
+  ustawieniu hasła. Samo otwarcie linku przez skaner poczty nie aktywuje konta.
+- Linki są jednorazowe, ważne 24 godziny, a ponowienie unieważnia poprzedni.
+  W bazie zapisywany jest tylko skrót tokena; zgłoszenie nie przechowuje hasła.
+- Ponawianie wiadomości ma limity w bazie i w cache; awaria SMTP pozwala wrócić
+  do zgłoszenia bez tworzenia częściowego konta lub triala.
+- Logowanie zachowuje spacje w haśle, zgodnie z ustawianiem hasła.
+
+### Deployment
+
+- Migracja `accounts.0034_pending_registration`. Istniejące konta pozostają aktywne.
+- Wymagany nowy panel z ekranem `/potwierdz-email`, HTTPS w `FRONTEND_URL`
+  oraz działający SMTP. Nie są wymagane nowe płatne usługi.
+- Rejestracja zwraca 202; płatności uruchamia zalogowany właściciel w panelu.
+- Polecenie `purge_pending_registrations` usuwa zgłoszenia starsze niż 7 dni;
+  harmonogram i alarm wymagają odbioru operacyjnego.
+
 ## [2.0.5] — 2026-09-11
 
 ### Fixed

@@ -15,6 +15,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from accounts.models import CustomUser, DaneRozliczeniowe, Tenant
+from api.tests.signup_helpers import complete_registration
 
 URL = "/api/accounts/register/"
 
@@ -37,7 +38,8 @@ def zarejestruj(**zmiany):
     for klucz, wartosc in list(dane.items()):
         if wartosc is None:
             dane.pop(klucz)
-    return APIClient().post(URL, dane, format="json")
+    response = APIClient().post(URL, dane, format="json")
+    return complete_registration(response, dane["password"])
 
 
 @pytest.mark.django_db

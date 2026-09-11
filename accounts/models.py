@@ -358,6 +358,20 @@ class CustomUser(AbstractUser):
         return f"{self.username} [{self.tenant.name}]"
 
 
+class PendingRegistration(models.Model):
+    """Short-lived signup intent. Never contains a password or a usable token."""
+
+    email: models.EmailField = models.EmailField(max_length=150, unique=True)
+    payload: models.JSONField = models.JSONField(default=dict)
+    token_digest: models.CharField = models.CharField(max_length=64, blank=True, db_index=True)
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+    expires_at: models.DateTimeField = models.DateTimeField()
+    sent_at: models.DateTimeField = models.DateTimeField(null=True)
+    window_start: models.DateTimeField = models.DateTimeField()
+    send_count: models.PositiveSmallIntegerField = models.PositiveSmallIntegerField(default=0)
+    used_at: models.DateTimeField = models.DateTimeField(null=True)
+
+
 class InvitationToken(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="invitations")
     email = models.EmailField()

@@ -19,6 +19,7 @@ from accounts import dwuskladnikowe
 from accounts.models import InvitationToken, Subscription
 from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
 from accounts.registration import lock_invitation_team
+from accounts.signup import RECEIPT, request_email
 from accounts.utils.email import send_invitation_email
 from api.permissions import IsOwner
 from api.registration_throttles import (
@@ -32,13 +33,14 @@ from api.schemas import (
     InvitationPreviewSerializer,
     MeSerializer,
     MessageSerializer,
+    RegistrationReceiptSerializer,
 )
 from api.serializers import (
     AcceptInvitationSerializer,
     CustomTokenObtainPairSerializer,
     InvitationCreateSerializer,
     InvitationReadSerializer,
-    RegisterSerializer,
+    RegistrationStartSerializer,
     UserSerializer,
 )
 from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
@@ -48,7 +50,6 @@ from api.utils.ciasteczka import (
     usun_ciasteczko_odswiezania,
 )
 from api.utils.mixins import TenantQuerysetMixin
-from api.views.stripe import create_checkout_session
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +76,8 @@ def zalozenie_okresu_probnego(tenant):
 @extend_schema(
     tags=["Konto"],
     summary="Rejestracja nowej firmy",
-    request=RegisterSerializer,
-    responses={201: MessageSerializer, 400: ErrorSerializer},
+    request=RegistrationStartSerializer,
+    responses={202: RegistrationReceiptSerializer, 400: ErrorSerializer},
 )
 class ClientRegisterView(APIView):
     authentication_classes = ()
@@ -84,32 +85,14 @@ class ClientRegisterView(APIView):
     throttle_classes = [RegistrationThrottle]
 
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        serializer = RegistrationStartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            result = serializer.save()
-            if result["use_trial"]:
-                zalozenie_okresu_probnego(result["tenant"])
-
-        tenant = result["tenant"]
-        use_trial = result["use_trial"]
-
-        if use_trial:
-            # Subskrypcja musi powstać już teraz. SubscriptionMiddleware wymaga
-            # jej dla /api/widget/chat/, więc bez tego klient skonfigurowałby
-            # bota, wkleił kod na stronę i zobaczył odmowę zamiast odpowiedzi.
-            return Response(
-                {"detail": "Konto założone w okresie próbnym."},
-                status=status.HTTP_201_CREATED,
-            )
-        else:
-            checkout_url = create_checkout_session(
-                tenant, plan_code=result["plan"], email=tenant.owner_email
-            )
-            return Response(
-                {"checkout_url": checkout_url},
-                status=status.HTTP_201_CREATED,
-            )
+        payload = dict(serializer.validated_data)
+        payload.pop("password", None)
+        request_email(payload["email"], payload)
+        response = Response({"detail": RECEIPT, "verification_required": True}, status=202)
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 class BiletIKodSerializer(serializers.Serializer):
