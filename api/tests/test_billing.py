@@ -487,7 +487,7 @@ class TestRejestracjiZOkresemProbnym:
     URL = "/api/accounts/register/"
 
     def zarejestruj(self, email="nowy@example.com"):
-        return APIClient().post(
+        response = APIClient().post(
             self.URL,
             {
                 "imie": "Anna",
@@ -504,6 +504,10 @@ class TestRejestracjiZOkresemProbnym:
             },
             format="json",
         )
+
+        from api.tests.signup_helpers import complete_registration
+
+        return complete_registration(response, "tajneHaslo123")
 
     def test_konto_powstaje(self):
         from accounts.models import Tenant

@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, F07 część 1 przygotowana do przeglądu.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, F07 część 1 scalona, część 2 przygotowana.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -19,7 +19,7 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
 | 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; bezpieczna retencja, Docker i zależności | PR #39–#41 scalone; prywatny storage i niezależny klucz kopii sprawdzone. PITR instancji dostępny. Nadal: alarmy/harmonogramy kopii, pełny restore SaaS z plikami i zależności frontendu |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | SSRF, upload, rezerwacje wiadomości, odporne formularze | Backend #42–#44 oraz frontend #11 scalone. Backend web live na `e5259ce` (F08). Strona marketingowa #1 live na `43a36d0`; rzeczywista wiadomość przeszła kolejkę i SMTP, właściciel potwierdził odbiór. Nadal: odbiór uploadu, kontrola rezerwacji/alertów i końcowy odbiór F23 opisany niżej |
-| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07 część 1: backend przygotowany do przeglądu, bez wdrożenia. Weryfikacja skrzynki i UX aktywacji, MFA, sesje i reset pozostają otwarte |
+| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07 część 1: #46 scalony. Część 2: przygotowano backend i panel aktywacji, bez wdrożenia. Nadal: odbiór poczty/retencji, MFA, sesje i reset |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
 | 7. Wydajność i obsługa | F16, F20, F21, F24; pozostałe F22 | Paginacja/N+1, SLO, dziennik i minimalizacja danych, alarmy/kopie/restore, obowiązkowe bramki CI, pełne stany UI | Do wykonania |
@@ -33,13 +33,12 @@ sprawdzamy także przy równoległych operacjach i po awarii.
    Podłączyć kontrolę kolejki, kopii i rezerwacji do alarmów na obecnych zasobach;
    sprawdzić, że brak kolejnego przebiegu też wywołuje alarm. Odtworzyć dane i pliki
    w izolacji oraz zapisać zmierzone RPO/RTO. Dostępny PITR nie zastępuje testu restore.
-2. **Bieżący PR: F07 część 1 — rejestracja i zaproszenia.** Przygotowano walidację
-   hasła w API, unikalność e-maili w bazie, adresata zaproszenia, atomowe zużycie
-   tokena i miejsc oraz limity rejestracji. Testy obejmują równoległe rejestracje,
-   przyjęcia zaproszeń i bezpośrednie dodawanie konta na ostatnie miejsce.
-   Po przeglądzie i scaleniu wymagany odbiór wdrożenia. **Następnie F07 część 2:**
-   weryfikacja skrzynki, jednorazowa aktywacja i ponawianie wiadomości, ograniczenie
-   nadużywania triali oraz ekrany panelu, w tym usunięcie wielokrotnych zaproszeń.
+2. **Bieżące PR-y: F07 część 2 — potwierdzenie e-maila i panel aktywacji.**
+   Część 1 scalona w #46 (`d65172e`). Nowy przepływ tworzy konto i trial dopiero
+   po jednorazowym potwierdzeniu oraz ustawieniu hasła. Panel obsługuje błędy,
+   wygaśnięcie i ponowienie. Wymagane skoordynowane wdrożenie obu repozytoriów,
+   odbiór rzeczywistej poczty oraz harmonogram retencji zgłoszeń na obecnych
+   zasobach. Instrukcja: [aktywacja konta](aktywacja-konta.md).
 3. **F14/F15 i odzyskiwanie konta z F22.** MFA na wszystkich ścieżkach admina,
    atomowe kody i limity drugiego kroku, ochrona sekretów w bazie, refresh wyłącznie
    w bezpiecznym cookie, CSRF/Origin, reset i unieważnianie sesji. Zmiany kontraktu
@@ -69,7 +68,7 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F04 | Prywatne magazyny, szyfrowane kopie i klucz poza hostingiem; #40/#41 | Harmonogram/alerty, pełna kopia plików i restore SaaS |
 | F05 | Bezpieczny kontekst/obraz, #39 | Końcowy skan używanego obrazu |
 | F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
-| F07 | Część 1 przygotowana do przeglądu: hasła, unikalność e-maili, adresat, atomowe tokeny/miejsca i limity API; bez wdrożenia | Część 2: potwierdzanie skrzynki, aktywacja/ponowienia w panelu, nadużycia triali; odbiór produkcyjny całości |
+| F07 | #46 scalony; część 2 przygotowana: konto i trial po e-mailu, hasło przy aktywacji, jednorazowe tokeny, retry i limity, panel | Wspólne wdrożenie i odbiór SMTP; retencja/alerty zgłoszeń, IP za proxy i ocena nadużyć przez wiele skrzynek/aliasów |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Kontrola wdrożenia workera, alarmy i uzgadnianie wygasłych rezerwacji; pomiar kosztów |
 | F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
 | F10 | Otwarte; F09 poprawił część walidacji plików | Pełny proces budowy wiedzy i wszystkie formaty |
@@ -126,7 +125,24 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
   Nie wyklucza to monitora poza Renderem. Sam `contact-check` i logi nie dowodzą
   działającego alarmowania; wymagany jest kontrolowany test alarmu i jego odbioru.
 
-## F07 część 1 — przygotowanie backendu
+## F07 część 2 — potwierdzenie skrzynki i panel
+
+Gałęzie `codex/audit-email-activation` w backendzie i panelu, backend 2.0.6.
+Migracja dodaje tylko tabelę zgłoszeń; nie odbiera dostępu istniejącym kontom.
+Hasło nie jest przechowywane przed potwierdzeniem, a konto, firma i trial
+powstają atomowo przy aktywacji. Logowanie zachowuje spacje w haśle.
+
+Testy obejmują przejęcie adresu pomiędzy krokami, dwa równoczesne potwierdzenia,
+wygaśnięcie, rotację tokena, awarię SMTP i bazy, brak triala przed potwierdzeniem,
+limity wiadomości, retencję oraz dostępność i prywatność linku w przeglądarce.
+Końcowe wyniki zapisujemy w opisach PR-ów.
+
+Panel już wysyłał `max_users=1` i nie udostępniał wyboru wielu użyć; wcześniejsze
+zadanie usunięcia tego wyboru było nieaktualne. Teraz adresat zaproszenia jest
+pokazywany tylko do odczytu. Produkcji nie zmieniano. Automatyczny harmonogram
+retencji i rzeczywiste dostarczenie nowej wiadomości wymagają osobnego odbioru.
+
+## F07 część 1 — przygotowanie backendu (historia)
 
 Gałąź `codex/audit-registration-invitations`, wersja 2.0.5.
 [Kontrakt API i instrukcja migracji](rejestracja-i-zaproszenia.md) opisują

@@ -36,6 +36,12 @@ load_dotenv(".env.test", override=True)
 
 
 @pytest.fixture(autouse=True)
+def signup_mail_configuration(settings):
+    settings.FRONTEND_URL = "https://panel.example.test"
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+
+@pytest.fixture(autouse=True)
 def zadne_polaczenie_ze_stripe(monkeypatch):
     """
     Żaden test nie rozmawia z prawdziwym Stripe'em.

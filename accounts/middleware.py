@@ -34,6 +34,9 @@ class TenantMiddleware:
         # Ścieżki dostępne zanim ktokolwiek ma konto lub klucz API.
         exempt_paths = [
             "/api/accounts/register/",
+            "/api/accounts/registration/resend/",
+            "/api/accounts/registration/preview/",
+            "/api/accounts/registration/activate/",
             "/api/accounts/login/",
             # Odswiezanie i wylogowanie z definicji dzialaja bez waznego
             # tokenu dostepu -- to jest ich caly sens. Tozsamosc potwierdza
