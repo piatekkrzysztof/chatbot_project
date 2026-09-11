@@ -61,18 +61,29 @@ def test_zle_haslo_nie_wpuszcza(pracownik):
 
 
 @pytest.mark.django_db
-def test_adres_uzywany_przez_kilka_kont_nie_wpuszcza(tenant, pracownik):
+def test_adres_uzywany_przez_kilka_kont_nie_wpuszcza(tenant, pracownik, monkeypatch):
     """
     Ten sam adres w dwóch kontach nie wskazuje jednoznacznie użytkownika —
     zgadywanie oznaczałoby logowanie do cudzego konta.
     """
-    CustomUser.objects.create_user(
+    drugi = CustomUser.objects.create_user(
         username="drugi",
-        email="pracownik@example.com",
+        email="drugi@example.com",
         password="TajneHaslo123",
         tenant=tenant,
         role="employee",
     )
+
+    # The DB now rejects duplicate emails. Keep the login defense test by
+    # simulating an ambiguous legacy query result, without disabling the constraint.
+    original_filter = CustomUser.objects.filter
+
+    def legacy_result(*args, **kwargs):
+        if kwargs.get("email__iexact") == "pracownik@example.com":
+            return original_filter(pk__in=[pracownik.pk, drugi.pk])
+        return original_filter(*args, **kwargs)
+
+    monkeypatch.setattr(CustomUser.objects, "filter", legacy_result)
 
     response = APIClient().post(
         "/api/accounts/login/",

@@ -195,9 +195,9 @@ class InvitationPreviewSerializer(serializers.Serializer):
 
 class AcceptInvitationRequestSerializer(serializers.Serializer):
     token = serializers.UUIDField()
-    username = serializers.CharField()
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField(max_length=254)
+    password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=1024)
 
 
 class DocumentUploadSerializer(serializers.Serializer):
