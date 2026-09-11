@@ -47,7 +47,7 @@ def test_pending_registration_allocates_no_account_trial_or_stored_password():
     assert not Tenant.objects.exists()
     assert not DaneRozliczeniowe.objects.exists()
     assert not Subscription.objects.exists()
-    login = APIClient().post(
+    login = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/",
         {
             "username": pending.email,
@@ -81,7 +81,7 @@ def test_ownership_confirmation_creates_trial_once_and_uses_only_final_password(
     assert activate(token).status_code == 400
     assert Tenant.objects.count() == 1
     assert PendingRegistration.objects.get().payload == {}
-    login = APIClient().post(
+    login = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/",
         {
             "username": user.email,
