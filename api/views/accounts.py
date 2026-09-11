@@ -199,8 +199,11 @@ class LogowanieDrugiSkladnikView(APIView):
         uzytkownik, result = dwuskladnikowe.zakoncz_logowanie(**serializer.validated_data)
         if not uzytkownik:
             return Response(
-                {"error": "Kod nie pasuje." if result == 400 else
-                 "Bilet wygasl albo jest nieprawidlowy. Zaloguj sie ponownie."},
+                {
+                    "error": "Kod nie pasuje."
+                    if result == 400
+                    else "Bilet wygasl albo jest nieprawidlowy. Zaloguj sie ponownie."
+                },
                 status=result,
             )
 

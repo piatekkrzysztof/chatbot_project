@@ -211,7 +211,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         authenticated_password = self.user.password
         self.user = type(self.user).objects.select_for_update().get(pk=self.user.pk)
         if not self.user.is_active or not constant_time_compare(
-            self.user.password, authenticated_password,
+            self.user.password,
+            authenticated_password,
         ):
             raise AuthenticationFailed("Zaloguj się ponownie.")
         if not ma_wlaczony_drugi_skladnik(self.user):
