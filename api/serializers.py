@@ -262,9 +262,7 @@ class InvitationReadSerializer(serializers.ModelSerializer):
 
 class AcceptInvitationSerializer(serializers.Serializer):
     token = serializers.UUIDField()
-    username = serializers.CharField(
-        max_length=150, validators=CustomUser._meta.get_field("username").validators
-    )
+    username = serializers.CharField(max_length=150, validators=[CustomUser.username_validator])
     email = serializers.EmailField(max_length=254)
     password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=1024)
 
