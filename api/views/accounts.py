@@ -79,8 +79,8 @@ def zalozenie_okresu_probnego(tenant):
     responses={201: MessageSerializer, 400: ErrorSerializer},
 )
 class ClientRegisterView(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     throttle_classes = [RegistrationThrottle]
 
     def post(self, request):
