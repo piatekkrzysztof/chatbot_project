@@ -35,7 +35,7 @@ def wlascicielka(db, django_user_model):
 
 @pytest.fixture
 def zalogowana(wlascicielka):
-    klient = APIClient()
+    klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
     klient.force_authenticate(user=wlascicielka)
     klient.credentials(HTTP_X_API_KEY=str(wlascicielka.tenant.api_key))
     return klient
@@ -110,7 +110,7 @@ class TestKonfiguracji:
 @pytest.mark.django_db
 class TestLogowania:
     def test_bez_drugiego_skladnika_logowanie_dziala_jak_dotad(self, wlascicielka):
-        odpowiedz = APIClient().post(
+        odpowiedz = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
             reverse("login"),
             {"username": wlascicielka.username, "password": HASLO},
             format="json",
@@ -127,7 +127,7 @@ class TestLogowania:
         """
         wlacz_drugi_skladnik(wlascicielka)
 
-        odpowiedz = APIClient().post(
+        odpowiedz = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
             reverse("login"),
             {"username": wlascicielka.username, "password": HASLO},
             format="json",
@@ -140,7 +140,7 @@ class TestLogowania:
 
     def test_bilet_i_kod_daja_sesje(self, wlascicielka):
         skladnik = wlacz_drugi_skladnik(wlascicielka)
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
         bilet = klient.post(
             reverse("login"),
             {"username": wlascicielka.username, "password": HASLO},
@@ -161,7 +161,7 @@ class TestLogowania:
         # procedurą odzyskania dostępu byłby telefon do nas.
         wlacz_drugi_skladnik(wlascicielka)
         kody = dwuskladnikowe.wygeneruj_kody_zapasowe(wlascicielka)
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
         bilet = klient.post(
             reverse("login"),
             {"username": wlascicielka.username, "password": HASLO},
@@ -178,7 +178,7 @@ class TestLogowania:
     def test_kod_zapasowy_dziala_tylko_raz(self, wlascicielka):
         wlacz_drugi_skladnik(wlascicielka)
         kody = dwuskladnikowe.wygeneruj_kody_zapasowe(wlascicielka)
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
 
         for _ in range(2):
             bilet = klient.post(
@@ -199,7 +199,7 @@ class TestLogowania:
         a nie do końca swojego trzydziestosekundowego okna.
         """
         skladnik = wlacz_drugi_skladnik(wlascicielka)
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
         kod = totp.kod(skladnik.sekret)
 
         for _ in range(2):
@@ -218,7 +218,7 @@ class TestLogowania:
         # Bilet niesie sam identyfikator użytkownika. Gdyby dało się nim
         # wołać API, drugi krok byłby formalnością do pominięcia.
         wlacz_drugi_skladnik(wlascicielka)
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
         bilet = klient.post(
             reverse("login"),
             {"username": wlascicielka.username, "password": HASLO},
@@ -232,7 +232,7 @@ class TestLogowania:
     def test_zly_bilet_jest_odrzucany(self, wlascicielka):
         wlacz_drugi_skladnik(wlascicielka)
 
-        odpowiedz = APIClient().post(
+        odpowiedz = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
             reverse("login-2fa"), {"bilet": "podrobiony", "kod": "123456"}, format="json"
         )
 

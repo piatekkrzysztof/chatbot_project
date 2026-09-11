@@ -68,3 +68,26 @@ def test_empty_configuration_yields_empty_lists(monkeypatch):
 
     assert prod.ALLOWED_HOSTS == []
     assert prod.CORS_ALLOWED_ORIGINS == []
+
+
+def test_production_refresh_cookie_requires_host_prefix(monkeypatch, settings):
+    from django.http import HttpResponse
+
+    from api.utils.ciasteczka import ustaw_ciasteczko_odswiezania
+
+    prod = load_prod_settings(monkeypatch, FRONTEND_URL="https://panel.example.test")
+    for name in (
+        "NAZWA_CIASTECZKA_ODSWIEZANIA",
+        "CIASTECZKO_ODSWIEZANIA_SCIEZKA",
+        "CIASTECZKO_ODSWIEZANIA_SECURE",
+        "CIASTECZKO_ODSWIEZANIA_DOMENA",
+    ):
+        setattr(settings, name, getattr(prod, name))
+    response = HttpResponse()
+    ustaw_ciasteczko_odswiezania(response, "synthetic-token")
+    cookie = response.cookies["__Host-refresh_token"]
+    assert cookie["secure"] and cookie["httponly"]
+    assert cookie["path"] == "/"
+    assert cookie["domain"] == ""
+    assert response.cookies["sesja_panelu"]["domain"] == ".example.test"
+    assert response.cookies["refresh_token"]["max-age"] == 0

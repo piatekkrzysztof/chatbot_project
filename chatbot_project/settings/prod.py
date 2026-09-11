@@ -64,11 +64,10 @@ if FRONTEND_URL:
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Ciasteczko z refresh tokenem: na produkcji wylacznie po HTTPS, a domena
-# z kropka, zeby doszlo z api.* do panel.*. Domyslna wartosc wyliczana jest
-# z FRONTEND_URL, bo tam wlasnie stoi panel -- REFRESH_COOKIE_DOMAIN jest
-# tylko furtka na wypadek innego ukladu domen.
+# Sekretny token zostaje na hoście API (__Host-, Secure, Path=/, bez Domain).
+# Wspólna domena dotyczy wyłącznie znacznika panelu i kasowanego legacy cookie.
 CIASTECZKO_ODSWIEZANIA_SECURE = True
+NAZWA_CIASTECZKA_ODSWIEZANIA = "__Host-refresh_token"
 if not CIASTECZKO_ODSWIEZANIA_DOMENA:
     _host_panelu = FRONTEND_URL.split("://")[-1].strip("/").split(":")[0]
     _czlony = _host_panelu.split(".")
