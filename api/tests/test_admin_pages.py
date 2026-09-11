@@ -62,7 +62,11 @@ def test_add_form_opens(client, mfa_admin_login, admin_user, app_label, model_na
 
 @pytest.mark.django_db
 def test_adding_document_through_admin_works(
-    client, mfa_admin_login, admin_user, tenant, valid_pdf_file,
+    client,
+    mfa_admin_login,
+    admin_user,
+    tenant,
+    valid_pdf_file,
 ):
     """
     Samo otwarcie formularza niczego nie dowodzi — zapis uruchamia sygnał

@@ -73,9 +73,12 @@ def zuzyj_kod_zapasowy(uzytkownik, podany: str) -> bool:
     """
     from accounts.models import KodZapasowy
 
-    return KodZapasowy.objects.filter(
-        uzytkownik=uzytkownik, skrot=skrot_kodu(podany), uzyty__isnull=True
-    ).update(uzyty=timezone.now()) == 1
+    return (
+        KodZapasowy.objects.filter(
+            uzytkownik=uzytkownik, skrot=skrot_kodu(podany), uzyty__isnull=True
+        ).update(uzyty=timezone.now())
+        == 1
+    )
 
 
 @transaction.atomic
@@ -109,7 +112,8 @@ def ma_wlaczony_drugi_skladnik(uzytkownik) -> bool:
     from accounts.models import DrugiSkladnik
 
     return DrugiSkladnik.objects.filter(
-        uzytkownik=uzytkownik, potwierdzony_od__isnull=False,
+        uzytkownik=uzytkownik,
+        potwierdzony_od__isnull=False,
     ).exists()
 
 
@@ -129,7 +133,8 @@ def wystaw_bilet(uzytkownik) -> str:
 
     factor = DrugiSkladnik.objects.get(uzytkownik=uzytkownik, potwierdzony_od__isnull=False)
     challenge = MfaChallenge.objects.create(
-        user=uzytkownik, fingerprint=fingerprint(uzytkownik, factor),
+        user=uzytkownik,
+        fingerprint=fingerprint(uzytkownik, factor),
         expires_at=timezone.now() + timedelta(seconds=WAZNOSC_BILETU_SEKUND),
     )
     return signing.dumps({"id": str(challenge.pk)}, salt=_SOL_BILETU)
@@ -147,8 +152,12 @@ def challenge_id(bilet):
 
 def valid_challenge(challenge, user, factor):
     return bool(
-        challenge and user.is_active and factor and factor.wlaczony
-        and challenge.used_at is None and challenge.failures < 5
+        challenge
+        and user.is_active
+        and factor
+        and factor.wlaczony
+        and challenge.used_at is None
+        and challenge.failures < 5
         and challenge.expires_at > timezone.now()
         and constant_time_compare(challenge.fingerprint, fingerprint(user, factor))
     )
