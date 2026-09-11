@@ -16,6 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.5] — 2026-09-11
+
+### Fixed
+
+- Rejestracja i przyjęcie zaproszenia sprawdzają hasło w API, zachowując jego
+  spacje. Odrzucają zbyt krótkie, popularne, wyłącznie numeryczne oraz podobne
+  do danych użytkownika hasła.
+- E-mail jest unikalny niezależnie od wielkości liter. Wyścig dwóch rejestracji
+  nie pozostawia pustej firmy; nieudane utworzenie okresu próbnego wycofuje konto.
+- Zaproszenie jest jednorazowe i przypisane do adresata. Równoległe operacje
+  przyjęcia oraz bezpośredniego dodania konta respektują ostatnie miejsce w firmie.
+- Publiczne zakładanie kont ma atomowe limity prób we wspólnym cache; awaria
+  licznika wstrzymuje operację, zamiast wyłączać ochronę.
+
+### Deployment
+
+- Migracja `accounts.0033_unique_account_email` zatrzyma się przy istniejących
+  duplikatach, bez kasowania lub łączenia kont. Wymagany jest działający Redis.
+  Szczegóły i otwarty zakres F07: [rejestracja i zaproszenia](docs/rejestracja-i-zaproszenia.md).
+
 ## [2.0.4] — 2026-09-10
 
 ### Fixed
