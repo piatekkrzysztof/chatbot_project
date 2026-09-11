@@ -1,5 +1,10 @@
 from django.urls import include, path
 
+from api.views.activation import (
+    ActivateRegistrationView,
+    RegistrationPreviewView,
+    ResendRegistrationView,
+)
 from api.views.dane_rozliczeniowe import DaneRozliczenioweView
 from api.views.diagnostyka import DiagnostykaAdresuView
 from api.views.diagnostyka_zadan import DiagnostykaZadanView
@@ -68,6 +73,21 @@ urlpatterns = [
     path("chat/export/", ExportPromptLogsCSVView.as_view(), name="chat-export-csv"),
     path("chat/import/", ImportPromptLogsCSVView.as_view(), name="chat-import-csv"),
     path("accounts/register/", ClientRegisterView.as_view(), name="register"),
+    path(
+        "accounts/registration/resend/",
+        ResendRegistrationView.as_view(),
+        name="registration-resend",
+    ),
+    path(
+        "accounts/registration/preview/",
+        RegistrationPreviewView.as_view(),
+        name="registration-preview",
+    ),
+    path(
+        "accounts/registration/activate/",
+        ActivateRegistrationView.as_view(),
+        name="registration-activate",
+    ),
     path("accounts/login/", LoginView.as_view(), name="login"),
     path("accounts/token/refresh/", OdswiezTokenView.as_view(), name="token_refresh"),
     path("accounts/logout/", WylogujView.as_view(), name="logout"),

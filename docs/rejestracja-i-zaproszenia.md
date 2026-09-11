@@ -1,5 +1,8 @@
 # Rejestracja i zaproszenia — F07, część 1
 
+Opis etapu 2.0.5. Wersja 2.0.6 zmienia publiczną rejestrację na potwierdzenie
+e-maila przed utworzeniem konta: [aktualny kontrakt](aktywacja-konta.md).
+
 ## Kontrakt API
 
 Rejestracja firmy i przyjęcie zaproszenia wywołują walidatory Django z kontekstem

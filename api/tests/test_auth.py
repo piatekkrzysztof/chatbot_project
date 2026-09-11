@@ -2,6 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from accounts.models import CustomUser, Tenant
+from api.tests.signup_helpers import complete_registration
 
 
 @pytest.mark.django_db
@@ -18,6 +19,7 @@ def test_register_creates_user_and_tenant():
         "miasto": "Krakow",
     }
     response = client.post("/api/accounts/register/", payload)
+    response = complete_registration(response, payload["password"])
     assert response.status_code == 201
     assert CustomUser.objects.filter(email="admin@acme.com").exists()
     assert Tenant.objects.filter(name="Acme Inc.").exists()
