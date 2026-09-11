@@ -33,6 +33,7 @@ from api.schemas import (
     InvitationPreviewSerializer,
     MeSerializer,
     MessageSerializer,
+    RegistrationReceiptSerializer,
 )
 from api.serializers import (
     AcceptInvitationSerializer,
@@ -76,7 +77,7 @@ def zalozenie_okresu_probnego(tenant):
     tags=["Konto"],
     summary="Rejestracja nowej firmy",
     request=RegistrationStartSerializer,
-    responses={202: MessageSerializer, 400: ErrorSerializer},
+    responses={202: RegistrationReceiptSerializer, 400: ErrorSerializer},
 )
 class ClientRegisterView(APIView):
     authentication_classes = ()

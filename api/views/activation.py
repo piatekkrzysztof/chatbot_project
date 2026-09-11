@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from accounts.registration import normalized_email
 from accounts.signup import RECEIPT, request_email, valid_pending
 from api.registration_throttles import InvitationAcceptThrottle, InvitationPreviewThrottle
+from api.schemas import ErrorSerializer
 from api.serializers import RegisterSerializer
 from api.views.accounts import zalozenie_okresu_probnego
 
@@ -25,6 +26,20 @@ class TokenSerializer(serializers.Serializer):
 
 class ActivationSerializer(TokenSerializer):
     password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=1024)
+
+
+class PreviewResponseSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    company_name = serializers.CharField()
+
+
+class DetailSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
+class ActivationResponseSerializer(DetailSerializer):
+    use_trial = serializers.BooleanField()
+    plan = serializers.CharField()
 
 
 class ResendThrottle(InvitationAcceptThrottle):
@@ -55,7 +70,16 @@ class PublicActivationView(APIView):
 class ResendRegistrationView(PublicActivationView):
     throttle_classes = [ResendThrottle]
 
-    @extend_schema(request=EmailSerializer, responses={202: None})
+    @extend_schema(
+        tags=["Konto"],
+        request=EmailSerializer,
+        responses={
+            202: DetailSerializer,
+            400: ErrorSerializer,
+            429: ErrorSerializer,
+            503: ErrorSerializer,
+        },
+    )
     def post(self, request):
         data = EmailSerializer(data=request.data)
         data.is_valid(raise_exception=True)
@@ -66,7 +90,16 @@ class ResendRegistrationView(PublicActivationView):
 class RegistrationPreviewView(PublicActivationView):
     throttle_classes = [PreviewThrottle]
 
-    @extend_schema(request=TokenSerializer)
+    @extend_schema(
+        tags=["Konto"],
+        request=TokenSerializer,
+        responses={
+            200: PreviewResponseSerializer,
+            400: ErrorSerializer,
+            429: ErrorSerializer,
+            503: ErrorSerializer,
+        },
+    )
     def post(self, request):
         data = TokenSerializer(data=request.data)
         data.is_valid(raise_exception=True)
@@ -82,7 +115,16 @@ class RegistrationPreviewView(PublicActivationView):
 class ActivateRegistrationView(PublicActivationView):
     throttle_classes = [ActivationThrottle]
 
-    @extend_schema(request=ActivationSerializer)
+    @extend_schema(
+        tags=["Konto"],
+        request=ActivationSerializer,
+        responses={
+            201: ActivationResponseSerializer,
+            400: ErrorSerializer,
+            429: ErrorSerializer,
+            503: ErrorSerializer,
+        },
+    )
     def post(self, request):
         data = ActivationSerializer(data=request.data)
         data.is_valid(raise_exception=True)

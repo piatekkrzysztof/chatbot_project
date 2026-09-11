@@ -13,6 +13,11 @@ from django.conf import settings
 from rest_framework import serializers
 
 
+class RegistrationReceiptSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    verification_required = serializers.BooleanField()
+
+
 class MessageSerializer(serializers.Serializer):
     """Krótkie potwierdzenie operacji."""
 
