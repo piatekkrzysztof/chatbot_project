@@ -215,8 +215,11 @@ class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
     summary="Odswiez token dostepu",
     description=(
         "Czyta token odswiezania z ciasteczka HttpOnly. Kazde wywolanie wydaje "
-        "nowy token odswiezania i uniewaznia poprzedni."
+        "nowy token odswiezania i uniewaznia poprzedni. "
+        "Wymaga zaufanego Origin lub Referer. Nie przyjmuje refresh w JSON."
     ),
+    request=None,
+    responses={200: OpenApiTypes.OBJECT, 401: ErrorSerializer, 403: ErrorSerializer},
 )
 class OdswiezTokenView(SessionBoundaryMixin, TokenRefreshView):
     """
