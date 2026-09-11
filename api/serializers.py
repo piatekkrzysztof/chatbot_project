@@ -1,8 +1,10 @@
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.utils.crypto import constant_time_compare
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenObtainSerializer
 
 from accounts import nip as nip_pl
 from accounts.models import CustomUser, DaneRozliczeniowe, InvitationToken, Tenant, WidgetDomain
@@ -200,8 +202,22 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         super().__init__(*args, **kwargs)
         self.fields["password"].trim_whitespace = False
 
+    @transaction.atomic
     def validate(self, attrs):
-        data = super().validate(attrs)
+        from accounts.dwuskladnikowe import ma_wlaczony_drugi_skladnik
+
+        data = TokenObtainSerializer.validate(self, attrs)
+        # LoginView holds this lock through challenge/token creation.
+        authenticated_password = self.user.password
+        self.user = type(self.user).objects.select_for_update().get(pk=self.user.pk)
+        if not self.user.is_active or not constant_time_compare(
+            self.user.password,
+            authenticated_password,
+        ):
+            raise AuthenticationFailed("Zaloguj się ponownie.")
+        if not ma_wlaczony_drugi_skladnik(self.user):
+            refresh = self.get_token(self.user)
+            data.update(refresh=str(refresh), access=str(refresh.access_token))
         data["user"] = {
             "id": self.user.id,
             "email": self.user.email,

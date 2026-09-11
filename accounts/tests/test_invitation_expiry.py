@@ -63,12 +63,12 @@ def test_invitation_exhausted_by_use_is_not_valid(tenant):
 
 
 @pytest.mark.django_db
-def test_admin_add_form_opens(client, tenant):
+def test_admin_add_form_opens(client, tenant, mfa_admin_login):
     """Dokładny scenariusz z alertu: GET na /admin/accounts/invitationtoken/add/."""
     admin = CustomUser.objects.create_superuser(
         username="admin@firma.pl", email="admin@firma.pl", password="Tajne123!", tenant=tenant
     )
-    client.force_login(admin)
+    mfa_admin_login(admin)
 
     response = client.get("/admin/accounts/invitationtoken/add/")
 

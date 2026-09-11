@@ -8,6 +8,7 @@ z włączoną ochroną i bez działającej aplikacji - czyli zamknięty na zewn�
 własnego konta.
 """
 
+from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
@@ -16,13 +17,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts import dwuskladnikowe, totp
-from accounts.models import DrugiSkladnik, KodZapasowy
+from accounts.models import CustomUser, DrugiSkladnik, KodZapasowy
+from api.mfa_throttles import MfaThrottle, account_attempt
 
 
 class KodSerializer(serializers.Serializer):
     """Sam kod z aplikacji albo kod zapasowy."""
 
-    kod = serializers.CharField()
+    kod = serializers.CharField(max_length=64)
 
 
 class HasloIKodSerializer(serializers.Serializer):
@@ -33,8 +35,8 @@ class HasloIKodSerializer(serializers.Serializer):
     więc żadne z nich osobno nie może wystarczyć.
     """
 
-    haslo = serializers.CharField()
-    kod = serializers.CharField()
+    haslo = serializers.CharField(max_length=4096, trim_whitespace=False)
+    kod = serializers.CharField(max_length=64)
 
 
 class StanSerializer(serializers.Serializer):
@@ -53,6 +55,15 @@ class PotwierdzenieSerializer(serializers.Serializer):
     kody_zapasowe = serializers.ListField(child=serializers.CharField())
 
 
+class MFAMutationView(APIView):
+    throttle_classes = [MfaThrottle]
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = "no-store"
+        return response
+
+
 @extend_schema(
     tags=["Konto — drugi składnik"],
     summary="Stan drugiego składnika",
@@ -63,7 +74,7 @@ class StanDrugiegoSkladnikaView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, zadanie):
-        skladnik = getattr(zadanie.user, "drugi_skladnik", None)
+        skladnik = DrugiSkladnik.objects.filter(uzytkownik=zadanie.user).first()
         return Response(
             {
                 "wlaczony": bool(skladnik and skladnik.wlaczony),
@@ -82,11 +93,14 @@ class StanDrugiegoSkladnikaView(APIView):
     request=None,
     responses={201: RozpoczecieSerializer},
 )
-class RozpocznijDrugiSkladnikView(APIView):
+class RozpocznijDrugiSkladnikView(MFAMutationView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, zadanie):
-        skladnik = getattr(zadanie.user, "drugi_skladnik", None)
+        zadanie.user = CustomUser.objects.select_for_update().get(pk=zadanie.user.pk)
+        account_attempt(zadanie.user)
+        skladnik = DrugiSkladnik.objects.filter(uzytkownik=zadanie.user).first()
 
         if skladnik and skladnik.wlaczony:
             # Nadpisanie sekretu działającego drugiego składnika unieważniłoby
@@ -127,11 +141,16 @@ class RozpocznijDrugiSkladnikView(APIView):
     request=KodSerializer,
     responses={200: PotwierdzenieSerializer},
 )
-class PotwierdzDrugiSkladnikView(APIView):
+class PotwierdzDrugiSkladnikView(MFAMutationView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, zadanie):
-        skladnik = getattr(zadanie.user, "drugi_skladnik", None)
+        serializer = KodSerializer(data=zadanie.data)
+        serializer.is_valid(raise_exception=True)
+        zadanie.user = CustomUser.objects.select_for_update().get(pk=zadanie.user.pk)
+        account_attempt(zadanie.user)
+        skladnik = DrugiSkladnik.objects.filter(uzytkownik=zadanie.user).first()
         if not skladnik:
             return Response(
                 {"error": "Najpierw rozpocznij konfigurację."},
@@ -143,7 +162,7 @@ class PotwierdzDrugiSkladnikView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        if not dwuskladnikowe.sprawdz_kod(skladnik, zadanie.data.get("kod", "")):
+        if not dwuskladnikowe.sprawdz_kod(skladnik, serializer.validated_data["kod"]):
             return Response(
                 {"error": "Kod nie pasuje. Sprawdź, czy zegar telefonu jest ustawiony poprawnie."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -171,11 +190,16 @@ class PotwierdzDrugiSkladnikView(APIView):
     request=HasloIKodSerializer,
     responses={200: StanSerializer},
 )
-class WylaczDrugiSkladnikView(APIView):
+class WylaczDrugiSkladnikView(MFAMutationView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, zadanie):
-        skladnik = getattr(zadanie.user, "drugi_skladnik", None)
+        serializer = HasloIKodSerializer(data=zadanie.data)
+        serializer.is_valid(raise_exception=True)
+        zadanie.user = CustomUser.objects.select_for_update().get(pk=zadanie.user.pk)
+        account_attempt(zadanie.user)
+        skladnik = DrugiSkladnik.objects.filter(uzytkownik=zadanie.user).first()
         if not skladnik or not skladnik.wlaczony:
             return Response(
                 {"error": "Drugi składnik nie jest włączony."},
@@ -186,10 +210,10 @@ class WylaczDrugiSkladnikView(APIView):
         # tej samej wagi co logowanie, więc porwana sesja nie może wystarczyć:
         # ktoś, kto przejął zalogowaną kartę, ma sesję, ale nie ma ani hasła,
         # ani telefonu.
-        if not zadanie.user.check_password(zadanie.data.get("haslo", "")):
+        if not zadanie.user.check_password(serializer.validated_data["haslo"]):
             return Response({"error": "Nieprawidłowe hasło."}, status=status.HTTP_400_BAD_REQUEST)
 
-        kod = zadanie.data.get("kod", "")
+        kod = serializer.validated_data["kod"]
         if not (
             dwuskladnikowe.sprawdz_kod(skladnik, kod)
             or dwuskladnikowe.zuzyj_kod_zapasowy(zadanie.user, kod)

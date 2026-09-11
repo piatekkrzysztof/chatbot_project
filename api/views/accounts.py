@@ -21,6 +21,7 @@ from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
 from accounts.registration import lock_invitation_team
 from accounts.signup import RECEIPT, request_email
 from accounts.utils.email import send_invitation_email
+from api.mfa_throttles import MfaThrottle
 from api.permissions import IsOwner
 from api.registration_throttles import (
     InvitationAcceptThrottle,
@@ -98,8 +99,8 @@ class ClientRegisterView(APIView):
 class BiletIKodSerializer(serializers.Serializer):
     """Bilet z pierwszego kroku i kod z aplikacji albo kod zapasowy."""
 
-    bilet = serializers.CharField()
-    kod = serializers.CharField()
+    bilet = serializers.CharField(max_length=1024)
+    kod = serializers.CharField(max_length=64)
 
 
 def odpowiedz_z_sesja(dane):
@@ -111,6 +112,7 @@ def odpowiedz_z_sesja(dane):
     wolana z obcej klasy, co czyta sie jak pomylka.
     """
     odpowiedz = Response(dict(dane), status=status.HTTP_200_OK)
+    odpowiedz["Cache-Control"] = "no-store"
 
     refresh = odpowiedz.data.get("refresh")
     if refresh:
@@ -144,6 +146,7 @@ class LoginView(TokenObtainPairView):
     # i hasla mozna bylo zgadywac bez ograniczen. Podajemy je wprost.
     throttle_classes = [LimitLogowaniaIP, LimitLogowaniaKonto]
 
+    @transaction.atomic
     def post(self, zadanie, *args, **kwargs):
         # Walidacja rozpisana zamiast super().post(), bo przy wlaczonym drugim
         # skladniku tokeny NIE moga powstac w tym kroku - a super() zwraca je
@@ -154,14 +157,16 @@ class LoginView(TokenObtainPairView):
 
         if dwuskladnikowe.ma_wlaczony_drugi_skladnik(uzytkownik):
             # Haslo bylo poprawne, ale sesja jeszcze nie powstaje. Bilet niesie
-            # sam identyfikator uzytkownika i nie otwiera niczego w API.
-            return Response(
+            # identyfikator jednorazowego wyzwania i nie otwiera niczego w API.
+            response = Response(
                 {
                     "wymaga_drugiego_skladnika": True,
                     "bilet": dwuskladnikowe.wystaw_bilet(uzytkownik),
                 },
                 status=status.HTTP_200_OK,
             )
+            response["Cache-Control"] = "no-store"
+            return response
 
         return odpowiedz_z_sesja(serializer.validated_data)
 
@@ -182,32 +187,25 @@ class LogowanieDrugiSkladnikView(APIView):
     ktore konta maja wlaczony drugi skladnik, czyli ktore warto atakowac inaczej.
     """
 
+    authentication_classes = ()
     permission_classes = []
-    # Ten sam limit co przy hasle: bez niego szescioctfrowy kod da sie zgadnac
-    # milionem prob, a bilet jest wazny piec minut.
-    throttle_classes = [LimitLogowaniaIP]
+    # Wspólne liczniki IP/global, dodatkowo konto i budżet samego biletu.
+    throttle_classes = [MfaThrottle]
 
+    @transaction.atomic
     def post(self, zadanie):
-        uzytkownik = dwuskladnikowe.odczytaj_bilet(zadanie.data.get("bilet", ""))
+        serializer = BiletIKodSerializer(data=zadanie.data)
+        serializer.is_valid(raise_exception=True)
+        uzytkownik, result = dwuskladnikowe.zakoncz_logowanie(**serializer.validated_data)
         if not uzytkownik:
             return Response(
-                {"error": "Bilet wygasl albo jest nieprawidlowy. Zaloguj sie ponownie."},
-                status=status.HTTP_401_UNAUTHORIZED,
+                {
+                    "error": "Kod nie pasuje."
+                    if result == 400
+                    else "Bilet wygasl albo jest nieprawidlowy. Zaloguj sie ponownie."
+                },
+                status=result,
             )
-
-        skladnik = getattr(uzytkownik, "drugi_skladnik", None)
-        if not skladnik or not skladnik.wlaczony:
-            return Response(
-                {"error": "To konto nie ma wlaczonego drugiego skladnika."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        kod = zadanie.data.get("kod", "")
-        if not (
-            dwuskladnikowe.sprawdz_kod(skladnik, kod)
-            or dwuskladnikowe.zuzyj_kod_zapasowy(uzytkownik, kod)
-        ):
-            return Response({"error": "Kod nie pasuje."}, status=status.HTTP_400_BAD_REQUEST)
 
         odswiezenie = RefreshToken.for_user(uzytkownik)
         return odpowiedz_z_sesja(
