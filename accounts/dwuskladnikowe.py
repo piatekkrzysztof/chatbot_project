@@ -8,10 +8,14 @@ znaczyłoby, że jedna droga sprawdza mniej niż druga.
 
 import hashlib
 import secrets
+from datetime import timedelta
+from uuid import UUID
 
 from django.conf import settings
 from django.core import signing
+from django.db import transaction
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare, salted_hmac
 
 from accounts import totp
 
@@ -34,6 +38,7 @@ def skrot_kodu(kod: str) -> str:
     return hashlib.sha256(czysty.encode("utf-8")).hexdigest()
 
 
+@transaction.atomic
 def wygeneruj_kody_zapasowe(uzytkownik) -> list[str]:
     """
     Wydaje nowy komplet kodów zapasowych, kasując poprzedni.
@@ -43,8 +48,9 @@ def wygeneruj_kody_zapasowe(uzytkownik) -> list[str]:
     jest niemożliwe i tak ma być: lista możliwa do odczytania po fakcie jest
     listą, którą da się wykraść.
     """
-    from accounts.models import KodZapasowy
+    from accounts.models import CustomUser, KodZapasowy
 
+    CustomUser.objects.select_for_update().get(pk=uzytkownik.pk)
     KodZapasowy.objects.filter(uzytkownik=uzytkownik).delete()
 
     kody = []
@@ -67,17 +73,12 @@ def zuzyj_kod_zapasowy(uzytkownik, podany: str) -> bool:
     """
     from accounts.models import KodZapasowy
 
-    wpis = KodZapasowy.objects.filter(
+    return KodZapasowy.objects.filter(
         uzytkownik=uzytkownik, skrot=skrot_kodu(podany), uzyty__isnull=True
-    ).first()
-    if not wpis:
-        return False
-
-    wpis.uzyty = timezone.now()
-    wpis.save(update_fields=["uzyty"])
-    return True
+    ).update(uzyty=timezone.now()) == 1
 
 
+@transaction.atomic
 def sprawdz_kod(skladnik, podany: str) -> bool:
     """
     Sprawdza kod z aplikacji i zamyka drogę do jego ponownego użycia.
@@ -87,44 +88,99 @@ def sprawdz_kod(skladnik, podany: str) -> bool:
     przez ramię jest ważny jeszcze przez resztę swojego okna - a to wystarcza,
     żeby ktoś zdążył go użyć.
     """
-    krok = totp.zweryfikuj(skladnik.sekret, podany)
+    from accounts.models import DrugiSkladnik
+
+    current = DrugiSkladnik.objects.select_for_update().filter(pk=skladnik.pk).first()
+    if current is None:
+        return False
+    krok = totp.zweryfikuj(current.sekret, podany)
     if krok is None:
         return False
 
-    if skladnik.ostatni_krok is not None and krok <= skladnik.ostatni_krok:
+    if current.ostatni_krok is not None and krok <= current.ostatni_krok:
         return False
 
-    skladnik.ostatni_krok = krok
-    skladnik.save(update_fields=["ostatni_krok"])
+    current.ostatni_krok = skladnik.ostatni_krok = krok
+    current.save(update_fields=["ostatni_krok"])
     return True
 
 
 def ma_wlaczony_drugi_skladnik(uzytkownik) -> bool:
-    skladnik = getattr(uzytkownik, "drugi_skladnik", None)
-    return bool(skladnik and skladnik.wlaczony)
+    from accounts.models import DrugiSkladnik
+
+    return DrugiSkladnik.objects.filter(
+        uzytkownik=uzytkownik, potwierdzony_od__isnull=False,
+    ).exists()
+
+
+def fingerprint(user, factor):
+    value = f"{user.password}:{factor.pk}:{factor.sekret}:{factor.potwierdzony_od.isoformat()}"
+    return salted_hmac("mfa-state", value, algorithm="sha256").hexdigest()
 
 
 def wystaw_bilet(uzytkownik) -> str:
     """
     Bilet potwierdzający, że hasło już zostało sprawdzone.
 
-    Podpisany, nie losowy: nie wymaga niczego w bazie ani w pamięci podręcznej,
-    a i tak nie da się go podrobić bez klucza aplikacji. Niesie sam identyfikator
-    użytkownika - żadnych uprawnień, żadnego dostępu do API.
+    Podpisany identyfikator losowego wyzwania w bazie; jednorazowy i związany
+    ze stanem hasła oraz drugiego składnika.
     """
-    return signing.dumps({"uzytkownik": uzytkownik.pk}, salt=_SOL_BILETU)
+    from accounts.models import DrugiSkladnik, MfaChallenge
+
+    factor = DrugiSkladnik.objects.get(uzytkownik=uzytkownik, potwierdzony_od__isnull=False)
+    challenge = MfaChallenge.objects.create(
+        user=uzytkownik, fingerprint=fingerprint(uzytkownik, factor),
+        expires_at=timezone.now() + timedelta(seconds=WAZNOSC_BILETU_SEKUND),
+    )
+    return signing.dumps({"id": str(challenge.pk)}, salt=_SOL_BILETU)
 
 
-def odczytaj_bilet(bilet: str):
-    """Użytkownik z biletu albo None, gdy bilet jest zły lub przeterminowany."""
-    from accounts.models import CustomUser
-
+def challenge_id(bilet):
+    if not isinstance(bilet, str) or len(bilet) > 1024:
+        return None
     try:
-        dane = signing.loads(bilet or "", salt=_SOL_BILETU, max_age=WAZNOSC_BILETU_SEKUND)
-    except signing.BadSignature:
+        data = signing.loads(bilet, salt=_SOL_BILETU, max_age=WAZNOSC_BILETU_SEKUND)
+        return UUID(data["id"])
+    except (signing.BadSignature, ValueError, TypeError, KeyError, AttributeError):
         return None
 
-    return CustomUser.objects.filter(pk=dane.get("uzytkownik")).first()
+
+def valid_challenge(challenge, user, factor):
+    return bool(
+        challenge and user.is_active and factor and factor.wlaczony
+        and challenge.used_at is None and challenge.failures < 5
+        and challenge.expires_at > timezone.now()
+        and constant_time_compare(challenge.fingerprint, fingerprint(user, factor))
+    )
+
+
+@transaction.atomic
+def zakoncz_logowanie(bilet, kod):
+    from accounts.models import CustomUser, DrugiSkladnik, MfaChallenge
+    from api.mfa_throttles import account_attempt
+
+    identity = challenge_id(bilet)
+    if identity is None:
+        return None, 401
+    preliminary = MfaChallenge.objects.filter(pk=identity).first()
+    if preliminary is None:
+        return None, 401
+    # Account security mutations lock user before factor and challenge.
+    user = CustomUser.objects.select_for_update().filter(pk=preliminary.user_id).first()
+    if user is None:
+        return None, 401
+    factor = DrugiSkladnik.objects.select_for_update().filter(uzytkownik=user).first()
+    challenge = MfaChallenge.objects.select_for_update().filter(pk=identity).first()
+    if not valid_challenge(challenge, user, factor):
+        return None, 401
+    account_attempt(user)
+    if not (sprawdz_kod(factor, kod) or zuzyj_kod_zapasowy(user, kod)):
+        challenge.failures += 1
+        challenge.save(update_fields=["failures"])
+        return None, 400
+    challenge.used_at = timezone.now()
+    challenge.save(update_fields=["used_at"])
+    return user, 200
 
 
 def nazwa_wydawcy() -> str:

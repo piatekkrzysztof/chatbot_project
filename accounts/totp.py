@@ -93,7 +93,7 @@ def zweryfikuj(sekret: str, podany: str, chwila: float | None = None) -> int | N
         chwila = time.time()
 
     podany = (podany or "").strip().replace(" ", "")
-    if not podany.isdigit():
+    if len(podany) != CYFR or not podany.isascii() or not podany.isdigit():
         return None
 
     for przesuniecie in range(-TOLERANCJA_KROKOW, TOLERANCJA_KROKOW + 1):

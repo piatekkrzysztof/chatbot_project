@@ -6,6 +6,7 @@
 !requirements-dev.txt
 !manage.py
 !accounts/**/*.py
+!accounts/templates/admin/mfa_login.html
 !api/**/*.py
 !chat/**/*.py
 !chatbot_project/**/*.py

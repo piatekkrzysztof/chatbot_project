@@ -32,8 +32,8 @@ def admin_user(db, tenant):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("app_label,model_name", admin_models())
-def test_changelist_opens(client, admin_user, app_label, model_name):
-    client.force_login(admin_user)
+def test_changelist_opens(client, mfa_admin_login, admin_user, app_label, model_name):
+    mfa_admin_login(admin_user)
     url = reverse(f"admin:{app_label}_{model_name}_changelist")
 
     assert client.get(url).status_code == 200
@@ -41,9 +41,9 @@ def test_changelist_opens(client, admin_user, app_label, model_name):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("app_label,model_name", admin_models())
-def test_search_works(client, admin_user, app_label, model_name):
+def test_search_works(client, mfa_admin_login, admin_user, app_label, model_name):
     """Wyszukiwanie po nieistniejącym polu rzuca FieldError — łapiemy to tutaj."""
-    client.force_login(admin_user)
+    mfa_admin_login(admin_user)
     url = reverse(f"admin:{app_label}_{model_name}_changelist")
 
     assert client.get(url, {"q": "test"}).status_code == 200
@@ -51,8 +51,8 @@ def test_search_works(client, admin_user, app_label, model_name):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("app_label,model_name", admin_models())
-def test_add_form_opens(client, admin_user, app_label, model_name):
-    client.force_login(admin_user)
+def test_add_form_opens(client, mfa_admin_login, admin_user, app_label, model_name):
+    mfa_admin_login(admin_user)
     url = reverse(f"admin:{app_label}_{model_name}_add")
 
     response = client.get(url)
@@ -61,12 +61,14 @@ def test_add_form_opens(client, admin_user, app_label, model_name):
 
 
 @pytest.mark.django_db
-def test_adding_document_through_admin_works(client, admin_user, tenant, valid_pdf_file):
+def test_adding_document_through_admin_works(
+    client, mfa_admin_login, admin_user, tenant, valid_pdf_file,
+):
     """
     Samo otwarcie formularza niczego nie dowodzi — zapis uruchamia sygnał
     post_save, który zleca zadania w tle. To właśnie tam produkcja zwracała 500.
     """
-    client.force_login(admin_user)
+    mfa_admin_login(admin_user)
 
     response = client.post(
         reverse("admin:documents_document_add"),
