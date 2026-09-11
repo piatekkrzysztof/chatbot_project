@@ -1,8 +1,12 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. Użytkownik zatwierdził rozpoczęcie napraw po audycie.
-Ta lista obejmuje wszystkie 25 grup ustaleń. Status dotyczy kodu lokalnego;
-gotowość produkcyjna wymaga osobnego sprawdzenia wdrożenia.
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 11.09.2026, po wdrożeniu F23.**
+Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
+potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
+wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
+
+Budżet: korzystamy z obecnych zasobów Rendera i R2. Nie planujemy nowych
+płatnych workerów, cronów ani instancji bazy bez osobnej decyzji właściciela.
 
 Zasada realizacji: odtworzenie błędu → poprawka → test regresyjny → kontrola
 powiązanych przepływów → zapis wyniku. Zmiany dostępu, pieniędzy i retencji
@@ -13,20 +17,113 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | Etap | Ustalenia | Zakres i warunek odbioru | Status |
 |---|---|---|---|
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
-| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; retencja zachowuje świeże wiadomości; bezpieczny Docker i aktualne zależności | PR #39 i #40 scalone i wdrożone; prywatne magazyny oraz dostęp sprawdzone, odczyt legacy wyłączony; operacyjny zakres kopii, pełny restore i zależności pozostałych repozytoriów pozostają otwarte |
-| 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | Kontrola SSRF/DNS/redirectów i uploadu, budżety oraz rezerwacje wiadomości; formularze odporne na awarie i spam | F06/F09: PR #42/#43 i frontend #11 scalone; web i worker Rendera mają commit `cccf026`, health 2.0.3 potwierdza bazę i broker. Pełny odbiór uploadu na wydzielonej firmie pozostaje otwarty. F08: gałąź `codex/audit-message-reservations`, rezerwacje PostgreSQL, rozliczenie przerwanego SSE i budżet testów. Następny: F23 formularz marketingowy |
+| 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; bezpieczna retencja, Docker i zależności | PR #39–#41 scalone; prywatny storage i niezależny klucz kopii sprawdzone. PITR instancji dostępny. Nadal: alarmy/harmonogramy kopii, pełny restore SaaS z plikami i zależności frontendu |
+| 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | SSRF, upload, rezerwacje wiadomości, odporne formularze | Backend #42–#44 oraz frontend #11 scalone. Backend web live na `e5259ce` (F08). Strona marketingowa #1 live na `43a36d0`; rzeczywista wiadomość przeszła kolejkę i SMTP, właściciel potwierdził odbiór. Nadal: odbiór uploadu, kontrola rezerwacji/alertów i końcowy odbiór F23 opisany niżej |
 | 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | Do wykonania |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
 | 7. Wydajność i obsługa | F16, F20, F21, F24; pozostałe F22 | Paginacja/N+1, SLO, dziennik i minimalizacja danych, alarmy/kopie/restore, obowiązkowe bramki CI, pełne stany UI | Do wykonania |
 | 8. Odbiór komercyjny | Wszystkie | Staging zgodny z produkcją, negatywne testy dostępu, przegląd infrastruktury, obciążenie, odtworzenie kopii, płatności testowe, onboarding i dostępność | Do wykonania |
 
-Najpierw zamykamy dostęp do cudzych danych. Weryfikacja rzeczywistego storage
-z etapu 2 jest kolejnym priorytetem — lokalny kod nie dowodzi prywatności
-już zapisanych dokumentów i kopii. W tym samym etapie naprawiamy retencję,
-ponieważ błąd grozi utratą świeżych danych. SSRF i koszty zamykamy przed
-większą przebudową sesji i odzyskiwania konta. Etapy nie są zgodą na publikowanie zmian
-ani wykonywanie rzeczywistych płatności czy zmian w kontach usługowych.
+## Najbliższa kolejność prac
+
+1. **Domknąć odbiór już wdrożonych zmian.** Ustalić prawdziwy adres klienta
+   za proxy i sprawdzić odporność na podrobione nagłówki także po ewentualnej
+   zmianie ustawień. Przeprowadzić pełny test formularza z Turnstile w przeglądarce.
+   Podłączyć kontrolę kolejki, kopii i rezerwacji do alarmów na obecnych zasobach;
+   sprawdzić, że brak kolejnego przebiegu też wywołuje alarm. Odtworzyć dane i pliki
+   w izolacji oraz zapisać zmierzone RPO/RTO. Dostępny PITR nie zastępuje testu restore.
+2. **Następny PR kodu: F07 — rejestracja i zaproszenia.** Walidacja hasła w API,
+   spójna unikalność e-maili, adresat zaproszenia, atomowe zużycie tokena i miejsc,
+   limity rejestracji. Odbiór: dwa równoległe żądania nie używają tego samego
+   zaproszenia ani ostatniego miejsca; słabe hasło nie przechodzi żadną ścieżką.
+3. **F14/F15 i odzyskiwanie konta z F22.** MFA na wszystkich ścieżkach admina,
+   atomowe kody i limity drugiego kroku, ochrona sekretów w bazie, refresh wyłącznie
+   w bezpiecznym cookie, CSRF/Origin, reset i unieważnianie sesji. Zmiany kontraktu
+   sesji wymagają wspólnej weryfikacji backendu i panelu.
+4. **F10/F17/F18/F19/F25 — wiedza i RAG.** Import wszystkich formatów, idempotentne
+   zadania, atomowa publikacja i usuwanie plików/embeddingów, bezpieczne CSV,
+   poprawność feedbacku, wyszukiwanie FAQ i regresja jakości/izolacji.
+5. **F11 i płatności z F22.** Idempotencja Checkout/webhooków, okresy subskrypcji,
+   uzgadnianie błędów i jednoznaczny status konkretnego zakupu. Testy w trybie
+   testowym Stripe; brak rzeczywistych obciążeń bez osobnej zgody.
+6. **F12/F16/F20–F22/F24 — utrzymanie i UX.** Dokończenie zależności frontendu,
+   paginacja/N+1, log zdarzeń i minimalizacja danych, obowiązkowe kontrole CI,
+   onboarding i komplet stanów ładowania/błędów/pustych danych.
+7. **Odbiór komercyjny.** Pełny negatywny test dostępu, obciążenie, restore,
+   onboarding, dostępność i płatności testowe w środowisku zgodnym z produkcją.
+
+P1 dotyczące kont, administracji i płatności nadal blokują deklarację gotowości
+komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
+
+## Rejestr wszystkich ustaleń — stan 11.09.2026
+
+| ID | Stan i dowód | Co pozostaje do odbioru lub naprawy |
+|---|---|---|
+| F01 | Naprawa scalona i wdrożona, backend #38 | Końcowa macierz dostępu przy odbiorze komercyjnym |
+| F02 | Naprawa ról i ostatniego właściciela, #38 | Atomowe przyjmowanie zaproszeń należy do F07 |
+| F03 | Izolacja CSV naprawiona, #38 | Integralność treści CSV pozostaje w F19 |
+| F04 | Prywatne magazyny, szyfrowane kopie i klucz poza hostingiem; #40/#41 | Harmonogram/alerty, pełna kopia plików i restore SaaS |
+| F05 | Bezpieczny kontekst/obraz, #39 | Końcowy skan używanego obrazu |
+| F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
+| F07 | Otwarte | Hasła, adresy, zaproszenia, miejsca, weryfikacja i limity rejestracji |
+| F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Kontrola wdrożenia workera, alarmy i uzgadnianie wygasłych rezerwacji; pomiar kosztów |
+| F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
+| F10 | Otwarte; F09 poprawił część walidacji plików | Pełny proces budowy wiedzy i wszystkie formaty |
+| F11 | Otwarte | Spójność i idempotencja płatności oraz webhooków |
+| F12 | DRF i zależności strony poprawione; skany tych zakresów zaliczone | Zależności frontendu, ponowne skany całości przed wydaniem |
+| F13 | Retencja aktywnych rozmów naprawiona, #39 | Końcowy odbiór polityki retencji |
+| F14 | Otwarte | MFA admina, atomowe kody, sekrety w DB |
+| F15 | Otwarte | Refresh/cookies/CSRF, wiele kart i unieważnianie sesji |
+| F16 | Otwarte | Paginacja, N+1, pomiary opóźnień i obciążenia |
+| F17 | Otwarte | Powtarzalne zadania i atomowa publikacja embeddingów |
+| F18 | Otwarte | Spójne usuwanie i limity wiedzy/plików/pochodnych |
+| F19 | Otwarte | Transakcyjne CSV, formuły w eksportach i integralność ocen |
+| F20 | Otwarte | Kompletność dziennika, minimalizacja i przepływy danych |
+| F21 | Częściowo: kontrola kopii #41 i dostępny PITR | Działające alarmy, brak przebiegów, pełny restore, RPO/RTO i instrukcja incydentowa |
+| F22 | Otwarte; poprawiono komunikaty uploadu i formularza | Reset hasła, stan zakupu, onboarding i pozostałe stany panelu |
+| F23 | Kod #1 strony wdrożony; test SMTP i odbiór w skrzynce zaliczone | Pełny E2E Turnstile, rzeczywiste IP za proxy, alerty i docelowy proces backup/restore |
+| F24 | Częściowo: rozszerzone testy i aktualizacja roadmapy | Obowiązkowe bramki repozytoriów, istniejący dług lint/typecheck, zgodność dokumentacji |
+| F25 | Otwarte | FAQ poza pierwszą dwudziestką, rozdzielenie instrukcji i treści, regresja RAG |
+
+## Odbiór F23 i infrastruktury — 11.09.2026
+
+- Strona [PR #1](https://github.com/piatekkrzysztof/sm-art-agencja/pull/1),
+  commit `43a36d0e789c12566b15f8e03b000bf88c255bf1`, deploy
+  `dep-dahs9vifngtc73ds1kq0`: live. Proces web i worker współdzielą istniejącą
+  usługę. Nowa baza logiczna nie jest nową płatną instancją.
+- CI strony: 72 testy, 95,40% pokrycia; Ruff, Bandit i pip-audit zaliczone.
+  CI backendu #44: 1525 testów, 87,03% pokrycia; dowody w opisach PR-ów.
+- Produkcja: 14 tras HTTP 200; bezpieczne cookie i no-store; nieważny podpis
+  formularza oraz obcy Origin odrzucane (403), błędne pola (422), zbyt duże
+  żądanie (413). Wpisane wartości po błędzie walidacji pozostają.
+- Testowy rekord przeszedł prawdziwą kolejkę i worker: `sent`, jedna próba,
+  brak błędu. Właściciel potwierdził odbiór w skrzynce, poza spamem.
+  Rekord dodano bezpośrednio do kolejki: to dowód dostawy, a nie pełnego
+  przejścia publicznego formularza z produkcyjnym Turnstile.
+- Oba konta runtime logują się do nowej bazy; brak uprawnień do tabel SaaS.
+  Heartbeat aktualny, brak failed/overdue/queued po teście.
+- `CONTACT_PROXY_HOPS=0`: podrobiony X-Forwarded-For nie steruje kluczem limitu.
+  Nie potwierdzono jeszcze, że klucz odpowiada rzeczywistemu użytkownikowi:
+  wspólny adres proxy może powodować wspólny limit 5 prób/godzinę. Nie należy
+  przełączać na 1 bez sprawdzenia rzeczywistego łańcucha proxy.
+- API Rendera potwierdziło PITR `AVAILABLE` od `2026-09-07T04:44:50Z`.
+  [Dokumentacja odzyskiwania](https://render.com/docs/postgresql-backups)
+  opisuje mechanizm instancji, ale samo API nie dowodzi udanego odtworzenia.
+  Eksport jednej logicznej bazy SaaS nie jest kopią nowej bazy formularza.
+- Rzeczywisty `pg_dump` nowej bazy wykonano ze spójnego snapshotu po potwierdzeniu,
+  że outbox zawiera tylko oznaczoną wiadomość testową. **Lokalny restore przeszedł**:
+  trzy tabele, pięć indeksów, ograniczenia outboxa, identyczne payload/digest/status
+  i liczba prób testowej wiadomości. PostgreSQL źródłowy 16, klient dump/restore 17,
+  lokalny serwer 15; pominięto tylko nieobsługiwane lokalnie `SET transaction_timeout=0`.
+  Lokalny serwer zatrzymano. Próba nie obejmowała odtworzenia ról/grantów, PITR
+  dostawcy ani pełnego SaaS z plikami; odbiór na identycznej wersji pozostaje otwarty.
+- W odczytanej liście usług Rendera nie ma zadań cron kopii/kontroli, strona
+  nie ma health-check path ani rozpoznanych zmiennych zewnętrznego monitora.
+  Nie wyklucza to monitora poza Renderem. Sam `contact-check` i logi nie dowodzą
+  działającego alarmowania; wymagany jest kontrolowany test alarmu i jego odbioru.
+
+## Historia etapów (statusy na dzień danego wpisu)
 
 ## Etap 1 — zakres bieżącej poprawki
 
