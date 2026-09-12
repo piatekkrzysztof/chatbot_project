@@ -7,10 +7,10 @@ from django.db import IntegrityError, close_old_connections, connections, transa
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import CustomUser, DaneRozliczeniowe, InvitationToken, Subscription, Tenant
 from api.serializers import AcceptInvitationSerializer, RegisterSerializer
+from api.session_tokens import SessionRefreshToken
 from api.tests.signup_helpers import complete_registration
 
 PASSWORD = "v7!Independent-Phrase-739"
@@ -255,7 +255,9 @@ def test_email_change_cannot_create_case_duplicate(user, tenant):
         username="second", email="second@example.com", tenant=tenant
     )
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(user)}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(user).access_token}"
+    )
     response = client.patch(f"/api/users/{other.pk}/", {"email": user.email.upper()}, format="json")
     assert response.status_code == 400
     other.refresh_from_db()
@@ -285,7 +287,9 @@ def test_new_invitation_is_always_for_one_recipient(user, maximum):
     user.role = "owner"
     user.save()
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(user)}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(user).access_token}"
+    )
     response = client.post(
         "/api/accounts/invitations/", {"email": "recipient@example.com", "max_users": maximum}
     )
@@ -418,7 +422,7 @@ def test_invitation_and_direct_creation_share_last_seat(monkeypatch):
 
     monkeypatch.setattr(AcceptInvitationSerializer, "create", accept_after_barrier)
     monkeypatch.setattr(UserViewSet, "_lock_team", lock_after_barrier)
-    access = str(AccessToken.for_user(owner))
+    access = str(SessionRefreshToken.for_user(owner).access_token)
 
     def create(index):
         close_old_connections()

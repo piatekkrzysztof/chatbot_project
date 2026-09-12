@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.10] — 2026-09-12
+
+### Security
+
+- Wylogowanie kończy całą sesję, włącznie z wydanymi tokenami dostępu i
+  potomkami rotacji. Działa także po przesłaniu starszego tokenu odświeżania.
+  Równoczesne odświeżenie nie pozostawia aktywnej sesji po logout.
+- Zmiana hasła blokuje wszystkie wcześniejsze sesje. Sesje wygasają
+  najpóźniej 14 dni po logowaniu, także przy regularnym odświeżaniu.
+
+### Operations
+
+- Migracja accounts.0036 dodaje rejestr sesji. Wszyscy użytkownicy muszą
+  ponownie się zalogować po wdrożeniu. Panel #13 jest zgodny z tą wersją.
+- Komenda purge_login_sessions usuwa stare, wygasłe sesje; harmonogram
+  pozostaje do konfiguracji na istniejących zasobach.
+
 ## [2.0.9] — 2026-09-12
 
 ### Security
