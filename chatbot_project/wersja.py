@@ -37,4 +37,4 @@ Podniesienie wersji idzie w tym samym commicie co wpis w CHANGELOG.md.
 Rozdzielone rozjeżdżają się przy pierwszym pośpiechu.
 """
 
-WERSJA = "2.0.11"
+WERSJA = "2.0.12"

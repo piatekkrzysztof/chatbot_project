@@ -16,6 +16,25 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.12] — 2026-09-12
+
+### Security
+
+- Użytkownik może zmienić własne hasło oraz przeglądać i kończyć własne
+  sesje. Właściciel firmy i administrator nie uzyskują dostępu do sesji
+  innych osób. Lista pokazuje maksymalnie 20 sesji na stronę, bez tokenów,
+  odcisków hasła, adresów IP ani danych urządzeń.
+- Zmiana hasła i kończenie sesji wymagają aktualnego hasła, a przy włączonym
+  MFA również jednorazowego kodu. Zmiana hasła kończy wszystkie dotychczasowe
+  sesje i unieważnia stare linki resetujące; MFA pozostaje włączone.
+- Operacje ponownie sprawdzają aktywność sesji po zablokowaniu konta.
+  Równoczesne resetowanie, odświeżanie i odwoływanie nie przywraca dostępu.
+
+### Operations
+
+- Wdrożyć backend web i worker 2.0.12, potem zgodny panel. Bez migracji,
+  nowych usług i sekretów. Instrukcja: [ustawienia bezpieczeństwa](docs/ustawienia-bezpieczenstwa.md).
+
 ## [2.0.11] — 2026-09-12
 
 ### Security
