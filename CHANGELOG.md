@@ -16,6 +16,20 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.14] — 2026-09-12
+
+### Operations
+
+- Pełna zaszyfrowana kopia danych aplikacji obejmuje teraz również dokumenty,
+  logo i awatary. Manifest wiąże pliki z bazą oraz sprawdza rozmiary i sumy.
+  Baza jest czytana z jednego snapshotu; kopia plików wymaga faktycznego
+  wstrzymania zapisów i jawnego `--source-quiesced`.
+- Nowe polecenia `backup_full`, `verify_full_backup`, `unpack_full_backup`
+  oraz `restore_full_backup`. Próba odtwarzania wymaga pustej lokalnej bazy,
+  zgodnych migracji/wersji i klucza Django; nie nadpisuje danych produkcyjnych.
+- Bez nowych usług, migracji, sekretów i zmian panelu. Starsze kopie zachowują
+  format i obsługę. [Zakres, limity i instrukcja próby](docs/pelna-kopia-i-odtworzenie.md).
+
 ## [2.0.13] — 2026-09-12
 
 ### Security
