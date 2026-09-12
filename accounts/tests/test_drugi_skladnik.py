@@ -53,7 +53,7 @@ def wlacz_drugi_skladnik(uzytkownik) -> DrugiSkladnik:
 @pytest.mark.django_db
 class TestKonfiguracji:
     def test_rozpoczecie_daje_sekret_i_adres_dla_aplikacji(self, zalogowana):
-        odpowiedz = zalogowana.post(reverse("2fa-rozpocznij"))
+        odpowiedz = zalogowana.post(reverse("2fa-rozpocznij"), {"haslo": HASLO})
 
         assert odpowiedz.status_code == 201
         assert odpowiedz.data["sekret"]
@@ -67,16 +67,16 @@ class TestKonfiguracji:
         ochroną i bez działającej aplikacji - czyli zamknięty na zewnątrz
         własnego konta.
         """
-        zalogowana.post(reverse("2fa-rozpocznij"))
+        zalogowana.post(reverse("2fa-rozpocznij"), {"haslo": HASLO})
 
         assert not dwuskladnikowe.ma_wlaczony_drugi_skladnik(wlascicielka)
         assert zalogowana.get(reverse("2fa-stan")).data["w_trakcie_konfiguracji"] is True
 
     def test_potwierdzenie_wlacza_i_wydaje_kody_zapasowe(self, zalogowana, wlascicielka):
-        sekret = zalogowana.post(reverse("2fa-rozpocznij")).data["sekret"]
+        sekret = zalogowana.post(reverse("2fa-rozpocznij"), {"haslo": HASLO}).data["sekret"]
 
         odpowiedz = zalogowana.post(
-            reverse("2fa-potwierdz"), {"kod": totp.kod(sekret)}, format="json"
+            reverse("2fa-potwierdz"), {"haslo": HASLO, "kod": totp.kod(sekret)}, format="json"
         )
 
         assert odpowiedz.status_code == 200
@@ -85,9 +85,11 @@ class TestKonfiguracji:
         assert dwuskladnikowe.ma_wlaczony_drugi_skladnik(wlascicielka)
 
     def test_zly_kod_nie_wlacza_ochrony(self, zalogowana, wlascicielka):
-        zalogowana.post(reverse("2fa-rozpocznij"))
+        zalogowana.post(reverse("2fa-rozpocznij"), {"haslo": HASLO})
 
-        odpowiedz = zalogowana.post(reverse("2fa-potwierdz"), {"kod": "000000"}, format="json")
+        odpowiedz = zalogowana.post(
+            reverse("2fa-potwierdz"), {"haslo": HASLO, "kod": "000000"}, format="json"
+        )
 
         assert odpowiedz.status_code == 400
         assert not dwuskladnikowe.ma_wlaczony_drugi_skladnik(wlascicielka)
@@ -98,9 +100,9 @@ class TestKonfiguracji:
         kodów w bazie znosiłaby całą ochronę: ktoś ze zrzutem bazy omijałby
         drugi składnik dla wszystkich kont naraz.
         """
-        sekret = zalogowana.post(reverse("2fa-rozpocznij")).data["sekret"]
+        sekret = zalogowana.post(reverse("2fa-rozpocznij"), {"haslo": HASLO}).data["sekret"]
         kody = zalogowana.post(
-            reverse("2fa-potwierdz"), {"kod": totp.kod(sekret)}, format="json"
+            reverse("2fa-potwierdz"), {"haslo": HASLO, "kod": totp.kod(sekret)}, format="json"
         ).data["kody_zapasowe"]
 
         zapisane = set(KodZapasowy.objects.values_list("skrot", flat=True))
@@ -282,4 +284,4 @@ class TestWylaczania:
         # użytkownik właśnie używa - i to bez potwierdzenia hasłem.
         wlacz_drugi_skladnik(wlascicielka)
 
-        assert zalogowana.post(reverse("2fa-rozpocznij")).status_code == 409
+        assert zalogowana.post(reverse("2fa-rozpocznij"), {"haslo": HASLO}).status_code == 409

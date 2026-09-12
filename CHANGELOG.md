@@ -16,6 +16,24 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.11] — 2026-09-12
+
+### Security
+
+- Odzyskiwanie hasła przez link ważny 30 minut. Potwierdzenie zużywa link
+  atomowo i kończy wszystkie wcześniejsze sesje; MFA pozostaje wymagane.
+  Publiczna odpowiedź nie ujawnia istnienia konta, a limity obejmują IP,
+  całą usługę i adres e-mail. Wysyłkę obsługuje istniejący worker.
+- Rozpoczęcie i potwierdzenie konfiguracji MFA wymaga aktualnego hasła.
+- Sentry nie zbiera treści żądań, cookies ani zmiennych lokalnych;
+  argumenty zadań Celery są usuwane ze zgłoszeń.
+
+### Operations
+
+- Wdrożyć zgodny panel przed backendem, następnie poczekać na web i worker
+  w wersji 2.0.11. Bez migracji i nowych usług. Instrukcja i ograniczenia:
+  [odzyskiwanie hasła](docs/odzyskiwanie-hasla.md).
+
 ## [2.0.10] — 2026-09-12
 
 ### Security

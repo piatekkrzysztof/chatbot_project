@@ -149,6 +149,9 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+# Password reset uses Django's signed, password-bound one-use token.
+PASSWORD_RESET_TIMEOUT = 30 * 60
+
 # Token odświeżania jest host-only. REFRESH_COOKIE_DOMAIN określa jedynie
 # domenę niesekretnego znacznika Next.js i starego cookie usuwanego przy migracji.
 # Nazwa różna od legacy zapobiega niejednoznacznemu odczytowi dwóch cookies.

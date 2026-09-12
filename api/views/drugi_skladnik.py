@@ -27,7 +27,11 @@ class KodSerializer(serializers.Serializer):
     kod = serializers.CharField(max_length=64)
 
 
-class HasloIKodSerializer(serializers.Serializer):
+class HasloSerializer(serializers.Serializer):
+    haslo = serializers.CharField(max_length=1024, trim_whitespace=False, write_only=True)
+
+
+class HasloIKodSerializer(HasloSerializer):
     """
     Wyłączenie ochrony wymaga obu rzeczy naraz.
 
@@ -35,7 +39,6 @@ class HasloIKodSerializer(serializers.Serializer):
     więc żadne z nich osobno nie może wystarczyć.
     """
 
-    haslo = serializers.CharField(max_length=4096, trim_whitespace=False)
     kod = serializers.CharField(max_length=64)
 
 
@@ -89,8 +92,8 @@ class StanDrugiegoSkladnikaView(APIView):
 @extend_schema(
     tags=["Konto — drugi składnik"],
     summary="Rozpocznij konfigurację",
-    description="Zwraca sekret i adres otpauth, z którego przeglądarka rysuje kod QR.",
-    request=None,
+    description="Wymaga aktualnego hasła. Zwraca sekret i adres otpauth do kodu QR.",
+    request=HasloSerializer,
     responses={201: RozpoczecieSerializer},
 )
 class RozpocznijDrugiSkladnikView(MFAMutationView):
@@ -98,8 +101,12 @@ class RozpocznijDrugiSkladnikView(MFAMutationView):
 
     @transaction.atomic
     def post(self, zadanie):
+        serializer = HasloSerializer(data=zadanie.data)
+        serializer.is_valid(raise_exception=True)
         zadanie.user = CustomUser.objects.select_for_update().get(pk=zadanie.user.pk)
         account_attempt(zadanie.user)
+        if not zadanie.user.check_password(serializer.validated_data["haslo"]):
+            return Response({"error": "Nieprawidłowe hasło."}, status=400)
         skladnik = DrugiSkladnik.objects.filter(uzytkownik=zadanie.user).first()
 
         if skladnik and skladnik.wlaczony:
@@ -138,7 +145,7 @@ class RozpocznijDrugiSkladnikView(MFAMutationView):
     tags=["Konto — drugi składnik"],
     summary="Potwierdź konfigurację kodem",
     description="Włącza drugi składnik i wydaje kody zapasowe. Kody pokazujemy jeden raz.",
-    request=KodSerializer,
+    request=HasloIKodSerializer,
     responses={200: PotwierdzenieSerializer},
 )
 class PotwierdzDrugiSkladnikView(MFAMutationView):
@@ -146,10 +153,12 @@ class PotwierdzDrugiSkladnikView(MFAMutationView):
 
     @transaction.atomic
     def post(self, zadanie):
-        serializer = KodSerializer(data=zadanie.data)
+        serializer = HasloIKodSerializer(data=zadanie.data)
         serializer.is_valid(raise_exception=True)
         zadanie.user = CustomUser.objects.select_for_update().get(pk=zadanie.user.pk)
         account_attempt(zadanie.user)
+        if not zadanie.user.check_password(serializer.validated_data["haslo"]):
+            return Response({"error": "Nieprawidłowe hasło."}, status=400)
         skladnik = DrugiSkladnik.objects.filter(uzytkownik=zadanie.user).first()
         if not skladnik:
             return Response(
