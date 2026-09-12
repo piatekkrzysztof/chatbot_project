@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026, Backend #50 i panel #13 scalone i wdrożone. F15 część 3: odwoływanie sesji.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026. Backend #50 i panel #13 scalone i wdrożone. F15 część 3: odwoływanie sesji w [PR #51](https://github.com/piatekkrzysztof/chatbot_project/pull/51).**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
