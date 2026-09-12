@@ -339,6 +339,9 @@ def test_parallel_security_mutations_cannot_leave_revoked_access_alive(race):
     assert all(status in (200, 400, 401) for status, _ in result)
     if race in ("password", "reset"):
         assert sum(status == 200 for status, _ in result) == 1
+        from accounts.security_notifications import PasswordNotification
+
+        assert PasswordNotification.objects.filter(user=user).count() == 1
     assert client.get(BASE + "me/").status_code == 401
     assert refresh(token).status_code == 401
     for _, access in result:

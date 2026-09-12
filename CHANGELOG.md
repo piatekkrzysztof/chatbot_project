@@ -16,6 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.13] — 2026-09-12
+
+### Security
+
+- Po zmianie hasła w ustawieniach lub przez link resetujący powstaje trwałe
+  powiadomienie na adres konta z chwili zmiany. Wiadomość nie zawiera haseł,
+  kodów MFA ani tokenów. Awaria SMTP nie cofa skutecznej zmiany hasła.
+- Worker sprawdza kolejkę co minutę i ponawia nieudaną wysyłkę maksymalnie
+  pięć razy łącznie. Restart odzyskuje porzucone zadania; potwierdzone
+  wysyłki nie są ponawiane. Po utracie potwierdzenia SMTP możliwy jest duplikat.
+
+### Operations
+
+- Migracja `accounts.0037_password_notification` dodaje tabelę powiadomień.
+  Najpierw migracja przez build web, potem zgodny web i worker z beat.
+  Bez nowych usług, sekretów i zmian panelu.
+- `check_password_notifications` odczytuje liczniki i wykrywa nieudane
+  lub zaległe wysyłki; samo polecenie nie konfiguruje odbiorcy alarmu.
+  [Instrukcja wdrożenia i odbioru](docs/powiadomienia-o-zmianie-hasla.md).
+
 ## [2.0.12] — 2026-09-12
 
 ### Security
