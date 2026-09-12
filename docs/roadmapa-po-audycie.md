@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026. Backend #50 i panel #13 scalone i wdrożone. F15 część 3: odwoływanie sesji w [PR #51](https://github.com/piatekkrzysztof/chatbot_project/pull/51).**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026. Backend #51 i panel #13 scalone i wdrożone. Web i worker live na `ab0b139` (2.0.10). Bieżący etap: reset hasła i aktualne hasło przy konfiguracji MFA — [backend #52](https://github.com/piatekkrzysztof/chatbot_project/pull/52) i [panel #14](https://github.com/piatekkrzysztof/frontend_chatbot/pull/14), przygotowane do przeglądu.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -19,7 +19,7 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
 | 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; bezpieczna retencja, Docker i zależności | PR #39–#41 scalone; prywatny storage i niezależny klucz kopii sprawdzone. PITR instancji dostępny. Nadal: alarmy/harmonogramy kopii, pełny restore SaaS z plikami i zależności frontendu |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | SSRF, upload, rezerwacje wiadomości, odporne formularze | Backend #42–#44 oraz frontend #11 scalone. Backend web live na `e5259ce` (F08). Strona marketingowa #1 live na `43a36d0`; rzeczywista wiadomość przeszła kolejkę i SMTP, właściciel potwierdził odbiór. Nadal: odbiór uploadu, kontrola rezerwacji/alertów i końcowy odbiór F23 opisany niżej |
-| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07, MFA #48, cookies #49 i rotacja #50 wdrożone; web/worker live `c16a52d` (2.0.9), panel #13 Production success `7c6cd5b`. Część 3 przygotowuje odwoływanie rodzin/access JWT i reakcję na zmianę hasła. Nadal: reset, świeże hasło przy MFA, odbiór poczty/retencji |
+| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07, MFA #48 i sesje #49–#51 wdrożone; web/worker live `ab0b139` (2.0.10), panel #13 Production success `7c6cd5b`. Reset hasła i potwierdzenie MFA hasłem przygotowane w bieżącym etapie. Nadal: ich merge/wdrożenie/odbiór SMTP, retencja, zarządzanie sesjami i odzyskiwanie MFA |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
 | 7. Wydajność i obsługa | F16, F20, F21, F24; pozostałe F22 | Paginacja/N+1, SLO, dziennik i minimalizacja danych, alarmy/kopie/restore, obowiązkowe bramki CI, pełne stany UI | Do wykonania |
@@ -42,11 +42,15 @@ sprawdzamy także przy równoległych operacjach i po awarii.
    Właściciel zabezpieczył DJANGO_SECRET_KEY; test HTTPS z syntetycznym kontem
    zaliczony, konto usunięte. Po merge przywrócono automatyczne wdrożenia obu usług.
    Cookies/CSRF #49, atomowa rotacja #50 i wiele kart w panelu #13 wdrożone.
-   Backend web/worker: `c16a52d`; panel Production: `7c6cd5b`.
+   Backend web/worker: `ab0b139` (2.0.10); panel Production: `7c6cd5b`.
    Panel #13 usuwa również cztery zgłoszenia npm audit; wynik po poprawce: 0.
-   Bieżący PR dodaje odwoływanie rodzin tokenów/access JWT po logout i zmianie
-   hasła oraz limit 14 dni od logowania: [instrukcja](odwolywanie-sesji.md).
-   Potem reset hasła, świeże hasło przy MFA i zarządzanie sesjami użytkownika.
+   PR #51 wdrożył odwoływanie rodzin/access JWT po logout i zmianie hasła
+   oraz limit 14 dni od logowania: [instrukcja](odwolywanie-sesji.md).
+   Bieżący etap 2.0.11 dodaje reset i hasło przy konfiguracji MFA:
+   [instrukcja wdrożenia i odbioru](odzyskiwanie-hasla.md). Panel przed backendem;
+   rzeczywista wysyłka dopiero po live web i workera. Dalej: zmiana hasła
+   z ustawień, lista/odwoływanie sesji, powiadomienie o zmianie hasła,
+   procedura utraty MFA i operacyjna retencja. Te pozycje nie są jeszcze zamknięte.
 4. **F10/F17/F18/F19/F25 — wiedza i RAG.** Import wszystkich formatów, idempotentne
    zadania, atomowa publikacja i usuwanie plików/embeddingów, bezpieczne CSV,
    poprawność feedbacku, wyszukiwanie FAQ i regresja jakości/izolacji.
@@ -79,15 +83,15 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F11 | Otwarte | Spójność i idempotencja płatności oraz webhooków |
 | F12 | DRF i strona poprawione; panel #13 aktualizuje Next.js do 16.3.5, sharp do 0.35.4 i zależności pośrednie; npm audit: 4 zgłoszenia → 0 | Panel #13: CI zielone, produkcja wdrożona; ponowne skany całości przed wydaniem |
 | F13 | Retencja aktywnych rozmów naprawiona, #39 | Końcowy odbiór polityki retencji |
-| F14 | #48 scalony i wdrożony, migracja 0035 oraz rzeczywiste logowanie API/admin z MFA sprawdzone; CI 1606 testów, 87,50% pokrycia | Rotacja/retencja operacyjna, świeże hasło przy konfiguracji i odzyskiwanie MFA |
-| F15 | #49/#50 i panel #13 wdrożone. Część 3: odwoływanie rodzin i access JWT oraz reakcja na zmianę hasła przygotowane, [instrukcja](odwolywanie-sesji.md) | CI i wdrożenie części 3 (ponowne logowanie); formularz zmiany/resetu hasła, odzyskiwanie konta, zarządzanie sesjami |
+| F14 | #48 scalony i wdrożony, migracja 0035 oraz rzeczywiste logowanie API/admin z MFA sprawdzone; CI 1606 testów, 87,50% pokrycia | Aktualne hasło przy konfiguracji przygotowane w 2.0.11; pozostały merge/wdrożenie, rotacja/retencja operacyjna i procedura utraty MFA |
+| F15 | #49–#51 i panel #13 wdrożone. Odwoływanie rodzin/access JWT działa na web i workerze, CI #51: 1701 testów, 87,70% | Reset przygotowany w 2.0.11, wymaga wdrożenia/odbioru SMTP; zmiana hasła z ustawień, powiadomienia, zarządzanie sesjami i ich retencja |
 | F16 | Otwarte | Paginacja, N+1, pomiary opóźnień i obciążenia |
 | F17 | Otwarte | Powtarzalne zadania i atomowa publikacja embeddingów |
 | F18 | Otwarte | Spójne usuwanie i limity wiedzy/plików/pochodnych |
 | F19 | Otwarte | Transakcyjne CSV, formuły w eksportach i integralność ocen |
-| F20 | Otwarte | Kompletność dziennika, minimalizacja i przepływy danych |
+| F20 | Częściowo: 2.0.11 ogranicza body/cookies/zmienne lokalne i argumenty zadań w Sentry | Wdrożenie, pozostałe źródła logów, kompletność dziennika, retencja i przepływy danych |
 | F21 | Kontrola kopii #41, dostępny PITR; 11.09 odtworzono zaszyfrowany snapshot danych aplikacji (745 obiektów) i sprawdzono migrację/rollback MFA | Działające alarmy, brak przebiegów, pełny restore z bajtami plików, RPO/RTO i instrukcja incydentowa |
-| F22 | Otwarte; poprawiono komunikaty uploadu i formularza | Reset hasła, stan zakupu, onboarding i pozostałe stany panelu |
+| F22 | Poprawiono upload/formularze; reset hasła z obsługą błędów i wygasłych linków przygotowany | Wdrożenie/odbiór resetu, stan zakupu, onboarding i pozostałe stany panelu |
 | F23 | Kod #1 strony wdrożony; test SMTP i odbiór w skrzynce zaliczone | Pełny E2E Turnstile, rzeczywiste IP za proxy, alerty i docelowy proces backup/restore |
 | F24 | Częściowo: rozszerzone testy i aktualizacja roadmapy | Obowiązkowe bramki repozytoriów, istniejący dług lint/typecheck, zgodność dokumentacji |
 | F25 | Otwarte | FAQ poza pierwszą dwudziestką, rozdzielenie instrukcji i treści, regresja RAG |

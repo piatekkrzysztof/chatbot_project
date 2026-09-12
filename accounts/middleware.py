@@ -38,6 +38,9 @@ class TenantMiddleware:
             "/api/accounts/registration/preview/",
             "/api/accounts/registration/activate/",
             "/api/accounts/login/",
+            "/api/accounts/password-reset/request/",
+            "/api/accounts/password-reset/preview/",
+            "/api/accounts/password-reset/confirm/",
             # Odswiezanie i wylogowanie z definicji dzialaja bez waznego
             # tokenu dostepu -- to jest ich caly sens. Tozsamosc potwierdza
             # tu token odswiezania z ciasteczka HttpOnly, sprawdzany w widoku.
