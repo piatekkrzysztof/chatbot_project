@@ -14,6 +14,7 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework.exceptions import ValidationError
 
 from accounts.models import CustomUser
+from accounts.security_notifications import record_password_change
 from accounts.sessions import LoginSession
 
 RECEIPT = "Jeśli konto może odzyskać dostęp, wyślemy na podany adres link do zmiany hasła."
@@ -92,6 +93,7 @@ def confirm_reset(uid, token, password):
         raise ValidationError({"password": exc.messages}) from None
     user.set_password(password)
     user.save(update_fields=["password"])
+    record_password_change(user)
     LoginSession.objects.filter(user=user, revoked_at__isnull=True).update(
         revoked_at=timezone.now()
     )
