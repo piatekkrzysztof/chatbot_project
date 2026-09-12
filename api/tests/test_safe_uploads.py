@@ -3,8 +3,8 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken
 
+from api.session_tokens import SessionRefreshToken
 from documents.models import Document
 
 
@@ -226,7 +226,9 @@ def upload_client(user, tenant, subscribtion, settings, tmp_path):
     user.role = "owner"
     user.save()
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(user)}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(user).access_token}"
+    )
     return client
 
 

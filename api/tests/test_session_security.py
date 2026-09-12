@@ -3,8 +3,8 @@
 import pytest
 from django.conf import settings
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
 
+from api.session_tokens import SessionRefreshToken as RefreshToken
 from api.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db

@@ -4,9 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken
 
 from api.serializers import WebsiteSourceSerializer
+from api.session_tokens import SessionRefreshToken
 from documents.models import Document, WebsiteSource
 from documents.tasks import crawl_and_import_website_source
 from documents.website_import import fetch_text_from_url
@@ -54,7 +54,9 @@ def test_api_rejects_unsafe_source_without_saving_or_scheduling(
     user.role = "owner"
     user.save()
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(user)}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(user).access_token}"
+    )
     response = client.post("/api/website-sources/", {"url": url, "name": "Unsafe"}, format="json")
     assert response.status_code == 400
     assert "url" in response.data
