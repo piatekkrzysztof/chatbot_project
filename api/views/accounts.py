@@ -44,6 +44,7 @@ from api.serializers import (
     UserSerializer,
 )
 from api.session_security import SessionBoundaryMixin
+from api.session_tokens import AtomicTokenRefreshSerializer, RefreshAlreadyUsed
 from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
 from api.utils.ciasteczka import (
     odczytaj_token_odswiezania,
@@ -219,7 +220,12 @@ class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
         "Wymaga zaufanego Origin lub Referer. Nie przyjmuje refresh w JSON."
     ),
     request=None,
-    responses={200: OpenApiTypes.OBJECT, 401: ErrorSerializer, 403: ErrorSerializer},
+    responses={
+        200: OpenApiTypes.OBJECT,
+        401: ErrorSerializer,
+        403: ErrorSerializer,
+        409: ErrorSerializer,
+    },
 )
 class OdswiezTokenView(SessionBoundaryMixin, TokenRefreshView):
     """
@@ -231,6 +237,7 @@ class OdswiezTokenView(SessionBoundaryMixin, TokenRefreshView):
     """
 
     permission_classes = []
+    serializer_class = AtomicTokenRefreshSerializer
     # Koncowka nieuwierzytelniona, ktora wykonuje prace kryptograficzna przy
     # kazdym wywolaniu - bez limitu jest darmowym obciazeniem dla kazdego.
     throttle_classes = [LimitLogowaniaIP]
@@ -254,6 +261,13 @@ class OdswiezTokenView(SessionBoundaryMixin, TokenRefreshView):
         serializer = self.get_serializer(data={"refresh": token})
         try:
             serializer.is_valid(raise_exception=True)
+        except RefreshAlreadyUsed:
+            # A delayed losing response must not delete the winner's new cookie.
+            # The panel may retry once using the browser's current cookie.
+            return Response(
+                {"detail": "Token został już użyty.", "code": "refresh_conflict"},
+                status=status.HTTP_409_CONFLICT,
+            )
         except TokenError as blad:
             odpowiedz = Response(
                 {"detail": "Sesja wygasla. Zaloguj sie ponownie."},

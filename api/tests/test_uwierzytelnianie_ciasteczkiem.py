@@ -154,7 +154,8 @@ class TestOdswiezanie:
         klient.cookies[NAZWA] = stary
         odpowiedz = klient.post(reverse("token_refresh"))
 
-        assert odpowiedz.status_code == 401
+        assert odpowiedz.status_code == 409
+        assert not odpowiedz.cookies
 
     def test_brak_tokenu_kasuje_znacznik_sesji(self, klient):
         # Znacznik bez tokenu to slad po sesji, ktorej nie ma: Next.js
@@ -205,7 +206,8 @@ class TestWylogowanie:
         klient.cookies[NAZWA] = token
         odpowiedz = klient.post(reverse("token_refresh"))
 
-        assert odpowiedz.status_code == 401
+        assert odpowiedz.status_code == 409
+        assert "access" not in odpowiedz.data
 
     def test_wylogowanie_bez_sesji_nie_wybucha(self, klient):
         # Kliknięcie "wyloguj" po wygasnieciu sesji ma po prostu zadzialac.

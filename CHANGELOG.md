@@ -16,6 +16,21 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.9] — 2026-09-12
+
+### Security
+
+- Równoczesne użycie tego samego tokenu odświeżania wydaje tylko jedną nową
+  parę tokenów. Cała rotacja odbywa się w transakcji z blokadą konta.
+- Zużyty token otrzymuje 409 bez kasowania cookie ustawionego przez zwycięskie
+  żądanie. Usunięte i nieaktywne konto otrzymuje 401 zamiast błędu serwera.
+- Awaria zapisu podczas rotacji wycofuje również zużycie poprzedniego tokenu.
+
+### Operations
+
+- Panel powinien koordynować odświeżanie między kartami i ponawiać konflikt
+  najwyżej raz. Brak migracji i nowych usług; wdrożyć panel przed backendem.
+
 ## [2.0.8] — 2026-09-11
 
 ### Security
