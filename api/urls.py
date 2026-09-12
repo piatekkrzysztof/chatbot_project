@@ -1,5 +1,11 @@
 from django.urls import include, path
 
+from api.views.account_security import (
+    PasswordChangeView,
+    RevokeOtherSessionsView,
+    RevokeSessionView,
+    SessionsView,
+)
 from api.views.activation import (
     ActivateRegistrationView,
     RegistrationPreviewView,
@@ -117,6 +123,18 @@ urlpatterns = [
     path("accounts/2fa/potwierdz/", PotwierdzDrugiSkladnikView.as_view(), name="2fa-potwierdz"),
     path("accounts/2fa/wylacz/", WylaczDrugiSkladnikView.as_view(), name="2fa-wylacz"),
     path("accounts/me/", MeView.as_view(), name="me"),
+    path("accounts/sessions/", SessionsView.as_view(), name="account-sessions"),
+    path("accounts/password-change/", PasswordChangeView.as_view(), name="password-change"),
+    path(
+        "accounts/sessions/revoke-others/",
+        RevokeOtherSessionsView.as_view(),
+        name="revoke-other-sessions",
+    ),
+    path(
+        "accounts/sessions/<uuid:session_uuid>/revoke/",
+        RevokeSessionView.as_view(),
+        name="revoke-account-session",
+    ),
     path("accounts/invitations/", CreateInvitationView.as_view(), name="invite-user"),
     path("accounts/invitations/list/", InvitationListView.as_view(), name="list-invitations"),
     path("accounts/accept-invite/", AcceptInvitationView.as_view(), name="accept-invite"),
