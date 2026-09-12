@@ -6,9 +6,9 @@ from django.core.files.storage import storages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import CustomUser, Tenant
+from api.session_tokens import SessionRefreshToken
 from documents.models import Document
 
 
@@ -59,7 +59,9 @@ def test_klucz_nowego_pliku_jest_powiazany_z_firma(tenant):
 def test_pobieranie_wlasnego_pliku_wymaga_tozsamosci(downloads, role):
     document, _, users = downloads
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(users[role])}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(users[role]).access_token}"
+    )
     response = client.get(reverse("documents-download", args=[document.pk]))
     assert response.status_code == 200
     assert b"".join(response.streaming_content) == b"PRIVATE_CONTENT"
@@ -74,7 +76,9 @@ def test_pobieranie_wlasnego_pliku_wymaga_tozsamosci(downloads, role):
 def test_cudza_firma_nie_otwiera_pliku(downloads, monkeypatch):
     _, foreign, users = downloads
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(users['owner'])}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(users['owner']).access_token}"
+    )
     from documents.storage import DocumentStorage
 
     opened = []
@@ -99,7 +103,9 @@ def test_publiczny_klucz_i_sprzeczne_dane_nie_pobieraja(downloads, credential):
         }
     elif credential == "conflicting":
         headers = {
-            "HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(users['owner'])}",
+            "HTTP_AUTHORIZATION": (
+                f"Bearer {SessionRefreshToken.for_user(users['owner']).access_token}"
+            ),
             "HTTP_X_API_KEY": str(foreign.tenant.api_key),
         }
     client.credentials(**headers)
@@ -156,7 +162,9 @@ def test_brak_pliku_zwraca_404(downloads):
     document, _, users = downloads
     storages["private_documents"].delete(document.file.name)
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(users['owner'])}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(users['owner']).access_token}"
+    )
     response = client.get(reverse("documents-download", args=[document.pk]))
     assert response.status_code == 404
 
@@ -177,7 +185,9 @@ def test_brak_private_storage_odmawia_uploadu_przed_zapisem(downloads, settings)
         "private_documents": {"BACKEND": "chatbot_project.storage.UnconfiguredPrivateStorage"},
     }
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(users['owner'])}")
+    client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {SessionRefreshToken.for_user(users['owner']).access_token}"
+    )
     before = Document.objects.count()
     response = client.post(
         reverse("upload-document"),
