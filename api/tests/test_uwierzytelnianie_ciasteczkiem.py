@@ -206,7 +206,7 @@ class TestWylogowanie:
         klient.cookies[NAZWA] = token
         odpowiedz = klient.post(reverse("token_refresh"))
 
-        assert odpowiedz.status_code == 409
+        assert odpowiedz.status_code == 401
         assert "access" not in odpowiedz.data
 
     def test_wylogowanie_bez_sesji_nie_wybucha(self, klient):

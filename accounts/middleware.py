@@ -6,10 +6,10 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework.exceptions import APIException, AuthenticationFailed
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.models import Tenant
 from accounts.tenancy import verified_request_tenant
+from api.session_tokens import SessionJWTAuthentication
 
 from .models import Subscription
 from .odmowy import PowodOdmowy, zapisz_odmowe
@@ -71,7 +71,7 @@ class TenantMiddleware:
 
         # Nieprawidłowy lub wygasły JWT kończy uwierzytelnianie. Nie wolno
         # po jego błędzie przejść na mniej uprzywilejowany tryb klucza widgetu.
-        user_auth_tuple = JWTAuthentication().authenticate(request)
+        user_auth_tuple = SessionJWTAuthentication().authenticate(request)
         if user_auth_tuple:
             request.user, _ = user_auth_tuple
 

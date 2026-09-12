@@ -237,7 +237,7 @@ def test_jwt_without_api_key_still_gets_tenant_throttle(tenant, user):
 
 @pytest.mark.django_db
 def test_test_chat_validates_input_before_reserving(tenant, user, settings):
-    from rest_framework_simplejwt.tokens import RefreshToken
+    from api.session_tokens import SessionRefreshToken as RefreshToken
 
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")

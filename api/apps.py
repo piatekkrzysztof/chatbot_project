@@ -8,6 +8,7 @@ class ApiConfig(AppConfig):
     def ready(self):
         # Import rejestruje kontrolę ostrzegającą o limitach liczonych per proces
         import api.checks  # noqa: F401
+        import api.schema_auth  # noqa: F401
 
         # Widget siedzi na witrynach klientów, których adresów nie znamy z góry —
         # bez tego przeglądarka odwiedzającego blokuje jego zapytania
