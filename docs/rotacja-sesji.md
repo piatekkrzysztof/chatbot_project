@@ -1,6 +1,6 @@
 # F15, część 2: jednorazowa rotacja i wiele kart
 
-Backend 2.0.9 współpracuje z gałęzią panelu `codex/audit-session-rotation`.
+Backend 2.0.9 współpracuje z [panelem #13](https://github.com/piatekkrzysztof/frontend_chatbot/pull/13).
 Najpierw wdrożyć panel, potem backend. Nie ma migracji bazy ani nowych usług.
 
 Backend weryfikuje podpis/ważność refresh, blokuje rekord konta i w tej samej
