@@ -1,7 +1,6 @@
 import logging
 from datetime import timedelta
 
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -44,6 +43,7 @@ from api.serializers import (
     RegistrationStartSerializer,
     UserSerializer,
 )
+from api.session_security import SessionBoundaryMixin
 from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
 from api.utils.ciasteczka import (
     odczytaj_token_odswiezania,
@@ -117,10 +117,7 @@ def odpowiedz_z_sesja(dane):
     refresh = odpowiedz.data.get("refresh")
     if refresh:
         ustaw_ciasteczko_odswiezania(odpowiedz, refresh)
-        if not settings.ZWRACAJ_REFRESH_W_TRESCI:
-            # Token zostawiony w tresci laduje w localStorage, czyli dokladnie
-            # tam, skad ta przebudowa go zabiera.
-            del odpowiedz.data["refresh"]
+        del odpowiedz.data["refresh"]
 
     return odpowiedz
 
@@ -130,7 +127,7 @@ def odpowiedz_z_sesja(dane):
     summary="Logowanie",
     description=("W polu `username` można podać zarówno nazwę użytkownika, jak i adres e-mail."),
 )
-class LoginView(TokenObtainPairView):
+class LoginView(SessionBoundaryMixin, TokenObtainPairView):
     """
     Logowanie. Token dostepu wraca w tresci, token odswiezania w ciasteczku.
 
@@ -178,7 +175,7 @@ class LoginView(TokenObtainPairView):
     request=BiletIKodSerializer,
     responses={200: OpenApiTypes.OBJECT},
 )
-class LogowanieDrugiSkladnikView(APIView):
+class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
     """
     Drugi krok logowania: bilet plus kod z aplikacji albo kod zapasowy.
 
@@ -218,10 +215,13 @@ class LogowanieDrugiSkladnikView(APIView):
     summary="Odswiez token dostepu",
     description=(
         "Czyta token odswiezania z ciasteczka HttpOnly. Kazde wywolanie wydaje "
-        "nowy token odswiezania i uniewaznia poprzedni."
+        "nowy token odswiezania i uniewaznia poprzedni. "
+        "Wymaga zaufanego Origin lub Referer. Nie przyjmuje refresh w JSON."
     ),
+    request=None,
+    responses={200: OpenApiTypes.OBJECT, 401: ErrorSerializer, 403: ErrorSerializer},
 )
-class OdswiezTokenView(TokenRefreshView):
+class OdswiezTokenView(SessionBoundaryMixin, TokenRefreshView):
     """
     Odswiezanie oparte o ciasteczko.
 
@@ -286,7 +286,7 @@ class OdswiezTokenView(TokenRefreshView):
     request=None,
     responses={204: None},
 )
-class WylogujView(APIView):
+class WylogujView(SessionBoundaryMixin, APIView):
     """
     Wylogowanie, ktore naprawde konczy sesje.
 
@@ -296,6 +296,7 @@ class WylogujView(APIView):
     Dlatego token trafia na czarna liste.
     """
 
+    authentication_classes = ()
     permission_classes = []
 
     def post(self, zadanie):

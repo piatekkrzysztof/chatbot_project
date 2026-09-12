@@ -27,7 +27,7 @@ def pracownik(tenant):
 
 @pytest.mark.django_db
 def test_logowanie_adresem_email_gdy_username_jest_inny(pracownik):
-    response = APIClient().post(
+    response = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/",
         {"username": "pracownik@example.com", "password": "TajneHaslo123"},
         format="json",
@@ -40,7 +40,7 @@ def test_logowanie_adresem_email_gdy_username_jest_inny(pracownik):
 @pytest.mark.django_db
 def test_logowanie_nazwa_uzytkownika_nadal_dziala(pracownik):
     """Konta założone wcześniej logują się nazwą — nie wolno tego zepsuć."""
-    response = APIClient().post(
+    response = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/",
         {"username": "nowypracownik", "password": "TajneHaslo123"},
         format="json",
@@ -51,7 +51,7 @@ def test_logowanie_nazwa_uzytkownika_nadal_dziala(pracownik):
 
 @pytest.mark.django_db
 def test_zle_haslo_nie_wpuszcza(pracownik):
-    response = APIClient().post(
+    response = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/",
         {"username": "pracownik@example.com", "password": "zle-haslo"},
         format="json",
@@ -85,7 +85,7 @@ def test_adres_uzywany_przez_kilka_kont_nie_wpuszcza(tenant, pracownik, monkeypa
 
     monkeypatch.setattr(CustomUser.objects, "filter", legacy_result)
 
-    response = APIClient().post(
+    response = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/",
         {"username": "pracownik@example.com", "password": "TajneHaslo123"},
         format="json",

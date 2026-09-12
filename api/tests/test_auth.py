@@ -7,7 +7,7 @@ from api.tests.signup_helpers import complete_registration
 
 @pytest.mark.django_db
 def test_register_creates_user_and_tenant():
-    client = APIClient()
+    client = APIClient(HTTP_ORIGIN="https://panel.example.test")
     payload = {
         "imie": "Anna",
         "nazwisko": "Nowak",
@@ -31,7 +31,7 @@ def test_login_returns_token_and_user_data():
     # Bez przypisania: liczy sie samo powstanie konta, nie uchwyt do niego.
     CustomUser.objects.create_user(username="x", email="x@x.com", password="pass123", tenant=tenant)
 
-    client = APIClient()
+    client = APIClient(HTTP_ORIGIN="https://panel.example.test")
     response = client.post("/api/accounts/login/", {"username": "x", "password": "pass123"})
     assert response.status_code == 200
     assert "access" in response.data
@@ -45,7 +45,7 @@ def test_me_view_returns_logged_in_user():
         username="u", email="user@t.com", password="pass", tenant=tenant
     )
 
-    client = APIClient()
+    client = APIClient(HTTP_ORIGIN="https://panel.example.test")
     client.force_authenticate(
         user=user,
     )
@@ -60,7 +60,7 @@ def test_login_invalid_credentials():
     tenant = Tenant.objects.create(name="T", owner_email="admin@t.com")
     CustomUser.objects.create_user(username="x", email="x@x.com", password="secret", tenant=tenant)
 
-    client = APIClient()
+    client = APIClient(HTTP_ORIGIN="https://panel.example.test")
     response = client.post("/api/accounts/login/", {"username": "x", "password": "wrongpass"})
     assert response.status_code == 401
 
@@ -72,7 +72,7 @@ def test_register_duplicate_email():
         username="dup", email="dup@dup.com", password="secret", tenant=tenant
     )
 
-    client = APIClient()
+    client = APIClient(HTTP_ORIGIN="https://panel.example.test")
     payload = {
         "imie": "Anna",
         "nazwisko": "Nowak",

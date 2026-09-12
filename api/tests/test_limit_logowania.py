@@ -58,7 +58,7 @@ def sprobuj(klient, login, haslo, adres="203.0.113.7"):
 @pytest.mark.django_db
 class TestLimituPoAdresie:
     def test_zgadywanie_z_jednego_adresu_zostaje_zatrzymane(self, wlascicielka):
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
 
         odpowiedzi = [sprobuj(klient, "szef@rowerownia.pl", "zle") for _ in range(12)]
         kody = [odpowiedz.status_code for odpowiedz in odpowiedzi]
@@ -71,7 +71,7 @@ class TestLimituPoAdresie:
     def test_inny_adres_nie_dziedziczy_blokady(self, wlascicielka):
         # Limit adresowy nie może odcinać osób postronnych: jeden zablokowany
         # napastnik nie ma prawa uniemożliwić logowania całej reszcie.
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
         for _ in range(12):
             sprobuj(klient, "ktos@innego.pl", "zle", adres="203.0.113.7")
 
@@ -91,7 +91,7 @@ class TestLimituPoKoncie:
         przechodziłby bez drugiej warstwy tylko wtedy, gdyby wszystkie próby
         szły z jednego miejsca - a nie idą.
         """
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
 
         kody = [
             sprobuj(klient, "szef@rowerownia.pl", "zle", adres=f"198.51.100.{numer}").status_code
@@ -111,7 +111,7 @@ class TestLimituPoKoncie:
             tenant=firma,
             role="owner",
         )
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
         for numer in range(1, 10):
             sprobuj(klient, "szef@rowerownia.pl", "zle", adres=f"198.51.100.{numer}")
 
@@ -125,7 +125,7 @@ class TestCoWidziAtakujacy:
     def test_odmowa_nie_zdradza_czy_konto_istnieje(self, wlascicielka):
         # Różnica w odpowiedzi między kontem istniejącym a nieistniejącym
         # zamienia logowanie w narzędzie do sprawdzania, kto jest klientem.
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
 
         istniejace = sprobuj(klient, "szef@rowerownia.pl", "zle", adres="192.0.2.1")
         nieistniejace = sprobuj(klient, "nikt@nigdzie.pl", "zle", adres="192.0.2.2")
@@ -139,7 +139,7 @@ class TestNormalnejPracy:
     def test_poprawne_haslo_dziala_i_nie_zuzywa_limitu_pod_szczytem(self, wlascicielka):
         # Limit ma nie przeszkadzać w normalnym użyciu: kilka logowań pod rząd
         # zdarza się przy pracy na dwóch przeglądarkach albo po wylogowaniu.
-        klient = APIClient()
+        klient = APIClient(HTTP_ORIGIN="https://panel.example.test")
 
         kody = [sprobuj(klient, "szef@rowerownia.pl", HASLO).status_code for _ in range(4)]
 

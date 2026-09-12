@@ -331,9 +331,12 @@ was no limit at all: the project's default throttles key off `request.tenant`, w
 login endpoint does not have, so they returned no cache key and silently did nothing.
 
 **Panel sessions.** Login returns a short-lived access token in the body and sets the
-refresh token as an `HttpOnly` `Secure` `SameSite=Lax` cookie scoped to
-`/api/accounts/`, so no script can read it and it is not attached to every other API
-call. Access tokens last 15 minutes; refresh tokens rotate on every use and the previous
+refresh token as a host-only `__Host-refresh_token` cookie (`HttpOnly`, `Secure`,
+`SameSite=Lax`, `Path=/`). Other subdomain servers never receive this token.
+Session endpoints require a trusted `Origin` or `Referer`; SameSite alone does not
+protect against sibling subdomains. Refresh tokens are neither returned nor accepted
+in JSON. See [session migration and client contract](docs/sesje-i-csrf.md).
+Access tokens last 15 minutes; refresh tokens rotate on every use and the previous
 one is blacklisted, so a stolen token logs its owner out rather than granting quiet
 access. `POST /api/accounts/logout/` blacklists the token server-side — clearing the
 cookie alone would leave a working session behind for two weeks. Covered by

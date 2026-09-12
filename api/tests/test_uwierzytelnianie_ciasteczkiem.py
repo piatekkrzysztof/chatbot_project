@@ -38,7 +38,7 @@ def wlascicielka(django_user_model, haslo):
 
 @pytest.fixture
 def klient():
-    return APIClient()
+    return APIClient(HTTP_ORIGIN="https://panel.example.test")
 
 
 def zaloguj(klient, uzytkownik, haslo):
