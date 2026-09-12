@@ -36,7 +36,7 @@ def account(db):
 
 
 def ticket(user):
-    response = APIClient().post(
+    response = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/",
         {
             "username": user.username,
@@ -48,7 +48,9 @@ def ticket(user):
 
 
 def finish(value, code):
-    return APIClient().post("/api/accounts/login/2fa/", {"bilet": value, "kod": code})
+    return APIClient(HTTP_ORIGIN="https://panel.example.test").post(
+        "/api/accounts/login/2fa/", {"bilet": value, "kod": code}
+    )
 
 
 @pytest.mark.django_db
@@ -89,7 +91,7 @@ def test_ticket_attempt_budget_cannot_be_reset_by_ip_change(account):
     value = ticket(account)
     for index in range(5):
         assert (
-            APIClient()
+            APIClient(HTTP_ORIGIN="https://panel.example.test")
             .post(
                 "/api/accounts/login/2fa/",
                 {"bilet": value, "kod": "invalid"},
@@ -378,7 +380,7 @@ def test_parallel_ticket_consumption_with_distinct_codes():
 @pytest.mark.django_db
 @pytest.mark.parametrize("code", ["١٢٣٤٥٦", "1" * 65, [], {"code": "123456"}])
 def test_malformed_code_is_rejected_without_server_error(account, code):
-    response = APIClient().post(
+    response = APIClient(HTTP_ORIGIN="https://panel.example.test").post(
         "/api/accounts/login/2fa/",
         {"bilet": ticket(account), "kod": code},
         format="json",

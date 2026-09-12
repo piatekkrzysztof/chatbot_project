@@ -14,9 +14,9 @@ pod zupelnie inna domena, Lax by nie wystarczylo i trzeba by albo SameSite=None
 (blokowane przez coraz wiecej przegladarek jako ciasteczko trzeciej strony),
 albo posrednika. Uklad domen zostal wybrany wczesniej i akurat tu pomaga.
 
-SameSite=Lax zalatwia przy okazji CSRF na koncowce odswiezania: przegladarka
-nie dokleja takiego ciasteczka do zapytania POST wychodzacego z cudzej strony,
-wiec obca witryna nie odswiezy cudzej sesji.
+SameSite nie chroni przed inną subdomeną tej samej witryny. Źródło żądania
+sprawdza SessionBoundaryMixin. Token jest host-only; wspólna domena dotyczy
+wyłącznie znacznika panelu. Produkcja używa prefiksu __Host- i ścieżki /.
 """
 
 from django.conf import settings
@@ -30,13 +30,14 @@ def ustaw_ciasteczko_odswiezania(odpowiedz, token):
         httponly=True,
         secure=settings.CIASTECZKO_ODSWIEZANIA_SECURE,
         samesite=settings.CIASTECZKO_ODSWIEZANIA_SAMESITE,
-        domain=settings.CIASTECZKO_ODSWIEZANIA_DOMENA,
+        domain=None,
         path=settings.CIASTECZKO_ODSWIEZANIA_SCIEZKA,
         # Czas zycia ciasteczka rowny czasowi zycia tokenu. Krotsze
         # kazaloby logowac sie mimo wciaz waznego tokenu, dluzsze
         # zostawialoby w przegladarce ciasteczko, ktore juz nic nie otwiera.
         max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
     )
+    _usun_stare_ciasteczko(odpowiedz)
     _ustaw_znacznik_sesji(odpowiedz)
 
 
@@ -78,18 +79,23 @@ def usun_ciasteczko_odswiezania(odpowiedz):
     """
     odpowiedz.delete_cookie(
         key=settings.NAZWA_CIASTECZKA_ODSWIEZANIA,
-        domain=settings.CIASTECZKO_ODSWIEZANIA_DOMENA,
+        domain=None,
         path=settings.CIASTECZKO_ODSWIEZANIA_SCIEZKA,
         samesite=settings.CIASTECZKO_ODSWIEZANIA_SAMESITE,
     )
+    _usun_stare_ciasteczko(odpowiedz)
     _usun_znacznik_sesji(odpowiedz)
 
 
 def odczytaj_token_odswiezania(zadanie):
-    """Token z ciasteczka, a gdy go nie ma -- z tresci zadania."""
-    z_ciasteczka = zadanie.COOKIES.get(settings.NAZWA_CIASTECZKA_ODSWIEZANIA)
-    if z_ciasteczka:
-        return z_ciasteczka
-    # Zgodnosc wsteczna na czas wdrozenia frontendu oraz dla klientow
-    # spoza przegladarki, ktore ciasteczek nie prowadza.
-    return (zadanie.data or {}).get("refresh")
+    """Wyłącznie nowe ciasteczko; stary token z localStorage nie odtwarza sesji."""
+    return zadanie.COOKIES.get(settings.NAZWA_CIASTECZKA_ODSWIEZANIA)
+
+
+def _usun_stare_ciasteczko(odpowiedz):
+    odpowiedz.delete_cookie(
+        "refresh_token",
+        domain=settings.CIASTECZKO_ODSWIEZANIA_DOMENA,
+        path="/api/accounts/",
+        samesite=settings.CIASTECZKO_ODSWIEZANIA_SAMESITE,
+    )

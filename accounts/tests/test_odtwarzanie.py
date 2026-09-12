@@ -176,6 +176,7 @@ class TestProbyOdtworzenia:
             "/api/accounts/login/",
             {"username": "szef@rowerownia.pl", "password": "tajne-haslo-2026"},
             content_type="application/json",
+            HTTP_ORIGIN="https://panel.example.test",
         )
         assert odpowiedz.status_code == 200, odpowiedz.content
 

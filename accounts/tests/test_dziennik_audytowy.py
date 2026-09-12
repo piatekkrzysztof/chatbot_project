@@ -37,7 +37,7 @@ def wlascicielka(db, django_user_model, firma):
 
 @pytest.fixture
 def klient(wlascicielka, firma):
-    api = APIClient()
+    api = APIClient(HTTP_ORIGIN="https://panel.example.test")
     api.force_authenticate(user=wlascicielka)
     api.credentials(HTTP_X_API_KEY=str(firma.api_key))
     return api
@@ -119,7 +119,7 @@ class TestOdpornosci:
         # Zdarzenie sprzed rozpoznania firmy: nie ma tenanta ani użytkownika,
         # ale jest adres i wynik. To jest dokładnie ten wpis, którego szuka
         # się po włamaniu.
-        api = APIClient()
+        api = APIClient(HTTP_ORIGIN="https://panel.example.test")
 
         api.post(
             reverse("login"),
