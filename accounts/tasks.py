@@ -15,6 +15,20 @@ from django.core.mail import send_mail
 
 logger = logging.getLogger(__name__)
 
+
+@shared_task(bind=True, ignore_result=True, max_retries=2)
+def send_password_reset(self, email):
+    from accounts.password_reset import DeliveryUnavailable, deliver_reset
+
+    try:
+        deliver_reset(email)
+    except DeliveryUnavailable:
+        raise self.retry(
+            exc=DeliveryUnavailable("Password recovery delivery unavailable"),
+            countdown=60,
+        ) from None
+
+
 # Treść zależy od progu, bo to trzy różne sytuacje: uprzedzenie, ostrzeżenie
 # i informacja o tym, że bot już nie odpowiada.
 TRESCI = {

@@ -16,6 +16,11 @@ from api.views.drugi_skladnik import (
     WylaczDrugiSkladnikView,
 )
 from api.views.dziennik import DziennikView
+from api.views.password_reset import (
+    PasswordResetConfirmView,
+    PasswordResetPreviewView,
+    PasswordResetRequestView,
+)
 from api.views.stripe import PublicPricingView
 
 # TokenRefreshView z biblioteki zastąpił OdswiezTokenView, który czyta token
@@ -89,6 +94,21 @@ urlpatterns = [
         name="registration-activate",
     ),
     path("accounts/login/", LoginView.as_view(), name="login"),
+    path(
+        "accounts/password-reset/request/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    path(
+        "accounts/password-reset/preview/",
+        PasswordResetPreviewView.as_view(),
+        name="password-reset-preview",
+    ),
+    path(
+        "accounts/password-reset/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
     path("accounts/token/refresh/", OdswiezTokenView.as_view(), name="token_refresh"),
     path("accounts/logout/", WylogujView.as_view(), name="logout"),
     path("accounts/login/2fa/", LogowanieDrugiSkladnikView.as_view(), name="login-2fa"),

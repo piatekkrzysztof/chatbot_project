@@ -20,6 +20,19 @@ import os
 logger = logging.getLogger(__name__)
 
 
+def redact_credentials(event, hint):
+    request = event.get("request")
+    if isinstance(request, dict):
+        request.pop("data", None)
+        request.pop("cookies", None)
+    extra = event.get("extra")
+    job = extra.get("celery-job") if isinstance(extra, dict) else None
+    if isinstance(job, dict):
+        job.pop("args", None)
+        job.pop("kwargs", None)
+    return event
+
+
 def running_on_server():
     """Czy proces działa na Renderze, a nie na czyjejś maszynie."""
     return bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_HOSTNAME"))
@@ -51,7 +64,11 @@ def init_sentry():
         dsn=dsn,
         integrations=[DjangoIntegration(), CeleryIntegration()],
         traces_sample_rate=0.1,
-        send_default_pii=True,
+        send_default_pii=False,
+        max_request_body_size="never",
+        include_local_variables=False,
+        before_send=redact_credentials,
+        before_send_transaction=redact_credentials,
         environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
     )
     return True
