@@ -28,7 +28,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: chatbot_ci
+          POSTGRES_DB: saas_restore_ci
         ports:
           - 5432:5432
         options: >-
@@ -39,7 +39,7 @@ jobs:
 
     env:
       DJANGO_SECRET_KEY: ci-secret-key-not-used-outside-ci
-      DEV_DB_NAME: chatbot_ci
+      DEV_DB_NAME: saas_restore_ci
       DEV_DB_USER: postgres
       DEV_DB_PASSWORD: postgres
       DEV_DB_HOST: localhost
@@ -87,7 +87,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: chatbot_ci
+          POSTGRES_DB: saas_restore_ci
         ports:
           - 5432:5432
         options: >-
@@ -98,7 +98,7 @@ jobs:
 
     env:
       DJANGO_SECRET_KEY: ci-secret-key-not-used-outside-ci
-      DEV_DB_NAME: chatbot_ci
+      DEV_DB_NAME: saas_restore_ci
       DEV_DB_USER: postgres
       DEV_DB_PASSWORD: postgres
       DEV_DB_HOST: localhost
