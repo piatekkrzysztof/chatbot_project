@@ -3,6 +3,12 @@
 Etap F14/F15/F22, wersja 2.0.11. Kod przygotowany do wdrożenia; rzeczywiste
 doręczenie poczty resetującej pozostaje do odbioru po uruchomieniu obu usług.
 
+PR-y: [panel #14](https://github.com/piatekkrzysztof/frontend_chatbot/pull/14),
+następnie [backend #52](https://github.com/piatekkrzysztof/chatbot_project/pull/52).
+Lokalna walidacja: 92 testy resetu/MFA/sesji i 5 dodatkowych testów limitów
+oraz konfiguracji; panel 102 unit i 72 Playwright. Django check i kontrola
+modeli przeszły. Bandit nie zgłosił problemów w zmienionym kodzie.
+
 ## Zachowanie
 
 - Panel udostępnia `/odzyskaj-haslo` i `/reset-hasla` oraz link przy logowaniu.

@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026. Backend #51 i panel #13 scalone i wdrożone. Web i worker live na `ab0b139` (2.0.10). Bieżący etap: reset hasła i aktualne hasło przy konfiguracji MFA, kod 2.0.11 przygotowany do przeglądu.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026. Backend #51 i panel #13 scalone i wdrożone. Web i worker live na `ab0b139` (2.0.10). Bieżący etap: reset hasła i aktualne hasło przy konfiguracji MFA — [backend #52](https://github.com/piatekkrzysztof/chatbot_project/pull/52) i [panel #14](https://github.com/piatekkrzysztof/frontend_chatbot/pull/14), przygotowane do przeglądu.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
