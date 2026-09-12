@@ -16,6 +16,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 
 from accounts import dwuskladnikowe
 from accounts.models import CustomUser, DrugiSkladnik
+from accounts.security_notifications import record_password_change
 from accounts.sessions import LoginSession
 from api.mfa_throttles import MfaThrottle, account_attempt
 from api.session_security import SessionBoundaryMixin
@@ -141,6 +142,7 @@ class PasswordChangeView(AccountView):
         confirm_factor(user, data)
         user.set_password(data["new_password"])
         user.save(update_fields=["password"])
+        record_password_change(user)
         LoginSession.objects.filter(user=user, revoked_at__isnull=True).update(
             revoked_at=timezone.now()
         )

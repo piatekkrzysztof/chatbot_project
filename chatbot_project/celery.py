@@ -29,6 +29,11 @@ app.autodiscover_tasks()
 
 
 app.conf.beat_schedule = {
+    "password-notifications-every-minute": {
+        "task": "accounts.tasks.send_password_notifications",
+        "schedule": 60.0,
+        "options": {"expires": 60},
+    },
     "crawl-active-website-sources-every-12h": {
         "task": "documents.tasks.crawl_all_active_sources",
         "schedule": crontab(minute=0, hour="*/12"),  # co 12h

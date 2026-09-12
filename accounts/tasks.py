@@ -16,6 +16,13 @@ from django.core.mail import send_mail
 logger = logging.getLogger(__name__)
 
 
+@shared_task(ignore_result=True, soft_time_limit=210, time_limit=240)
+def send_password_notifications():
+    from accounts.security_notifications import process_batch
+
+    return process_batch()
+
+
 @shared_task(bind=True, ignore_result=True, max_retries=2)
 def send_password_reset(self, email):
     from accounts.password_reset import DeliveryUnavailable, deliver_reset

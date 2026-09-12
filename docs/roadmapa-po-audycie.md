@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026. Backend #52 i panel #14 scalone i wdrożone. Web i worker live na `281a7e0` (2.0.11), panel Production `d8374fa`. Bieżący etap 2.0.12: zmiana hasła w ustawieniach i zarządzanie własnymi sesjami — przygotowany do przeglądu.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 12.09.2026. Backend #53 i panel #15 scalone i wdrożone. Web i worker live `7d4c5cf` (2.0.12), panel Production `dffdc9e`. Bieżący etap 2.0.13: trwałe powiadomienia po zmianie/resetowaniu hasła — przygotowane do przeglądu, jeszcze niewdrożone.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -19,11 +19,28 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | 1. Izolacja i role | F01, F02, F03 | JWT/klucz/role/metody nie umożliwiają przekroczenia granicy firmy; brak samodzielnego awansu i utraty ostatniego właściciela; CSV działa na własnej firmie bez klucza widgetu | PR #38 scalony; Render potwierdził wdrożenie na web i workerze |
 | 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; bezpieczna retencja, Docker i zależności | PR #39–#41 scalone; prywatny storage i niezależny klucz kopii sprawdzone. PITR instancji dostępny. Nadal: alarmy/harmonogramy kopii, pełny restore SaaS z plikami i końcowe skany wszystkich repozytoriów |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | SSRF, upload, rezerwacje wiadomości, odporne formularze | Backend #42–#44 oraz frontend #11 scalone. Backend web live na `e5259ce` (F08). Strona marketingowa #1 live na `43a36d0`; rzeczywista wiadomość przeszła kolejkę i SMTP, właściciel potwierdził odbiór. Nadal: odbiór uploadu, kontrola rezerwacji/alertów i końcowy odbiór F23 opisany niżej |
-| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja haseł, adresów i zaproszeń; atomowe miejsca/kody; MFA admina; prawidłowe cookies/CSRF; bezpieczne odzyskiwanie konta | F07, MFA i sesje/reset #48–#52 wdrożone; web/worker live `281a7e0` (2.0.11), panel #14 Production success `d8374fa`. Zmiana hasła i zarządzanie sesjami przygotowane w 2.0.12. Nadal: ich wdrożenie/odbiór, rzeczywisty SMTP aktywacji/resetu, powiadomienia, retencja i odzyskiwanie utraconego MFA |
+| 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja kont, MFA, cookies/CSRF, reset i własne sesje | #48–#53 i panel #15 wdrożone; backend 2.0.12. Powiadomienia po zmianie hasła przygotowane w 2.0.13. Nadal: odbiór ustawień i poczty aktywacji/resetu/powiadomień, retencja, alarmy i procedura utraty MFA |
 | 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | Do wykonania |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
 | 7. Wydajność i obsługa | F16, F20, F21, F24; pozostałe F22 | Paginacja/N+1, SLO, dziennik i minimalizacja danych, alarmy/kopie/restore, obowiązkowe bramki CI, pełne stany UI | Do wykonania |
 | 8. Odbiór komercyjny | Wszystkie | Staging zgodny z produkcją, negatywne testy dostępu, przegląd infrastruktury, obciążenie, odtworzenie kopii, płatności testowe, onboarding i dostępność | Do wykonania |
+
+## Bieżący PR — powiadomienia po zmianie hasła, 2.0.13
+
+- Transakcyjny outbox dla zmiany w ustawieniach i resetu; obecny worker/beat,
+  pięć prób łącznie, odzyskanie po przerwaniu i ograniczona wielkość partii.
+- Migracja 0037 dodaje tabelę. Bez nowego panelu, usług, sekretów i retencji.
+- Kontrola `check_password_notifications` wykrywa zaległe/nieudane wiadomości;
+  skonfigurowanie odbiorcy alarmów pozostaje otwarte.
+- Odczyt Rendera 12.09 potwierdził jeden worker z beat, obecność SMTP i zgodny
+  adres panelu. Obie usługi nadal na 2.0.12. Nie zmieniano produkcji ani nie
+  wysyłano rzeczywistych wiadomości w ramach tego etapu.
+- Testy i końcowy CI: opis PR-a. [Wdrożenie, ograniczenia i rollback](powiadomienia-o-zmianie-hasla.md).
+
+Kolejność po tym PR-ze: odebrać konta/pocztę → pełny restore bazy i plików →
+retencja, alarmy i utrata MFA → dokumenty/RAG → płatności → wydajność/UX/CI →
+odbiór komercyjny. Pełny restore poprzedza produkcyjne włączenie nowych operacji
+automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audytu.
 
 ## Najbliższa kolejność prac
 
@@ -42,17 +59,18 @@ sprawdzamy także przy równoległych operacjach i po awarii.
    Właściciel zabezpieczył DJANGO_SECRET_KEY; test HTTPS z syntetycznym kontem
    zaliczony, konto usunięte. Po merge przywrócono automatyczne wdrożenia obu usług.
    Cookies/CSRF #49, atomowa rotacja #50 i wiele kart w panelu #13 wdrożone.
-   Backend web/worker: `281a7e0` (2.0.11); panel Production: `d8374fa`.
+   Backend web/worker: `7d4c5cf` (2.0.12); panel Production: `dffdc9e`.
    Panel #13 usuwa również cztery zgłoszenia npm audit; wynik po poprawce: 0.
    PR #51 wdrożył odwoływanie rodzin/access JWT po logout i zmianie hasła
    oraz limit 14 dni od logowania: [instrukcja](odwolywanie-sesji.md).
    PR #52 i panel #14 wdrożyły reset i hasło przy konfiguracji MFA:
    [instrukcja odbioru](odzyskiwanie-hasla.md). Pozostał rzeczywisty odbiór SMTP.
-   Bieżący etap 2.0.12 dodaje zmianę hasła w ustawieniach, listę własnych sesji,
+   Wdrożone #53 i panel #15 dodały zmianę hasła w ustawieniach, listę własnych sesji,
    odwołanie wybranej/pozostałych sesji oraz potwierdzenie hasłem i MFA.
-   [Instrukcja](ustawienia-bezpieczenstwa.md): najpierw backend, potem panel.
-   Dalej: odbiór operacyjny, powiadomienia o zmianie hasła, procedura utraty
-   MFA i retencja. Kod przygotowany nie oznacza jeszcze zakończonego odbioru.
+   [Instrukcja odbioru](ustawienia-bezpieczenstwa.md).
+   Teraz: powiadomienia po zmianie hasła w 2.0.13 — [instrukcja](powiadomienia-o-zmianie-hasla.md).
+   Następnie pełny restore bazy i plików, retencja/alarmy i procedura utraty MFA.
+   Kod przygotowany nie oznacza jeszcze zakończonego odbioru.
 4. **F10/F17/F18/F19/F25 — wiedza i RAG.** Import wszystkich formatów, idempotentne
    zadania, atomowa publikacja i usuwanie plików/embeddingów, bezpieczne CSV,
    poprawność feedbacku, wyszukiwanie FAQ i regresja jakości/izolacji.
@@ -85,15 +103,15 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F11 | Otwarte | Spójność i idempotencja płatności oraz webhooków |
 | F12 | DRF i strona poprawione; panel #13 aktualizuje Next.js do 16.3.5, sharp do 0.35.4 i zależności pośrednie; npm audit: 4 zgłoszenia → 0 | Panel #13: CI zielone, produkcja wdrożona; ponowne skany całości przed wydaniem |
 | F13 | Retencja aktywnych rozmów naprawiona, #39 | Końcowy odbiór polityki retencji |
-| F14 | #48 scalony i wdrożony, migracja 0035 oraz rzeczywiste logowanie API/admin z MFA sprawdzone; CI 1606 testów, 87,50% pokrycia | Aktualne hasło przy konfiguracji wdrożone w #52; 2.0.12 dodaje kod MFA przy zmianie hasła i kończeniu sesji. Pozostały wdrożenie/odbiór tej części, retencja i procedura utraty MFA |
-| F15 | #49–#52 i panel #14 wdrożone. Reset oraz odwoływanie sesji działają; CI #52: 1736 testów, 87,88%. Zmiana hasła i własne sesje przygotowane w 2.0.12 | Wdrożenie/odbiór 2.0.12; rzeczywisty SMTP resetu, powiadomienia, retencja sesji |
+| F14 | #48/#52/#53 wdrożone: MFA, aktualne hasło przy konfiguracji, kod przy zmianie hasła i kończeniu sesji | Odbiór nowych ustawień, retencja i procedura utraty MFA |
+| F15 | #49–#53 i panel #15 wdrożone; reset, odwoływanie i zarządzanie sesjami. CI #53: 1765 testów, 88,05% pokrycia | 2.0.13: trwałe powiadomienia przygotowane. Pozostałe: wdrożenie/odbiór poczty, test ustawień, retencja sesji i kolejki, alarmy |
 | F16 | Otwarte | Paginacja, N+1, pomiary opóźnień i obciążenia |
 | F17 | Otwarte | Powtarzalne zadania i atomowa publikacja embeddingów |
 | F18 | Otwarte | Spójne usuwanie i limity wiedzy/plików/pochodnych |
 | F19 | Otwarte | Transakcyjne CSV, formuły w eksportach i integralność ocen |
 | F20 | Częściowo: wdrożone 2.0.11 ogranicza body/cookies/zmienne lokalne i argumenty zadań w Sentry | Pozostałe źródła logów, kompletność dziennika, retencja i przepływy danych |
 | F21 | Kontrola kopii #41, dostępny PITR; 11.09 odtworzono zaszyfrowany snapshot danych aplikacji (745 obiektów) i sprawdzono migrację/rollback MFA | Działające alarmy, brak przebiegów, pełny restore z bajtami plików, RPO/RTO i instrukcja incydentowa |
-| F22 | Upload/formularze i reset wdrożone; 2.0.12 dodaje ustawienia bezpieczeństwa i poprawny stan błędu odczytu MFA | Wdrożenie/odbiór ustawień, rzeczywisty SMTP resetu, stan zakupu, onboarding i pozostałe stany panelu |
+| F22 | Upload, formularze, reset i ustawienia bezpieczeństwa wdrożone w panelu #15/backendzie #53 | Odbiór ustawień i rzeczywistych e-maili; stan zakupu, onboarding i pozostałe stany panelu |
 | F23 | Kod #1 strony wdrożony; test SMTP i odbiór w skrzynce zaliczone | Pełny E2E Turnstile, rzeczywiste IP za proxy, alerty i docelowy proces backup/restore |
 | F24 | Częściowo: rozszerzone testy i aktualizacja roadmapy | Obowiązkowe bramki repozytoriów, istniejący dług lint/typecheck, zgodność dokumentacji |
 | F25 | Otwarte | FAQ poza pierwszą dwudziestką, rozdzielenie instrukcji i treści, regresja RAG |
