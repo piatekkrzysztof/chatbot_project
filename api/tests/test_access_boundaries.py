@@ -11,9 +11,9 @@ from django.db import close_old_connections, connections
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
-from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import CustomUser, InvitationToken, Subscription, Tenant, WpisDziennika
+from api.session_tokens import SessionRefreshToken
 from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle
 from api.views.chat_csv import ExportPromptLogsCSVView, ImportPromptLogsCSVView
 from api.views.documents import DocumentsViewSet
@@ -59,7 +59,7 @@ def firmy():
 
 def klient(user, key=None):
     client = APIClient()
-    headers = {"HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(user)}"}
+    headers = {"HTTP_AUTHORIZATION": f"Bearer {SessionRefreshToken.for_user(user).access_token}"}
     if key is not None:
         headers["HTTP_X_API_KEY"] = str(key)
     client.credentials(**headers)
@@ -138,7 +138,7 @@ def test_public_key_does_not_authenticate_panel(firmy, path):
 
 @pytest.mark.parametrize("token_kind", ["invalid", "expired"])
 def test_invalid_jwt_cannot_fall_back_to_public_key(firmy, token_kind):
-    token = AccessToken.for_user(firmy.users["owner"])
+    token = SessionRefreshToken.for_user(firmy.users["owner"]).access_token
     token.set_exp(lifetime=timedelta(seconds=-1))
     response = APIClient().get(
         "/api/widget-settings/",

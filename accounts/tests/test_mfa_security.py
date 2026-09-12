@@ -55,8 +55,28 @@ def finish(value, code):
 
 @pytest.mark.django_db
 def test_password_step_does_not_create_jwt(account):
+    from accounts.sessions import LoginSession
+
     ticket(account)
     assert OutstandingToken.objects.count() == 0
+    assert LoginSession.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_mfa_login_creates_revocable_session(account):
+    from django.conf import settings
+
+    codes = dwuskladnikowe.wygeneruj_kody_zapasowe(account)
+    response = finish(ticket(account), codes[0])
+    assert response.status_code == 200
+    headers = {"HTTP_AUTHORIZATION": f"Bearer {response.data['access']}"}
+    assert APIClient().get("/api/accounts/me/", **headers).status_code == 200
+    client = APIClient(HTTP_ORIGIN="https://panel.example.test")
+    client.cookies[settings.NAZWA_CIASTECZKA_ODSWIEZANIA] = response.cookies[
+        settings.NAZWA_CIASTECZKA_ODSWIEZANIA
+    ].value
+    assert client.post("/api/accounts/logout/").status_code == 204
+    assert APIClient().get("/api/accounts/me/", **headers).status_code == 401
 
 
 @pytest.mark.django_db

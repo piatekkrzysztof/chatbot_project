@@ -11,7 +11,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts import dwuskladnikowe
@@ -44,7 +43,12 @@ from api.serializers import (
     UserSerializer,
 )
 from api.session_security import SessionBoundaryMixin
-from api.session_tokens import AtomicTokenRefreshSerializer, RefreshAlreadyUsed
+from api.session_tokens import (
+    AtomicTokenRefreshSerializer,
+    RefreshAlreadyUsed,
+    SessionRefreshToken,
+    revoke_session,
+)
 from api.throttles import LimitLogowaniaIP, LimitLogowaniaKonto
 from api.utils.ciasteczka import (
     odczytaj_token_odswiezania,
@@ -205,7 +209,7 @@ class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
                 status=result,
             )
 
-        odswiezenie = RefreshToken.for_user(uzytkownik)
+        odswiezenie = SessionRefreshToken.for_user(uzytkownik)
         return odpowiedz_z_sesja(
             {"refresh": str(odswiezenie), "access": str(odswiezenie.access_token)}
         )
@@ -307,7 +311,7 @@ class WylogujView(SessionBoundaryMixin, APIView):
     Samo skasowanie ciasteczka byloby gestem po stronie przegladarki: token
     dzialalby dalej az do konca swojego zycia, wiec kopia zdjeta wczesniej
     z tego samego urzadzenia otwieralaby panel jeszcze przez dwa tygodnie.
-    Dlatego token trafia na czarna liste.
+    Dlatego cała sesja jest odwoływana w bazie, także po rotacji tokenu.
     """
 
     authentication_classes = ()
@@ -319,7 +323,7 @@ class WylogujView(SessionBoundaryMixin, APIView):
 
         if token:
             try:
-                RefreshToken(token).blacklist()
+                revoke_session(token)
             except TokenError:
                 # Token juz wygasly albo juz uniewazniony. Z punktu widzenia
                 # uzytkownika wylogowanie sie udalo, wiec nie ma o czym

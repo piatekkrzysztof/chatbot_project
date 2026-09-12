@@ -18,6 +18,7 @@ from accounts.registration import (
     unique_email,
 )
 from accounts.seats import sprawdz_limit_miejsc
+from api.session_tokens import SessionRefreshToken
 from chat.models import FAQ, ChatFeedback, ChatMessage, ContactRequest, PromptLog
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.safe_http import FetchError, validate_url
@@ -198,6 +199,8 @@ class RegistrationStartSerializer(RegisterSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    token_class = SessionRefreshToken
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["password"].trim_whitespace = False

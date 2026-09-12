@@ -80,7 +80,7 @@ TEMPLATES = [
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "api.session_tokens.SessionJWTAuthentication",
     ],
     "DEFAULT_THROTTLE_CLASSES": [
         "api.throttles.APIKeyRateThrottle",
@@ -142,9 +142,9 @@ SIMPLE_JWT = {
     # a skradziony token jest wart kwadrans, nie caly dzien pracy.
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
-    # Kazde odswiezenie wydaje nowy refresh i uniewaznia poprzedni. Dzieki
-    # temu token przechwycony i uzyty przez napastnika wylogowuje wlasciciela
-    # -- kradziez przestaje byc cicha.
+    # Rotację i wspólny, nieprzedłużany termin sesji egzekwuje
+    # AtomicTokenRefreshSerializer. Powtórzenie tokenu daje 409, a logout
+    # odwołuje również jego potomków i wydane tokeny dostępu.
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
