@@ -9,6 +9,7 @@ i nie dostać ani jednej wiadomości więcej.
 """
 
 import json
+import time
 from itertools import pairwise
 from unittest.mock import patch
 
@@ -22,7 +23,7 @@ from accounts.plans import (
     allows_white_label,
     get_plan,
 )
-from api.views.stripe_webhook import activate_subscription
+from api.views.stripe_webhook import synchronizuj_subskrypcje
 
 
 def owner_client(user, tenant):
@@ -129,11 +130,29 @@ class TestKatalogPlanow:
         assert get_plan("Prymium") is None
 
 
+def subskrypcja_stripe(tenant, plan="pro", status="active", sid="sub_1"):
+    """Subskrypcja w kształcie zwracanym przez stripe.Subscription.retrieve."""
+    teraz = int(time.time())
+    return {
+        "id": sid,
+        "status": status,
+        "current_period_start": teraz - 86_400,
+        "current_period_end": teraz + 30 * 86_400,
+        "metadata": {"tenant_id": str(tenant.id), "plan": plan},
+        "items": {"data": []},
+    }
+
+
 @pytest.mark.django_db
 class TestAktywacjaPoPlatnosci:
+    """
+    Synchronizacja stanu ze Stripe (F11). Wcześniej `activate_subscription`
+    wykonywało polecenie "aktywuj na 31 dni" - teraz stan przychodzi ze Stripe.
+    """
+
     def test_platnosc_podnosi_limit_ktory_egzekwuje_middleware(self, tenant, subscribtion):
         """Sedno naprawy: zapłata musi zmienić Subscription, nie tylko Tenant."""
-        activate_subscription(tenant, "pro")
+        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "pro"))
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
         assert subskrypcja.plan_type == "pro"
@@ -144,21 +163,21 @@ class TestAktywacjaPoPlatnosci:
         """Rejestracja od razu z płatnością — nie ma jeszcze czego aktualizować."""
         assert not Subscription.objects.filter(tenant=tenant).exists()
 
-        activate_subscription(tenant, "start")
+        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "start"))
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
         assert subskrypcja.message_limit == 2_000
 
     def test_stan_na_tenancie_jest_zsynchronizowany(self, tenant, subscribtion):
-        activate_subscription(tenant, "pro")
+        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "pro"))
 
         tenant.refresh_from_db()
         assert tenant.subscription_status == "active"
         assert tenant.subscription_plan == "pro"
 
     def test_zmiana_planu_nadpisuje_limit(self, tenant, subscribtion):
-        activate_subscription(tenant, "start")
-        activate_subscription(tenant, "pro")
+        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "start"))
+        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "pro"))
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
         assert subskrypcja.message_limit == 25_000
@@ -171,24 +190,34 @@ class TestWebhook:
     def _zdarzenie(self, typ, tenant, plan="pro"):
         return {
             "type": typ,
-            "data": {"object": {"metadata": {"tenant_id": str(tenant.id), "plan": plan}}},
+            "data": {
+                "object": {
+                    "subscription": "sub_1",
+                    "metadata": {"tenant_id": str(tenant.id), "plan": plan},
+                }
+            },
         }
+
+    def _wyslij(self, zdarzenie, subskrypcja=None):
+        with (
+            patch("stripe.Webhook.construct_event", return_value=zdarzenie),
+            patch("stripe.Subscription.retrieve", return_value=subskrypcja),
+        ):
+            return APIClient().post(
+                self.URL,
+                data=json.dumps({}),
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE="podpis",
+            )
 
     def test_webhook_jest_osiagalny_bez_tokenu(self, tenant, subscribtion):
         """
         Stripe woła z własnych serwerów — bez JWT i bez klucza API.
         Wcześniej TenantMiddleware odrzuciłby takie żądanie.
         """
-        with patch(
-            "stripe.Webhook.construct_event",
-            return_value=self._zdarzenie("checkout.session.completed", tenant),
-        ):
-            response = APIClient().post(
-                self.URL,
-                data=json.dumps({}),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="podpis",
-            )
+        response = self._wyslij(
+            self._zdarzenie("checkout.session.completed", tenant), subskrypcja_stripe(tenant)
+        )
 
         assert response.status_code == 200
         assert Subscription.objects.get(tenant=tenant).plan_type == "pro"
@@ -212,17 +241,17 @@ class TestWebhook:
         subscribtion.refresh_from_db()
         assert subscribtion.plan_type != "pro"
 
-    def test_nieudana_platnosc_wstrzymuje_subskrypcje(self, tenant, subscribtion):
-        with patch(
-            "stripe.Webhook.construct_event",
-            return_value=self._zdarzenie("invoice.payment_failed", tenant),
-        ):
-            response = APIClient().post(
-                self.URL,
-                data=json.dumps({}),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="podpis",
-            )
+    def test_subskrypcja_bez_zaplaty_wstrzymuje_dostep(self, tenant, subscribtion):
+        """
+        Dostęp wygasa, gdy Stripe po ponowieniach uzna subskrypcję za
+        nieopłaconą. Pierwsza nieudana próba już tego nie robi - patrz
+        test_platnosci_spojnosc.py (decyzja właściciela z 13.09.2026).
+        """
+        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant))
+        response = self._wyslij(
+            self._zdarzenie("invoice.payment_failed", tenant),
+            subskrypcja_stripe(tenant, status="unpaid"),
+        )
 
         assert response.status_code == 200
         subscribtion.refresh_from_db()
@@ -230,19 +259,9 @@ class TestWebhook:
 
     def test_zdarzenie_bez_tenant_id_nie_powtarza_sie_w_nieskonczonosc(self, tenant):
         """Kod błędu kazałby Stripe'owi ponawiać zdarzenie, którego nie da się obsłużyć."""
-        with patch(
-            "stripe.Webhook.construct_event",
-            return_value={
-                "type": "checkout.session.completed",
-                "data": {"object": {"metadata": {}}},
-            },
-        ):
-            response = APIClient().post(
-                self.URL,
-                data=json.dumps({}),
-                content_type="application/json",
-                HTTP_STRIPE_SIGNATURE="podpis",
-            )
+        response = self._wyslij(
+            {"type": "checkout.session.completed", "data": {"object": {"metadata": {}}}}
+        )
 
         assert response.status_code == 200
 

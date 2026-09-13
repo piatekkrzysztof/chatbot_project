@@ -1,4 +1,5 @@
 import logging
+import time
 
 import stripe
 from django.conf import settings
@@ -8,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import Subscription
 from accounts.plans import (
     BRANDING_WLASNY,
     PAKIET_CENA_PLN,
@@ -23,8 +25,14 @@ from api.schemas import (
     PublicPricingSerializer,
 )
 from api.utils.stripe_klient import kartoteka_klienta
+from api.views.stripe_webhook import STATUSY_Z_DOSTEPEM
 
 logger = logging.getLogger(__name__)
+
+#: Okno, w którym ponowne wejście do płatności za ten sam plan zwraca TĘ SAMĄ
+#: sesję Stripe. Podwójne kliknięcie albo dwie karty z panelem dawały wcześniej
+#: dwie niezależne sesje - każdą dało się opłacić osobno.
+OKNO_IDEMPOTENCJI_SEKUND = 600
 
 
 def create_checkout_session(tenant, plan_code, email=None):
@@ -49,6 +57,24 @@ def create_checkout_session(tenant, plan_code, email=None):
         logger.error("Brak identyfikatora ceny Stripe dla planu %s", plan.code)
         raise ValidationError(
             f"Plan {plan.name} nie jest jeszcze dostępny do zakupu. Skontaktuj się z nami."
+        )
+
+    # Drugi zakup przy aktywnej subskrypcji zakładał w Stripe DRUGĄ subskrypcję:
+    # dwa obciążenia co miesiąc za jedno konto. Zmiana planu wymaga zmiany
+    # istniejącej subskrypcji, nie nowego zakupu (część 2 F11).
+    obecna = Subscription.objects.filter(tenant=tenant).first()
+    if (
+        obecna
+        and obecna.stripe_subscription_id
+        and obecna.is_active
+        and obecna.stripe_status in STATUSY_Z_DOSTEPEM
+    ):
+        obecny_plan = get_plan(obecna.plan_type)
+        raise ValidationError(
+            f"Masz już aktywną subskrypcję "
+            f"({obecny_plan.name if obecny_plan else obecna.plan_type}). Zmiana planu "
+            "z panelu będzie dostępna wkrótce - napisz do nas, a zmienimy ją bez "
+            "podwójnej opłaty."
         )
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -88,7 +114,11 @@ def _utworz_sesje(stripe, tenant, plan, price_id, email, frontend):
         else {"customer_email": email or tenant.owner_email}
     )
 
+    okno = int(time.time() // OKNO_IDEMPOTENCJI_SEKUND)
+    kto = rozpoznanie.get("customer") or rozpoznanie.get("customer_email") or ""
+
     return stripe.checkout.Session.create(
+        idempotency_key=f"checkout-{tenant.id}-{plan.code}-{price_id}-{kto}-{okno}",
         mode="subscription",
         **rozpoznanie,
         line_items=[{"price": price_id, "quantity": 1}],

@@ -425,6 +425,24 @@ class Subscription(models.Model):
     end_date = models.DateField()
     is_active = models.BooleanField(default=True)
 
+    # Wiązanie ze Stripe (F11). Webhook przepisuje tu stan subskrypcji pobrany
+    # ze Stripe zamiast wykonywać polecenia ze zdarzeń po kolei - bez tego
+    # identyfikatora zdarzenie o usunięciu STAREJ subskrypcji zawieszało nową,
+    # a drugi zakup przy aktywnej subskrypcji tworzył drugie obciążenie.
+    stripe_subscription_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Identyfikator subskrypcji w Stripe (sub_...). Pusty dla okresu próbnego.",
+    )
+    stripe_status = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Ostatni znany status subskrypcji w Stripe.",
+    )
+
     # Nowe pola dla limitów
     message_limit = models.PositiveIntegerField(
         default=1000,
