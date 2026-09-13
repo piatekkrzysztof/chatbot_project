@@ -35,6 +35,15 @@ class FetchLimitExceeded(FetchError):
     pass
 
 
+class ResponseTooLarge(FetchLimitExceeded):
+    """
+    One response over the size limit.
+
+    Unlike an exhausted crawl budget, this concerns a single URL: a large image
+    or PDF linked from the page must not stop discovery of the rest of the site.
+    """
+
+
 def _remaining(deadline):
     seconds = deadline - time.monotonic()
     if seconds <= 0:
@@ -219,7 +228,7 @@ def decompress_gzip(body):
     except zlib.error:
         raise FetchError("Nieprawidłowa odpowiedź gzip.") from None
     if len(decoded) > MAX_BODY_BYTES or decoder.unconsumed_tail:
-        raise FetchLimitExceeded("Rozpakowana strona przekracza limit rozmiaru.")
+        raise ResponseTooLarge("Rozpakowana strona przekracza limit rozmiaru.")
     if not decoder.eof or decoder.unused_data:
         raise FetchError("Nieprawidłowa lub wieloczęściowa odpowiedź gzip.")
     return decoded
@@ -292,7 +301,7 @@ def _request(url, address, deadline, budget):
             except ValueError:
                 raise FetchError("Nieprawidłowy rozmiar odpowiedzi strony.") from None
             if size < 0 or size > MAX_WIRE_BYTES:
-                raise FetchLimitExceeded("Strona przekracza limit rozmiaru.")
+                raise ResponseTooLarge("Strona przekracza limit rozmiaru.")
         chunks, size = [], 0
         while True:
             _remaining(deadline)
@@ -301,7 +310,7 @@ def _request(url, address, deadline, budget):
             if budget:
                 budget.consume(len(chunk))
             if size > MAX_WIRE_BYTES:
-                raise FetchLimitExceeded("Strona przekracza limit rozmiaru.")
+                raise ResponseTooLarge("Strona przekracza limit rozmiaru.")
             if not chunk:
                 break
             chunks.append(chunk)
