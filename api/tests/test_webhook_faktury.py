@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from accounts.models import Subscription, Tenant
-from api.views.stripe_webhook import _metadane_zdarzenia
+from api.views.stripe_webhook import identyfikator_subskrypcji
 
 
 @pytest.fixture
@@ -43,119 +43,89 @@ def firma(db):
     return tenant
 
 
-class TestZnajdowaniaFirmy:
-    def test_sesja_platnosci_ma_metadane_wprost(self):
-        """Tu zawsze dzialalo — pilnujemy, zeby naprawa tego nie zepsula."""
-        sesja = {"metadata": {"tenant_id": "7", "plan": "grow"}}
+class TestZnajdowaniaSubskrypcji:
+    """
+    Od F11 webhook nie czyta metadanych ze zdarzenia, tylko ustala, której
+    subskrypcji dotyczy, i pobiera jej bieżący stan ze Stripe. Te same kształty
+    faktury co wcześniej - zmienia się to, co z nich wyciągamy.
+    """
 
-        assert _metadane_zdarzenia("checkout.session.completed", sesja)["tenant_id"] == "7"
+    def test_sesja_platnosci_ma_identyfikator_wprost(self):
+        assert (
+            identyfikator_subskrypcji("checkout.session.completed", {"subscription": "sub_7"})
+            == "sub_7"
+        )
 
-    def test_subskrypcja_ma_metadane_wprost(self):
-        subskrypcja = {"metadata": {"tenant_id": "7", "plan": "grow"}}
+    def test_zdarzenie_subskrypcji_to_ona_sama(self):
+        assert (
+            identyfikator_subskrypcji("customer.subscription.deleted", {"id": "sub_7"}) == "sub_7"
+        )
 
-        assert _metadane_zdarzenia("customer.subscription.deleted", subskrypcja)["tenant_id"] == "7"
+    def test_faktura_w_nowszym_ksztalcie(self):
+        faktura = {"metadata": {}, "parent": {"subscription_details": {"subscription": "sub_123"}}}
 
-    def test_faktura_w_nowszym_ksztalcie_nie_wymaga_pytania_stripe(self):
-        """
-        Nowsze wersje API niosa metadane subskrypcji wprost w fakturze.
-        Dodatkowe wywolanie API byloby wtedy strata czasu i limitu.
-        """
-        faktura = {
-            "metadata": {},
-            "parent": {
-                "subscription_details": {
-                    "subscription": "sub_123",
-                    "metadata": {"tenant_id": "7", "plan": "grow"},
-                }
-            },
-        }
-
-        with patch("api.views.stripe_webhook.stripe.Subscription.retrieve") as pytanie:
-            wynik = _metadane_zdarzenia("invoice.payment_succeeded", faktura)
-
-        assert wynik["tenant_id"] == "7"
-        assert not pytanie.called
+        assert identyfikator_subskrypcji("invoice.payment_succeeded", faktura) == "sub_123"
 
     def test_faktura_ze_starszym_polem_subscription(self):
-        """Klasyczny ksztalt: sam identyfikator subskrypcji, metadane trzeba
-        pobrac ze Stripe."""
         faktura = {"metadata": {}, "subscription": "sub_123"}
 
-        with patch("api.views.stripe_webhook.stripe.Subscription.retrieve") as pytanie:
-            pytanie.return_value = {"metadata": {"tenant_id": "7", "plan": "pro"}}
-            wynik = _metadane_zdarzenia("invoice.payment_failed", faktura)
-
-        assert wynik["tenant_id"] == "7"
-        pytanie.assert_called_once_with("sub_123")
+        assert identyfikator_subskrypcji("invoice.payment_failed", faktura) == "sub_123"
 
     def test_faktura_z_rozwinieta_subskrypcja(self):
         """Przy expand=subscription Stripe wstawia caly obiekt zamiast id."""
-        faktura = {
-            "metadata": {},
-            "subscription": {"id": "sub_123", "metadata": {"tenant_id": "7"}},
-        }
+        faktura = {"metadata": {}, "subscription": {"id": "sub_123", "metadata": {}}}
 
-        with patch("api.views.stripe_webhook.stripe.Subscription.retrieve") as pytanie:
-            wynik = _metadane_zdarzenia("invoice.payment_succeeded", faktura)
-
-        assert wynik["tenant_id"] == "7"
-        assert not pytanie.called
-
-    def test_wlasne_metadane_faktury_maja_pierwszenstwo(self):
-        """Gdyby kiedys ustawic je wprost na fakturze, nie ma sensu pytac dalej."""
-        faktura = {"metadata": {"tenant_id": "9"}, "subscription": "sub_123"}
-
-        with patch("api.views.stripe_webhook.stripe.Subscription.retrieve") as pytanie:
-            wynik = _metadane_zdarzenia("invoice.payment_succeeded", faktura)
-
-        assert wynik["tenant_id"] == "9"
-        assert not pytanie.called
-
-    def test_awaria_zapytania_do_stripe_nie_wywraca_webhooka(self):
-        """Webhook ma oddac 200, a nie 500 — inaczej Stripe ponawia zdarzenie
-        w nieskonczonosc, a przyczyna i tak lezy gdzie indziej."""
-        faktura = {"metadata": {}, "subscription": "sub_123"}
-
-        with patch(
-            "api.views.stripe_webhook.stripe.Subscription.retrieve",
-            side_effect=Exception("Stripe nie odpowiada"),
-        ):
-            assert _metadane_zdarzenia("invoice.payment_succeeded", faktura) == {}
+        assert identyfikator_subskrypcji("invoice.payment_succeeded", faktura) == "sub_123"
 
     def test_faktura_bez_subskrypcji_daje_pusty_wynik(self):
         """Faktura jednorazowa, nie zwiazana z abonamentem."""
-        assert _metadane_zdarzenia("invoice.payment_succeeded", {"metadata": {}}) == {}
+        assert identyfikator_subskrypcji("invoice.payment_succeeded", {"metadata": {}}) == ""
+
+    def test_zdarzenie_niezwiazane_z_subskrypcja(self):
+        assert identyfikator_subskrypcji("customer.updated", {"id": "cus_1"}) == ""
 
 
 @pytest.mark.django_db
 class TestPelnejSciezki:
-    def _wyslij(self, klient, event_type, data):
+    def _wyslij(self, event_type, data, subskrypcja=None):
         from api.views.stripe_webhook import stripe_webhook
 
         zdarzenie = {"type": event_type, "data": {"object": data}}
-        with patch(
-            "api.views.stripe_webhook.stripe.Webhook.construct_event", return_value=zdarzenie
+        with (
+            patch(
+                "api.views.stripe_webhook.stripe.Webhook.construct_event", return_value=zdarzenie
+            ),
+            patch(
+                "api.views.stripe_webhook.stripe.Subscription.retrieve", return_value=subskrypcja
+            ),
         ):
             zadanie = MagicMock()
             zadanie.body = b"{}"
             zadanie.META = {"HTTP_STRIPE_SIGNATURE": "podpis"}
             return stripe_webhook(zadanie)
 
+    def _subskrypcja(self, firma, status="active", plan="grow", poczatek_dni=-1):
+        import time
+
+        teraz = int(time.time())
+        return {
+            "id": "sub_123",
+            "status": status,
+            "current_period_start": teraz + poczatek_dni * 86_400,
+            "current_period_end": teraz + 30 * 86_400,
+            "metadata": {"tenant_id": str(firma.id), "plan": plan},
+            "items": {"data": []},
+        }
+
+    def _faktura(self):
+        return {"metadata": {}, "parent": {"subscription_details": {"subscription": "sub_123"}}}
+
     def test_odnowienie_przedluza_subskrypcje(self, firma):
         """
         Sedno naprawy. Subskrypcja wygasla dziewiec dni temu; oplacona faktura
         ma ja przedluzyc, a wczesniej zdarzenie bylo po cichu pomijane.
         """
-        faktura = {
-            "metadata": {},
-            "parent": {
-                "subscription_details": {
-                    "metadata": {"tenant_id": str(firma.id), "plan": "grow"},
-                }
-            },
-        }
-
-        odp = self._wyslij(None, "invoice.payment_succeeded", faktura)
+        odp = self._wyslij("invoice.payment_succeeded", self._faktura(), self._subskrypcja(firma))
 
         assert odp.status_code == 200
         subskrypcja = Subscription.objects.get(tenant=firma)
@@ -163,26 +133,27 @@ class TestPelnejSciezki:
         assert subskrypcja.plan_type == "grow"
         assert subskrypcja.end_date > date.today()
 
-    def test_nieudana_platnosc_zawiesza_konto(self, firma):
-        faktura = {
-            "metadata": {},
-            "parent": {
-                "subscription_details": {
-                    "metadata": {"tenant_id": str(firma.id), "plan": "start"},
-                }
-            },
-        }
-
-        odp = self._wyslij(None, "invoice.payment_failed", faktura)
+    def test_nieudane_odnowienie_zostawia_oplacony_okres(self, firma):
+        """
+        Od F11 pierwsza nieudana próba nie odcina czatu: klient korzysta do
+        końca opłaconego okresu plus trzy dni na ponowienia Stripe.
+        """
+        odp = self._wyslij(
+            "invoice.payment_failed",
+            self._faktura(),
+            self._subskrypcja(firma, status="past_due", plan="start"),
+        )
 
         assert odp.status_code == 200
-        assert Subscription.objects.get(tenant=firma).is_active is False
+        subskrypcja = Subscription.objects.get(tenant=firma)
+        assert subskrypcja.is_active is True
+        assert subskrypcja.end_date == date.today() - timedelta(days=1) + timedelta(days=3)
         firma.refresh_from_db()
-        assert firma.subscription_status == "suspended"
+        assert firma.subscription_status == "past_due"
 
-    def test_zdarzenie_bez_firmy_konczy_sie_200(self, db):
+    def test_zdarzenie_bez_subskrypcji_konczy_sie_200(self, db):
         """Kod bledu kazalby Stripe'owi ponawiac je w nieskonczonosc."""
-        odp = self._wyslij(None, "invoice.payment_succeeded", {"metadata": {}})
+        odp = self._wyslij("invoice.payment_succeeded", {"metadata": {}})
 
         assert odp.status_code == 200
 
