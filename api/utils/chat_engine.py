@@ -7,8 +7,10 @@ from django.conf import settings
 from openai import OpenAI
 
 from api.utils.pokrycie import (
+    MAKS_FAQ_DO_PRZESZUKANIA,
     ObcinaczZnacznika,
     determine_source,
+    wybierz_faq,
 )
 from api.utils.prompt_systemowy import build_system_prompt
 from api.utils.tokens import przytnij_do_budzetu
@@ -25,7 +27,6 @@ from rag.engine import query_similar_chunks_pgvector
 logger = logging.getLogger(__name__)
 
 FALLBACK_MESSAGE = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
-MAX_FAQ_IN_PROMPT = 20
 
 
 def get_client(tenant=None):
@@ -91,6 +92,28 @@ def collect_sources(chunks):
     return sources
 
 
+def _faq_do_promptu(tenant, message_text):
+    """
+    Wpisy FAQ dla tego pytania - najbardziej pasujące, nie pierwsze z brzegu.
+
+    Czytamy do `MAKS_FAQ_DO_PRZESZUKANIA` wpisów i wybieramy z nich. Powyżej
+    tego pułapu wracamy do kolejności wstawiania i mówimy o tym w logu, bo
+    wtedy wracają też skutki opisane w `wybierz_faq`.
+    """
+    wszystkie = list(FAQ.objects.filter(tenant=tenant).order_by("id")[:MAKS_FAQ_DO_PRZESZUKANIA])
+
+    if len(wszystkie) == MAKS_FAQ_DO_PRZESZUKANIA:
+        logger.warning(
+            "Firma %s ma co najmniej %s wpisow FAQ - powyzej tego pulapu wybieramy "
+            "sposrod pierwszych wedlug id, wiec dalsze moga nie trafic do modelu. "
+            "Czas przeniesc wyszukiwanie FAQ do bazy albo policzyc je wektorowo.",
+            tenant.id,
+            MAKS_FAQ_DO_PRZESZUKANIA,
+        )
+
+    return wybierz_faq(wszystkie, message_text)
+
+
 def build_chat_messages(tenant, conversation, message_text):
     """
     Składa komplet wiadomości do modelu: system (wiedza) + historia + bieżące pytanie.
@@ -111,7 +134,7 @@ def build_chat_messages(tenant, conversation, message_text):
         chunks = []
         wyszukiwanie_padlo = True
 
-    faqs = list(FAQ.objects.filter(tenant=tenant).order_by("id")[:MAX_FAQ_IN_PROMPT])
+    faqs = _faq_do_promptu(tenant, message_text)
 
     messages = [
         {"role": "system", "content": build_system_prompt(tenant, chunks, faqs, message_text)}
