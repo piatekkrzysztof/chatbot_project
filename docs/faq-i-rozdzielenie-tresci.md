@@ -240,6 +240,22 @@ Oczekiwane: odmowy trafne 100%, fałszywe 0%, uprzejmości 0% i 0%, oparte na
 wiedzy 100%. Porównanie z promptem sprzed poprawki:
 `--wariant obecny --wariant bez-przypomnienia`.
 
+### Odbiór 2.0.21 (13.09.2026, produkcja)
+
+`ocen_generowanie --powtorzen 5`, gpt-4o-mini, temperatura 0,2:
+
+| | oczekiwane | zmierzone |
+|---|---|---|
+| odmowy trafne | 100,0% | 100,0% |
+| odmowy fałszywe | 0,0% | 0,0% |
+| odmowy na uprzejmości | 0,0% | 0,0% |
+| uprzejmości jako luka | 0,0% | 0,0% |
+| oparte na wiedzy | 100,0% | 100,0% (45 sprawdzalnych) |
+| tokenów na odpowiedź | ok. 779 | 780 |
+
+„Czy pracujecie w weekend?" wraca już wyłącznie jako odmowa ze znacznikiem przy
+pudle wyszukiwania (ADR 004), a nie jako odpowiedź bez konkretu. **F25 zamknięte.**
+
 ---
 
 ## Czego ten PR nie obejmuje
