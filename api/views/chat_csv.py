@@ -13,7 +13,7 @@ from api.schemas import ErrorSerializer, MessageSerializer
 from api.utils.mixins import TenantQuerysetMixin
 from chat.eksport_csv import BezpiecznyWriter, odpowiedz_csv
 from chat.models import Conversation, PromptLog
-from chat.zapytania import ZRODLO_IMPORTU, logi_klientow
+from chat.zapytania import ZRODLO_IMPORTU, logi_do_eksportu
 from documents.uploads import LimitedMultiPartParser
 
 # Import czyta cały plik przed zapisem, żeby błąd w dowolnym wierszu odrzucał
@@ -40,7 +40,8 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
     def get(self, request, *args, **kwargs):
         tenant = request.user.tenant
         # Eksport dotyczy ruchu klientów; próby właściciela to nie ich dane.
-        logs = logi_klientow(tenant).order_by("-created_at")
+        # Historia wgrana z importu zostaje - eksport to kopia danych firmy.
+        logs = logi_do_eksportu(tenant).order_by("-created_at")
 
         response = odpowiedz_csv(f"prompt_logs_{tenant.id}.csv")
         writer = BezpiecznyWriter(response)

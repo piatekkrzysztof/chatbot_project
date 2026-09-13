@@ -36,7 +36,7 @@ ocena przepada do odświeżenia strony.
 | 6 | Nagłówek bez kolumn `prompt` i `response` | 201 i „imported: 0" - wyglądało na udany import |
 | 7 | Dwie rozmowy importu w bazie (np. po dwóch importach naraz) | `get_or_create` rzucał `MultipleObjectsReturned`: każdy kolejny import kończył się 500 |
 | 8 | Duży plik | Brak limitu bajtów i wierszy |
-| 9 | Zaimportowana historia | Liczyła się jako ruch klientów: pulpit, eksport. Źródło `imported` nie ma nawet miejsca na liście źródeł odpowiedzi |
+| 9 | Zaimportowana historia | Liczyła się jako ruch klientów na pulpicie. Źródło `imported` nie ma nawet miejsca na liście źródeł odpowiedzi |
 
 ### Oceny
 
@@ -61,7 +61,8 @@ ocena przepada do odświeżenia strony.
 6. **Rozmowa importu:** pierwsza istniejąca albo nowa, z `source="imported"`.
 7. **Import poza statystykami:** `logi_klientow` pomija wpisy `imported`,
    `rozmowy_klientow` - rozmowy importu (także starsze, rozpoznawane po
-   `user_identifier`).
+   `user_identifier`). Eksport CSV nadal je zawiera (`logi_do_eksportu`):
+   to kopia danych firmy, a import i eksport tworzą parę.
 8. **Ocena z widgetu wymaga `conversation_session_id`** rozmowy, do której
    należy wiadomość. Odmowa ma ten sam komunikat co nieistniejąca wiadomość,
    żeby nie zdradzać, które numery istnieją.
@@ -97,13 +98,19 @@ odtwarza błąd z tabel wyżej. Trzy przechodzą także na starym kodzie i to s�
 straże: zwykły tekst i liczby w eksporcie bez zmian, ocena własnej rozmowy
 w widgecie, ocena rozmowy testowej w panelu.
 
-**Weryfikacja mutacyjna** (13.09.2026): każde z czternastu uszkodzeń
+**Weryfikacja mutacyjna** (13.09.2026): każde z piętnastu uszkodzeń
 czerwieni co najmniej jeden test - bez neutralizacji formuł, bez BOM, eksport
 przez `conversation.id`, eksport administracyjny zwykłym `csv.writer`,
 przepuszczenie błędu kodowania, bez sprawdzenia kolumn, bez limitu wierszy,
 nieobsłużony `csv.Error`, `get_or_create` rozmowy importu, bez limitu rozmiaru,
-import liczony w logach i w rozmowach, widget bez sesji, panel oceniający
-każdą rozmowę.
+import liczony w logach i w rozmowach, eksport pomijający import, widget bez
+sesji, panel oceniający każdą rozmowę.
+
+**Poprawka po CI:** pierwsza wersja wykluczała import także z eksportu.
+CI wyłapało to testem `test_csv_round_trip_works_with_jwt_alone` (import,
+potem eksport tego samego). Eksport jest kopią danych firmy, a nie statystyką,
+więc dostał własne zapytanie `logi_do_eksportu`; poza statystykami import
+zostaje przez `logi_klientow`.
 
 Powiązane pakiety (oceny, CSV, eksport administracyjny, logi, czat testowy,
 uploady, retencja, role): 167 passed. Frontend: `tsc`, `eslint`, `vitest`

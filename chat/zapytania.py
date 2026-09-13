@@ -62,3 +62,15 @@ def logi_klientow(tenant):
         .exclude(conversation__source=ZRODLO_TESTOWE)
         .exclude(source=ZRODLO_IMPORTU)
     )
+
+
+def logi_do_eksportu(tenant):
+    """
+    Wpisy PromptLog do eksportu CSV: bez prób właściciela, z historią z importu.
+
+    Eksport to kopia danych firmy, nie statystyka. Import i eksport tworzą parę
+    (pilnuje tego test_csv_round_trip_works_with_jwt_alone), więc wgrana
+    historia musi dać się wyeksportować z powrotem. Poza statystykami zostaje
+    przez `logi_klientow`.
+    """
+    return PromptLog.objects.filter(tenant=tenant).exclude(conversation__source=ZRODLO_TESTOWE)
