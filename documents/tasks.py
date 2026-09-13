@@ -64,13 +64,54 @@ def extract_text_from_document(document_id):
         logger.error("Błąd przetwarzania dokumentu %s", document_id)
 
 
-@shared_task
+@shared_task(
+    # Potwierdzenie PO wykonaniu, nie przed. Domyślnie Celery potwierdza
+    # odebranie zadania od razu, więc worker zabity w trakcie liczenia (restart,
+    # wdrożenie, brak pamięci) gubił je bez śladu. Ponowne dostarczenie jest
+    # bezpieczne, bo publikacja jest powtarzalna: niezmieniona treść nie woła
+    # API, a zmieniona i tak wymaga przeliczenia.
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
 def generate_embeddings_for_document(document_id):
-    document = Document.objects.select_related("tenant").get(id=document_id)
-    if not document.content:
-        logger.warning("Dokument %s nie zawiera treści — pomijam embeddingi.", document.id)
+    """
+    Przelicza wektory dokumentu w tle.
+
+    Awaria zostawia ślad przy dokumencie (`processing_error`), a nie tylko
+    w logu workera: bez tego panel pokazywał dokument jako gotowy, choć bot go
+    nie znał albo odpowiadał z jego poprzedniej wersji.
+    """
+    from documents.utils.embedding_generator import BLAD_WEKTOROW
+
+    try:
+        document = Document.objects.select_related("tenant").get(id=document_id)
+    except Document.DoesNotExist:
+        # Skasowany, zanim zadanie ruszyło - nie ma czego przeliczać. Wcześniej
+        # zadanie padało tu wyjątkiem, co przy acks_late nic nie psuje, ale
+        # zaśmiecało listę błędów zdarzeniem całkowicie prawidłowym.
+        logger.info("Dokument %s juz nie istnieje - nie ma czego przeliczac.", document_id)
         return
-    _generate_embeddings(document)
+
+    if not document.content:
+        # Świadomy wyjątek od zasady „fragmenty wynikają z treści": pusta treść
+        # NIE kasuje tu fragmentów. Pusta treść w bazie bierze się dziś głównie
+        # z pobrania strony, które nic nie zwróciło - i skasowanie wiedzy po
+        # jednym nieudanym pobraniu byłoby gorsze od odpowiadania z poprzedniej
+        # wersji do następnego odświeżenia. Właściwa poprawka należy do importu
+        # (F10): pusta strona nie powinna nadpisywać treści.
+        logger.warning("Dokument %s nie zawiera tresci - pomijam przeliczenie.", document.id)
+        return
+
+    try:
+        _generate_embeddings(document)
+    except Exception:
+        # Tylko gdy pole jest puste: błąd wyodrębniania tekstu jest ważniejszy
+        # i nie może zniknąć pod komunikatem o wektorach.
+        Document.objects.filter(pk=document_id, processing_error="").update(
+            processing_error=BLAD_WEKTOROW
+        )
+        logger.exception("Nie udalo sie przeliczyc wektorow dokumentu %s", document_id)
+        raise
 
 
 MAX_PAGES_PER_CRAWL = 20

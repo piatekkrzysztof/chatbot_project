@@ -125,8 +125,18 @@ python manage.py przelicz_fragmenty --firma NUMER
 python manage.py przelicz_fragmenty --firma NUMER --wykonaj
 ```
 
-Bez `--firma` bierze wszystkie firmy. Bezpieczne do powtórzenia: przeliczanie
-kasuje stare fragmenty przed zapisaniem nowych, więc nie dubluje.
+Bez `--firma` bierze wszystkie firmy. Bezpieczne do powtórzenia i do przerwania:
+od 13.09.2026 stare fragmenty znikają dopiero razem z zapisem nowych, w jednej
+transakcji. Przerwane przeliczenie zostawia dokument w poprzedniej wersji, a nie
+pusty — i nie dubluje fragmentów.
+
+`--wykonaj` przelicza **z wymuszeniem**, także dokumenty bez zmian w treści, i za
+każdy płaci wywołaniem API. Zadania w tle robią odwrotnie: dokument, którego
+fragmenty już odpowiadają treści, pomijają bez kosztu.
+
+Nieudane przeliczenie w tle zostawia przy dokumencie komunikat i status
+„failed" w panelu, zamiast wyglądać na gotowe. Szczegóły:
+[atomowa-publikacja-wektorow.md](atomowa-publikacja-wektorow.md).
 
 ---
 
