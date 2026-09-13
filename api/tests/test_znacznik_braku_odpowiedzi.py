@@ -253,3 +253,49 @@ class TestInstrukcjiOPytaniachSpozaTematu:
         prompt = build_system_prompt(firma, [], [])
 
         assert "Powitania" in prompt
+
+
+@pytest.mark.django_db
+class TestPrzypomnieniaOZnaczniku:
+    """
+    Przypomnienie o znaczniku na samym końcu promptu (2.0.21).
+
+    Zdanie o danych między ogranicznikami z F25 sprawiło, że przy braku
+    fragmentów model odmawiał słowami bez znacznika - „Czy pracujecie
+    w weekend?" trzy razy na trzy w dwóch pomiarach. Odpowiedź szła jako
+    „rozmowa": poza raportem luk i bez propozycji kontaktu. Porównanie
+    wariantów na produkcji: z przypomnieniem oparte na wiedzy 100%, bez
+    niego 90%. Szczegóły: docs/faq-i-rozdzielenie-tresci.md.
+    """
+
+    def test_przypomnienie_za_cala_wiedza_firmy(self):
+        from types import SimpleNamespace
+
+        from accounts.models import Tenant
+        from api.utils.prompt_systemowy import (
+            OGRANICZNIK,
+            PRZYPOMNIENIE_O_ZNACZNIKU,
+            build_system_prompt,
+        )
+
+        firma = Tenant.objects.create(name="Rowerownia", gpt_prompt="Sklep.", regulamin="Zwroty.")
+        fragment = SimpleNamespace(
+            content="Przeglad 120 zl.", document=SimpleNamespace(name="Cennik")
+        )
+        faq = SimpleNamespace(question="Parking?", answer="Tak.")
+        prompt = build_system_prompt(firma, [fragment], [faq])
+
+        # Na samym końcu i za ostatnim blokiem wiedzy: pomiar dotyczył
+        # dokładnie tego położenia, a treść klienta nie może go zasłonić.
+        assert prompt.endswith(PRZYPOMNIENIE_O_ZNACZNIKU)
+        assert prompt.rindex(f"{OGRANICZNIK} koniec") < prompt.rindex(PRZYPOMNIENIE_O_ZNACZNIKU)
+
+    def test_przypomnienie_takze_bez_wiedzy_firmy(self):
+        """Właśnie ten przypadek - brak fragmentów - psuło zdanie o danych."""
+        from accounts.models import Tenant
+        from api.utils.prompt_systemowy import PRZYPOMNIENIE_O_ZNACZNIKU, build_system_prompt
+
+        prompt = build_system_prompt(Tenant.objects.create(name="Rowerownia"), [], [])
+
+        assert prompt.endswith(PRZYPOMNIENIE_O_ZNACZNIKU)
+        assert ZNACZNIK_BRAKU in PRZYPOMNIENIE_O_ZNACZNIKU
