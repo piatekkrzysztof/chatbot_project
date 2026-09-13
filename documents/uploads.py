@@ -26,6 +26,11 @@ class LimitedUploadHandler(FileUploadHandler):
         elif path.rstrip("/") == "/api/widget-settings/mine":
             self.allowed = {"widget_logo", "widget_avatar"}
             self.limit = min(settings.BRANDING_MAX_UPLOAD_BYTES, MAX_IMAGE_BYTES)
+        elif path.rstrip("/") == "/api/chat/import":
+            # Import czyta cały plik do pamięci przed zapisem (F19), więc limit
+            # musi zadziałać przy odbiorze, nie po nim.
+            self.allowed = {"file"}
+            self.limit = settings.CSV_IMPORT_MAX_UPLOAD_BYTES
         self.seen = set()
         self.received = 0
 

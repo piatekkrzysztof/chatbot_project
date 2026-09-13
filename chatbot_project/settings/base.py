@@ -421,6 +421,8 @@ CHAT_STREAM_SECONDS = 90
 # Hard upload caps (the memory upload threshold alone only spills files to disk).
 DOCUMENT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 BRANDING_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+# Import historii rozmów z CSV (F19): 2 MiB to kilka tysięcy wymian.
+CSV_IMPORT_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 FILE_UPLOAD_HANDLERS = [
     "documents.uploads.LimitedUploadHandler",
     "django.core.files.uploadhandler.MemoryFileUploadHandler",
