@@ -16,6 +16,40 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.22] — 2026-09-13
+
+### Fixed
+
+- **Payment state now follows Stripe instead of replaying events as commands.**
+  Stripe does not guarantee event order, retries events for up to three days
+  and sometimes delivers them twice. Each event used to be executed as an
+  order, which produced states Stripe never had: a retried old purchase event
+  after cancellation gave 31 more days without payment, a late failed-payment
+  event cut off a customer who had already paid, the deletion of an old
+  subscription suspended the new one, a Checkout session finished without
+  payment activated the plan, yearly plans got 31 days, and plan changes made
+  in Stripe never arrived. The webhook now reads the current subscription from
+  Stripe and copies its state. A temporary Stripe error returns 500, so Stripe
+  retries instead of the event being lost.
+- **Buying a different plan while subscribed created a second subscription in
+  Stripe** - two charges every month for one account. The panel now refuses
+  with an explanation; changing the plan on the same subscription comes in the
+  next part.
+- Clicking "Buy" twice opened two separate Checkout sessions that could both be
+  paid. Repeated attempts now return the same session.
+
+### Changed
+
+- A failed renewal no longer switches the chat off immediately. The company
+  keeps access until the end of the period it paid for, plus three days while
+  Stripe retries the payment.
+- The Stripe webhook endpoint must also receive `customer.subscription.updated`.
+
+### Migration
+
+- `accounts.0038_subscription_stripe`: two fields on the subscription, with
+  defaults and no data migration.
+
 ## [2.0.21] — 2026-09-13
 
 ### Fixed
