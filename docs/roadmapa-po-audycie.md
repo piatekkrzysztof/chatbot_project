@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 13.09.2026. Backend #56 (F25) scalony; `/health/` produkcji zwraca 2.0.15. Bieżący etap 2.0.16 (#57): F17, atomowa i powtarzalna publikacja fragmentów - przygotowane do przeglądu, jeszcze niewdrożone. Pełna kopia i próba odtworzenia (2.0.14) nadal czekają na odbiór operacyjny, więc F18 nie włącza automatycznego usuwania.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 13.09.2026. Backend #56 (F25, 2.0.15) i #57 (F17, 2.0.16) scalone; `/health/` produkcji zwracało 2.0.15 przy ostatnim sprawdzeniu. Bieżący etap 2.0.17 (#58): F10 część 1, kompletny import ze stron klienta - przygotowane do przeglądu, jeszcze niewdrożone. Pełna kopia i próba odtworzenia (2.0.14) nadal czekają na odbiór operacyjny, więc F18 nie włącza automatycznego usuwania.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -20,7 +20,7 @@ sprawdzamy także przy równoległych operacjach i po awarii.
 | 2. Prywatność i ochrona danych | F04, F05, F12, F13 | Prywatny storage dokumentów/kopii, podpisane odczyty i szyfrowanie; bezpieczna retencja, Docker i zależności | PR #39–#41 scalone; prywatny storage i niezależny klucz kopii sprawdzone. PITR instancji dostępny. Nadal: alarmy/harmonogramy kopii, pełny restore SaaS z plikami i końcowe skany wszystkich repozytoriów |
 | 3. Bezpieczne wejścia i koszty | F06, F08, F09, F23 | SSRF, upload, rezerwacje wiadomości, odporne formularze | Backend #42–#44 oraz frontend #11 scalone. Backend web live na `e5259ce` (F08). Strona marketingowa #1 live na `43a36d0`; rzeczywista wiadomość przeszła kolejkę i SMTP, właściciel potwierdził odbiór. Nadal: odbiór uploadu, kontrola rezerwacji/alertów i końcowy odbiór F23 opisany niżej |
 | 4. Konta i sesje | F07, F14, F15; reset hasła z F22 | Walidacja kont, MFA, cookies/CSRF, reset i własne sesje | #48–#54 i panel #15 wdrożone; backend 2.0.13, powiadomienia zapisują się do trwałej kolejki. Nadal: rzeczywisty odbiór ustawień i poczty, retencja, alarmy i procedura utraty MFA |
-| 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | F25: #56 scalony, produkcja zwraca 2.0.15; do potwierdzenia pomiar `ocen_generowanie`. F17: atomowa i powtarzalna publikacja fragmentów przygotowana do przeglądu (2.0.16), bez migracji. Do wykonania: F10, F18, F19 |
+| 5. Wiedza i cykl życia danych | F10, F17, F18, F19, F25 | Kompletny import, atomowa publikacja embeddingów i usuwanie pochodnych, poprawne CSV i feedback, wyszukiwanie FAQ i regresja RAG | F25: #56 scalony, produkcja zwraca 2.0.15; do potwierdzenia pomiar `ocen_generowanie`. F17: #57 scalony (2.0.16). F10 część 1 (strony WWW): #58 przygotowany do przeglądu (2.0.17). Do wykonania: F10 część 2, F18, F19 |
 | 6. Płatności | F11; status płatności z F22 | Idempotencja Checkout/webhooków, identyfikatory i okresy Stripe, retry/uzgadnianie; UI potwierdza konkretny zakup | Do wykonania |
 | 7. Wydajność i obsługa | F16, F20, F21, F24; pozostałe F22 | Paginacja/N+1, SLO, dziennik i minimalizacja danych, alarmy/kopie/restore, obowiązkowe bramki CI, pełne stany UI | Do wykonania |
 | 8. Odbiór komercyjny | Wszystkie | Staging zgodny z produkcją, negatywne testy dostępu, przegląd infrastruktury, obciążenie, odtworzenie kopii, płatności testowe, onboarding i dostępność | Do wykonania |
@@ -119,14 +119,14 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; retencja/alerty zgłoszeń, IP za proxy i ocena nadużyć przez wiele skrzynek/aliasów |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Kod w potwierdzonym wdrożeniu workera #52; pozostały alarmy i uzgadnianie wygasłych rezerwacji oraz pomiar kosztów |
 | F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
-| F10 | Otwarte; F09 poprawił część walidacji plików | Pełny proces budowy wiedzy i wszystkie formaty |
+| F10 | Część 1: #58 przygotowany do przeglądu (2.0.17): typ treści przy pobieraniu stron, PDF/DOCX/TXT/MD podlinkowane na stronie przez izolowany parser, adres źródła zawsze pobierany, mapy stron stałych przed wpisami, jedna za duża odpowiedź nie przerywa pobierania | Przegląd i CI, wdrożenie web i workera, kontrole z [kompletny-import.md](kompletny-import.md); część 2: limit bazy wiedzy przy równoległych dodaniach, TXT spoza UTF-8, tabele DOCX |
 | F11 | Otwarte | Spójność i idempotencja płatności oraz webhooków |
 | F12 | DRF i strona poprawione; panel #13 aktualizuje Next.js do 16.3.5, sharp do 0.35.4 i zależności pośrednie; npm audit: 4 zgłoszenia → 0 | Panel #13: CI zielone, produkcja wdrożona; ponowne skany całości przed wydaniem |
 | F13 | Retencja aktywnych rozmów naprawiona, #39 | Końcowy odbiór polityki retencji |
 | F14 | #48/#52/#53 wdrożone: MFA, aktualne hasło przy konfiguracji, kod przy zmianie hasła i kończeniu sesji | Odbiór nowych ustawień, retencja i procedura utraty MFA |
 | F15 | #49–#54 i panel #15 wdrożone; reset, sesje i trwałe powiadomienia po zmianie hasła. CI #54: 1791 testów, 88,21% | Rzeczywisty odbiór ustawień/poczty, retencja sesji i kolejki, alarmy |
 | F16 | Otwarte | Paginacja, N+1, pomiary opóźnień i obciążenia |
-| F17 | #57 przygotowany do przeglądu (2.0.16): publikacja w jednej transakcji pod blokadą wiersza dokumentu, kontrola aktualności treści, pominięcie dokumentów bez zmian, `acks_late` zadania i status błędu przy dokumencie | Przegląd i CI, wdrożenie web i workera, kontrole z [atomowa-publikacja-wektorow.md](atomowa-publikacja-wektorow.md); pusta treść nadpisywana przez import przechodzi do F10 |
+| F17 | #57 scalony (2.0.16): publikacja w jednej transakcji pod blokadą wiersza dokumentu, kontrola aktualności treści, pominięcie dokumentów bez zmian, `acks_late` zadania i status błędu przy dokumencie | Wdrożenie web i workera, kontrole z [atomowa-publikacja-wektorow.md](atomowa-publikacja-wektorow.md) |
 | F18 | Otwarte | Spójne usuwanie i limity wiedzy/plików/pochodnych |
 | F19 | Otwarte | Transakcyjne CSV, formuły w eksportach i integralność ocen |
 | F20 | Częściowo: wdrożone 2.0.11 ogranicza body/cookies/zmienne lokalne i argumenty zadań w Sentry | Pozostałe źródła logów, kompletność dziennika, retencja i przepływy danych |

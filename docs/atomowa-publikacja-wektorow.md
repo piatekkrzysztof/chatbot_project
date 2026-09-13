@@ -86,12 +86,17 @@ od nowa.
 - **Sama zmiana nazwy dokumentu** nie wywoła przeliczenia. Nazwa wchodzi do
   wektora, ale porównujemy treść fragmentów. Nie wywoływała go też wcześniej:
   nic nie zleca zadania po zmianie nazwy.
-- **Pusta treść w zadaniu w tle nie kasuje fragmentów.** Pusta treść bierze się
-  dziś głównie z pobrania strony, które nic nie zwróciło; skasowanie wiedzy po
-  jednym nieudanym pobraniu byłoby gorsze od odpowiadania z poprzedniej wersji
-  do następnego odświeżenia. Właściwa poprawka należy do importu (**F10**):
-  pusta strona nie powinna nadpisywać treści. Wywołanie generatora wprost
-  (np. z `przelicz_fragmenty`) pustą treść publikuje jako pusty zbiór.
+- **Pusta treść w zadaniu w tle nie kasuje fragmentów.** Żaden import jej nie
+  zapisuje: upload odrzuca plik bez tekstu, a pobranie strony poniżej progu
+  treści kończy się błędem przed zapisem. Pusta treść bierze się tylko
+  z ręcznej edycji w panelu administracyjnym, gdzie skasowanie wiedzy jednym
+  przypadkowym zapisem byłoby gorsze od odpowiadania z poprzedniej wersji.
+  Wywołanie generatora wprost (np. z `przelicz_fragmenty`) pustą treść
+  publikuje jako pusty zbiór.
+
+  *Sprostowanie (F10, 13.09.2026):* pierwotnie stało tu, że pusta treść bierze
+  się z pobrania strony, które nic nie zwróciło. To było nieprawdziwe - patrz
+  [kompletny-import.md](kompletny-import.md).
 - **Edycja treści w panelu administracyjnym Django** nie zleca przeliczenia —
   sygnał po zapisie robi to tylko dla dokumentu bez fragmentów. To dostęp
   wyłącznie dla obsługi, stan sprzed tej zmiany.
@@ -132,4 +137,4 @@ blokuje). Równoległość jest odtwarzana deterministycznie: udawany model w tr
 - **F18** (usuwanie plików i pochodnych): skasowanie dokumentu nadal nie usuwa
   pliku z magazynu. To automatyczne usuwanie danych, a roadmapa odkłada
   włączanie takich operacji do odbioru pełnego odtworzenia z kopii.
-- **F10** (import): pusta strona nadpisująca treść — patrz ograniczenia wyżej.
+- **F10** (import): kompletność importu stron - [kompletny-import.md](kompletny-import.md).

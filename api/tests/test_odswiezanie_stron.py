@@ -221,7 +221,12 @@ class TestZadaniaCyklicznego:
             crawl_and_import_website_source(zrodlo.id)
 
         pobrane = set(Document.objects.filter(tenant=firma).values_list("source_url", flat=True))
-        assert pobrane == {"https://dworweselny.pl/a", "https://dworweselny.pl/c"}
+        # Adres źródła jest pobierany zawsze, także gdy mapa strony go nie wymienia (F10).
+        assert pobrane == {
+            "https://dworweselny.pl/",
+            "https://dworweselny.pl/a",
+            "https://dworweselny.pl/c",
+        }
 
     def test_udane_pobranie_zostawia_znacznik(self, firma):
         from documents.tasks import crawl_and_import_website_source
@@ -274,7 +279,8 @@ class TestSladuPoNieudanymPobraniu:
 
         zrodlo.refresh_from_db()
         assert zrodlo.last_crawled_at is None, "puste pobranie zapisalo sie jako udane"
-        assert "Żadna z 3 podstron" in zrodlo.last_error
+        # Trzy z mapy strony i adres źródła, pobierany zawsze (F10).
+        assert "Żadna z 4 podstron" in zrodlo.last_error
         assert "strona nieosiagalna" in zrodlo.last_error
 
     def test_czesciowe_niepowodzenie_zostawia_slad_ale_nie_blokuje(self, firma):
@@ -299,8 +305,9 @@ class TestSladuPoNieudanymPobraniu:
 
         zrodlo.refresh_from_db()
         assert zrodlo.last_crawled_at is not None
-        assert "1 z 3" in zrodlo.last_error
-        assert Document.objects.filter(tenant=firma).count() == 2
+        # Trzy z mapy strony i adres źródła, pobierany zawsze (F10).
+        assert "1 z 4" in zrodlo.last_error
+        assert Document.objects.filter(tenant=firma).count() == 3
 
     def test_pelne_powodzenie_czysci_slad_po_poprzedniej_awarii(self, firma):
         from documents.tasks import crawl_and_import_website_source

@@ -1,12 +1,120 @@
-from urllib.parse import urljoin
+import os
+from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
+from documents.isolated_parser import parse_bytes
 from documents.models import Document
-from documents.safe_http import FetchError, FetchLimitExceeded, fetch_page, same_site, validate_url
+from documents.safe_http import (
+    FetchError,
+    FetchLimitExceeded,
+    ResponseTooLarge,
+    fetch_page,
+    same_site,
+    validate_url,
+)
 from documents.utils.queue import enqueue
-from documents.utils.tresc_strony import TrescStrony, wyciagnij_tresc
+from documents.utils.tresc_strony import MINIMUM_ZNAKOW, TrescStrony, wyciagnij_tresc
 from documents.validators import sprawdz_limit_bazy_wiedzy
+
+TYPY_HTML = {"text/html", "application/xhtml+xml"}
+
+# Pliki podlinkowane na stronie klienta czytamy tym samym izolowanym parserem
+# co upload w panelu. Wcześniej każda odpowiedź szła przez ekstrakcję HTML:
+# PDF z cennikiem trafiał do wiedzy jako składnia "%PDF-1.3 ... obj", a zdjęcie
+# jako dziesiątki tysięcy znaków zdekodowanych bajtów.
+TYPY_PLIKOW = {
+    "application/pdf": ".pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "text/markdown": ".md",
+    "text/x-markdown": ".md",
+    "text/plain": ".txt",
+}
+TYPY_BEZ_INFORMACJI = {"", "application/octet-stream", "binary/octet-stream"}
+
+# Linki, za którymi nie ma treści do nauki. Pomijamy je przed pobraniem:
+# każdy zajmowałby jedno z dwudziestu miejsc na podstrony i jedno żądanie
+# z budżetu źródła. Formaty biurowe spoza obsługiwanych (.doc, .xlsx) też tu
+# są - parser ich nie przeczyta, więc pobieranie byłoby samym kosztem.
+POMIJANE_ROZSZERZENIA = frozenset(
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".avif",
+        ".svg",
+        ".ico",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".mp4",
+        ".webm",
+        ".mov",
+        ".avi",
+        ".mp3",
+        ".wav",
+        ".ogg",
+        ".zip",
+        ".rar",
+        ".7z",
+        ".gz",
+        ".css",
+        ".js",
+        ".json",
+        ".xml",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".otf",
+        ".eot",
+        ".doc",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".exe",
+        ".dmg",
+        ".apk",
+    }
+)
+
+
+def _rozszerzenie(url):
+    return os.path.splitext(urlsplit(url).path)[1].lower()
+
+
+def rodzaj_tresci(strona):
+    """
+    "html", rozszerzenie pliku obsługiwanego przez parser albo None.
+
+    Nagłówek Content-Type ma pierwszeństwo. Gdy go brak albo mówi tylko
+    "octet-stream", rozpoznajemy PDF i DOCX po zawartości. Odpowiedź bez
+    nagłówka i bez bajtów binarnych dalej traktujemy jak HTML - tak działały
+    dotąd wszystkie importy i tak zachowują się stare serwery.
+    """
+    typ = strona.content_type.split(";", 1)[0].strip().lower()
+    rozszerzenie = _rozszerzenie(strona.url)
+
+    if typ in TYPY_HTML:
+        return "html"
+    if typ == "text/plain" and rozszerzenie == ".md":
+        return ".md"
+    if typ in TYPY_PLIKOW:
+        return TYPY_PLIKOW[typ]
+    if typ not in TYPY_BEZ_INFORMACJI:
+        return None
+
+    if strona.body.startswith(b"%PDF-"):
+        return ".pdf"
+    if strona.body.startswith(b"PK\x03\x04"):
+        return ".docx" if rozszerzenie == ".docx" else None
+    if b"\x00" in strona.body[:1024]:
+        return None
+    if rozszerzenie in {".txt", ".md"}:
+        return rozszerzenie
+    return "html" if not typ else None
 
 
 def fetch_text_from_url(url: str) -> TrescStrony:
@@ -16,12 +124,25 @@ def fetch_text_from_url(url: str) -> TrescStrony:
     Zwraca parę, a nie sam tekst, bo bez mianownika nie da się odróżnić
     „strona jest krótka" od „wyciągnęliśmy z niej 3%". Ta druga sytuacja
     trwała u klienta tygodniami i nie było jej po czym poznać.
+
+    Dla pliku mianownikiem jest cały jego tekst: parser czyta plik w całości,
+    nie ma obudowy do odcięcia.
     """
-    downloaded = fetch_page(url).body
-    if not downloaded:
+    strona = fetch_page(url)
+    if not strona.body:
         raise ValueError(f"Nie udało się pobrać zawartości URL: {url}")
 
-    wynik = wyciagnij_tresc(downloaded, url)
+    rodzaj = rodzaj_tresci(strona)
+    if rodzaj is None:
+        typ = strona.content_type.split(";", 1)[0].strip()[:60] or "nieznany"
+        raise ValueError(f"Nieobsługiwany typ treści ({typ}): {url}")
+
+    if rodzaj == "html":
+        wynik = wyciagnij_tresc(strona.body, url)
+    else:
+        tekst = parse_bytes(strona.body, "plik" + rodzaj)
+        # Ten sam próg co dla stron: kilka słów z pliku to nie wiedza.
+        wynik = TrescStrony(tekst if len(tekst) >= MINIMUM_ZNAKOW else "", len(tekst))
 
     if not wynik.tekst:
         raise ValueError(f"Zbyt mało treści do wykorzystania z: {url}")
@@ -82,8 +203,8 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
             znakow_na_stronie=znakow_widocznych,
         )
 
-    # Przeliczenie jest idempotentne — stare fragmenty znikają przed nowymi,
-    # więc odświeżony dokument nie odpowiada dwiema wersjami naraz.
+    # Przeliczenie podmienia fragmenty w jednej transakcji (F17), więc
+    # odświeżony dokument nie odpowiada dwiema wersjami naraz.
     # Import w srodku funkcji, zeby przerwac cykl: `documents.tasks` importuje
     # z tego modulu `discover_links_recursively` i `import_website_as_document`.
     #
@@ -121,12 +242,24 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
 
         try:
             resp = fetch_page(current_url)
+        except ResponseTooLarge:
+            # Za duża pojedyncza odpowiedź dotyczy tylko tego adresu. Wcześniej
+            # był to ten sam błąd co wyczerpany budżet źródła, więc jeden
+            # podlinkowany duży plik przerywał wyszukiwanie wszystkich podstron.
+            # Adres zostaje na liście: import pokaże klientowi, czego nie pobrano.
+            continue
         except FetchLimitExceeded:
             raise
         except FetchError:
             continue
 
-        if depth == max_depth:
+        rodzaj = rodzaj_tresci(resp)
+        if rodzaj is None:
+            # Nie ma tu czego importować - zwalniamy miejsce na podstronę.
+            visited.discard(current_url)
+            continue
+        if rodzaj != "html" or depth == max_depth:
+            # Plik nie ma linków do dalszych podstron.
             continue
         soup = BeautifulSoup(resp.body, "html.parser")
         for link_tag in soup.find_all("a", href=True, limit=200):
@@ -136,6 +269,8 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
             try:
                 absolute_url = validate_url(urljoin(resp.url, href))
             except FetchError:
+                continue
+            if _rozszerzenie(absolute_url) in POMIJANE_ROZSZERZENIA:
                 continue
             if same_site(absolute_url, base_url) and absolute_url not in scheduled:
                 scheduled.add(absolute_url)
