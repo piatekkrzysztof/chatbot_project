@@ -16,6 +16,43 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.18] — 2026-09-13
+
+### Fixed
+
+- **Documents uploaded in the panel got no embeddings since 4 September 2026.**
+  A lint cleanup (PR #21) removed the import that connects the document save
+  signal, because the linter saw it as unused. From then on neither the web
+  process nor the worker scheduled anything after a document was saved: an
+  uploaded document kept its text but the bot never learned it, and files added
+  in the Django admin were never read. Website imports were not affected, they
+  schedule their work directly. Tests missed it because they import the signal
+  module themselves. The import is back, marked so the linter keeps it, and a
+  test now starts Django in a separate process to check the signal is
+  connected. Documents saved in that window need a one-off recompute - see
+  `docs/kompletny-import.md`.
+- **Two uploads at the same time could together exceed the plan's knowledge
+  limit.** Each one measured the knowledge base before either was saved, so
+  each fitted on its own. The check and the save now happen under one lock per
+  company, for uploads, background file reading and website imports alike. The
+  lock does not touch the chat: conversations in the widget are not held up
+  while a file is being stored.
+- **A newly uploaded document could end up with no knowledge.** Embeddings
+  were queued at the moment of saving, before the save was committed, so a fast
+  worker could look for a document that did not exist yet and give up quietly.
+  Work is now queued only after the save is committed, and nothing is queued
+  when it is rolled back.
+- **Text files saved in Windows-1250, ISO-8859-2 or UTF-16 were rejected** as
+  "not UTF-8", although the text was fine. Price lists exported from older
+  programs often are. Polish letters come out correctly in all of them.
+- **Tables in Word documents lost their rows.** Every cell became a separate
+  line, so a service and its price could land in different fragments and the
+  bot quoted a price without saying what for. A row now stays on one line:
+  "Haircut | 50 zł".
+- Text in Word text boxes was stored twice, because Word saves each text box in
+  a modern and a fallback version. Tab stop definitions no longer add stray tab
+  characters.
+
 ## [2.0.17] — 2026-09-13
 
 ### Fixed

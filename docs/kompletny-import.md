@@ -116,14 +116,134 @@ prawdziwej sieci. `test_wire_and_decoded_limits` wymaga teraz `ResponseTooLarge`
 3. Pulpit, „Wiedza, którą zna bot": przy starych źródłach nie przybywa kopii
    strony głównej po odświeżeniu.
 
-## Część 2 (osobny PR)
+# F10, część 2 - pliki i limit wiedzy przy równoległych dodaniach
 
-Z przeglądu kodu przy tej części, jeszcze nieodtworzone testami:
+**Zakres:** `documents/validators.py` (`zablokuj_baze_wiedzy`),
+`api/views/documents.py` (upload), `documents/tasks.py` (odczyt pliku w tle),
+`documents/website_import.py` (import strony), `documents/signals.py`
+(zlecanie zadań), `documents/file_limits.py` (TXT i DOCX).
 
-- **Limit bazy wiedzy przy równoległych dodaniach.** Sprawdzenie i zapis nie
-  są objęte blokadą, więc dwa uploady naraz mogą razem przekroczyć limit planu.
-  Zadania w tle zlecane są przed zatwierdzeniem transakcji.
-- **TXT i MD wyłącznie w UTF-8.** Plik zapisany w Windows-1250 albo UTF-16 jest
-  odrzucany.
-- **Tabele DOCX** tracą układ wierszy: usługa i jej cena trafiają do osobnych
-  linii, a podział na fragmenty może je rozdzielić.
+**Nie zmienia:** schematu bazy (bez migracji), zmiennych, usług, limitów planów.
+
+**Wdrożenie:** web i worker z tym samym commitem.
+
+## Co było zepsute
+
+| # | Sytuacja | Skutek |
+|---|---|---|
+| 1 | Dwa uploady naraz, każdy mieści się w limicie sam | Oba mierzyły bazę przed zapisem drugiego i oba się zapisywały - razem ponad limit planu. To samo przy równoległym odczycie plików w tle i pobieraniu stron |
+| 2 | Zapis dokumentu w transakcji | Sygnał zlecał zadanie przed zatwierdzeniem. Szybki worker nie widział jeszcze dokumentu, a zadanie embeddingów po F17 kończy się wtedy po cichu - dokument zostawał bez fragmentów. Zanim poprawka 1 objęła zapis transakcją, dotyczyło to zapisu z panelu administracyjnego Django, który zapisuje w transakcji; po niej dotyczyłoby każdego uploadu |
+| 3 | TXT w Windows-1250, ISO-8859-2 albo UTF-16 | Odrzucany jako „nie UTF-8", choć tekst był poprawny |
+| 4 | Tabela w DOCX | Każda komórka osobną linią: usługa i cena w różnych fragmentach |
+| 5 | Pole tekstowe w DOCX | Tekst w wiedzy dwa razy (wersja nowa i zapasowa zapisywane przez Worda) |
+| 6 | Pozycje tabulatorów w akapicie DOCX | Zbędne znaki tabulacji w treści |
+
+## Znalezione przy okazji: sygnał dokumentów nie był podłączony
+
+Przy poprawianiu testu awarii kolejki wyszło, że `documents.signals` nie jest
+importowany nigdzie w kodzie aplikacji. Import zniknął z
+`DocumentsConfig.ready()` w porządkach długu ruff (commit `059354b`, PR #21,
+4.09.2026) - ruff uznał go za nieużywany (F401), a to on podłącza sygnał.
+
+**Sprawdzone w osobnym procesie:** po `django.setup()`, po wczytaniu URL-i
+i WSGI (proces web) oraz po autodiscover Celery (worker) odbiorca
+`handle_new_document` nie był podłączony.
+
+**Skutek od wdrożenia #21:** dokument wgrany w panelu zapisywał treść, ale nie
+dostawał embeddingów - bot go nie znał. Plik dodany w panelu administracyjnym
+nie był czytany. Import stron działał, bo zleca przeliczenie wprost.
+
+**Dlaczego testy tego nie widziały:** w procesie pytest moduł i tak jest
+wczytany - wystarczy jeden `patch("documents.signals.enqueue")` w dowolnym
+teście pakietu. Test `test_document_upload_survives_broken_broker` padał,
+uruchomiony osobno, i był opisywany jako problem środowiska lokalnego.
+
+**Poprawka:** import wrócił do `ready()` z `# noqa: F401` i komentarzem.
+`documents/tests/test_podlaczenie_sygnalow.py` startuje Django w osobnym
+procesie i sprawdza, że odbiorca jest podłączony; na `apps.py` sprzed
+poprawki jest czerwony.
+
+**Po wdrożeniu - jednorazowo, na produkcji.** Najpierw lista (nic nie zmienia):
+
+```bash
+python manage.py shell -c "from documents.models import Document; bez = Document.objects.exclude(content='').filter(chunks__isnull=True).distinct(); print('bez fragmentow:', bez.count()); [print(d.id, d.tenant_id, d.source, d.name) for d in bez]; nieczytane = Document.objects.filter(processed=False, content='').exclude(file=''); print('nieodczytane pliki:', nieczytane.count())"
+```
+
+Potem przeliczenie tylko tych dokumentów (koszt embeddingów tylko dla nich)
+i odczyt nieodczytanych plików - przez kolejkę, więc worker musi już działać
+na tym wydaniu:
+
+```bash
+python manage.py shell -c "from documents.models import Document; from documents.tasks import generate_embeddings_for_document, extract_text_from_document; [generate_embeddings_for_document.delay(d.id) for d in Document.objects.exclude(content='').filter(chunks__isnull=True).distinct()]; [extract_text_from_document.delay(d.id) for d in Document.objects.filter(processed=False, content='').exclude(file='')]"
+```
+
+## Jak jest teraz
+
+1. **Sprawdzenie limitu i zapis pod blokadą bazy wiedzy firmy**, na wszystkich
+   trzech drogach dodawania wiedzy. Pobranie pliku albo strony i parsowanie
+   trwają poza blokadą. Zastępowaną treść (odświeżana podstrona, ponownie
+   czytany plik) czytamy pod blokadą.
+2. **Blokada doradcza PostgreSQL, nie blokada wiersza firmy.** Wiersz firmy
+   blokuje rezerwacja wiadomości czatu. Upload trzyma blokadę także podczas
+   zapisu pliku do magazynu, więc blokada wiersza firmy wstrzymywałaby
+   rozmowy w widżecie na czas każdego uploadu. Test pilnuje, że rezerwacja
+   wiadomości przechodzi, gdy blokada bazy wiedzy jest zajęta.
+3. **Zadania zlecane po zatwierdzeniu transakcji** (`transaction.on_commit`).
+   Wycofany zapis nie zleca niczego. Poza transakcją zachowanie bez zmian.
+4. **TXT i MD:** UTF-8, UTF-16 ze znacznikiem BOM, Windows-1250 i ISO-8859-2.
+   Między dwoma ostatnimi rozstrzyga liczba polskich liter (przy remisie
+   Windows-1250). Wariant ze znakami sterującymi C1 odpada - bez tego bajty
+   bez znaczenia w żadnym kodowaniu przechodziły jako tekst z niewidocznymi
+   znakami. Dane binarne dalej są odrzucane.
+5. **DOCX:** wiersz tabeli w jednej linii (`Strzyżenie | 50 zł`), także
+   wiersze w kontrolkach treści; tekst pól tekstowych raz; właściwości
+   akapitów i przebiegów pomijane.
+
+## Świadome ograniczenia
+
+- **Plik zapisany w magazynie przy wycofanej transakcji zostaje w magazynie.**
+  Wycofanie po zapisie pliku zdarza się tylko przy awarii bazy między zapisem
+  pliku a zatwierdzeniem. Usuwanie osieroconych plików to F18/F19.
+- **UTF-16 bez znacznika BOM i inne kodowania** (np. CP852 z DOS-a) nadal są
+  odrzucane z komunikatem, żeby zapisać plik w UTF-8.
+- **Pusty plik UTF-16 z samym znacznikiem BOM** nie jest już błędem kodowania;
+  upload i odczyt w tle odrzucają go jako plik bez tekstu, tak jak pusty UTF-8.
+- **Wybór kodowania to rozstrzygnięcie po literach**, nie pewność. Tekst bez
+  ani jednej z liter ą, ś, ź, Ą, Ś, Ź wygląda tak samo w obu kodowaniach,
+  więc wybór nie ma wtedy znaczenia.
+
+## Weryfikacja
+
+Nowy plik `documents/tests/test_import_plikow_i_limit.py`, 20 przypadków.
+Równoległość odtwarzana deterministycznie: bramka wstrzymuje oba dodania po
+pomiarze bazy, a przy działającej blokadzie drugie dodanie czeka na blokadzie
+i bramka rozpada się po 1,5 s.
+
+**Odtworzenie błędu:** na kodzie sprzed zmiany czerwienieje 18 z 20, ale
+realnie odtwarza błąd 15: trzy równoległe dodania, dwa zlecenia przed
+zatwierdzeniem, pięć przypadków kodowania, pięć DOCX. Trzy pozostałe
+czerwienieją, bo sprawdzają rzeczy, których nie było (funkcja blokady) albo
+inny komunikat dla pliku, który stary kod też odrzucał. Dwa przechodzą na
+starym kodzie - straże UTF-8 i danych binarnych.
+
+**Weryfikacja mutacyjna** (13.09.2026): każde z trzynastu uszkodzeń czerwieni
+co najmniej jeden test - usunięcie blokady doradczej, blokada wiersza firmy
+zamiast doradczej, upload, odczyt w tle i import strony bez blokady,
+zlecanie embeddingów przed zatwierdzeniem, bez UTF-16, bez liczenia polskich
+liter, bez filtra znaków C1, pole tekstowe z wersją zapasową, czytanie
+właściwości akapitu, tabela bez wierszy, wiersze w kontrolkach treści.
+Filtra C1 nie było w pierwszej wersji - wyszedł przy uproszczeniu wyboru
+kodowania, które przepuściło bajty bez znaczenia.
+
+Zmienione oczekiwania istniejących testów: cztery testy sprawdzające zlecenie
+zadania po zapisie wykonują teraz wywołania odłożone do zatwierdzenia
+(`django_capture_on_commit_callbacks`), a test limitów kodowania używa
+urwanego UTF-16 i bajtów bez znaczenia zamiast samego znacznika BOM.
+
+## Co sprawdzić po wdrożeniu
+
+1. Upload TXT zapisanego w Notatniku jako ANSI: polskie litery poprawne
+   w podglądzie fragmentów.
+2. Upload DOCX z cennikiem w tabeli: fragment zawiera usługę i cenę w jednej linii.
+3. Upload dowolnego pliku: dokument dostaje fragmenty (zlecenie po zatwierdzeniu).
+4. Rozmowa w widżecie w trakcie uploadu dużego pliku odpowiada bez opóźnienia.

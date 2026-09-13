@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import storages
 from django.core.files.uploadedfile import UploadedFile
+from django.db import transaction
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
@@ -28,7 +29,7 @@ from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.tasks import crawl_and_import_website_source
 from documents.uploads import LimitedMultiPartParser
 from documents.utils.queue import enqueue
-from documents.validators import sprawdz_limit_bazy_wiedzy
+from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
 
 logger = logging.getLogger(__name__)
 
@@ -161,15 +162,21 @@ class UploadDocumentView(APIView):
                 status=400,
             )
 
-        sprawdz_limit_bazy_wiedzy(tenant, text)
-
-        Document.objects.create(
-            tenant=tenant,
-            name=name,
-            file=file,
-            content=text,
-            processed=True,
-        )
+        # Sprawdzenie limitu i zapis pod jedną blokadą bazy wiedzy firmy - inaczej
+        # dwa uploady naraz razem przekraczały limit planu. Zapis pliku do
+        # magazynu dzieje się w środku; blokada nie dotyczy czatu, patrz
+        # zablokuj_baze_wiedzy. Zlecenie embeddingów sygnał odkłada do
+        # zatwierdzenia transakcji.
+        with transaction.atomic():
+            zablokuj_baze_wiedzy(tenant)
+            sprawdz_limit_bazy_wiedzy(tenant, text)
+            Document.objects.create(
+                tenant=tenant,
+                name=name,
+                file=file,
+                content=text,
+                processed=True,
+            )
 
         # The post_save signal schedules embeddings once. The file is already
         # parsed, so it must not schedule a second extraction or duplicate embedding job.

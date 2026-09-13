@@ -1,3 +1,6 @@
+from functools import partial
+
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -26,12 +29,19 @@ def handle_new_document(sender, instance, created, raw=False, **kwargs):
     Znalezione przy pierwszej próbie odtworzenia z kopii, nie przy przeglądzie
     kodu: w logu wczytywania pojawiły się wpisy o zlecaniu zadań dla
     dokumentów, które nie miały prawa niczego uruchamiać.
+
+    Zlecenia czekają na zatwierdzenie transakcji (F10). Zapis dokumentu pod
+    blokadą limitu wiedzy dzieje się w `transaction.atomic()`, a worker
+    uruchomiony przed zatwierdzeniem nie widzi jeszcze dokumentu - zadanie
+    embeddingów kończy się wtedy po cichu i dokument zostaje bez fragmentów.
+    Wycofana transakcja nie zleca niczego. Poza transakcją Django wykonuje
+    `on_commit` od razu, więc zwykły zapis działa jak dotąd.
     """
     if raw:
         return
 
     if created and instance.file and not instance.processed:
-        enqueue(tasks.extract_text_from_document, instance.id)
+        transaction.on_commit(partial(enqueue, tasks.extract_text_from_document, instance.id))
 
     if instance.processed and not instance.chunks.exists():
-        enqueue(tasks.generate_embeddings_for_document, instance.id)
+        transaction.on_commit(partial(enqueue, tasks.generate_embeddings_for_document, instance.id))

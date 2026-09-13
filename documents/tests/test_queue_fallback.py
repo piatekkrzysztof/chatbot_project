@@ -43,7 +43,9 @@ def test_inline_failure_is_not_swallowed():
 
 
 @pytest.mark.django_db
-def test_document_upload_survives_broken_broker(monkeypatch, tenant, valid_pdf_file):
+def test_document_upload_survives_broken_broker(
+    monkeypatch, tenant, valid_pdf_file, django_capture_on_commit_callbacks
+):
     """Dokument musi zostać zapisany i przetworzony, nawet gdy kolejka nie działa."""
     from documents import tasks
     from documents.models import Document
@@ -53,12 +55,17 @@ def test_document_upload_survives_broken_broker(monkeypatch, tenant, valid_pdf_f
 
     monkeypatch.setattr(tasks.extract_text_from_document, "delay", zawsze_pada)
     monkeypatch.setattr(tasks.generate_embeddings_for_document, "delay", zawsze_pada)
-    monkeypatch.setattr(
-        "documents.utils.embedding_generator.generate_embeddings_for_document",
-        lambda doc: None,
-    )
+    # Zadanie woła generator pod nazwą zapamiętaną przy imporcie tasks.py.
+    # Podmiana w module generatora nie działała nigdy: embeddingi szły do
+    # zablokowanego w testach OpenAI, a błąd połykał `except` zadania odczytu
+    # pliku. Po F10 zlecenie idzie po zatwierdzeniu, poza tym `except`.
+    monkeypatch.setattr("documents.tasks._generate_embeddings", lambda doc: None)
 
-    document = Document.objects.create(tenant=tenant, name="awaria.pdf", file=valid_pdf_file)
+    # Sygnał zleca zadania po zatwierdzeniu transakcji (F10). Test działa
+    # w transakcji, której nikt nie zatwierdza, więc wykonujemy odłożone
+    # zlecenia tak, jak zrobiłoby to zatwierdzenie w produkcji.
+    with django_capture_on_commit_callbacks(execute=True):
+        document = Document.objects.create(tenant=tenant, name="awaria.pdf", file=valid_pdf_file)
     document.refresh_from_db()
 
     assert document.processed is True
