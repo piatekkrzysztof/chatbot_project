@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 13.09.2026. Backend #56 (F25) scalony; `/health/` produkcji zwraca 2.0.15. Bieżący etap 2.0.16: F17, atomowa i powtarzalna publikacja fragmentów - przygotowane do przeglądu, jeszcze niewdrożone. Pełna kopia i próba odtworzenia (2.0.14) nadal czekają na odbiór operacyjny, więc F18 nie włącza automatycznego usuwania.**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 13.09.2026. Backend #56 (F25) scalony; `/health/` produkcji zwraca 2.0.15. Bieżący etap 2.0.16 (#57): F17, atomowa i powtarzalna publikacja fragmentów - przygotowane do przeglądu, jeszcze niewdrożone. Pełna kopia i próba odtworzenia (2.0.14) nadal czekają na odbiór operacyjny, więc F18 nie włącza automatycznego usuwania.**
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -126,7 +126,7 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F14 | #48/#52/#53 wdrożone: MFA, aktualne hasło przy konfiguracji, kod przy zmianie hasła i kończeniu sesji | Odbiór nowych ustawień, retencja i procedura utraty MFA |
 | F15 | #49–#54 i panel #15 wdrożone; reset, sesje i trwałe powiadomienia po zmianie hasła. CI #54: 1791 testów, 88,21% | Rzeczywisty odbiór ustawień/poczty, retencja sesji i kolejki, alarmy |
 | F16 | Otwarte | Paginacja, N+1, pomiary opóźnień i obciążenia |
-| F17 | Przygotowane do przeglądu (2.0.16): publikacja w jednej transakcji pod blokadą wiersza dokumentu, kontrola aktualności treści, pominięcie dokumentów bez zmian, `acks_late` zadania i status błędu przy dokumencie | Przegląd i CI, wdrożenie web i workera, kontrole z [atomowa-publikacja-wektorow.md](atomowa-publikacja-wektorow.md); pusta treść nadpisywana przez import przechodzi do F10 |
+| F17 | #57 przygotowany do przeglądu (2.0.16): publikacja w jednej transakcji pod blokadą wiersza dokumentu, kontrola aktualności treści, pominięcie dokumentów bez zmian, `acks_late` zadania i status błędu przy dokumencie | Przegląd i CI, wdrożenie web i workera, kontrole z [atomowa-publikacja-wektorow.md](atomowa-publikacja-wektorow.md); pusta treść nadpisywana przez import przechodzi do F10 |
 | F18 | Otwarte | Spójne usuwanie i limity wiedzy/plików/pochodnych |
 | F19 | Otwarte | Transakcyjne CSV, formuły w eksportach i integralność ocen |
 | F20 | Częściowo: wdrożone 2.0.11 ogranicza body/cookies/zmienne lokalne i argumenty zadań w Sentry | Pozostałe źródła logów, kompletność dziennika, retencja i przepływy danych |
