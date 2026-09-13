@@ -16,6 +16,42 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.19] — 2026-09-13
+
+### Security
+
+- **Exported conversation logs could run formulas in the owner's spreadsheet.**
+  Visitors write the text of conversations, and it went into the CSV as is. A
+  message starting with `=`, `+`, `-`, `@` or a tab became an active formula in
+  Excel, LibreOffice or Google Sheets once the owner opened the export, a link
+  or a command included. Such cells now start with an apostrophe, as OWASP
+  recommends, in both the API export and the Django admin export.
+- **Ratings in the widget could be set by anyone, for any answer.** The widget's
+  API key is public, and a rating only needed a message number, so all of a
+  company's ratings could be rewritten by counting through the numbers. A rating
+  now needs the session of the conversation the answer belongs to, which only
+  the visitor's browser knows. Deploy the frontend first.
+- A team member, the read-only viewer role included, could overwrite a
+  visitor's rating from the panel. The panel endpoint now rates only test
+  conversations.
+
+### Fixed
+
+- **A CSV import that failed halfway left half the file in the database** and
+  answered with an error, so retrying duplicated the saved part. The whole file
+  is now checked before anything is saved: all rows or none.
+- A file with a byte order mark, which is how Excel saves "CSV UTF-8", imported
+  nothing and reported success. A header without the `prompt` and `response`
+  columns now gets an error instead of "0 imported".
+- Invalid encoding or CSV syntax, and two import conversations left by earlier
+  imports, ended in a server error. They now get a clear 400.
+- The import has limits: 2 MiB, checked while receiving, and 5000 rows.
+- **Imported history counted as real traffic** on the dashboard and in the
+  export. It no longer does.
+- The export failed for the whole company once any conversation had been deleted
+  under the retention policy.
+- The export opens with correct Polish letters in Excel on Windows.
+
 ## [2.0.18] — 2026-09-13
 
 ### Fixed

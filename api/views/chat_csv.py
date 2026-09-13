@@ -1,19 +1,26 @@
 import csv
-from io import TextIOWrapper
+import io
 
-from django.http import HttpResponse
+from django.db import transaction
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.generics import ListAPIView
-from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import IsOwnerOrEmployee
 from api.schemas import ErrorSerializer, MessageSerializer
 from api.utils.mixins import TenantQuerysetMixin
+from chat.eksport_csv import BezpiecznyWriter, odpowiedz_csv
 from chat.models import Conversation, PromptLog
-from chat.zapytania import logi_klientow
+from chat.zapytania import ZRODLO_IMPORTU, logi_klientow
+from documents.uploads import LimitedMultiPartParser
+
+# Import czyta cały plik przed zapisem, żeby błąd w dowolnym wierszu odrzucał
+# plik w całości. Limit bajtów pilnuje handler uploadu (CSV_IMPORT_MAX_UPLOAD_BYTES),
+# ten - liczby zapisów w jednej transakcji.
+MAKS_WIERSZY_IMPORTU = 5000
+WYMAGANE_KOLUMNY = {"prompt", "response"}
 
 
 @extend_schema(
@@ -35,18 +42,20 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
         # Eksport dotyczy ruchu klientów; próby właściciela to nie ich dane.
         logs = logi_klientow(tenant).order_by("-created_at")
 
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="prompt_logs_{tenant.id}.csv"'
-
-        writer = csv.writer(response)
+        response = odpowiedz_csv(f"prompt_logs_{tenant.id}.csv")
+        writer = BezpiecznyWriter(response)
         writer.writerow(
             ["conversation_id", "prompt", "response", "tokens", "source", "model", "created_at"]
         )
 
-        for log in logs:
+        for log in logs.iterator():
             writer.writerow(
                 [
-                    log.conversation.id,
+                    # conversation_id, nie conversation.id: rozmowa bywa pusta
+                    # po retencji (SET_NULL), a wtedy eksport kończył się
+                    # błędem 500 dla całej firmy. Przy okazji bez zapytania
+                    # o rozmowę dla każdego wiersza.
+                    log.conversation_id or "",
                     log.prompt,
                     log.response,
                     log.tokens,
@@ -59,19 +68,54 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
         return response
 
 
+class BladImportu(Exception):
+    pass
+
+
+def _wczytaj_wiersze(plik):
+    """Całość pliku albo BladImportu - nigdy część."""
+    try:
+        tekst = plik.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise BladImportu("Plik CSV musi być zapisany w kodowaniu UTF-8.") from None
+
+    czytnik = csv.DictReader(io.StringIO(tekst, newline=""))
+    try:
+        kolumny = set(czytnik.fieldnames or [])
+        if not WYMAGANE_KOLUMNY <= kolumny:
+            raise BladImportu("Plik CSV musi mieć w pierwszym wierszu kolumny prompt i response.")
+        wiersze = []
+        for wiersz in czytnik:
+            if not wiersz.get("prompt") or not wiersz.get("response"):
+                continue  # pomiń niekompletne wiersze
+            if len(wiersze) >= MAKS_WIERSZY_IMPORTU:
+                raise BladImportu(
+                    f"Plik CSV może mieć najwyżej {MAKS_WIERSZY_IMPORTU} wierszy z treścią."
+                )
+            wiersze.append((wiersz["prompt"], wiersz["response"]))
+    except csv.Error:
+        raise BladImportu(f"Nieprawidłowy plik CSV w wierszu {czytnik.line_num}.") from None
+    return wiersze
+
+
 @extend_schema(
     tags=["Panel — czat"],
     summary="Wgraj historię rozmów z pliku CSV",
+    description=(
+        "Plik w UTF-8 z kolumnami `prompt` i `response`. Zapisuje wszystkie wiersze albo "
+        "żaden. Zaimportowane wpisy nie wchodzą do statystyk ruchu klientów."
+    ),
     request={
         "multipart/form-data": {
             "type": "object",
             "properties": {"file": {"type": "string", "format": "binary"}},
         }
     },
-    responses={201: MessageSerializer, 400: ErrorSerializer},
+    responses={201: MessageSerializer, 400: ErrorSerializer, 413: ErrorSerializer},
 )
 class ImportPromptLogsCSVView(APIView):
-    parser_classes = [MultiPartParser]
+    # Ten sam parser co upload dokumentów: limit bajtów liczony w trakcie odbioru.
+    parser_classes = [LimitedMultiPartParser]
     permission_classes = [IsOwnerOrEmployee]
 
     def post(self, request):
@@ -81,25 +125,38 @@ class ImportPromptLogsCSVView(APIView):
         if not csv_file:
             return Response({"error": "Brak pliku CSV."}, status=status.HTTP_400_BAD_REQUEST)
 
-        decoded = TextIOWrapper(csv_file.file, encoding="utf-8")
-        reader = csv.DictReader(decoded)
+        # Wcześniej wiersze zapisywały się pojedynczo w trakcie czytania pliku.
+        # Błąd kodowania albo składni w połowie kończył się błędem 500 z połową
+        # pliku w bazie, a ponowienie dublowało zapisaną część.
+        try:
+            wiersze = _wczytaj_wiersze(csv_file)
+        except BladImportu as blad:
+            return Response({"error": str(blad)}, status=status.HTTP_400_BAD_REQUEST)
 
-        created = 0
-        for row in reader:
-            if not row.get("prompt") or not row.get("response"):
-                continue  # pomiń niekompletne wiersze
-
-            conv, _ = Conversation.objects.get_or_create(tenant=tenant, user_identifier="imported")
-
-            PromptLog.objects.create(
-                tenant=tenant,
-                conversation=conv,
-                prompt=row["prompt"],
-                response=row["response"],
-                tokens=0,
-                source="imported",
-                model="manual",
+        with transaction.atomic():
+            # filter().first(), nie get_or_create: dwie rozmowy importu (np. po
+            # dwóch równoległych importach) blokowały wcześniej każdy kolejny
+            # import błędem MultipleObjectsReturned.
+            rozmowa = (
+                Conversation.objects.filter(tenant=tenant, user_identifier=ZRODLO_IMPORTU)
+                .order_by("id")
+                .first()
+            ) or Conversation.objects.create(
+                tenant=tenant, user_identifier=ZRODLO_IMPORTU, source=ZRODLO_IMPORTU
             )
-            created += 1
+            PromptLog.objects.bulk_create(
+                [
+                    PromptLog(
+                        tenant=tenant,
+                        conversation=rozmowa,
+                        prompt=prompt,
+                        response=odpowiedz,
+                        tokens=0,
+                        source=ZRODLO_IMPORTU,
+                        model="manual",
+                    )
+                    for prompt, odpowiedz in wiersze
+                ]
+            )
 
-        return Response({"imported": created}, status=status.HTTP_201_CREATED)
+        return Response({"imported": len(wiersze)}, status=status.HTTP_201_CREATED)

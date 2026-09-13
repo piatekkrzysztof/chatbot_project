@@ -1,8 +1,6 @@
-import csv
-
 from django.contrib import admin
-from django.http import HttpResponse
 
+from chat.eksport_csv import BezpiecznyWriter, odpowiedz_csv
 from chat.models import FAQ, ChatFeedback, ContactRequest, PromptLog
 
 
@@ -37,22 +35,22 @@ class PromptLogAdmin(admin.ModelAdmin):
     actions = ["export_as_csv"]
 
     def export_as_csv(self, request, queryset):
-        fieldnames = ["tenant", "model", "source", "tokens", "prompt", "response", "created_at"]
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = "attachment; filename=prompt_logs.csv"
-        writer = csv.DictWriter(response, fieldnames=fieldnames)
-        writer.writeheader()
-        for obj in queryset:
+        # Treść pisze odwiedzający, więc przez tę samą neutralizację formuł co
+        # eksport w API - patrz chat/eksport_csv.py.
+        response = odpowiedz_csv("prompt_logs.csv")
+        writer = BezpiecznyWriter(response)
+        writer.writerow(["tenant", "model", "source", "tokens", "prompt", "response", "created_at"])
+        for obj in queryset.select_related("tenant").iterator():
             writer.writerow(
-                {
-                    "tenant": obj.tenant.name,
-                    "model": obj.model,
-                    "source": obj.source,
-                    "tokens": obj.tokens,
-                    "prompt": obj.prompt,
-                    "response": obj.response or "",
-                    "created_at": obj.created_at.isoformat(),
-                }
+                [
+                    obj.tenant.name,
+                    obj.model,
+                    obj.source,
+                    obj.tokens,
+                    obj.prompt,
+                    obj.response or "",
+                    obj.created_at.isoformat(),
+                ]
             )
         return response
 
