@@ -13,7 +13,8 @@ def test_submit_valid_feedback(user, tenant, subscribtion):
     user.save()
     tenant.save()
     client.force_authenticate(user=user)
-    conv = Conversation.objects.create(id=1, tenant=tenant)
+    # Panel ocenia wyłącznie rozmowy testowe (F19).
+    conv = Conversation.objects.create(id=1, tenant=tenant, source="test")
 
     message = ChatMessage.objects.create(conversation=conv, sender="bot", message="Odpowiedź bota")
 
@@ -50,7 +51,8 @@ def test_feedback_missing_is_helpful(user, tenant, subscribtion):
     user.save()
     tenant.save()
     client.force_authenticate(user=user)
-    conv = Conversation.objects.create(id=1, tenant=tenant)
+    # Panel ocenia wyłącznie rozmowy testowe (F19).
+    conv = Conversation.objects.create(id=1, tenant=tenant, source="test")
     msg = ChatMessage.objects.create(conversation=conv, sender="bot", message="hej")
 
     res = client.post(
@@ -85,7 +87,8 @@ def test_feedback_rejected_for_user_message(user, tenant, subscribtion):
     user.save()
     tenant.save()
     client.force_authenticate(user=user)
-    conv = Conversation.objects.create(id=1, tenant=tenant)
+    # Panel ocenia wyłącznie rozmowy testowe (F19).
+    conv = Conversation.objects.create(id=1, tenant=tenant, source="test")
 
     user_msg = ChatMessage.objects.create(
         conversation=conv, sender="user", message="To nie jest bot"
@@ -108,7 +111,8 @@ def test_feedback_overwrites_previous(user, tenant, subscribtion):
     user.save()
     tenant.save()
     client.force_authenticate(user=user)
-    conv = Conversation.objects.create(id=1, tenant=tenant)
+    # Panel ocenia wyłącznie rozmowy testowe (F19).
+    conv = Conversation.objects.create(id=1, tenant=tenant, source="test")
     msg = ChatMessage.objects.create(conversation=conv, sender="bot", message="Hej")
 
     ChatFeedback.objects.create(message=msg, is_helpful=False)

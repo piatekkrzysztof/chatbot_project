@@ -12,7 +12,12 @@ i zepsuł jedyną liczbę w tym produkcie, która mówi coś o rynku, a nie o na
 
 Wszystko przez jedno miejsce, bo poprzednim razem dwie definicje tego samego
 (pulpit i raport tygodniowy) zdążyły się rozjechać, zanim ktokolwiek zauważył.
+
+To samo dotyczy historii wgranej z pliku CSV (F19). Import zapisywał wpisy
+jak ruch z widgetu, więc wgranie starych rozmów zawyżało pulpit i eksport.
 """
+
+from django.db.models import Q
 
 from chat.models import ChatMessage, Conversation, PromptLog
 
@@ -20,10 +25,21 @@ from chat.models import ChatMessage, Conversation, PromptLog
 # panel, API), więc nie potrzeba migracji ani nowej flagi.
 ZRODLO_TESTOWE = "test"
 
+# Znacznik historii wgranej z CSV. Import zapisywał go od początku w
+# PromptLog.source i Conversation.user_identifier; od F19 także w
+# Conversation.source. PromptLog.source ma listę wyborów, na której tej
+# wartości nie ma - świadomie bez migracji samych wyborów, bo pełne
+# odtworzenie kopii wymaga zgodnego stanu migracji.
+ZRODLO_IMPORTU = "imported"
+
 
 def rozmowy_klientow(tenant):
-    """Rozmowy prawdziwych odwiedzających — bez prób właściciela."""
-    return Conversation.objects.filter(tenant=tenant).exclude(source=ZRODLO_TESTOWE)
+    """Rozmowy prawdziwych odwiedzających — bez prób właściciela i importu."""
+    return (
+        Conversation.objects.filter(tenant=tenant)
+        .exclude(source=ZRODLO_TESTOWE)
+        .exclude(Q(source=ZRODLO_IMPORTU) | Q(user_identifier=ZRODLO_IMPORTU))
+    )
 
 
 def wiadomosci_klientow(tenant):
@@ -40,5 +56,21 @@ def logi_klientow(tenant):
     retencji), a takie wpisy MAJĄ zostać — pochodzą sprzed usunięcia rozmowy,
     nie z testu. Zachowanie `exclude()` przy pustym powiązaniu jest tu
     kluczowe i dlatego ma własny test.
+    """
+    return (
+        PromptLog.objects.filter(tenant=tenant)
+        .exclude(conversation__source=ZRODLO_TESTOWE)
+        .exclude(source=ZRODLO_IMPORTU)
+    )
+
+
+def logi_do_eksportu(tenant):
+    """
+    Wpisy PromptLog do eksportu CSV: bez prób właściciela, z historią z importu.
+
+    Eksport to kopia danych firmy, nie statystyka. Import i eksport tworzą parę
+    (pilnuje tego test_csv_round_trip_works_with_jwt_alone), więc wgrana
+    historia musi dać się wyeksportować z powrotem. Poza statystykami zostaje
+    przez `logi_klientow`.
     """
     return PromptLog.objects.filter(tenant=tenant).exclude(conversation__source=ZRODLO_TESTOWE)

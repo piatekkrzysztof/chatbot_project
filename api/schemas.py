@@ -87,6 +87,13 @@ class PublicChatResponseSerializer(serializers.Serializer):
 class ChatFeedbackRequestSerializer(serializers.Serializer):
     message_id = serializers.IntegerField(help_text="Z pola `message_id` odpowiedzi czatu.")
     is_helpful = serializers.BooleanField(help_text="true = kciuk w górę.")
+    conversation_session_id = serializers.UUIDField(
+        required=False,
+        help_text=(
+            "Wymagane w widgecie: identyfikator sesji rozmowy, w której padła odpowiedź. "
+            "Panel ocenia wyłącznie rozmowy testowe i nie potrzebuje tego pola."
+        ),
+    )
 
 
 class PublicContactRequestSerializer(serializers.Serializer):

@@ -8,6 +8,9 @@ w oknie czatu nie było, a badanie rynku wymienia CSAT jako standard u liderów.
 Przy okazji wyszedł poważniejszy problem: serializer szukał wiadomości wśród
 wszystkich firm. Dopóki chronił go JWT, ryzyko było ograniczone — ale otwarcie
 tego dla widgetu zrobiłoby z tego zapis między tenantami.
+
+Od F19 ocena wymaga też sesji rozmowy, do której należy wiadomość - patrz
+api/tests/test_csv_i_oceny.py.
 """
 
 import uuid
@@ -23,6 +26,14 @@ def wiadomosc_bota(tenant, tresc="Odpowiedź"):
     return ChatMessage.objects.create(conversation=rozmowa, sender="bot", message=tresc)
 
 
+def ocena(wiadomosc, is_helpful):
+    return {
+        "message_id": wiadomosc.id,
+        "is_helpful": is_helpful,
+        "conversation_session_id": str(wiadomosc.conversation.session_id),
+    }
+
+
 @pytest.mark.django_db
 class TestOcenaZWidgetu:
     URL = "/api/widget/feedback/"
@@ -32,7 +43,7 @@ class TestOcenaZWidgetu:
 
         response = APIClient().post(
             self.URL,
-            {"message_id": wiadomosc.id, "is_helpful": True},
+            ocena(wiadomosc, True),
             format="json",
             HTTP_X_API_KEY=str(tenant.api_key),
         )
@@ -46,12 +57,8 @@ class TestOcenaZWidgetu:
         klient = APIClient()
         naglowki = {"HTTP_X_API_KEY": str(tenant.api_key)}
 
-        klient.post(
-            self.URL, {"message_id": wiadomosc.id, "is_helpful": True}, format="json", **naglowki
-        )
-        klient.post(
-            self.URL, {"message_id": wiadomosc.id, "is_helpful": False}, format="json", **naglowki
-        )
+        klient.post(self.URL, ocena(wiadomosc, True), format="json", **naglowki)
+        klient.post(self.URL, ocena(wiadomosc, False), format="json", **naglowki)
 
         assert ChatFeedback.objects.filter(message=wiadomosc).count() == 1
         assert ChatFeedback.objects.get(message=wiadomosc).is_helpful is False
@@ -59,7 +66,8 @@ class TestOcenaZWidgetu:
     def test_nie_da_sie_ocenic_rozmowy_innej_firmy(self, tenant):
         """
         Sedno poprawki. Wcześniej wystarczył sam identyfikator wiadomości,
-        bez względu na to, do kogo należała.
+        bez względu na to, do kogo należała. Tu nawet z prawidłową sesją
+        tamtej rozmowy - firma z klucza API jest inna.
         """
         from .factories import TenantFactory
 
@@ -68,7 +76,7 @@ class TestOcenaZWidgetu:
 
         response = APIClient().post(
             self.URL,
-            {"message_id": cudza.id, "is_helpful": True},
+            ocena(cudza, True),
             format="json",
             HTTP_X_API_KEY=str(tenant.api_key),
         )
@@ -79,9 +87,7 @@ class TestOcenaZWidgetu:
     def test_bez_klucza_api_odmowa(self, tenant):
         wiadomosc = wiadomosc_bota(tenant)
 
-        response = APIClient().post(
-            self.URL, {"message_id": wiadomosc.id, "is_helpful": True}, format="json"
-        )
+        response = APIClient().post(self.URL, ocena(wiadomosc, True), format="json")
 
         assert response.status_code in (401, 403)
         assert not ChatFeedback.objects.filter(message=wiadomosc).exists()
@@ -93,7 +99,7 @@ class TestOcenaZWidgetu:
 
         response = APIClient().post(
             self.URL,
-            {"message_id": pytanie.id, "is_helpful": True},
+            ocena(pytanie, True),
             format="json",
             HTTP_X_API_KEY=str(tenant.api_key),
         )
