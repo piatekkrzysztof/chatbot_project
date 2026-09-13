@@ -9,7 +9,13 @@ from documents.models import Document
 @pytest.mark.django_db
 @patch("documents.tasks.generate_embeddings_for_document.delay")
 def test_document_upload_dispatches_embedding_task(
-    mock_embedding_task, api_client, tenant, user, valid_pdf_file, subscribtion
+    mock_embedding_task,
+    api_client,
+    tenant,
+    user,
+    valid_pdf_file,
+    subscribtion,
+    django_capture_on_commit_callbacks,
 ):
     client = APIClient()
     user.tenant = tenant
@@ -18,12 +24,14 @@ def test_document_upload_dispatches_embedding_task(
     tenant.save()
     client.force_authenticate(user=user)
 
-    response = client.post(
-        "/api/documents-upload/",
-        {"name": "Test", "file": valid_pdf_file},
-        format="multipart",
-        HTTP_X_API_KEY=str(tenant.api_key),
-    )
+    # The signal schedules work after the upload transaction commits (F10).
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(
+            "/api/documents-upload/",
+            {"name": "Test", "file": valid_pdf_file},
+            format="multipart",
+            HTTP_X_API_KEY=str(tenant.api_key),
+        )
 
     assert response.status_code == 201
 

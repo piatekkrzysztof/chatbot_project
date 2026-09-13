@@ -10,7 +10,9 @@ from documents.models import Document
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("name", ["price.txt", "price.md", "price.docx", "price.pdf"])
-def test_valid_upload_is_parsed_once_before_embedding(upload_client, tenant, name, mocker):
+def test_valid_upload_is_parsed_once_before_embedding(
+    upload_client, tenant, name, mocker, django_capture_on_commit_callbacks
+):
     from documents.tests.test_file_storage import pdf_bytes
     from documents.tests.test_isolated_uploads import docx
 
@@ -22,9 +24,11 @@ def test_valid_upload_is_parsed_once_before_embedding(upload_client, tenant, nam
         else b"Oferta 120 zl"
     )
     queue = mocker.patch("documents.signals.enqueue")
-    result = upload_client.post(
-        "/api/documents-upload/", {"file": SimpleUploadedFile(name, body)}, format="multipart"
-    )
+    # The signal schedules work after the upload transaction commits (F10).
+    with django_capture_on_commit_callbacks(execute=True):
+        result = upload_client.post(
+            "/api/documents-upload/", {"file": SimpleUploadedFile(name, body)}, format="multipart"
+        )
     assert result.status_code == 201
     document = Document.objects.get(tenant=tenant)
     assert document.processed

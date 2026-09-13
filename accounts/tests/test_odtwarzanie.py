@@ -225,12 +225,18 @@ class TestProbyOdtworzenia:
             "kazde z nich to wywolanie OpenAI za dane, ktore wlasnie wczytujemy"
         )
 
-    def test_zwykly_zapis_dokumentu_dalej_zleca_przetwarzanie(self, db, dane_do_odtworzenia):
+    def test_zwykly_zapis_dokumentu_dalej_zleca_przetwarzanie(
+        self, db, dane_do_odtworzenia, django_capture_on_commit_callbacks
+    ):
         # Druga strona tej samej zmiany: wyjscie przy `raw` nie moze wylaczyc
         # przetwarzania przy normalnym wgrywaniu dokumentu przez klienta.
+        # Zlecenie idzie po zatwierdzeniu transakcji (F10), stad przechwycenie.
         firma = dane_do_odtworzenia["firma"]
 
-        with patch("documents.signals.enqueue") as zlecenie:
+        with (
+            patch("documents.signals.enqueue") as zlecenie,
+            django_capture_on_commit_callbacks(execute=True),
+        ):
             Document.objects.create(
                 tenant=firma, name="Nowy cennik", content="tresc", processed=True
             )
