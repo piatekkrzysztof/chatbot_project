@@ -16,6 +16,38 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.16] — 2026-09-13
+
+### Fixed
+
+- **A document could end up with no knowledge at all while the panel said
+  "ready".** Recomputing a document deleted its old chunks and then wrote the
+  new ones as two separate steps. A worker restart, a deploy or a database error
+  in between left the document with zero chunks, and the bot stopped knowing it.
+  The same happened when the embeddings model returned fewer vectors than
+  expected. Old and new chunks are now swapped in one transaction: search sees
+  either the previous version or the new one, never nothing.
+- **An older recomputation could overwrite a newer one, permanently.** Two
+  refreshes of the same page in quick succession published in the order they
+  *finished*, not the order the content changed. A recomputation now checks,
+  under a lock, that the document still has the text it started from, and backs
+  off if it does not.
+- A document whose new text produced no chunks kept the chunks of its previous
+  text, so the bot answered from content that was no longer there.
+- A worker killed mid-recomputation lost the task without a trace. Tasks are now
+  acknowledged after they finish and return to the queue if the worker dies.
+- A failed recomputation was visible only in the worker log. The document now
+  shows as failed in the panel, with a message saying the bot uses the previous
+  version until the next attempt. A text-extraction error is never hidden under
+  it.
+
+### Changed
+
+- Recomputing a document whose chunks already match its text makes no API call.
+  A task delivered twice, or retried after a worker restart, costs nothing.
+  `przelicz_fragmenty --wykonaj` still recomputes everything, because after a
+  model or dimension change the text is identical and the vectors are not.
+
 ## [2.0.15] — 2026-09-12
 
 ### Fixed
