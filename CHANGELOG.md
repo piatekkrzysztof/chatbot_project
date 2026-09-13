@@ -20,6 +20,17 @@ fails if it drifts from the newest entry here.
 
 ### Fixed
 
+- **Documents uploaded in the panel got no embeddings since 4 September 2026.**
+  A lint cleanup (PR #21) removed the import that connects the document save
+  signal, because the linter saw it as unused. From then on neither the web
+  process nor the worker scheduled anything after a document was saved: an
+  uploaded document kept its text but the bot never learned it, and files added
+  in the Django admin were never read. Website imports were not affected, they
+  schedule their work directly. Tests missed it because they import the signal
+  module themselves. The import is back, marked so the linter keeps it, and a
+  test now starts Django in a separate process to check the signal is
+  connected. Documents saved in that window need a one-off recompute - see
+  `docs/kompletny-import.md`.
 - **Two uploads at the same time could together exceed the plan's knowledge
   limit.** Each one measured the knowledge base before either was saved, so
   each fitted on its own. The check and the save now happen under one lock per

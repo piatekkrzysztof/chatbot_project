@@ -138,6 +138,45 @@ prawdziwej sieci. `test_wire_and_decoded_limits` wymaga teraz `ResponseTooLarge`
 | 5 | Pole tekstowe w DOCX | Tekst w wiedzy dwa razy (wersja nowa i zapasowa zapisywane przez Worda) |
 | 6 | Pozycje tabulatorów w akapicie DOCX | Zbędne znaki tabulacji w treści |
 
+## Znalezione przy okazji: sygnał dokumentów nie był podłączony
+
+Przy poprawianiu testu awarii kolejki wyszło, że `documents.signals` nie jest
+importowany nigdzie w kodzie aplikacji. Import zniknął z
+`DocumentsConfig.ready()` w porządkach długu ruff (commit `059354b`, PR #21,
+4.09.2026) - ruff uznał go za nieużywany (F401), a to on podłącza sygnał.
+
+**Sprawdzone w osobnym procesie:** po `django.setup()`, po wczytaniu URL-i
+i WSGI (proces web) oraz po autodiscover Celery (worker) odbiorca
+`handle_new_document` nie był podłączony.
+
+**Skutek od wdrożenia #21:** dokument wgrany w panelu zapisywał treść, ale nie
+dostawał embeddingów - bot go nie znał. Plik dodany w panelu administracyjnym
+nie był czytany. Import stron działał, bo zleca przeliczenie wprost.
+
+**Dlaczego testy tego nie widziały:** w procesie pytest moduł i tak jest
+wczytany - wystarczy jeden `patch("documents.signals.enqueue")` w dowolnym
+teście pakietu. Test `test_document_upload_survives_broken_broker` padał,
+uruchomiony osobno, i był opisywany jako problem środowiska lokalnego.
+
+**Poprawka:** import wrócił do `ready()` z `# noqa: F401` i komentarzem.
+`documents/tests/test_podlaczenie_sygnalow.py` startuje Django w osobnym
+procesie i sprawdza, że odbiorca jest podłączony; na `apps.py` sprzed
+poprawki jest czerwony.
+
+**Po wdrożeniu - jednorazowo, na produkcji.** Najpierw lista (nic nie zmienia):
+
+```bash
+python manage.py shell -c "from documents.models import Document; bez = Document.objects.exclude(content='').filter(chunks__isnull=True).distinct(); print('bez fragmentow:', bez.count()); [print(d.id, d.tenant_id, d.source, d.name) for d in bez]; nieczytane = Document.objects.filter(processed=False, content='').exclude(file=''); print('nieodczytane pliki:', nieczytane.count())"
+```
+
+Potem przeliczenie tylko tych dokumentów (koszt embeddingów tylko dla nich)
+i odczyt nieodczytanych plików - przez kolejkę, więc worker musi już działać
+na tym wydaniu:
+
+```bash
+python manage.py shell -c "from documents.models import Document; from documents.tasks import generate_embeddings_for_document, extract_text_from_document; [generate_embeddings_for_document.delay(d.id) for d in Document.objects.exclude(content='').filter(chunks__isnull=True).distinct()]; [extract_text_from_document.delay(d.id) for d in Document.objects.filter(processed=False, content='').exclude(file='')]"
+```
+
 ## Jak jest teraz
 
 1. **Sprawdzenie limitu i zapis pod blokadą bazy wiedzy firmy**, na wszystkich
