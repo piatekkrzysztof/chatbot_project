@@ -46,8 +46,8 @@ fails if it drifts from the newest entry here.
 - Invalid encoding or CSV syntax, and two import conversations left by earlier
   imports, ended in a server error. They now get a clear 400.
 - The import has limits: 2 MiB, checked while receiving, and 5000 rows.
-- **Imported history counted as real traffic** on the dashboard and in the
-  export. It no longer does.
+- **Imported history counted as real traffic** on the dashboard. It no longer
+  does; it stays in the CSV export, so an import can be exported back.
 - The export failed for the whole company once any conversation had been deleted
   under the retention policy.
 - The export opens with correct Polish letters in Excel on Windows.

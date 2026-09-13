@@ -169,6 +169,9 @@ class TestImportu:
         wlasciciel.post(IMPORT, {"file": plik("prompt,response\nStare,Tak\n")}, format="multipart")
         assert list(logi_klientow(tenant).values_list("prompt", flat=True)) == ["Prawdziwe pytanie"]
         assert rozmowy_klientow(tenant).count() == 1
+        # Ale eksport ją zawiera: to kopia danych firmy, a import i eksport tworzą parę.
+        eksport = [wiersz[1] for wiersz in komorki(wlasciciel.get(EKSPORT).content)[1:]]
+        assert sorted(eksport) == ["Prawdziwe pytanie", "Stare"]
 
 
 def wiadomosc_bota(tenant, zrodlo="widget"):
