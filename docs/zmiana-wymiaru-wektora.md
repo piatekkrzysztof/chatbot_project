@@ -64,9 +64,16 @@ moment it is created.
 
 ### If the recomputation dies partway
 
-It is safe to re-run. `przelicz_fragmenty` deletes a document's old chunks
-before writing new ones, so it never doubles them, and it prints a line per
-document, so it is clear where it stopped.
+It is safe to re-run. Since 13 September 2026 `przelicz_fragmenty` replaces a
+document's chunks in a single transaction: old chunks disappear only together
+with the new ones being written, so a run that dies partway leaves each document
+either fully recomputed or as it was — never half-written. It never doubles
+chunks, and it prints a line per document, so it is clear where it stopped.
+
+`--wykonaj` recomputes **with force**, including documents whose text did not
+change. That is exactly what a dimension change needs: every chunk text is
+identical and every vector is wrong. Background tasks do the opposite and skip a
+document whose chunks already match its text, so they would not help here.
 
 ### The watch that catches a forgotten step
 

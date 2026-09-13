@@ -57,11 +57,17 @@ class Command(BaseCommand):
 
         for dokument in dokumenty:
             bylo = DocumentChunk.objects.filter(document=dokument).count()
-            # Na sucho liczymy sam podział — bez wywołań API, więc bez kosztu
+            # Na sucho liczymy sam podział — bez wywołań API, więc bez kosztu.
+            #
+            # wymus=True: generator pomija dokumenty, których opublikowane
+            # fragmenty mają już te same treści. Ta komenda istnieje jednak po
+            # to, żeby przeliczyć MIMO braku zmian w treści - po zmianie modelu
+            # embeddingów albo wymiaru wektora treści są identyczne, a wektory
+            # trzeba policzyć od nowa.
             nowych = (
                 len(podziel_na_fragmenty(dokument.content))
                 if na_sucho
-                else generate_embeddings_for_document(dokument)
+                else generate_embeddings_for_document(dokument, wymus=True)
             )
             bylo_lacznie += bylo
             nowych_lacznie += nowych
