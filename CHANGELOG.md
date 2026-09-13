@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.20] — 2026-09-13
+
+### Added
+
+- `ocen_generowanie --wariant` compares versions of the system prompt on the
+  real model without changing what visitors get. Needed because the measurement
+  after 2.0.15 found a regression: the bot more often declines in words but
+  without the `[BRAK_ODPOWIEDZI]` marker. When no fragment matched, such an
+  answer is recorded as small talk, so the question does not reach the gap
+  report and the widget does not offer contact. The only prompt change in that
+  period was the knowledge delimiters from 2.0.15; the variants isolate which
+  part of it is responsible and test a fix before it reaches production.
+
 ## [2.0.19] — 2026-09-13
 
 ### Security

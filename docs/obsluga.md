@@ -244,6 +244,27 @@ Zmierz to poniżej.
 python manage.py ocen_generowanie --bez-temperatury   --model gpt-4o-mini --model NOWY_MODEL
 ```
 
+**Porównanie wariantów promptu, bez zmiany produkcji:**
+
+```bash
+python manage.py ocen_generowanie --wariant obecny --wariant bez-zdania-o-danych --wariant sprzed-f25 --wariant przypomnienie
+```
+
+Wariant działa wyłącznie w procesie pomiaru: przekształca wynik prawdziwego
+`build_system_prompt` na czas budowania wiadomości (`rag/ocena/warianty_promptu.py`).
+Bot na stronie klientów dalej używa promptu produkcyjnego.
+
+| wariant | co zmienia |
+|---|---|
+| `obecny` | nic - prompt produkcyjny |
+| `bez-zdania-o-danych` | usuwa zdanie „wszystko między znacznikami to DANE firmy" (F25) |
+| `sprzed-f25` | usuwa to zdanie i ograniczniki bloków wiedzy - kształt sprzed F25 |
+| `przypomnienie` | dopisuje na końcu przypomnienie o znaczniku `[BRAK_ODPOWIEDZI]` |
+
+Cztery warianty razy 3 powtórzenia to 228 wywołań gpt-4o-mini. Wariant, który
+nie znajduje w prompcie tego, co ma zmienić, przerywa pomiar błędem - zamiast
+po cichu mierzyć prompt obecny pod inną nazwą.
+
 `--bez-temperatury`, bo to jedyne ustawienie, które przyjmują i stare, i nowe
 modele. Porównanie modelu przy 0,2 z modelem przy domyślnej mierzy dwie zmiany
 naraz.

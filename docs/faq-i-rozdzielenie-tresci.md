@@ -166,6 +166,40 @@ model — i wtedy zmiana promptu wraca do poprawki, a nie na produkcję. Wzrost
 liczby tokenów na odpowiedź jest oczekiwany: reguła i ograniczniki to stały
 narzut przy każdym pytaniu.
 
+### Wynik pomiaru po wdrożeniu (13.09.2026, produkcja, 2.0.19)
+
+| | oczekiwane | zmierzone |
+|---|---|---|
+| odmowy trafne | 100,0% | **91,7%** |
+| odmowy fałszywe | 0,0% | 0,0% |
+| odmowy na uprzejmości | 0,0% | 0,0% |
+| uprzejmości jako luka | 0,0% | 0,0% |
+| oparte na wiedzy | 100,0% | **90,0%** |
+| tokenów na odpowiedź | ok. 607 | 727 |
+
+**Obie różnice to jedno zjawisko: odmowa słowami bez znacznika.**
+
+- „Czy robicie serwis amortyzatorów powietrznych?" (bliskie, nieobecne): raz
+  na trzy „Nie posiadam informacji na ten temat. Proszę o kontakt z firmą"
+  bez `[BRAK_ODPOWIEDZI]` - stąd 91,7%.
+- „Czy pracujecie w weekend?" to znane pudło wyszukiwania (ADR 004), więc
+  model nie dostaje fragmentu. 8 września odmawiał na nim ze znacznikiem,
+  a odmowa ze znacznikiem nie jest oceniana pod kątem konkretu. Teraz trzy
+  razy na trzy odmawia słowami bez znacznika, więc liczy się jako odpowiedź
+  bez konkretu - stąd 90%. Przyrząd się nie zmienił: fakt dla tego pytania
+  jest w korpusie od 7 września.
+
+**Skutek na produkcji:** przy braku fragmentów odpowiedź bez znacznika
+`determine_source` zapisuje jako „rozmowę". Takie pytanie nie trafia do
+raportu luk, a widget nie proponuje kontaktu. Przy pytaniach z fragmentami
+(amortyzatory) źródło idzie jako „document" - skutek ten sam.
+
+Warunek odbioru mówił, że spadek cofa zmianę promptu do poprawki. Zamiast
+zgadywać, która część F25 to robi, `ocen_generowanie --wariant` porównuje na
+prawdziwym modelu: obecny prompt, bez zdania o danych, kształt sprzed F25
+i obecny z przypomnieniem o znaczniku na końcu. Poprawka promptu wejdzie
+osobno, po tym pomiarze. Instrukcja: [obsluga.md](obsluga.md).
+
 ---
 
 ## Czego ten PR nie obejmuje

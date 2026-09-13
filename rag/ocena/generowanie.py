@@ -56,6 +56,7 @@ from api.utils.pokrycie import ObcinaczZnacznika, determine_source
 from chat.models import ZRODLO_BRAK_WIEDZY, Conversation
 from rag.ocena.korpus import DO_WEKTOROW, Pytanie
 from rag.ocena.przebieg import wczytaj_wzorzec, zaloz_baze_wiedzy
+from rag.ocena.warianty_promptu import wariant_promptu
 
 
 @dataclass(frozen=True)
@@ -236,7 +237,7 @@ def _wektor_pytania(wzorzec, pytanie):
     return odpowiedz
 
 
-def zapytaj(firma, pytanie, wzorzec, model=None, temperatura=...) -> Odpowiedz:
+def zapytaj(firma, pytanie, wzorzec, model=None, temperatura=..., wariant=None) -> Odpowiedz:
     """
     Jedno pytanie przez prawdziwą ścieżkę czatu, z zamrożonym wektorem.
 
@@ -246,7 +247,9 @@ def zapytaj(firma, pytanie, wzorzec, model=None, temperatura=...) -> Odpowiedz:
     """
     rozmowa = Conversation.objects.create(tenant=firma, user_identifier="ocena-generowania")
 
-    with patch("rag.engine.client") as klient:
+    # Wariant promptu obejmuje wyłącznie budowanie wiadomości - patrz
+    # rag/ocena/warianty_promptu.py.
+    with patch("rag.engine.client") as klient, wariant_promptu(wariant):
         klient.embeddings.create.return_value = _wektor_pytania(wzorzec, pytanie)
         wiadomosci, fragmenty, faqi, padlo = build_chat_messages(firma, rozmowa, pytanie.tresc)
 
@@ -271,7 +274,9 @@ def zapytaj(firma, pytanie, wzorzec, model=None, temperatura=...) -> Odpowiedz:
     )
 
 
-def ocen_generowanie(model=None, powtorzen=1, po_pytaniu=None, temperatura=...) -> OcenaGenerowania:
+def ocen_generowanie(
+    model=None, powtorzen=1, po_pytaniu=None, temperatura=..., wariant=None
+) -> OcenaGenerowania:
     """
     Cały korpus przez model, `powtorzen` razy.
 
@@ -283,6 +288,9 @@ def ocen_generowanie(model=None, powtorzen=1, po_pytaniu=None, temperatura=...) 
     ustawieniem WSPÓLNYM dla niego i dla gpt-4o-mini jest brak parametru.
     Porównanie modelu przy 0,2 z modelem przy domyślnej mierzyłoby dwie
     zmiany naraz i nie dałoby się powiedzieć, która co zrobiła.
+
+    `wariant` to nazwa z `rag.ocena.warianty_promptu.WARIANTY` - prompt
+    w innym kształcie tylko w tym pomiarze. None znaczy prompt produkcyjny.
     """
     wzorzec = wczytaj_wzorzec()
     firma, _po_id = zaloz_baze_wiedzy(wzorzec)
@@ -296,6 +304,7 @@ def ocen_generowanie(model=None, powtorzen=1, po_pytaniu=None, temperatura=...) 
                 wzorzec,
                 model=model or settings.OPENAI_CHAT_MODEL,
                 temperatura=temperatura,
+                wariant=wariant,
             )
             odpowiedzi.append(odpowiedz)
             if po_pytaniu:
