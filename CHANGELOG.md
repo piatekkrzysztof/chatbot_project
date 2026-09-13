@@ -16,6 +16,36 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.17] — 2026-09-13
+
+### Fixed
+
+- **Images linked from a customer's website were stored as knowledge.** Every
+  response went through HTML extraction, whatever it was. A 270 KB photo became
+  227 000 characters of decoded bytes: counted against the plan's knowledge
+  limit, paid for in embeddings, and matched "a little" against every question.
+  Responses are now handled by content type, and anything that is not a page
+  or a supported document is skipped with a visible error.
+- **A PDF price list linked from the website was stored as PDF syntax**, not as
+  its text. PDF, DOCX, TXT and MD found on the site now go through the same
+  isolated parser as a file uploaded in the panel.
+- **One large file linked from the site stopped the whole import.** An
+  oversized response was the same error as an exhausted crawl budget, so a
+  single 3 MB brochure, or a sitemap of a shop with thousands of products,
+  left the customer with no pages imported at all. Now only that URL is skipped.
+- **The page the customer added could be left out.** When the site had a
+  sitemap, only sitemap addresses were imported, so a specific page such as a
+  price list might never reach the bot. The source address is now always
+  imported first.
+- **Blog posts crowded out the pages that matter.** WordPress sitemaps list
+  posts before pages, and the 20-page limit filled with posts before the price
+  list and contact page were reached. Page sitemaps now come first, tag,
+  category and author sitemaps last, and other sitemaps share the limit evenly.
+  The limit itself is unchanged.
+- Links to photos no longer take up the 20 page slots before real subpages.
+- The same homepage spelled with and without a trailing slash no longer creates
+  a second copy of the document.
+
 ## [2.0.16] — 2026-09-13
 
 ### Fixed

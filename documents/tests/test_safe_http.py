@@ -281,7 +281,9 @@ def test_wire_and_decoded_limits(headers, body, network, monkeypatch):
     monkeypatch.setattr(http, "MAX_WIRE_BYTES", 100)
     monkeypatch.setattr(http, "MAX_BODY_BYTES", 100)
     _, _, wires = network(b"HTTP/1.1 200 OK\r\n" + headers + b"\r\n" + body)
-    with pytest.raises(http.FetchLimitExceeded):
+    # ResponseTooLarge, not just FetchLimitExceeded: discovery skips one oversized
+    # response but stops on an exhausted crawl budget (F10).
+    with pytest.raises(http.ResponseTooLarge):
         http.fetch_page("http://example.com/")
     assert wires[0].closed
 

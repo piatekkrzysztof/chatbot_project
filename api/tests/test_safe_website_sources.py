@@ -91,18 +91,28 @@ def test_task_filters_host_prefix_attack_but_accepts_sibling_paths(monkeypatch, 
         ],
     )
     crawl_and_import_website_source(source.id)
-    import_page.assert_called_once_with(
-        tenant=tenant, url="https://example.com/faq", name="https://example.com/faq"
-    )
+    # The source URL itself is always imported first (F10); the prefix attack is not.
+    assert [call.kwargs["url"] for call in import_page.call_args_list] == [
+        "https://example.com/start",
+        "https://example.com/faq",
+    ]
     source.refresh_from_db()
     assert source.last_error == ""
 
 
 @pytest.mark.django_db
-def test_task_does_not_report_success_when_every_link_is_outside_site(monkeypatch, tenant):
+def test_task_does_not_report_success_when_source_fails_and_links_are_outside_site(
+    monkeypatch, tenant
+):
     source = WebsiteSource.objects.create(tenant=tenant, url="https://example.com")
     monkeypatch.setattr(
         "documents.tasks.sitemap_search", lambda url: ["https://example.com.evil.org/"]
+    )
+    # The source URL is always attempted (F10). Without this the test reached
+    # the real network.
+    monkeypatch.setattr(
+        "documents.tasks.import_website_as_document",
+        Mock(side_effect=ValueError("strona nieosiagalna")),
     )
     crawl_and_import_website_source(source.id)
     source.refresh_from_db()

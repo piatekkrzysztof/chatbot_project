@@ -8,7 +8,7 @@ from rest_framework.exceptions import ValidationError
 from accounts.plans import recrawl_days_for
 from documents.file_limits import MAX_DOCUMENT_BYTES, InvalidUpload, UploadTooLarge
 from documents.models import Document, WebsiteSource
-from documents.safe_http import crawl_fetch_budget, same_site
+from documents.safe_http import FetchError, crawl_fetch_budget, same_site, validate_url
 from documents.sitemaps import sitemap_search
 from documents.utils.embedding_generator import (
     generate_embeddings_for_document as _generate_embeddings,
@@ -93,12 +93,13 @@ def generate_embeddings_for_document(document_id):
         return
 
     if not document.content:
-        # Świadomy wyjątek od zasady „fragmenty wynikają z treści": pusta treść
-        # NIE kasuje tu fragmentów. Pusta treść w bazie bierze się dziś głównie
-        # z pobrania strony, które nic nie zwróciło - i skasowanie wiedzy po
-        # jednym nieudanym pobraniu byłoby gorsze od odpowiadania z poprzedniej
-        # wersji do następnego odświeżenia. Właściwa poprawka należy do importu
-        # (F10): pusta strona nie powinna nadpisywać treści.
+        # Pusta treść NIE kasuje tu fragmentów. Żaden import jej nie zapisuje:
+        # upload i odczyt pliku odrzucają plik bez tekstu, a pobranie strony
+        # poniżej progu treści kończy się błędem przed zapisem (pilnuje tego
+        # documents/tests/test_kompletny_import.py). Pusta treść bierze się
+        # więc tylko z ręcznej edycji w panelu administracyjnym - i tam
+        # skasowanie wiedzy jednym przypadkowym zapisem byłoby gorsze niż
+        # odpowiadanie z poprzedniej wersji.
         logger.warning("Dokument %s nie zawiera tresci - pomijam przeliczenie.", document.id)
         return
 
@@ -115,6 +116,48 @@ def generate_embeddings_for_document(document_id):
 
 
 MAX_PAGES_PER_CRAWL = 20
+
+
+def _klucz_adresu(adres):
+    try:
+        return validate_url(adres)
+    except FetchError:
+        return adres
+
+
+def kolejnosc_pobierania(tenant, adres_zrodla, znalezione):
+    """
+    Lista podstron do pobrania: adres źródła pierwszy, bez kopii, najwyżej limit.
+
+    Adres źródła musi być na liście zawsze. Klient dodaje konkretną podstronę,
+    np. cennik, a mapa strony wymienia dwadzieścia innych adresów przed nią
+    albo nie wymienia jej wcale - wcześniej taka podstrona nie trafiała do
+    wiedzy nigdy, a pobieranie kończyło się sukcesem.
+
+    Ta sama podstrona bywa zapisana w dwóch pisowniach: "https://firma.pl"
+    z adresu źródła i "https://firma.pl/" z mapy strony. Gdy firma ma już
+    dokument pod jedną z nich, używamy tamtej - inaczej powstaje drugi dokument
+    z tą samą treścią, a pierwszy zostaje w wiedzy na zawsze.
+    """
+    zapisane = {}
+    for adres in (
+        Document.objects.filter(tenant=tenant, source="website")
+        .exclude(source_url="")
+        .order_by("id")
+        .values_list("source_url", flat=True)
+    ):
+        zapisane.setdefault(_klucz_adresu(adres), adres)
+
+    wynik, znane = [], set()
+    for adres in [adres_zrodla, *znalezione]:
+        klucz = _klucz_adresu(adres)
+        if klucz in znane:
+            continue
+        znane.add(klucz)
+        wynik.append(zapisane.get(klucz, adres))
+        if len(wynik) >= MAX_PAGES_PER_CRAWL:
+            break
+    return wynik
 
 
 @shared_task
@@ -136,14 +179,13 @@ def _crawl_and_import_website_source(source_id):
 
         # pobierz podstrony z sitemap (ograniczone do rozsądnej liczby, sitemapa bywa ogromna)
 
-        urls = (sitemap_search(source.url) or [])[:MAX_PAGES_PER_CRAWL]
-        if not urls:
-            urls = discover_links_recursively(
+        znalezione = sitemap_search(source.url) or []
+        if not znalezione:
+            znalezione = discover_links_recursively(
                 source.url, max_depth=2, max_pages=MAX_PAGES_PER_CRAWL
             )
 
-        if not urls:
-            urls = [url]  # fallback – tylko główna strona
+        urls = kolejnosc_pobierania(tenant, url, znalezione)
 
         pobranych, nieudanych = 0, []
 
