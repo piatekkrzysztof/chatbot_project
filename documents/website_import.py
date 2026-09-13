@@ -2,6 +2,7 @@ import os
 from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
+from django.db import transaction
 
 from documents.isolated_parser import parse_bytes
 from documents.models import Document
@@ -15,7 +16,7 @@ from documents.safe_http import (
 )
 from documents.utils.queue import enqueue
 from documents.utils.tresc_strony import MINIMUM_ZNAKOW, TrescStrony, wyciagnij_tresc
-from documents.validators import sprawdz_limit_bazy_wiedzy
+from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
 
 TYPY_HTML = {"text/html", "application/xhtml+xml"}
 
@@ -165,44 +166,52 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     zmienić w panelu, adres jest tym, co faktycznie pobieramy.
     """
     text, znakow_widocznych = fetch_text_from_url(url)
-    istniejacy = Document.objects.filter(tenant=tenant, source="website", source_url=url).first()
 
-    if istniejacy and istniejacy.content == text:
-        # Treść bez zmian, ale miara mogła dojść dopiero teraz — zapisujemy ją
-        # bez ruszania fragmentów.
-        if istniejacy.znakow_na_stronie != znakow_widocznych:
-            istniejacy.znakow_na_stronie = znakow_widocznych
-            istniejacy.save(update_fields=["znakow_na_stronie"])
-        # Strona bez zmian: nie ruszamy fragmentów. Przeliczanie ich co dobę
-        # bez powodu kosztowałoby u klienta z planem Pro tyle samo, co realne
-        # odświeżenie, a niczego by nie wnosiło.
-        return istniejacy
+    # Pobranie strony trwa poza blokadą; odczyt istniejącej wersji, sprawdzenie
+    # limitu i zapis - pod blokadą bazy wiedzy firmy, jak przy uploadzie.
+    with transaction.atomic():
+        zablokuj_baze_wiedzy(tenant)
+        istniejacy = Document.objects.filter(
+            tenant=tenant, source="website", source_url=url
+        ).first()
 
-    # Ten sam limit co przy uploadzie. Bez tego dałoby się go obejść, dodając
-    # stronę zamiast dokumentu — a crawler potrafi zaciągnąć dziesiątki podstron.
-    sprawdz_limit_bazy_wiedzy(
-        tenant,
-        text,
-        zastepowany_tekst=istniejacy.content if istniejacy else "",
-    )
+        if istniejacy and istniejacy.content == text:
+            # Treść bez zmian, ale miara mogła dojść dopiero teraz — zapisujemy ją
+            # bez ruszania fragmentów.
+            if istniejacy.znakow_na_stronie != znakow_widocznych:
+                istniejacy.znakow_na_stronie = znakow_widocznych
+                istniejacy.save(update_fields=["znakow_na_stronie"])
+            # Strona bez zmian: nie ruszamy fragmentów. Przeliczanie ich co dobę
+            # bez powodu kosztowałoby u klienta z planem Pro tyle samo, co realne
+            # odświeżenie, a niczego by nie wnosiło.
+            return istniejacy
 
-    if istniejacy:
-        istniejacy.content = text
-        istniejacy.name = name
-        istniejacy.znakow_na_stronie = znakow_widocznych
-        istniejacy.save(update_fields=["content", "name", "znakow_na_stronie"])
-        document = istniejacy
-    else:
-        document = Document.objects.create(
-            tenant=tenant,
-            name=name,
-            content=text,
-            source="website",
-            # Strona jest publiczna, więc bot może podać do niej link jako źródło
-            source_url=url,
-            znakow_na_stronie=znakow_widocznych,
+        # Ten sam limit co przy uploadzie. Bez tego dałoby się go obejść, dodając
+        # stronę zamiast dokumentu — a crawler potrafi zaciągnąć dziesiątki podstron.
+        sprawdz_limit_bazy_wiedzy(
+            tenant,
+            text,
+            zastepowany_tekst=istniejacy.content if istniejacy else "",
         )
 
+        if istniejacy:
+            istniejacy.content = text
+            istniejacy.name = name
+            istniejacy.znakow_na_stronie = znakow_widocznych
+            istniejacy.save(update_fields=["content", "name", "znakow_na_stronie"])
+            document = istniejacy
+        else:
+            document = Document.objects.create(
+                tenant=tenant,
+                name=name,
+                content=text,
+                source="website",
+                # Strona jest publiczna, więc bot może podać do niej link jako źródło
+                source_url=url,
+                znakow_na_stronie=znakow_widocznych,
+            )
+
+    # Zlecenie po zatwierdzeniu zapisu - worker musi już widzieć nową treść.
     # Przeliczenie podmienia fragmenty w jednej transakcji (F17), więc
     # odświeżony dokument nie odpowiada dwiema wersjami naraz.
     # Import w srodku funkcji, zeby przerwac cykl: `documents.tasks` importuje

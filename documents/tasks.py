@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from celery import shared_task
+from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -15,7 +16,7 @@ from documents.utils.embedding_generator import (
 )
 from documents.utils.queue import enqueue
 from documents.utils.text_extraction import UnsupportedFileType, extract_text
-from documents.validators import sprawdz_limit_bazy_wiedzy
+from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
 from documents.website_import import discover_links_recursively, import_website_as_document
 
 logger = logging.getLogger(__name__)
@@ -42,11 +43,19 @@ def extract_text_from_document(document_id):
             content = extract_text(handle, filename=doc.file.name)
         if not content:
             raise InvalidUpload("Brak tekstu w dokumencie. Dla skanu najpierw wykonaj OCR.")
-        sprawdz_limit_bazy_wiedzy(doc.tenant, content, zastepowany_tekst=doc.content)
-        doc.content = content
-        doc.processed = True
-        doc.processing_error = ""
-        doc.save()
+        # Odczyt pliku trwa poza blokadą; sprawdzenie limitu i zapis - pod nią.
+        # Zastępowaną treść czytamy ponownie pod blokadą, bo w trakcie odczytu
+        # pliku mogła się zmienić.
+        with transaction.atomic():
+            zablokuj_baze_wiedzy(doc.tenant)
+            zastepowany = Document.objects.filter(pk=doc.pk).values_list("content", flat=True)
+            sprawdz_limit_bazy_wiedzy(
+                doc.tenant, content, zastepowany_tekst=zastepowany.first() or ""
+            )
+            doc.content = content
+            doc.processed = True
+            doc.processing_error = ""
+            doc.save()
     except (InvalidUpload, UnsupportedFileType, ValidationError) as error:
         message = (
             "Dokument przekracza limit bazy wiedzy w Twoim planie. Zmniejsz plik."

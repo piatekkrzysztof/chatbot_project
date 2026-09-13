@@ -16,12 +16,17 @@ je w całości i limit dałoby się obejść, dodając stronę zamiast dokumentu
 Tekst jest też tym, co realnie kosztuje: embeddingi liczymy od znaków.
 """
 
+from django.db import connection
 from django.db.models import Sum
 from django.db.models.functions import Length
 from rest_framework.exceptions import ValidationError
 
 from accounts.plans import get_plan
 from documents.models import Document
+
+# Przestrzeń nazw blokady doradczej PostgreSQL dla bazy wiedzy. Dowolna stała,
+# byle inna niż w innych blokadach doradczych projektu (dziś nie ma innych).
+PRZESTRZEN_BLOKADY_BAZY_WIEDZY = 7101
 
 # Plan spoza katalogu (subskrypcja sprzed cennika, brak subskrypcji, literówka).
 # Odpowiada najniższemu planowi: na tyle dużo, żeby nie zablokować klienta,
@@ -49,6 +54,32 @@ def rozmiar_bazy_wiedzy(tenant):
     """
     wynik = Document.objects.filter(tenant=tenant).aggregate(razem=Sum(Length("content")))
     return wynik["razem"] or 0
+
+
+def zablokuj_baze_wiedzy(tenant):
+    """
+    Wstrzymuje dodawanie wiedzy tej firmy do końca bieżącej transakcji.
+
+    Sprawdzenie limitu i zapis muszą być jedną operacją. Wcześniej nie były:
+    dwa uploady naraz mierzyły ten sam stan bazy, każdy z osobna mieścił się
+    w limicie i oba się zapisywały - razem ponad limit planu. To samo przy
+    równoległym odczycie plików w tle i pobieraniu stron.
+
+    Blokada doradcza, nie `select_for_update` na firmie. Wiersz firmy blokuje
+    już rezerwacja wiadomości czatu (accounts/message_quota.py), a upload trzyma
+    tę blokadę także podczas zapisu pliku do magazynu - blokując wiersz firmy,
+    wstrzymywalibyśmy na ten czas każdą rozmowę w widżecie tej firmy.
+    """
+    if not connection.in_atomic_block:
+        raise RuntimeError("zablokuj_baze_wiedzy wymaga transaction.atomic().")
+    if connection.vendor != "postgresql":
+        # SQLite i tak szereguje zapisy; blokada doradcza istnieje tylko w PostgreSQL.
+        return
+    with connection.cursor() as kursor:
+        kursor.execute(
+            "SELECT pg_advisory_xact_lock(%s, %s)",
+            [PRZESTRZEN_BLOKADY_BAZY_WIEDZY, tenant.pk],
+        )
 
 
 def sprawdz_limit_bazy_wiedzy(tenant, dodawany_tekst="", zastepowany_tekst=""):

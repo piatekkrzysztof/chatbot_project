@@ -43,11 +43,55 @@ def bounded_read(handle, limit):
     return data
 
 
-def check_text(data):
+POLSKIE_LITERY = re.compile("[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]")
+ZNAKI_C1 = re.compile("[\x80-\x9f]")
+
+
+def read_text(data):
+    """
+    Tekst pliku TXT/MD w UTF-8, UTF-16 z BOM, Windows-1250 albo ISO-8859-2.
+
+    Wcześniej przyjmowaliśmy wyłącznie UTF-8, a cennik zapisany w starszym
+    Notatniku albo wyeksportowany z programu księgowego bywa w Windows-1250.
+    Plik był odrzucany jako „nie UTF-8", choć tekst był poprawny.
+
+    Windows-1250 i ISO-8859-2 różnią się akurat polskimi literami (ą, ś, ź,
+    Ą, Ś, Ź), więc wybieramy wariant z większą liczbą polskich liter, a przy
+    remisie Windows-1250, domyślne kodowanie polskiego Windowsa. Bajty tych
+    liter w drugim kodowaniu to znaki spoza alfabetu albo sterujące, więc
+    liczenie rozstrzyga także plik z samymi ś, ź i Ą.
+
+    Wariant ze znakami sterującymi C1 (U+0080-U+009F) odpada. ISO-8859-2
+    dekoduje każdy bajt, więc bez tego plik z bajtami bez znaczenia w żadnym
+    kodowaniu przechodził jako tekst z niewidocznymi znakami.
+    """
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        try:
+            return data.decode("utf-16")
+        except UnicodeError:
+            raise InvalidUpload("Nie udało się odczytać pliku tekstowego w UTF-16.") from None
     try:
-        text = data.decode("utf-8-sig")
+        return data.decode("utf-8-sig")
     except UnicodeError:
-        raise InvalidUpload("Plik tekstowy musi być zapisany w kodowaniu UTF-8.") from None
+        pass
+    candidates = []
+    for position, encoding in enumerate(["cp1250", "iso-8859-2"]):
+        try:
+            text = data.decode(encoding)
+        except UnicodeError:
+            continue
+        if ZNAKI_C1.search(text):
+            continue
+        candidates.append((len(POLSKIE_LITERY.findall(text)), -position, text))
+    if not candidates:
+        raise InvalidUpload(
+            "Nie rozpoznano kodowania pliku tekstowego. Zapisz go w UTF-8 i wgraj ponownie."
+        )
+    return max(candidates)[2]
+
+
+def check_text(data):
+    text = read_text(data)
     if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", text):
         raise InvalidUpload("Plik tekstowy zawiera dane binarne lub niedozwolone znaki.")
     return check_extracted_text(text)
@@ -114,6 +158,60 @@ def inspect_document(data, name, *, full=True):
     return kind
 
 
+# Właściwości akapitów, przebiegów i tabel nie zawierają tekstu. Omijamy je
+# w całości: `w:tab` wewnątrz `w:pPr/w:tabs` to definicja pozycji tabulatora,
+# nie tabulator w treści, i wcześniej dopisywał zbędne znaki.
+DOCX_PROPERTIES = {"pPr", "rPr", "tblPr", "trPr", "tcPr", "sectPr", "tblGrid"}
+
+
+def _docx_name(node):
+    return node.tag.rsplit("}", 1)[-1] if isinstance(node.tag, str) else ""
+
+
+def _docx_nearest(node, name):
+    """Najbliższe elementy o tej nazwie, także opakowane kontrolkami treści (w:sdt)."""
+    for child in node:
+        child_name = _docx_name(child)
+        if child_name == name:
+            yield child
+        elif child_name not in {"tbl", "Fallback"}:
+            yield from _docx_nearest(child, name)
+
+
+def _docx_text(node, parts):
+    name = _docx_name(node)
+    if name == "Fallback" or name in DOCX_PROPERTIES:
+        # mc:AlternateContent: Word zapisuje pole tekstowe dwa razy, w wersji
+        # nowej (Choice) i zapasowej dla starszych programów (Fallback).
+        # Wcześniej tekst każdego pola tekstowego trafiał do wiedzy podwójnie.
+        return
+    if name == "tbl":
+        # Wiersz tabeli w jednej linii: "Strzyżenie | 50 zł". Wcześniej każda
+        # komórka była osobną linią, więc usługa i jej cena mogły trafić do
+        # różnych fragmentów, a bot odpowiadał ceną bez usługi.
+        for row in _docx_nearest(node, "tr"):
+            cells = []
+            for cell in _docx_nearest(row, "tc"):
+                inner = []
+                _docx_text(cell, inner)
+                cells.append(" ".join("".join(inner).split()))
+            if any(cells):
+                parts.append(" | ".join(cells) + "\n")
+        return
+    if name == "t" and node.text:
+        parts.append(node.text)
+    elif name == "tab":
+        parts.append("\t")
+    elif name in {"br", "cr"}:
+        parts.append("\n")
+    elif name == "noBreakHyphen":
+        parts.append("-")
+    for child in node:
+        _docx_text(child, parts)
+    if name == "p":
+        parts.append("\n")
+
+
 def extract_docx(data):
     from defusedxml import ElementTree
     from defusedxml.common import DefusedXmlException
@@ -134,12 +232,8 @@ def extract_docx(data):
                 if len(body) > MAX_XML_BYTES or total > MAX_ZIP_BYTES:
                     raise UploadTooLarge("Rozpakowany plik DOCX przekracza limit rozmiaru.")
                 tree = ElementTree.fromstring(body, forbid_dtd=True)
-                for node in tree.iter():
-                    tag = node.tag.rsplit("}", 1)[-1]
-                    if tag == "t" and node.text:
-                        parts.append(node.text)
-                    elif tag in {"p", "br", "tab"}:
-                        parts.append("\n" if tag != "tab" else "\t")
+                _docx_text(tree, parts)
+                parts.append("\n")
         return check_extracted_text("".join(parts))
     except (zipfile.BadZipFile, ElementTree.ParseError, DefusedXmlException, RuntimeError):
         raise InvalidUpload("Nie udało się odczytać pliku DOCX.") from None
