@@ -28,6 +28,7 @@ Trzy liczby, w kolejności ważności
     python manage.py ocen_generowanie
     python manage.py ocen_generowanie --model gpt-4o-mini --model NOWY
     python manage.py ocen_generowanie --powtorzen 5
+    python manage.py ocen_generowanie --wariant obecny --wariant przypomnienie
 
 To kosztuje prawdziwe pieniądze: 19 pytań razy liczba powtórzeń, razy liczba
 modeli. Komenda mówi, ile wywołań zrobi, zanim je zrobi.
@@ -42,6 +43,7 @@ from django.db import transaction
 
 from rag.ocena.generowanie import niestabilne, ocen_generowanie, opisz_bledy
 from rag.ocena.korpus import PYTANIA
+from rag.ocena.warianty_promptu import WARIANTY
 
 
 class Command(BaseCommand):
@@ -78,6 +80,19 @@ class Command(BaseCommand):
             action="store_true",
             help="Wypisz treść każdej odpowiedzi, nie tylko rozstrzygnięcie.",
         )
+        parser.add_argument(
+            "--wariant",
+            action="append",
+            dest="warianty",
+            choices=list(WARIANTY),
+            metavar="NAZWA",
+            help=(
+                "Wariant promptu systemowego tylko w tym pomiarze - produkcja zostaje bez "
+                "zmian. Można podać wielokrotnie, żeby porównać. Dostępne: "
+                + ", ".join(WARIANTY)
+                + "."
+            ),
+        )
 
     def handle(self, *args, **opcje):
         if not settings.OPENAI_API_KEY:
@@ -86,12 +101,17 @@ class Command(BaseCommand):
             raise CommandError("--powtorzen musi być dodatnie.")
 
         modele = opcje["modele"] or [settings.OPENAI_CHAT_MODEL]
-        wywolan = len(PYTANIA) * opcje["powtorzen"] * len(modele)
+        warianty = opcje["warianty"] or ["obecny"]
+        wywolan = len(PYTANIA) * opcje["powtorzen"] * len(modele) * len(warianty)
 
         self.stdout.write(
             f"{len(PYTANIA)} pytan x {opcje['powtorzen']} powtorzen x {len(modele)} "
-            f"model(e) = {wywolan} platnych wywolan API."
+            f"model(e) x {len(warianty)} wariant(y) promptu = {wywolan} platnych wywolan API."
         )
+        if warianty != ["obecny"]:
+            self.stdout.write(
+                "Warianty promptu dzialaja tylko w tym pomiarze - produkcja bez zmian."
+            )
         temperatura = None if opcje["bez_temperatury"] else ...
         opis_temp = (
             "domyslna modelu (parametr nie wysylany)"
@@ -103,36 +123,39 @@ class Command(BaseCommand):
 
         oceny = {}
         for model in modele:
-            self.stdout.write(self.style.MIGRATE_HEADING(f"Model: {model}"))
-            # Wycofanie transakcji zamiast sprzatania po sobie: korpus wjezdza
-            # do bazy jako prawdziwe dokumenty, wiec bez tego komenda
-            # diagnostyczna zostawialaby w bazie klienta wymyslony sklep
-            # rowerowy - i to przy kazdym uruchomieniu.
-            try:
-                with transaction.atomic():
-                    oceny[model] = ocen_generowanie(
-                        model=model,
-                        powtorzen=opcje["powtorzen"],
-                        po_pytaniu=self._kropka,
-                        temperatura=temperatura,
+            for wariant in warianty:
+                etykieta = model if len(warianty) == 1 else f"{model} [{wariant}]"
+                self.stdout.write(self.style.MIGRATE_HEADING(f"Model: {etykieta}"))
+                # Wycofanie transakcji zamiast sprzatania po sobie: korpus wjezdza
+                # do bazy jako prawdziwe dokumenty, wiec bez tego komenda
+                # diagnostyczna zostawialaby w bazie klienta wymyslony sklep
+                # rowerowy - i to przy kazdym uruchomieniu.
+                try:
+                    with transaction.atomic():
+                        oceny[etykieta] = ocen_generowanie(
+                            model=model,
+                            powtorzen=opcje["powtorzen"],
+                            po_pytaniu=self._kropka,
+                            temperatura=temperatura,
+                            wariant=wariant,
+                        )
+                        transaction.set_rollback(True)
+                except Exception as blad:
+                    # Pojedynczy model, ktory odrzuca ustawienia, nie moze zabrac
+                    # wyniku pozostalym - a wlasnie po to sie je porownuje.
+                    self.stdout.write("")
+                    self.stdout.write(self.style.ERROR(f"  {etykieta}: {str(blad)[:220]}"))
+                    self.stdout.write(
+                        "  Sprawdz `manage.py sprawdz_model --model "
+                        f"{model}` - to jedno wywolanie zamiast dziesiatek."
                     )
-                    transaction.set_rollback(True)
-            except Exception as blad:
-                # Pojedynczy model, ktory odrzuca ustawienia, nie moze zabrac
-                # wyniku pozostalym - a wlasnie po to sie je porownuje.
+                    self.stdout.write("")
+                    continue
                 self.stdout.write("")
-                self.stdout.write(self.style.ERROR(f"  {model}: {str(blad)[:220]}"))
-                self.stdout.write(
-                    "  Sprawdz `manage.py sprawdz_model --model "
-                    f"{model}` - to jedno wywolanie zamiast dziesiatek."
-                )
+                self._wypisz(oceny[etykieta], opcje["pokaz_odpowiedzi"])
                 self.stdout.write("")
-                continue
-            self.stdout.write("")
-            self._wypisz(oceny[model], opcje["pokaz_odpowiedzi"])
-            self.stdout.write("")
 
-        if len(modele) > 1:
+        if len(oceny) > 1:
             self._porownaj(oceny)
 
     def _kropka(self, odpowiedz):
@@ -215,12 +238,12 @@ class Command(BaseCommand):
     def _porownaj(self, oceny):
         self.stdout.write(self.style.MIGRATE_HEADING("POROWNANIE"))
         self.stdout.write(
-            f"{'model':<24} {'odm. trafne':>12} {'odm. falsz.':>12} "
+            f"{'model':<40} {'odm. trafne':>12} {'odm. falsz.':>12} "
             f"{'uprzejm.':>9} {'z wiedzy':>9} {'tokenow':>9} {'sekund':>7}"
         )
         for model, ocena in oceny.items():
             self.stdout.write(
-                f"{model[:24]:<24} {ocena.odmowy_trafne:>11.1%} "
+                f"{model[:40]:<40} {ocena.odmowy_trafne:>11.1%} "
                 f"{ocena.odmowy_falszywe:>11.1%} {ocena.uprzejmosci_odrzucone:>8.1%} "
                 f"{ocena.oparte_na_wiedzy:>8.1%} "
                 f"{ocena.tokenow:>9,} {ocena.sekund_srednio:>7.2f}"
