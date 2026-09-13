@@ -109,8 +109,12 @@ def test_pdf_rejects_encryption_and_page_limit():
 def test_text_has_character_and_encoding_limits():
     with pytest.raises(UploadTooLarge):
         parser.parse_bytes(b"x" * (2 * 1024 * 1024 + 1), "large.txt")
+    # Truncated UTF-16 and bytes meaningless in every accepted encoding. A bare
+    # UTF-16 BOM is now a valid empty file, rejected later as "no text" (F10).
     with pytest.raises(InvalidUpload):
-        parser.parse_bytes(b"\xff\xfe", "invalid.txt")
+        parser.parse_bytes(b"\xff\xfe\x00", "invalid.txt")
+    with pytest.raises(InvalidUpload):
+        parser.parse_bytes(b"\x81\x83\x88", "invalid.txt")
 
 
 def test_pdf_bounds_decompressed_page_stream():

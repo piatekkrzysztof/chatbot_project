@@ -21,7 +21,7 @@ Wielkość pliku jest liczona podczas odbierania multipart. Duży Content-Length
 odrzucamy przed odczytem. Zduplikowane i obce pola plikowe są odrzucane; przekroczenie
 limitu usuwa tymczasowy plik. Limity te dotyczą dwóch endpointów uploadu, nie CSV.
 
-TXT/MD wymagają UTF-8; dane binarne nie przechodzą. Pusty tekst jest odrzucany,
+TXT/MD: UTF-8, UTF-16 ze znacznikiem BOM, Windows-1250 albo ISO-8859-2 (F10); dane binarne nie przechodzą. Pusty tekst jest odrzucany,
 a skan PDF wymaga wcześniejszego OCR. DOCX nie rozpakowujemy na dysku, XML nie
 może zawierać DTD/encji, a nazwy ze ścieżkami nadrzędnymi i makra VBA są odrzucane.
 Obrazy dekodujemy i zapisujemy ponownie, usuwając EXIF, komentarze, profile i
@@ -76,8 +76,8 @@ Limity per instancja nie zastępują limitów żądań i budżetów kosztów per
 Proxy/WSGI może buforować ciało przed przekazaniem do Django; jego limit oraz
 zużycie pamięci całej instancji wymagają odbioru infrastruktury.
 
-Atomowość sumarycznego limitu wiedzy, retry/publikacja embeddingów i usuwanie
-osieroconych plików po awarii storage pozostają w F10/F19. Jednoczesna walidacja
+Sumaryczny limit wiedzy jest sprawdzany pod blokadą (F10), publikacja embeddingów
+jest atomowa (F17); usuwanie osieroconych plików po awarii storage pozostaje w F18/F19. Jednoczesna walidacja
 logo i awatara nie jest transakcją między bazą a magazynem obiektowym.
 
 Polityka opiera się na [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)
