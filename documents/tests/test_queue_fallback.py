@@ -55,10 +55,11 @@ def test_document_upload_survives_broken_broker(
 
     monkeypatch.setattr(tasks.extract_text_from_document, "delay", zawsze_pada)
     monkeypatch.setattr(tasks.generate_embeddings_for_document, "delay", zawsze_pada)
-    monkeypatch.setattr(
-        "documents.utils.embedding_generator.generate_embeddings_for_document",
-        lambda doc: None,
-    )
+    # Zadanie woła generator pod nazwą zapamiętaną przy imporcie tasks.py.
+    # Podmiana w module generatora nie działała nigdy: embeddingi szły do
+    # zablokowanego w testach OpenAI, a błąd połykał `except` zadania odczytu
+    # pliku. Po F10 zlecenie idzie po zatwierdzeniu, poza tym `except`.
+    monkeypatch.setattr("documents.tasks._generate_embeddings", lambda doc: None)
 
     # Sygnał zleca zadania po zatwierdzeniu transakcji (F10). Test działa
     # w transakcji, której nikt nie zatwierdza, więc wykonujemy odłożone
