@@ -1,24 +1,40 @@
 """
 Odbiór zdarzeń ze Stripe.
 
-Ten kod nigdy się nie wykonał: nie był podpięty pod żaden URL, więc Stripe nie
-miał dokąd wysyłać zdarzeń. Nawet gdyby był, płatność niczego by nie zmieniła —
-aktualizował pola na modelu Tenant, a limity wiadomości egzekwuje
-SubscriptionMiddleware na podstawie modelu Subscription. Klient mógł zapłacić
-i nie dostać ani jednej wiadomości więcej.
+Historia: ten kod długo nie działał wcale - nie był podpięty pod URL, a potem
+aktualizował pola na Tenant zamiast Subscription, którą egzekwuje middleware.
+Źródłem prawdy o dostępie jest Subscription i to ona zmienia się po płatności.
 
-Teraz źródłem prawdy jest Subscription: to ona decyduje o dostępie, więc to ona
-musi się zmieniać po opłaceniu. Pola na Tenant zostają zsynchronizowane, bo
-korzysta z nich panel administracyjny.
+Synchronizacja zamiast poleceń (F11)
+------------------------------------
+Wcześniej każde zdarzenie było poleceniem: „zapłacono - aktywuj na 31 dni",
+„nieudana płatność - zawieś", „usunięto - zawieś". Stripe nie gwarantuje
+kolejności zdarzeń, ponawia je do trzech dni i dostarcza czasem podwójnie,
+więc polecenia wykonane po kolei dawały stany, których w Stripe nie było:
+
+  * powtórzony stary `checkout.session.completed` po anulowaniu przywracał
+    dostęp na 31 dni bez płatności,
+  * spóźnione `invoice.payment_failed` po udanej płatności zawieszało
+    opłaconego klienta,
+  * pierwsza nieudana próba odnowienia odcinała czat od razu, choć Stripe
+    ponawia płatność przez kilka dni,
+  * `customer.subscription.deleted` STAREJ subskrypcji zawieszało nową,
+  * sesja zakończona bez zapłaty aktywowała plan,
+  * okres był zawsze „dziś + 31 dni", także przy planie rocznym,
+  * zmiana planu po stronie Stripe nie docierała wcale.
+
+Teraz zdarzenie jest tylko sygnałem, KTÓREJ subskrypcji dotyczy. Webhook
+pobiera jej aktualny stan ze Stripe i przepisuje go do bazy. Powtórka,
+duplikat i zła kolejność dają ten sam wynik, bo stan jest zawsze bieżący.
 """
 
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import stripe
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse
-from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.models import Subscription, Tenant
@@ -26,117 +42,181 @@ from accounts.plans import get_plan
 
 logger = logging.getLogger(__name__)
 
-# Okres opłacony z góry. Stripe i tak przypomni o sobie przy odnowieniu,
-# a zapas chroni przed odcięciem klienta, gdy zdarzenie odnowienia się spóźni.
-OKRES_ROZLICZENIOWY = timedelta(days=31)
+#: Zapas za końcem opłaconego okresu. Stripe ponawia nieudaną płatność przez
+#: kilka dni; w tym czasie klient korzysta dalej, a po udanym ponowieniu okres
+#: przesuwa się sam. Decyzja właściciela z 13.09.2026: dostęp do końca
+#: opłaconego okresu, nie odcięcie przy pierwszej nieudanej próbie.
+BUFOR_PONOWIEN = timedelta(days=3)
+
+#: Statusy Stripe, przy których firma ma dostęp. `past_due` tylko do końca
+#: OSTATNIEGO OPŁACONEGO okresu - Stripe przesuwa okres na nowy także wtedy,
+#: gdy płatność za niego nie przeszła.
+STATUSY_Z_DOSTEPEM = frozenset({"active", "trialing", "past_due"})
+
+#: Statusy końcowe albo wstrzymane - dostęp wygasa. `incomplete` (pierwsza
+#: płatność jeszcze nie przeszła) nie należy do żadnej grupy: nie aktywuje
+#: i nie zawiesza niczego, co już działa.
+STATUSY_BEZ_DOSTEPU = frozenset({"canceled", "unpaid", "incomplete_expired", "paused"})
 
 
-def activate_subscription(tenant, plan_code):
+class ZdarzenieDoPonowienia(Exception):
+    """Przejściowy błąd Stripe - webhook oddaje 500, żeby Stripe ponowił."""
+
+
+def _data(znacznik_czasu):
+    return datetime.fromtimestamp(int(znacznik_czasu), tz=UTC).date()
+
+
+def _identyfikator(wartosc):
+    """Pole bywa samym identyfikatorem albo rozwiniętym obiektem."""
+    if isinstance(wartosc, dict):
+        return wartosc.get("id") or ""
+    return wartosc or ""
+
+
+def identyfikator_subskrypcji(event_type, obiekt):
     """
-    Nadaje firmie limity wykupionego planu.
+    Której subskrypcji dotyczy zdarzenie - albo pusty ciąg.
 
-    Subskrypcja może jeszcze nie istnieć (rejestracja od razu z płatnością),
-    więc tworzymy ją, gdy trzeba.
+    Adres subskrypcji na fakturze przesuwał się między wersjami API Stripe,
+    dlatego faktura ma kilka miejsc do sprawdzenia.
     """
-    plan = get_plan(plan_code)
-    today = timezone.now().date()
-
-    limit = plan.message_limit if plan else 1_000
-    nazwa = plan.code if plan else (plan_code or "unknown")
-
-    subscription, created = Subscription.objects.get_or_create(
-        tenant=tenant,
-        defaults={
-            "plan_type": nazwa,
-            "start_date": today,
-            "end_date": today + OKRES_ROZLICZENIOWY,
-            "message_limit": limit,
-        },
-    )
-
-    if not created:
-        subscription.plan_type = nazwa
-        subscription.message_limit = limit
-        subscription.is_active = True
-        subscription.start_date = today
-        subscription.end_date = today + OKRES_ROZLICZENIOWY
-        subscription.save(
-            update_fields=[
-                "plan_type",
-                "message_limit",
-                "is_active",
-                "start_date",
-                "end_date",
-            ]
-        )
-
-    # Pola na Tenant są tylko odbiciem stanu — panel admina po nich filtruje
-    tenant.subscription_status = "active"
-    tenant.subscription_plan = nazwa
-    tenant.save(update_fields=["subscription_status", "subscription_plan"])
-
-    return subscription
-
-
-def suspend_subscription(tenant, powod):
-    Subscription.objects.filter(tenant=tenant).update(is_active=False)
-    tenant.subscription_status = "suspended"
-    tenant.save(update_fields=["subscription_status"])
-    logger.warning("Subskrypcja wstrzymana (%s): tenant=%s", powod, tenant.id)
-
-
-def _metadane_subskrypcji_z_faktury(faktura):
-    """
-    Metadane subskrypcji, do której należy faktura.
-
-    Faktura ma WŁASNE pole `metadata`, niezależne od metadanych subskrypcji —
-    a my ustawiamy je wyłącznie na sesji płatności i na subskrypcji. Czytanie
-    `faktura["metadata"]` zwracało więc pusty słownik i zdarzenia odnowienia
-    kończyły się na gałęzi „bez tenant_id — pomijam". Stripe dostawał 200,
-    w jego panelu widniało zielone „delivered", a subskrypcja klienta nie
-    przedłużała się mimo opłaconej faktury.
-
-    Adres subskrypcji na fakturze przesuwał się między wersjami API, dlatego
-    sprawdzamy kilka miejsc zamiast zakładać jedno. W nowszych wersjach
-    metadane leżą wprost w `parent.subscription_details` i wtedy nie trzeba
-    nawet pytać Stripe'a.
-    """
-    szczegoly = (
-        (faktura.get("parent") or {}).get("subscription_details")
-        or faktura.get("subscription_details")
-        or {}
-    )
-    if szczegoly.get("metadata"):
-        return szczegoly["metadata"]
-
-    identyfikator = faktura.get("subscription") or szczegoly.get("subscription")
-    # Bywa rozwinięty do pełnego obiektu zamiast samego identyfikatora
-    if isinstance(identyfikator, dict):
-        return identyfikator.get("metadata") or {}
-    if not identyfikator:
-        return {}
-
-    try:
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        return stripe.Subscription.retrieve(identyfikator).get("metadata") or {}
-    except Exception:
-        logger.exception("Nie udało się pobrać subskrypcji %s ze Stripe", identyfikator)
-        return {}
-
-
-def _metadane_zdarzenia(event_type, data):
-    """
-    Metadane niosące tenant_id — zależnie od tego, czego dotyczy zdarzenie.
-
-    Sesja płatności i subskrypcja mają je wprost. Faktura wymaga dojścia
-    do subskrypcji, bo własnych metadanych nigdy jej nie nadajemy.
-    """
-    wlasne = data.get("metadata") or {}
-    if wlasne.get("tenant_id"):
-        return wlasne
+    if event_type.startswith("customer.subscription."):
+        return _identyfikator(obiekt.get("id"))
+    if event_type.startswith("checkout.session."):
+        return _identyfikator(obiekt.get("subscription"))
     if event_type.startswith("invoice."):
-        return _metadane_subskrypcji_z_faktury(data)
-    return wlasne
+        szczegoly = (
+            (obiekt.get("parent") or {}).get("subscription_details")
+            or obiekt.get("subscription_details")
+            or {}
+        )
+        return _identyfikator(szczegoly.get("subscription")) or _identyfikator(
+            obiekt.get("subscription")
+        )
+    return ""
+
+
+def pobierz_subskrypcje(identyfikator):
+    """
+    Aktualny stan subskrypcji ze Stripe.
+
+    None, gdy subskrypcja nie istnieje (np. zdarzenie z innego trybu) -
+    ponawianie nic nie da. Błąd przejściowy (sieć, limit, awaria Stripe)
+    rzuca ZdarzenieDoPonowienia: bez bieżącego stanu nie ma czego zapisać,
+    a Stripe ponowi zdarzenie z odstępami.
+    """
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        return stripe.Subscription.retrieve(identyfikator)
+    except stripe.error.InvalidRequestError:
+        logger.warning("Subskrypcja %s nie istnieje w Stripe - pomijam zdarzenie", identyfikator)
+        return None
+    except stripe.error.StripeError as blad:
+        raise ZdarzenieDoPonowienia(str(blad)) from blad
+
+
+def plan_z_subskrypcji(subskrypcja):
+    """
+    Plan po identyfikatorze ceny, a metadane tylko w ostateczności.
+
+    Metadane ustawiamy przy zakupie i nie zmieniają się, gdy plan zmieni się
+    po stronie Stripe. Cena mówi, za co klient faktycznie płaci.
+    """
+    ceny = {cena: kod for kod, cena in settings.STRIPE_PRICE_IDS_ROCZNE.items() if cena}
+    ceny.update({cena: kod for kod, cena in settings.STRIPE_PRICE_IDS.items() if cena})
+    for pozycja in (subskrypcja.get("items") or {}).get("data") or []:
+        cena = _identyfikator(pozycja.get("price"))
+        if cena in ceny:
+            return ceny[cena]
+    return (subskrypcja.get("metadata") or {}).get("plan")
+
+
+def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
+    """
+    Przepisuje stan subskrypcji ze Stripe do Subscription firmy.
+
+    Pod blokadą wiersza firmy: dwa zdarzenia tej samej subskrypcji naraz
+    (zakup wysyła zwykle dwa w tej samej sekundzie) nie mogą założyć dwóch
+    wierszy ani nadpisać się w połowie. Wywołanie Stripe dzieje się wcześniej,
+    poza blokadą.
+    """
+    sid = subskrypcja_stripe["id"]
+    status = subskrypcja_stripe.get("status") or ""
+
+    with transaction.atomic():
+        Tenant.objects.select_for_update().only("id").get(pk=tenant.pk)
+        lokalna = Subscription.objects.select_for_update().filter(tenant=tenant).first()
+        powiazana = bool(lokalna and lokalna.stripe_subscription_id == sid)
+
+        if lokalna and lokalna.stripe_subscription_id and not powiazana:
+            if status not in STATUSY_Z_DOSTEPEM:
+                # Zdarzenie o subskrypcji, która nie jest (już) subskrypcją tej
+                # firmy - np. usunięcie starej po zakupie nowej.
+                logger.info(
+                    "Subskrypcja %s (%s) nie jest subskrypcją firmy %s - pomijam",
+                    sid,
+                    status,
+                    tenant.id,
+                )
+                return lokalna
+            if lokalna.is_active and lokalna.stripe_status in STATUSY_Z_DOSTEPEM:
+                # Nie przełączamy w tę i z powrotem przy kolejnych zdarzeniach
+                # obu subskrypcji. Checkout blokuje drugi zakup, więc to stan
+                # awaryjny do wyjaśnienia ręcznie, w tym ewentualny zwrot.
+                logger.error(
+                    "Firma %s ma dwie aktywne subskrypcje Stripe: %s i %s - zostawiam %s",
+                    tenant.id,
+                    lokalna.stripe_subscription_id,
+                    sid,
+                    lokalna.stripe_subscription_id,
+                )
+                return lokalna
+
+        if status in STATUSY_Z_DOSTEPEM:
+            kod_planu = plan_z_subskrypcji(subskrypcja_stripe)
+            plan = get_plan(kod_planu)
+            poczatek = _data(subskrypcja_stripe["current_period_start"])
+            koniec_oplaconego = (
+                poczatek
+                if status == "past_due"
+                else _data(subskrypcja_stripe["current_period_end"])
+            )
+            pola = {
+                "plan_type": plan.code if plan else (kod_planu or "unknown"),
+                "message_limit": plan.message_limit if plan else 1_000,
+                "is_active": True,
+                "start_date": poczatek,
+                "end_date": koniec_oplaconego + BUFOR_PONOWIEN,
+                "stripe_subscription_id": sid,
+                "stripe_status": status,
+            }
+            if lokalna is None:
+                lokalna = Subscription.objects.create(tenant=tenant, **pola)
+            else:
+                for pole, wartosc in pola.items():
+                    setattr(lokalna, pole, wartosc)
+                lokalna.save(update_fields=list(pola))
+
+            # Pola na Tenant są tylko odbiciem stanu - panel admina po nich filtruje.
+            tenant.subscription_status = "past_due" if status == "past_due" else "active"
+            tenant.subscription_plan = pola["plan_type"]
+            tenant.save(update_fields=["subscription_status", "subscription_plan"])
+            return lokalna
+
+        if powiazana and status in STATUSY_BEZ_DOSTEPU:
+            lokalna.is_active = False
+            lokalna.stripe_status = status
+            lokalna.save(update_fields=["is_active", "stripe_status"])
+            tenant.subscription_status = "suspended"
+            tenant.save(update_fields=["subscription_status"])
+            logger.warning("Subskrypcja wstrzymana (%s): tenant=%s", status, tenant.id)
+            return lokalna
+
+        logger.info(
+            "Subskrypcja %s w stanie %s - dostęp firmy %s bez zmian", sid, status, tenant.id
+        )
+        return lokalna
 
 
 # csrf_exempt MUSI stać bezpośrednio nad tym widokiem. Stripe wysyła POST bez
@@ -158,39 +238,42 @@ def stripe_webhook(request):
         logger.warning("Błędna sygnatura webhooka Stripe")
         return HttpResponse(status=400)
 
-    data = event["data"]["object"]
-    metadata = _metadane_zdarzenia(event["type"], data)
-    tenant_id = metadata.get("tenant_id")
-
-    if not tenant_id:
-        # Zwracamy 200: bez tenant_id nie ma czego obsłużyć, a kod błędu
-        # kazałby Stripe'owi ponawiać to zdarzenie w nieskończoność
-        logger.warning("Zdarzenie %s bez tenant_id — pomijam", event["type"])
-        return HttpResponse(status=200)
-
-    tenant = Tenant.objects.filter(id=tenant_id).first()
-    if tenant is None:
-        logger.warning("Zdarzenie %s dla nieistniejącej firmy %s", event["type"], tenant_id)
-        return HttpResponse(status=200)
-
     event_type = event["type"]
+    obiekt = event["data"]["object"]
+    identyfikator = identyfikator_subskrypcji(event_type, obiekt)
+    if not identyfikator:
+        # 200, nie błąd: kod błędu kazałby Stripe'owi ponawiać zdarzenie,
+        # którego nie ma jak obsłużyć.
+        logger.info("Zdarzenie %s nie dotyczy subskrypcji - pomijam", event_type)
+        return HttpResponse(status=200)
 
-    if event_type in ("checkout.session.completed", "invoice.payment_succeeded"):
-        subscription = activate_subscription(tenant, metadata.get("plan"))
-        logger.info(
-            "Subskrypcja aktywna: tenant=%s plan=%s limit=%s",
-            tenant.id,
-            subscription.plan_type,
-            subscription.message_limit,
+    try:
+        subskrypcja = pobierz_subskrypcje(identyfikator)
+    except ZdarzenieDoPonowienia:
+        logger.exception("Stripe niedostępny przy zdarzeniu %s - czekam na ponowienie", event_type)
+        return HttpResponse(status=500)
+    if subskrypcja is None:
+        return HttpResponse(status=200)
+
+    tenant_id = str(
+        (subskrypcja.get("metadata") or {}).get("tenant_id")
+        or (obiekt.get("metadata") or {}).get("tenant_id")
+        or ""
+    )
+    tenant = Tenant.objects.filter(id=int(tenant_id)).first() if tenant_id.isdigit() else None
+    if tenant is None:
+        logger.warning(
+            "Zdarzenie %s (subskrypcja %s) bez znanej firmy - pomijam", event_type, identyfikator
         )
+        return HttpResponse(status=200)
 
-    elif event_type == "invoice.payment_failed":
-        suspend_subscription(tenant, "nieudana płatność")
-
-    elif event_type == "customer.subscription.deleted":
-        suspend_subscription(tenant, "subskrypcja anulowana")
-
-    else:
-        logger.info("Nieobsługiwane zdarzenie Stripe: %s", event_type)
-
+    stan = synchronizuj_subskrypcje(tenant, subskrypcja)
+    logger.info(
+        "Stripe %s: tenant=%s plan=%s aktywna=%s status=%s",
+        event_type,
+        tenant.id,
+        getattr(stan, "plan_type", None),
+        getattr(stan, "is_active", None),
+        getattr(stan, "stripe_status", None),
+    )
     return HttpResponse(status=200)
