@@ -58,6 +58,29 @@ def language_instruction(tenant, message=None):
 #: okaleczałoby dokumenty klienta.
 OGRANICZNIK = "<<<WIEDZA_FIRMY>>>"
 
+#: Przypomnienie o znaczniku na samym końcu promptu, po blokach wiedzy.
+#:
+#: Zdanie o danych między ogranicznikami (F25, 2.0.15) obniżyło stawianie
+#: znacznika tam, gdzie model nie dostaje fragmentu: na „Czy pracujecie
+#: w weekend?" odmawiał słowami bez znacznika trzy razy na trzy, w dwóch
+#: niezależnych pomiarach. Przy braku fragmentów taka odpowiedź idzie jako
+#: „rozmowa" - poza raportem luk i bez propozycji kontaktu.
+#:
+#: Zmierzone 13.09.2026 na produkcji (`ocen_generowanie --wariant`, gpt-4o-mini,
+#: temperatura 0,2, 3 powtórzenia): bez przypomnienia oparte na wiedzy 90,0%,
+#: z przypomnieniem 100,0%; odmowy trafne, fałszywe i na uprzejmości bez zmian.
+#: Samo usunięcie zdania o danych dawało to samo taniej (616 zamiast 779 tokenów
+#: na odpowiedź), ale zdejmowało jawną ochronę przed poleceniami wklejonymi
+#: w treść klienta.
+#:
+#: Tekst jest dokładnie tym, który zmierzono - każda zmiana słów wymaga nowego
+#: pomiaru. Stoi za ostatnim ogranicznikiem, a ograniczniki są wycinane z treści
+#: klienta, więc dokument nie może go ani podrobić, ani zasłonić.
+PRZYPOMNIENIE_O_ZNACZNIKU = (
+    f"\nPamiętaj: jeśli odpowiedź nie wynika wprost z wiedzy między znacznikami "
+    f"{OGRANICZNIK} albo takiej wiedzy nie ma, zacznij odpowiedź od {ZNACZNIK_BRAKU}."
+)
+
 
 def oczysc_wiedze(tresc):
     """
@@ -184,4 +207,6 @@ def build_system_prompt(tenant, chunks, faqs, message=None):
     if tenant.regulamin:
         parts.append(blok_wiedzy("Regulamin", tenant.regulamin))
 
-    return "\n".join(parts)
+    # Doklejone, a nie dodane do `parts`: zmierzony wariant miał przypomnienie
+    # tuż za promptem, bez dodatkowej pustej linii.
+    return "\n".join(parts) + PRZYPOMNIENIE_O_ZNACZNIKU

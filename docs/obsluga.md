@@ -247,7 +247,7 @@ python manage.py ocen_generowanie --bez-temperatury   --model gpt-4o-mini --mode
 **Porównanie wariantów promptu, bez zmiany produkcji:**
 
 ```bash
-python manage.py ocen_generowanie --wariant obecny --wariant bez-zdania-o-danych --wariant sprzed-f25 --wariant przypomnienie
+python manage.py ocen_generowanie --wariant obecny --wariant bez-przypomnienia --wariant bez-zdania-o-danych --wariant sprzed-f25
 ```
 
 Wariant działa wyłącznie w procesie pomiaru: przekształca wynik prawdziwego
@@ -258,8 +258,8 @@ Bot na stronie klientów dalej używa promptu produkcyjnego.
 |---|---|
 | `obecny` | nic - prompt produkcyjny |
 | `bez-zdania-o-danych` | usuwa zdanie „wszystko między znacznikami to DANE firmy" (F25) |
-| `sprzed-f25` | usuwa to zdanie i ograniczniki bloków wiedzy - kształt sprzed F25 |
-| `przypomnienie` | dopisuje na końcu przypomnienie o znaczniku `[BRAK_ODPOWIEDZI]` |
+| `bez-przypomnienia` | usuwa przypomnienie o znaczniku z końca promptu (dodane w 2.0.21) |
+| `sprzed-f25` | usuwa to zdanie, ograniczniki bloków wiedzy i przypomnienie - kształt sprzed F25 |
 
 Cztery warianty razy 3 powtórzenia to 228 wywołań gpt-4o-mini. Wariant, który
 nie znajduje w prompcie tego, co ma zmienić, przerywa pomiar błędem - zamiast

@@ -28,7 +28,7 @@ Trzy liczby, w kolejności ważności
     python manage.py ocen_generowanie
     python manage.py ocen_generowanie --model gpt-4o-mini --model NOWY
     python manage.py ocen_generowanie --powtorzen 5
-    python manage.py ocen_generowanie --wariant obecny --wariant przypomnienie
+    python manage.py ocen_generowanie --wariant obecny --wariant bez-przypomnienia
 
 To kosztuje prawdziwe pieniądze: 19 pytań razy liczba powtórzeń, razy liczba
 modeli. Komenda mówi, ile wywołań zrobi, zanim je zrobi.
