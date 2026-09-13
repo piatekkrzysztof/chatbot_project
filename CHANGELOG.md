@@ -16,6 +16,22 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.0.21] — 2026-09-13
+
+### Fixed
+
+- **Since 2.0.15 some questions the bot could not answer were lost.** When no
+  fragment of the knowledge base matched, the bot more often declined in words
+  ("I don't have that information, please contact the company") without the
+  `[BRAK_ODPOWIEDZI]` marker. Such an answer was recorded as small talk, so it
+  never reached the gap report and the widget did not offer a contact form.
+  Comparing prompt variants on the real model found the cause: the sentence
+  telling the model that content between the knowledge delimiters is data, not
+  instructions. The prompt now ends with a reminder about the marker, placed
+  after all company knowledge. Measured: answers grounded in knowledge 90% ->
+  100%, correct refusals, false refusals and greetings unchanged. The
+  protection against instructions planted in customer documents stays.
+
 ## [2.0.20] — 2026-09-13
 
 ### Added

@@ -200,6 +200,46 @@ prawdziwym modelu: obecny prompt, bez zdania o danych, kształt sprzed F25
 i obecny z przypomnieniem o znaczniku na końcu. Poprawka promptu wejdzie
 osobno, po tym pomiarze. Instrukcja: [obsluga.md](obsluga.md).
 
+### Pomiar wariantów i decyzja (13.09.2026, produkcja, 2.0.20)
+
+`ocen_generowanie --wariant`, gpt-4o-mini, temperatura 0,2, 3 powtórzenia:
+
+| wariant | odmowy trafne | odm. fałszywe | uprzejmości | oparte na wiedzy | tokenów na odpowiedź |
+|---|---|---|---|---|---|
+| obecny (2.0.15-2.0.20) | 100,0% | 0,0% | 0,0% | **90,0%** | 728 |
+| bez zdania o danych | 100,0% | 0,0% | 0,0% | 100,0% | 616 |
+| sprzed F25 | 100,0% | 0,0% | 0,0% | 100,0% | 608 |
+| z przypomnieniem | 100,0% | 0,0% | 0,0% | 100,0% | 779 |
+
+- **Przyczyna: zdanie o danych.** Jego usunięcie przywraca znacznik na „Czy
+  pracujecie w weekend?"; zdjęcie także ograniczników niczego już nie zmienia
+  (616 i 608 tokenów, te same wyniki).
+- **Obecny prompt odtworzył błąd:** weekend znów trzy razy na trzy bez
+  znacznika, w drugim niezależnym pomiarze.
+- **Amortyzatory** (raz na trzy bez znacznika w pierwszym pomiarze) tym razem
+  zero na trzy we wszystkich wariantach - tamta wpadka była szumem.
+
+**Decyzja: przypomnienie o znaczniku na końcu promptu** (2.0.21), w dokładnie
+zmierzonym brzmieniu. Usunięcie zdania dawało ten sam wynik taniej, ale
+zdejmowało jawną ochronę przed poleceniami wklejonymi w treść klienta.
+Przypomnienie kosztuje około 160 tokenów wejściowych na odpowiedź więcej niż
+wariant bez zdania - przy cenie gpt-4o-mini około 0,6 USD miesięcznie na
+25 tysięcy wiadomości.
+
+**Ograniczenie:** trzy powtórzenia na 19 pytań. Rozstrzygające jest to, że
+błąd na „weekend" był powtarzalny (3/3 w dwóch pomiarach) i zniknął we
+wszystkich wariantach bez zdania albo z przypomnieniem.
+
+**Odbiór po wdrożeniu 2.0.21:**
+
+```bash
+python manage.py ocen_generowanie --powtorzen 5
+```
+
+Oczekiwane: odmowy trafne 100%, fałszywe 0%, uprzejmości 0% i 0%, oparte na
+wiedzy 100%. Porównanie z promptem sprzed poprawki:
+`--wariant obecny --wariant bez-przypomnienia`.
+
 ---
 
 ## Czego ten PR nie obejmuje
