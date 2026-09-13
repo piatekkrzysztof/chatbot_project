@@ -196,7 +196,7 @@ właściwości akapitu, tabela bez wierszy, wiersze w kontrolkach treści.
 Filtra C1 nie było w pierwszej wersji - wyszedł przy uproszczeniu wyboru
 kodowania, które przepuściło bajty bez znaczenia.
 
-Zmienione oczekiwania istniejących testów: trzy testy sprawdzające zlecenie
+Zmienione oczekiwania istniejących testów: cztery testy sprawdzające zlecenie
 zadania po zapisie wykonują teraz wywołania odłożone do zatwierdzenia
 (`django_capture_on_commit_callbacks`), a test limitów kodowania używa
 urwanego UTF-16 i bajtów bez znaczenia zamiast samego znacznika BOM.
