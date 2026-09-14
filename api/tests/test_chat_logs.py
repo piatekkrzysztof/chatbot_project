@@ -27,8 +27,9 @@ def test_prompt_logs_endpoint_returns_logs(user, tenant, subscribtion):
 
     res = client.get("/api/chat/logs/", HTTP_X_API_KEY=str(tenant.api_key))
     assert res.status_code == 200
-    assert isinstance(res.data[0], dict)
-    assert res.data[0]["prompt"] == "Co to jest RODO?"
+    wpisy = res.data["results"]
+    assert isinstance(wpisy[0], dict)
+    assert wpisy[0]["prompt"] == "Co to jest RODO?"
 
 
 @pytest.mark.django_db
@@ -69,12 +70,12 @@ def test_prompt_logs_endpoint_filters_by_is_helpful(user, tenant, subscribtion):
 
     res_true = client.get("/api/chat/logs/?is_helpful=true", HTTP_X_API_KEY=str(tenant.api_key))
     assert res_true.status_code == 200
-    prompts_true = [r["prompt"] for r in res_true.data]
+    prompts_true = [r["prompt"] for r in res_true.data["results"]]
     assert "Jak założyć konto?" in prompts_true
 
     res_false = client.get("/api/chat/logs/?is_helpful=false", HTTP_X_API_KEY=str(tenant.api_key))
     assert res_false.status_code == 200
-    prompts_false = [r["prompt"] for r in res_false.data]
+    prompts_false = [r["prompt"] for r in res_false.data["results"]]
     assert "Co to jest regulamin?" in prompts_false
 
 

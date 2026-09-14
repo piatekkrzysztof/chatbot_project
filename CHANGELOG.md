@@ -16,6 +16,28 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-09-14
+
+### Changed
+
+- **Conversations and Contact requests load page by page**, newest first,
+  50 per page (up to 200 with `?rozmiar=`). Both screens used to load the whole
+  history of the company on every visit. The conversation history view even had
+  a pagination class, but without a page size DRF paginated nothing. The contact
+  request list now also returns `nieobsluzone`, the number of unhandled requests
+  across all pages - the panel used to count it from what it had loaded.
+
+### Fixed
+
+- **The document list ran two extra database queries per document** (63 queries
+  for 30 documents); the conversation history ran one per entry. Both now run
+  a fixed number of queries regardless of size, and a test guards every panel
+  list against growing query counts.
+- **The "helpful / not helpful" filter in the conversation history matched
+  answers rated in other companies.** It compared the answer text with rated
+  messages across the whole system, so an identical answer rated elsewhere
+  showed up in the list. It now uses the rating of the same conversation.
+
 ## [2.2.0] — 2026-09-14
 
 Found during the Stripe test-mode acceptance of 2.1.0.

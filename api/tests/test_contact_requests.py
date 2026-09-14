@@ -83,7 +83,7 @@ def test_panel_lists_only_own_requests(user, tenant, subscribtion):
 
     data = client.get("/api/contact-requests/", HTTP_X_API_KEY=str(tenant.api_key)).json()
 
-    assert [r["contact"] for r in data] == ["moj@klient.pl"]
+    assert [r["contact"] for r in data["results"]] == ["moj@klient.pl"]
 
 
 @pytest.mark.django_db

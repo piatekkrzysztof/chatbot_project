@@ -380,7 +380,11 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.IntegerField())
     def get_chunk_count(self, obj):
-        return obj.chunks.count()
+        # Listy dokumentów dołączają liczbę fragmentów w jednym zapytaniu
+        # (`liczba_fragmentow`). Bez tego każdy dokument kosztował dwa osobne
+        # zapytania: liczenie i sprawdzenie, czy fragmenty istnieją.
+        liczba = getattr(obj, "liczba_fragmentow", None)
+        return obj.chunks.count() if liczba is None else liczba
 
     @extend_schema_field(
         serializers.ChoiceField(choices=["ready", "processed_no_chunks", "processing", "failed"])
@@ -389,7 +393,7 @@ class DocumentSerializer(serializers.ModelSerializer):
         if obj.processing_error:
             return "failed"
         if obj.processed:
-            if obj.chunks.exists():
+            if self.get_chunk_count(obj) > 0:
                 return "ready"
             return "processed_no_chunks"
         return "processing"
@@ -455,6 +459,9 @@ class PromptLogSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.BooleanField(allow_null=True))
     def get_is_helpful(self, obj):
+        # Lista historii dołącza ocenę podzapytaniem (api/views/chat_logs.py).
+        if hasattr(obj, "ocena"):
+            return obj.ocena
         msg = ChatMessage.objects.filter(
             conversation=obj.conversation, sender="bot", message=obj.response
         ).first()
