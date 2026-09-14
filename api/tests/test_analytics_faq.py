@@ -147,7 +147,7 @@ def test_faq_list_hides_other_tenants(user, tenant, subscribtion):
     client = auth_client(user, tenant)
     data = client.get("/api/faq/", HTTP_X_API_KEY=str(tenant.api_key)).json()
 
-    assert [f["question"] for f in data] == ["Moje"]
+    assert [f["question"] for f in data["results"]] == ["Moje"]
 
 
 @pytest.mark.django_db

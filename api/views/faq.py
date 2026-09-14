@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
 
+from api.pagination import StronicowaniePanelu
 from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.serializers import FAQSerializer
 from api.utils.mixins import TenantQuerysetMixin
@@ -17,9 +18,12 @@ class FAQViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
+    # FAQ nie ma górnej granicy liczby wpisów (F16). Od najnowszych, żeby
+    # właśnie dodany wpis był na pierwszej stronie.
+    pagination_class = StronicowaniePanelu
 
     def get_queryset(self):
-        return super().get_queryset().order_by("id")
+        return super().get_queryset().order_by("-id")
 
     def perform_create(self, serializer):
         serializer.save(tenant=self.request.tenant)

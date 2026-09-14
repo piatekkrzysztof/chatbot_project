@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from chat.eksport_csv import BezpiecznyWriter, odpowiedz_csv
+from chat.eksport_csv import strumien_csv
 from chat.models import FAQ, ChatFeedback, ContactRequest, PromptLog
 
 
@@ -37,22 +37,23 @@ class PromptLogAdmin(admin.ModelAdmin):
     def export_as_csv(self, request, queryset):
         # Treść pisze odwiedzający, więc przez tę samą neutralizację formuł co
         # eksport w API - patrz chat/eksport_csv.py.
-        response = odpowiedz_csv("prompt_logs.csv")
-        writer = BezpiecznyWriter(response)
-        writer.writerow(["tenant", "model", "source", "tokens", "prompt", "response", "created_at"])
-        for obj in queryset.select_related("tenant").iterator():
-            writer.writerow(
-                [
-                    obj.tenant.name,
-                    obj.model,
-                    obj.source,
-                    obj.tokens,
-                    obj.prompt,
-                    obj.response or "",
-                    obj.created_at.isoformat(),
-                ]
-            )
-        return response
+        wiersze = (
+            [
+                obj.tenant.name,
+                obj.model,
+                obj.source,
+                obj.tokens,
+                obj.prompt,
+                obj.response or "",
+                obj.created_at.isoformat(),
+            ]
+            for obj in queryset.select_related("tenant").iterator(chunk_size=1000)
+        )
+        return strumien_csv(
+            "prompt_logs.csv",
+            ["tenant", "model", "source", "tokens", "prompt", "response", "created_at"],
+            wiersze,
+        )
 
     export_as_csv.short_description = "Eksportuj zaznaczone do CSV"
 

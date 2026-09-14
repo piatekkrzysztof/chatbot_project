@@ -13,11 +13,15 @@ apostrof. Arkusz pokazuje ją jako tekst, a treść zostaje czytelna.
 
 BOM na początku pliku: Excel na polskim Windowsie otwiera CSV bez BOM jako
 Windows-1250 i zamienia polskie litery w krzaczki.
+
+Strumień (F16): eksport wysyła plik wiersz po wierszu. Wcześniej `HttpResponse`
+zbierał całą historię rozmów firmy w pamięci procesu, zanim wysłał pierwszy
+bajt - przy dużej historii to setki megabajtów na jedno żądanie.
 """
 
 import csv
 
-from django.http import HttpResponse
+from django.http import StreamingHttpResponse
 
 ZNAKI_FORMUL = ("=", "+", "-", "@", "\t", "\r")
 BOM = "﻿"
@@ -30,19 +34,22 @@ def bezpieczna_komorka(wartosc):
     return wartosc
 
 
-def odpowiedz_csv(nazwa_pliku):
-    """Odpowiedź do pobrania z BOM już na początku treści."""
-    odpowiedz = HttpResponse(content_type="text/csv")
+class _Wiersz:
+    """Plik, który tylko oddaje zapisany tekst - csv.writer pisze, generator wysyła."""
+
+    def write(self, tekst):
+        return tekst
+
+
+def _linie(naglowek, wiersze):
+    pisarz = csv.writer(_Wiersz())
+    yield BOM + pisarz.writerow(naglowek)
+    for wiersz in wiersze:
+        yield pisarz.writerow([bezpieczna_komorka(wartosc) for wartosc in wiersz])
+
+
+def strumien_csv(nazwa_pliku, naglowek, wiersze):
+    """Plik CSV do pobrania, wysyłany w trakcie czytania `wiersze`."""
+    odpowiedz = StreamingHttpResponse(_linie(naglowek, wiersze), content_type="text/csv")
     odpowiedz["Content-Disposition"] = f'attachment; filename="{nazwa_pliku}"'
-    odpowiedz.write(BOM)
     return odpowiedz
-
-
-class BezpiecznyWriter:
-    """csv.writer, który neutralizuje każdą komórkę przed zapisem."""
-
-    def __init__(self, plik):
-        self._writer = csv.writer(plik)
-
-    def writerow(self, wiersz):
-        self._writer.writerow([bezpieczna_komorka(wartosc) for wartosc in wiersz])
