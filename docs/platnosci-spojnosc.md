@@ -67,14 +67,11 @@ kolejności zdarzeń, ponawia je do trzech dni i czasem dostarcza podwójnie.
 
 ## Świadome ograniczenia
 
-- **Zmiana planu z panelu jest zablokowana** do części 2. Klient z aktywną
-  subskrypcją dostaje komunikat, żeby napisać - zamiast podwójnego obciążenia.
 - **Dwie aktywne subskrypcje utworzone poza panelem** (np. ręcznie w Stripe)
   nie przełączają się tam i z powrotem: zostaje pierwsza, a log ma błąd do
   wyjaśnienia ręcznie.
-- **Strona sukcesu w panelu nadal sprawdza tylko ogólny stan planu**, nie
-  konkretną sesję - część 2 (F22).
-- **Nieudana płatność nie wysyła jeszcze powiadomienia** właścicielowi firmy.
+- Zmianę planu, potwierdzenie konkretnej sesji i powiadomienie o nieudanej
+  płatności dodaje część 2 (2.1.0) - [platnosci-portal.md](platnosci-portal.md).
 
 ## Co trzeba ustawić w Stripe
 
@@ -129,3 +126,18 @@ i cenami testowymi, webhook z sekretem trybu testowego.
    przywraca dostępu.
 4. Nieudane odnowienie przez test clock i kartę odrzucającą płatności: status
    `past_due`, czat działa do końca opłaconego okresu + 3 dni.
+
+## Wynik odbioru - 14.09.2026
+
+Lokalnie, tryb testowy konta Stripe (klucz `sk_test`), zdarzenia przez
+`stripe listen`, wersja 2.0.22. Wszystkie cztery kroki zaliczone.
+
+| Krok | Wynik |
+|---|---|
+| 1. Zakup Grow kartą 4242 | 14 zdarzeń, wszystkie `200`, kilka w tej samej sekundzie. Jedna subskrypcja, plan Grow, limit 8000, `stripe_status = active`, koniec 17.10 = koniec okresu w Stripe (14.10) + 3 dni |
+| 2. Próba zakupu Pro przy aktywnym Grow | Pięć kliknięć, każde `400` z komunikatem o aktywnej subskrypcji. W Stripe nadal jedna sesja Checkout i jedna subskrypcja, w bazie bez zmian |
+| 3. Anulowanie i ponowne wysłanie starego zakupu | `customer.subscription.deleted` → dostęp wyłączony, `canceled`. Ponownie wysłane `checkout.session.completed` sprzed anulowania (`stripe events resend`) → `200`, dostęp nadal wyłączony |
+| 4. Nieudane odnowienie (test clock) | Karta odrzucająca, zegar przesunięty za koniec okresu: w Stripe `past_due`, faktura otwarta, kolejna próba za 2 dni. W bazie dostęp aktywny do 17.10 = koniec opłaconego okresu + 3 dni, nie do końca nowego okresu. 32 zdarzenia, wszystkie `200`. Test clock usunięty razem z testowym klientem |
+
+Uwagi z odbioru, przeniesione do części 2: komunikat odmowy wyświetlany jako
+`["..."]` i zakup dostępny dla każdego zalogowanego użytkownika firmy.

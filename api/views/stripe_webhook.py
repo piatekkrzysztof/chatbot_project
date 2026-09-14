@@ -132,6 +132,21 @@ def plan_z_subskrypcji(subskrypcja):
     return (subskrypcja.get("metadata") or {}).get("plan")
 
 
+def _powiadom_o_nieudanej_platnosci(subscription_id):
+    from accounts.tasks_konce import powiadom_o_nieudanej_platnosci
+    from documents.utils.queue import enqueue
+
+    try:
+        enqueue(powiadom_o_nieudanej_platnosci, subscription_id)
+    except Exception:
+        # Zapis stanu już się odbył - brak kolejki nie może cofnąć dostępu
+        # ani kazać Stripe'owi ponawiać zdarzenia.
+        logger.exception(
+            "Nie udało się zlecić powiadomienia o nieudanej płatności: subskrypcja=%s",
+            subscription_id,
+        )
+
+
 def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
     """
     Przepisuje stan subskrypcji ze Stripe do Subscription firmy.
@@ -174,6 +189,7 @@ def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
                 return lokalna
 
         if status in STATUSY_Z_DOSTEPEM:
+            poprzedni_status = lokalna.stripe_status if powiazana else ""
             kod_planu = plan_z_subskrypcji(subskrypcja_stripe)
             plan = get_plan(kod_planu)
             poczatek = _data(subskrypcja_stripe["current_period_start"])
@@ -202,6 +218,16 @@ def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
             tenant.subscription_status = "past_due" if status == "past_due" else "active"
             tenant.subscription_plan = pola["plan_type"]
             tenant.save(update_fields=["subscription_status", "subscription_plan"])
+
+            # Jedna wiadomość na wejście w past_due, nie na każde zdarzenie:
+            # nieudana płatność przychodzi jako kilka zdarzeń naraz, a Stripe
+            # ponawia je i pobiera kolejne próby. Blokada wiersza firmy
+            # gwarantuje, że przejście zobaczy tylko jedno z nich.
+            if status == "past_due" and poprzedni_status != "past_due":
+                identyfikator_wiersza = lokalna.pk
+                transaction.on_commit(
+                    lambda: _powiadom_o_nieudanej_platnosci(identyfikator_wiersza)
+                )
             return lokalna
 
         if powiazana and status in STATUSY_BEZ_DOSTEPU:

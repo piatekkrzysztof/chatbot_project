@@ -249,6 +249,25 @@ class CheckoutResponseSerializer(serializers.Serializer):
     checkout_url = serializers.URLField()
 
 
+class PortalRequestSerializer(serializers.Serializer):
+    plan_type = serializers.ChoiceField(
+        choices=["start", "grow", "pro"],
+        required=False,
+        help_text="Plan docelowy. Bez niego portal otwiera kartę, faktury i anulowanie.",
+    )
+
+
+class PortalResponseSerializer(serializers.Serializer):
+    portal_url = serializers.URLField()
+
+
+class CheckoutStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=["aktywna", "w_toku", "wygasla", "nieaktywna"])
+    plan = serializers.CharField(allow_null=True)
+    plan_name = serializers.CharField(allow_null=True)
+    access_until = serializers.DateField(allow_null=True)
+
+
 class CurrentSubscriptionSerializer(serializers.Serializer):
     plan = serializers.CharField(allow_null=True)
     name = serializers.CharField(allow_null=True)
@@ -259,6 +278,19 @@ class CurrentSubscriptionSerializer(serializers.Serializer):
     used = serializers.IntegerField()
     limit = serializers.IntegerField()
     renews_at = serializers.DateField(allow_null=True)
+    stripe_status = serializers.CharField(
+        allow_blank=True, help_text="Ostatni znany status subskrypcji w Stripe, np. past_due."
+    )
+    access_until = serializers.DateField(
+        allow_null=True, help_text="Ostatni dzień, w którym chatbot odpowiada."
+    )
+    has_stripe_subscription = serializers.BooleanField(
+        help_text="Aktywna subskrypcja Stripe - plan zmienia się w portalu, nie nowym zakupem."
+    )
+    portal_available = serializers.BooleanField(
+        help_text="Firma ma kartotekę w Stripe, więc portal pokaże kartę i faktury."
+    )
+    can_manage = serializers.BooleanField(help_text="Zakup i zmiana planu - tylko właściciel.")
 
 
 class PlanSerializer(serializers.Serializer):
