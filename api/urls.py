@@ -54,7 +54,12 @@ from .views.czat_testowy import CzatTestowyView
 from .views.feedback import PublicFeedbackView, SubmitFeedbackView
 from .views.knowledge import TenantKnowledgeView
 from .views.privacy import ConversationEraseView, TenantPrivacySettingsView
-from .views.stripe import BillingOverviewView, CreateCheckoutSessionView
+from .views.stripe import (
+    BillingOverviewView,
+    BillingPortalView,
+    CheckoutSessionStatusView,
+    CreateCheckoutSessionView,
+)
 from .views.stripe_webhook import stripe_webhook
 from .views.ustawienia_firmy import UstawieniaFirmyView
 from .views.widget import (
@@ -175,6 +180,12 @@ urlpatterns = [
     path("analytics/", TenantAnalyticsView.as_view(), name="analytics"),
     path("billing/plans/", BillingOverviewView.as_view(), name="billing-plans"),
     path("billing/create-checkout-session/", CreateCheckoutSessionView.as_view()),
+    path("billing/portal/", BillingPortalView.as_view(), name="billing-portal"),
+    path(
+        "billing/checkout-session/<str:session_id>/",
+        CheckoutSessionStatusView.as_view(),
+        name="billing-checkout-status",
+    ),
     # Trasy brakowało w ogóle — Stripe nie miał dokąd wysyłać zdarzeń,
     # więc kod webhooka nigdy się nie wykonał
     path("billing/webhook/", stripe_webhook, name="stripe-webhook"),
