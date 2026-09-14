@@ -112,3 +112,68 @@ def powiadom_o_koncu(subskrypcja, prog):
         return False
 
     return True
+
+
+TRESC_NIEUDANEJ_PLATNOSCI = (
+    "Płatność za subskrypcję nie przeszła",
+    "Nie udało się pobrać płatności za kolejny okres planu {plan}.\n\n"
+    "Chatbot działa normalnie do {data}. Stripe ponowi próbę w najbliższych "
+    "dniach. Jeśli karta wygasła, została zablokowana albo brakuje na niej "
+    "środków, zmień ją przed tym terminem - po nim widget przestanie "
+    "odpowiadać odwiedzającym Twoją stronę.",
+)
+
+
+@shared_task
+def powiadom_o_nieudanej_platnosci(subscription_id):
+    """
+    Wiadomość do właściciela, gdy odnowienie nie przeszło (status past_due).
+
+    Firma zachowuje dostęp do końca opłaconego okresu + 3 dni, więc przez ten
+    czas nic nie przestaje działać i właściciel nie ma jak zauważyć problemu.
+    Bez wiadomości dowiadywał się dopiero wtedy, gdy chatbot zamilkł.
+
+    Zwraca True, gdy wiadomość poszła.
+    """
+    from accounts.models import Subscription
+    from accounts.plans import get_plan
+
+    try:
+        subskrypcja = Subscription.objects.select_related("tenant").get(pk=subscription_id)
+    except Subscription.DoesNotExist:
+        logger.warning("Nieudana płatność: brak subskrypcji %s", subscription_id)
+        return False
+
+    if subskrypcja.stripe_status != "past_due" or not subskrypcja.is_active:
+        # Zanim zadanie ruszyło, ponowiona płatność mogła już przejść.
+        return False
+
+    adres = subskrypcja.tenant.owner_email
+    if not adres:
+        logger.warning(
+            "Nieudana płatność: firma %s nie ma adresu e-mail właściciela",
+            subskrypcja.tenant_id,
+        )
+        return False
+
+    temat, tresc = TRESC_NIEUDANEJ_PLATNOSCI
+    plan = get_plan(subskrypcja.plan_type)
+    panel = f"{settings.FRONTEND_URL.rstrip('/')}/subskrypcja"
+    wiadomosc = tresc.format(
+        plan=plan.name if plan else subskrypcja.plan_type,
+        data=subskrypcja.end_date.strftime("%d.%m.%Y"),
+    )
+
+    try:
+        send_mail(
+            subject=temat,
+            message=f"{wiadomosc}\n\nZmiana karty w zakładce Subskrypcja:\n{panel}\n",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[adres],
+            fail_silently=False,
+        )
+    except Exception:
+        logger.exception("Nie udało się wysłać powiadomienia o nieudanej płatności")
+        return False
+
+    return True
