@@ -291,6 +291,14 @@ class CurrentSubscriptionSerializer(serializers.Serializer):
         help_text="Firma ma kartotekę w Stripe, więc portal pokaże kartę i faktury."
     )
     can_manage = serializers.BooleanField(help_text="Zakup i zmiana planu - tylko właściciel.")
+    cancel_at = serializers.DateField(
+        allow_null=True, help_text="Dzień, w którym Stripe zakończy anulowaną subskrypcję."
+    )
+    scheduled_plan = serializers.CharField(
+        allow_null=True, help_text="Plan zaplanowany w Stripe od następnego okresu, np. po obniżce."
+    )
+    scheduled_plan_name = serializers.CharField(allow_null=True)
+    scheduled_plan_from = serializers.DateField(allow_null=True)
 
 
 class PlanSerializer(serializers.Serializer):

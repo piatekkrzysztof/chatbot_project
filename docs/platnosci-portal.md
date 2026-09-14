@@ -165,3 +165,45 @@ zdarzenia do lokalnego backendu, karta `4242 4242 4242 4242`.
    daje 403.
 8. **Cudza albo zmyślona sesja** w adresie strony sukcesu: „Nie znaleźliśmy tej
    płatności".
+
+## Wynik odbioru - 14.09.2026
+
+Lokalnie, tryb testowy konta Stripe, wersja 2.1.0 (po scaleniu #65 i panelu
+frontend_chatbot#17). Poczta lokalnego backendu wypisywana do logu zamiast
+wysyłki przez SMTP.
+
+| Krok | Wynik |
+|---|---|
+| 1-2. Zakup bez webhooka | `stripe listen` wyłączony. Zakup Start kartą 4242; strona sukcesu zapytała o konkretną sesję (`GET /api/billing/checkout-session/cs_test_…/` → `200`) i uzgodniła stan ze Stripe: firma aktywna, Start, subskrypcja zapisana, zero żądań webhooka |
+| 3. Podwyższenie Start → Pro | Portal: „Potwierdź aktualizację", do zapłaty 749,81 zł (899 − 149 zł minus wykorzystane minuty). Ta sama subskrypcja, faktura `subscription_update` opłacona, w bazie Pro z limitem 25 000 |
+| 4. Obniżenie Pro → Grow | Harmonogram w Stripe: Pro do 14.10, potem Grow; bez nowej faktury. W bazie nadal Pro, zgodnie z założeniem. **Uwaga:** panel nie informował o zaplanowanej zmianie |
+| 5. Portal klienta | Anulowanie z końcem okresu widoczne z przyciskiem „Nie anuluj subskrypcji", karta i faktury dostępne, edycji danych do faktury brak. **Uwaga:** anulowanie (ustawione w panelu Stripe) zmieniło harmonogram - obniżka zniknęła, Stripe ustawił `cancel_at` (nie `cancel_at_period_end`) - a panel pokazywał zwykły aktywny plan z dostępem do 17.10 |
+| 6. Uprawnienia | Pracownik i podgląd: zakup, portal i stan zakupu `403`, `can_manage` false (tymczasowe konta w wycofanej transakcji) |
+| 7. Zmyślona sesja | `404` „Nie znaleźliśmy tej płatności na Twoim koncie."; w panelu nagłówek „Nie znaleźliśmy tej płatności" |
+| 8. Nieudana płatność | Test clock, karta odrzucająca: `past_due`, dostęp do 17.10, **jeden** e-mail z datą i linkiem, mimo kilku zdarzeń tej samej porażki; w panelu ostrzeżenie z „Zmień kartę". 54 zdarzenia w całym odbiorze, wszystkie `200` |
+
+Dodatkowe uwagi z odbioru:
+
+- Po anulowaniu plan był oznaczony jako „Twój obecny plan" bez przycisku - nie
+  dało się kupić tego samego planu ponownie.
+- Na ekranie płatności firma bez aktywnego planu dostała `429`: cały panel
+  liczył się do limitu czatu najniższego planu.
+
+Wszystkie cztery uwagi naprawia 2.2.0: [stan zmian w panelu](#zmiany-zaplanowane-w-stripe---220).
+
+## Zmiany zaplanowane w Stripe - 2.2.0
+
+- Migracja `accounts.0039_subscription_zmiany_stripe`: `anulowanie_od`,
+  `zaplanowany_plan`, `zaplanowany_plan_od`.
+- Webhook pobiera subskrypcję razem z harmonogramem (`expand=["schedule"]`).
+  Anulowanie: `cancel_at`, a bez niego `cancel_at_period_end` (koniec okresu).
+  Zaplanowany plan: pierwsza faza zaczynająca się po bieżącej, jeśli jej cena
+  to inny plan.
+- Anulowana subskrypcja kończy dostęp w dniu anulowania, bez 3 dni zapasu, i znów
+  dostaje alerty końca. Cofnięcie anulowania przywraca koniec okresu + 3 dni.
+- `/api/billing/plans/`: `cancel_at`, `scheduled_plan`, `scheduled_plan_name`,
+  `scheduled_plan_from`; `current` przy planie tylko dla aktywnej subskrypcji.
+- Ekrany płatności (przegląd, zakup, portal, stan zakupu) liczy wyłącznie limit
+  panelu. Pozostałe ekrany panelu nadal liczą też limit czatu - osobna sprawa.
+- Panel: „Subskrypcja anulowana - działa do …" i „Od … plan …"; karta
+  zaplanowanego planu z datą zamiast przycisku.

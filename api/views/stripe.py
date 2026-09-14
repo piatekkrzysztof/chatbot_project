@@ -29,6 +29,7 @@ from api.schemas import (
     PortalResponseSerializer,
     PublicPricingSerializer,
 )
+from api.throttles import SubscriptionRateThrottle
 from api.utils.stripe_klient import kartoteka_klienta
 from api.utils.stripe_portal import konfiguracja_portalu, zapomnij_konfiguracje
 from api.views.stripe_webhook import (
@@ -53,6 +54,12 @@ WZOR_SESJI = re.compile(r"^cs_(test|live)_[A-Za-z0-9]{8,200}$")
 PLATNOSC_ZAKONCZONA = frozenset({"paid", "no_payment_required"})
 
 NIE_ZNALEZIONO_PLATNOSCI = "Nie znaleźliśmy tej płatności na Twoim koncie."
+
+#: Ekrany płatności liczy tylko limit panelu. Domyślnie obowiązuje też limit
+#: czatu, a firma bez aktywnej subskrypcji ma najniższą stawkę (30 zapytań na
+#: minutę na cały panel) - klient z wygasłym planem, który przyszedł zapłacić,
+#: dostawał 429 po kilku kliknięciach.
+PLATNOSCI_LIMITY = [SubscriptionRateThrottle]
 
 
 class BladPlatnosci(ValidationError):
@@ -353,12 +360,15 @@ def stan_zakupu(tenant, identyfikator_sesji):
 )
 class BillingOverviewView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = PLATNOSCI_LIMITY
 
     def get(self, request):
         tenant = request.user.tenant
         subscription = getattr(tenant, "subscription", None)
         biezacy = subscription.plan_type if subscription else None
         biezacy_plan = get_plan(biezacy)
+        aktywna = bool(subscription and subscription.is_active)
+        zaplanowany = get_plan(subscription.zaplanowany_plan) if aktywna else None
 
         return Response(
             {
@@ -381,6 +391,14 @@ class BillingOverviewView(APIView):
                     "has_stripe_subscription": aktywna_subskrypcja_stripe(tenant) is not None,
                     "portal_available": bool(tenant.stripe_customer_id),
                     "can_manage": getattr(request.user, "role", None) == "owner",
+                    # Zmiany zaplanowane w Stripe - bez nich panel pokazywał
+                    # anulowaną subskrypcję jak zwykły, odnawiany plan
+                    "cancel_at": subscription.anulowanie_od if aktywna else None,
+                    "scheduled_plan": zaplanowany.code if zaplanowany else None,
+                    "scheduled_plan_name": zaplanowany.name if zaplanowany else None,
+                    "scheduled_plan_from": (
+                        subscription.zaplanowany_plan_od if zaplanowany else None
+                    ),
                 },
                 "plans": [
                     {
@@ -399,7 +417,9 @@ class BillingOverviewView(APIView):
                         # Bez identyfikatora ceny w Stripe nie da się kupić —
                         # panel ma to pokazać zamiast prowadzić w ślepy zaułek
                         "available": bool(settings.STRIPE_PRICE_IDS.get(plan.code)),
-                        "current": plan.code == biezacy,
+                        # Tylko przy aktywnej subskrypcji: po anulowaniu plan był
+                        # oznaczony jako obecny i nie dało się go kupić ponownie
+                        "current": aktywna and plan.code == biezacy,
                     }
                     for plan in PLANS.values()
                 ],
@@ -418,6 +438,7 @@ class CreateCheckoutSessionView(APIView):
     # Wcześniej wystarczało zalogowanie, więc plan mógł kupić także pracownik
     # albo konto tylko do podglądu.
     permission_classes = [IsOwner]
+    throttle_classes = PLATNOSCI_LIMITY
 
     def post(self, request):
         checkout_url = create_checkout_session(
@@ -442,6 +463,7 @@ class CreateCheckoutSessionView(APIView):
 )
 class BillingPortalView(APIView):
     permission_classes = [IsOwner]
+    throttle_classes = PLATNOSCI_LIMITY
 
     def post(self, request):
         portal_url = otworz_portal(
@@ -464,6 +486,7 @@ class BillingPortalView(APIView):
 )
 class CheckoutSessionStatusView(APIView):
     permission_classes = [IsOwner]
+    throttle_classes = PLATNOSCI_LIMITY
 
     def get(self, request, session_id):
         return Response(stan_zakupu(request.user.tenant, session_id))
