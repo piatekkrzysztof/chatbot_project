@@ -34,8 +34,15 @@ def wlasciciel(user, tenant, subscribtion):
     return klient
 
 
-def komorki(tresc):
-    return list(csv.reader(io.StringIO(tresc.decode("utf-8").lstrip("﻿"))))
+def tresc(odpowiedz):
+    """Eksport jest strumieniem - treść dopiero po przeczytaniu całości."""
+    if getattr(odpowiedz, "streaming", False):
+        return b"".join(odpowiedz.streaming_content)
+    return odpowiedz.content
+
+
+def komorki(odpowiedz):
+    return list(csv.reader(io.StringIO(tresc(odpowiedz).decode("utf-8").lstrip("﻿"))))
 
 
 def log(tenant, prompt="Pytanie", response="Odpowiedź", **pola):
@@ -63,18 +70,18 @@ class TestEksportu:
     def test_formula_od_odwiedzajacego_nie_wykonuje_sie_w_arkuszu(self, wlasciciel, tenant, wpis):
         # Na starym kodzie komórka zaczynała się od znaku formuły.
         log(tenant, prompt=wpis)
-        wiersze = komorki(wlasciciel.get(EKSPORT).content)
+        wiersze = komorki(wlasciciel.get(EKSPORT))
         assert wiersze[1][1] == "'" + wpis
 
     def test_zwykly_tekst_i_liczby_bez_zmian(self, wlasciciel, tenant):
         """Straż: neutralizacja dotyczy tylko początku jak formuła."""
         log(tenant, prompt="Ile kosztuje strzyżenie?", response="50 zł, a z myciem 70 zł.")
-        wiersz = komorki(wlasciciel.get(EKSPORT).content)[1]
+        wiersz = komorki(wlasciciel.get(EKSPORT))[1]
         assert wiersz[1:4] == ["Ile kosztuje strzyżenie?", "50 zł, a z myciem 70 zł.", "0"]
 
     def test_bom_dla_excela(self, wlasciciel, tenant):
         log(tenant, prompt="Zażółć gęślą jaźń")
-        assert wlasciciel.get(EKSPORT).content.startswith(b"\xef\xbb\xbf")
+        assert tresc(wlasciciel.get(EKSPORT)).startswith(b"\xef\xbb\xbf")
 
     def test_wpis_po_retencji_rozmowy_nie_psuje_eksportu(self, wlasciciel, tenant):
         # Rozmowa skasowana w ramach retencji zostawia wpis z conversation=None.
@@ -82,14 +89,14 @@ class TestEksportu:
         log(tenant, prompt="Stare pytanie", conversation=None)
         odpowiedz = wlasciciel.get(EKSPORT)
         assert odpowiedz.status_code == 200
-        assert komorki(odpowiedz.content)[1][:2] == ["", "Stare pytanie"]
+        assert komorki(odpowiedz)[1][:2] == ["", "Stare pytanie"]
 
     def test_eksport_z_panelu_administracyjnego_tez_neutralizuje(self, tenant):
         log(tenant, prompt="=1+1")
         odpowiedz = PromptLogAdmin(PromptLog, AdminSite()).export_as_csv(
             HttpRequest(), PromptLog.objects.all()
         )
-        assert komorki(odpowiedz.content)[1][4] == "'=1+1"
+        assert komorki(odpowiedz)[1][4] == "'=1+1"
 
 
 def plik(tresc, nazwa="historia.csv"):
@@ -170,7 +177,7 @@ class TestImportu:
         assert list(logi_klientow(tenant).values_list("prompt", flat=True)) == ["Prawdziwe pytanie"]
         assert rozmowy_klientow(tenant).count() == 1
         # Ale eksport ją zawiera: to kopia danych firmy, a import i eksport tworzą parę.
-        eksport = [wiersz[1] for wiersz in komorki(wlasciciel.get(EKSPORT).content)[1:]]
+        eksport = [wiersz[1] for wiersz in komorki(wlasciciel.get(EKSPORT))[1:]]
         assert sorted(eksport) == ["Prawdziwe pytanie", "Stare"]
 
 

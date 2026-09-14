@@ -15,6 +15,7 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.pagination import StronicowaniePanelu
 from api.permissions import *
 from api.schemas import DocumentUploadSerializer, ErrorSerializer, MessageSerializer
 from api.serializers import DocumentChunkSerializer, DocumentSerializer, WebsiteSourceSerializer
@@ -53,9 +54,12 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
     permission_classes = [IsTenantMember]
+    # Import strony zakłada dokument na każdą podstronę (do 20 na źródło),
+    # a źródeł nie ogranicza plan - lista potrafi mieć setki pozycji (F16).
+    pagination_class = StronicowaniePanelu
 
     def get_queryset(self):
-        return z_liczba_fragmentow(super().get_queryset()).order_by("-uploaded_at")
+        return z_liczba_fragmentow(super().get_queryset()).order_by("-uploaded_at", "-id")
 
     @extend_schema(responses={(200, "application/octet-stream"): bytes})
     @action(detail=True, methods=["get"], url_path="download")
