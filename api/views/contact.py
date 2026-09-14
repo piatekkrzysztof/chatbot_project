@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.pagination import StronicowaniePanelu
 from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.schemas import ErrorSerializer, MessageSerializer, PublicContactRequestSerializer
 from api.serializers import ContactRequestCreateSerializer, ContactRequestSerializer
@@ -72,3 +73,16 @@ class ContactRequestViewSet(
     queryset = ContactRequest.objects.all()
     serializer_class = ContactRequestSerializer
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
+    # Zapytań przybywa z każdą rozmową, a same nie znikają. Bez stron ekran
+    # ładował wszystkie od początku działania firmy.
+    pagination_class = StronicowaniePanelu
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("-created_at", "-id")
+
+    def list(self, request, *args, **kwargs):
+        odpowiedz = super().list(request, *args, **kwargs)
+        # Licznik nieobsłużonych dotyczy wszystkich zapytań firmy, nie tylko
+        # bieżącej strony - panel liczył go dotąd z tego, co wczytał.
+        odpowiedz.data["nieobsluzone"] = self.get_queryset().filter(handled=False).count()
+        return odpowiedz

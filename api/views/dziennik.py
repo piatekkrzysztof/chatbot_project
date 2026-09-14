@@ -8,26 +8,18 @@ czyli dokładnie tym, czego klient nie może pokazać własnemu audytorowi.
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView
-from rest_framework.pagination import PageNumberPagination
 
 from accounts.models import WpisDziennika
+from api.pagination import StronicowaniePanelu
 from api.permissions import IsOwner
 from api.utils.mixins import TenantQuerysetMixin
 
 
-class StronicowanieDziennika(PageNumberPagination):
+class StronicowanieDziennika(StronicowaniePanelu):
     """
-    Rozmiar strony podany WPROST.
-
-    `PageNumberPagination` bez `page_size` nie stronicuje niczego - DRF zwraca
-    wtedy całą listę i nie sygnalizuje tego w żaden sposób. Przy dzienniku,
-    który rośnie z każdą zmianą w panelu i nigdy się nie kurczy, oznaczałoby
-    to prędzej czy później jedną odpowiedź z dziesiątkami tysięcy wpisów.
+    Dziennik rośnie z każdą zmianą w panelu i nigdy się nie kurczy - bez stron
+    prędzej czy później jedna odpowiedź miałaby dziesiątki tysięcy wpisów.
     """
-
-    page_size = 50
-    page_size_query_param = "rozmiar"
-    max_page_size = 200
 
 
 class WpisDziennikaSerializer(serializers.ModelSerializer):
