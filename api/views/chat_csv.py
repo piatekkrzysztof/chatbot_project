@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from api.permissions import IsOwnerOrEmployee
 from api.schemas import ErrorSerializer, MessageSerializer
 from api.utils.mixins import TenantQuerysetMixin
-from chat.eksport_csv import BezpiecznyWriter, odpowiedz_csv
+from chat.eksport_csv import strumien_csv
 from chat.models import Conversation, PromptLog
 from chat.zapytania import ZRODLO_IMPORTU, logi_do_eksportu
 from documents.uploads import LimitedMultiPartParser
@@ -43,30 +43,27 @@ class ExportPromptLogsCSVView(TenantQuerysetMixin, ListAPIView):
         # Historia wgrana z importu zostaje - eksport to kopia danych firmy.
         logs = logi_do_eksportu(tenant).order_by("-created_at")
 
-        response = odpowiedz_csv(f"prompt_logs_{tenant.id}.csv")
-        writer = BezpiecznyWriter(response)
-        writer.writerow(
-            ["conversation_id", "prompt", "response", "tokens", "source", "model", "created_at"]
+        wiersze = (
+            [
+                # conversation_id, nie conversation.id: rozmowa bywa pusta
+                # po retencji (SET_NULL), a wtedy eksport kończył się
+                # błędem 500 dla całej firmy. Przy okazji bez zapytania
+                # o rozmowę dla każdego wiersza.
+                log.conversation_id or "",
+                log.prompt,
+                log.response,
+                log.tokens,
+                log.source,
+                log.model,
+                log.created_at.isoformat(),
+            ]
+            for log in logs.iterator(chunk_size=1000)
         )
-
-        for log in logs.iterator():
-            writer.writerow(
-                [
-                    # conversation_id, nie conversation.id: rozmowa bywa pusta
-                    # po retencji (SET_NULL), a wtedy eksport kończył się
-                    # błędem 500 dla całej firmy. Przy okazji bez zapytania
-                    # o rozmowę dla każdego wiersza.
-                    log.conversation_id or "",
-                    log.prompt,
-                    log.response,
-                    log.tokens,
-                    log.source,
-                    log.model,
-                    log.created_at.isoformat(),
-                ]
-            )
-
-        return response
+        return strumien_csv(
+            f"prompt_logs_{tenant.id}.csv",
+            ["conversation_id", "prompt", "response", "tokens", "source", "model", "created_at"],
+            wiersze,
+        )
 
 
 class BladImportu(Exception):

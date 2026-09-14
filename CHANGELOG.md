@@ -16,6 +16,24 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-09-14
+
+### Changed
+
+- **Documents and FAQ load page by page**, newest first, 50 per page. A website
+  import creates one document per subpage (up to 20 per source, with no limit on
+  sources), so the document list could run to hundreds of entries on every
+  visit. A new FAQ entry or uploaded document appears on the first page.
+- **The chat history CSV export is streamed.** It used to build the whole file
+  in the server's memory before sending the first byte - with a large history,
+  hundreds of megabytes for one request. The admin export works the same way.
+  Content, the BOM for Excel and formula neutralisation are unchanged.
+
+### Fixed
+
+- The public widget FAQ endpoint returned every FAQ entry of the company to
+  anyone holding the widget key. It now returns at most the first 100.
+
 ## [2.3.0] — 2026-09-14
 
 ### Changed

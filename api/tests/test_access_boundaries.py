@@ -305,8 +305,9 @@ def test_csv_uses_authenticated_tenant_even_without_middleware(firmy, operation,
     else:
         assert response.status_code == (200 if operation == "export" else 201)
         if operation == "export":
-            assert "Firma A" in response.content.decode()
-            assert "Firma B" not in response.content.decode()
+            tresc = b"".join(response.streaming_content).decode()
+            assert "Firma A" in tresc
+            assert "Firma B" not in tresc
         else:
             assert PromptLog.objects.filter(tenant=firmy.a, prompt="new").exists()
     assert not PromptLog.objects.filter(tenant=firmy.b, prompt="new").exists()
@@ -318,8 +319,9 @@ def test_csv_round_trip_works_with_jwt_alone(firmy):
     assert client.post("/api/chat/import/", {"file": upload}, format="multipart").status_code == 201
     response = client.get("/api/chat/export/")
     assert response.status_code == 200
-    assert "round-trip" in response.content.decode()
-    assert "Firma B" not in response.content.decode()
+    tresc = b"".join(response.streaming_content).decode()
+    assert "round-trip" in tresc
+    assert "Firma B" not in tresc
 
 
 @pytest.mark.django_db(transaction=True)
