@@ -5,6 +5,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import storages
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
+from django.db.models import Count
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
@@ -34,12 +35,17 @@ from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
 logger = logging.getLogger(__name__)
 
 
+def z_liczba_fragmentow(queryset):
+    """Liczba fragmentów w tym samym zapytaniu co dokumenty - zamiast dwóch zapytań na dokument."""
+    return queryset.annotate(liczba_fragmentow=Count("chunks"))
+
+
 class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
     serializer_class = DocumentSerializer
     permission_classes = [IsTenantMember]
 
     def get_queryset(self):
-        return super().get_queryset().order_by("-uploaded_at")
+        return z_liczba_fragmentow(super().get_queryset()).order_by("-uploaded_at")
 
 
 @extend_schema(tags=["Panel — baza wiedzy"])
@@ -49,7 +55,7 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsTenantMember]
 
     def get_queryset(self):
-        return super().get_queryset().order_by("-uploaded_at")
+        return z_liczba_fragmentow(super().get_queryset()).order_by("-uploaded_at")
 
     @extend_schema(responses={(200, "application/octet-stream"): bytes})
     @action(detail=True, methods=["get"], url_path="download")
