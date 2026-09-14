@@ -16,6 +16,50 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-09-14
+
+### Added
+
+- **Plan changes on the same Stripe subscription.** A plan button in the panel
+  now opens the Stripe customer portal directly on the confirmation screen for
+  that change, instead of a new purchase. A higher plan applies immediately and
+  Stripe charges only the difference for the rest of the period. A lower plan
+  applies from the next billing period, with no refunds or corrected invoices.
+  "Manage subscription" opens the same portal for the card, invoices and
+  cancellation at the end of the paid period. Billing details stay editable
+  only in the panel, so the tax ID on invoices cannot drift from the company
+  data. The application creates the portal configuration itself for the
+  current prices, separately in test and live mode.
+- **E-mail to the owner when a renewal payment fails.** One message when the
+  subscription enters `past_due`, with the date until which the chat keeps
+  working. Repeated Stripe events do not multiply it. The Subscription screen
+  shows the same warning with a "Change card" button.
+
+### Fixed
+
+- **The payment success page confirmed the plan, not the purchase.** It asked
+  for the general plan state, so a company on a trial saw "plan active" before
+  anything had happened, and an expired session looked the same as a late
+  webhook. It now checks the specific Checkout session: active, still
+  processing, expired, or not found - a session of another company looks
+  exactly like a missing one. When the payment is complete but the webhook has
+  not arrived yet, the backend reconciles the state from Stripe itself.
+- Only the company owner can buy a plan. Any logged-in user, including
+  employees and view-only accounts, could start a purchase.
+- Payment refusals were shown in the panel as `["..."]`. They are now a single
+  sentence.
+- **Paying customers could get "subscription ends in 3 days" on every renewal
+  day.** Since 2.0.22 a Stripe subscription ends at the end of the period plus
+  three days of grace. The daily check runs at 8:15 and Stripe renews at the
+  time of the original purchase, so on renewal day an active subscription
+  looked as if it was ending. Active Stripe subscriptions renew on their own
+  and no longer get this warning; a failed renewal still does.
+
+### Deployment
+
+- No migration and no new webhook events. Deploy the backend first, then the
+  panel: the new success page needs the new endpoint.
+
 ## [2.0.22] — 2026-09-13
 
 ### Fixed

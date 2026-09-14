@@ -500,6 +500,14 @@ class Subscription(models.Model):
         if not self.end_date:
             return None
 
+        # Subskrypcja Stripe w stanie active odnawia sie sama, a jej koniec to
+        # koniec okresu + 3 dni zapasu. Przeglad chodzi o 8:15, Stripe odnawia
+        # o godzinie zakupu - bez tego warunku firma, ktora kupila plan po 8:15,
+        # dostawalaby co miesiac w dniu odnowienia falszywe "konczy sie za
+        # 3 dni". Nieudane odnowienie (past_due) nadal ostrzega.
+        if self.stripe_status in ("active", "trialing"):
+            return None
+
         # Inna data konca niz ta, o ktorej powiadamialismy, znaczy odnowienie.
         wyslany = self.alert_konca_prog if self.alert_konca_dla == self.end_date else None
 

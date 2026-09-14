@@ -158,3 +158,26 @@ class TestOdpornosci:
 
         assert sub.alert_konca_prog == 0
         assert sub.alert_konca_dla == sub.end_date
+
+
+@pytest.mark.django_db
+class TestOdnowieniaStripe:
+    """
+    Koniec subskrypcji Stripe to koniec okresu + 3 dni zapasu (F11). Przeglad
+    chodzi o 8:15, a Stripe odnawia o godzinie zakupu, wiec w dniu odnowienia
+    aktywna subskrypcja wyglada na konczaca sie za 3 dni.
+    """
+
+    def test_aktywna_subskrypcja_stripe_nie_dostaje_ostrzezenia_w_dniu_odnowienia(self, firma):
+        subskrypcja(firma, konczy_za_dni=3, stripe_subscription_id="sub_1", stripe_status="active")
+
+        assert sprawdz_konce_subskrypcji() == 0
+        assert mail.outbox == []
+
+    def test_nieudane_odnowienie_nadal_ostrzega_przed_koncem_dostepu(self, firma):
+        subskrypcja(
+            firma, konczy_za_dni=3, stripe_subscription_id="sub_1", stripe_status="past_due"
+        )
+
+        assert sprawdz_konce_subskrypcji() == 1
+        assert "3 dni" in mail.outbox[0].subject
