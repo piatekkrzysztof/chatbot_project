@@ -442,6 +442,25 @@ class Subscription(models.Model):
         default="",
         help_text="Ostatni znany status subskrypcji w Stripe.",
     )
+    # Zmiany zaplanowane w Stripe, a jeszcze nieobowiązujące. Bez nich panel
+    # pokazywał po anulowaniu z końcem okresu zwykły aktywny plan, a po
+    # zaplanowanej obniżce - dotychczasowy plan bez słowa o zmianie.
+    anulowanie_od = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Dzień, w którym Stripe zakończy anulowaną subskrypcję.",
+    )
+    zaplanowany_plan = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        help_text="Plan kolejnej fazy harmonogramu Stripe, np. po obniżce.",
+    )
+    zaplanowany_plan_od = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Od kiedy obowiązuje zaplanowany plan.",
+    )
 
     # Nowe pola dla limitów
     message_limit = models.PositiveIntegerField(
@@ -504,8 +523,9 @@ class Subscription(models.Model):
         # koniec okresu + 3 dni zapasu. Przeglad chodzi o 8:15, Stripe odnawia
         # o godzinie zakupu - bez tego warunku firma, ktora kupila plan po 8:15,
         # dostawalaby co miesiac w dniu odnowienia falszywe "konczy sie za
-        # 3 dni". Nieudane odnowienie (past_due) nadal ostrzega.
-        if self.stripe_status in ("active", "trialing"):
+        # 3 dni". Nieudane odnowienie (past_due) nadal ostrzega, a anulowana
+        # subskrypcja nie odnowi sie - jej koniec jest prawdziwy.
+        if self.stripe_status in ("active", "trialing") and not self.anulowanie_od:
             return None
 
         # Inna data konca niz ta, o ktorej powiadamialismy, znaczy odnowienie.

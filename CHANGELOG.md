@@ -16,6 +16,38 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-09-14
+
+Found during the Stripe test-mode acceptance of 2.1.0.
+
+### Added
+
+- **The Subscription screen shows changes scheduled in Stripe.** After
+  cancelling at the end of the period it says "Subscription cancelled - works
+  until 14.10.2026" (with a hint for the owner that cancellation can be undone
+  in "Manage subscription"). After a downgrade it says "From 14.10.2026 plan
+  Grow", and the Grow card shows the date instead of another change button.
+
+### Fixed
+
+- **A cancelled subscription looked like a normal renewing plan.** Its end date
+  also kept the three days of grace meant for payment retries, although after
+  cancellation there are no more payments, and the end-of-subscription warning
+  was switched off for it. Access now ends on the cancellation day and the
+  warning is sent again.
+- **A plan whose subscription had ended was still marked "Your current plan"**
+  without a button, so the same plan could not be bought again.
+- **A company without an active plan got "Too many requests" on the payment
+  screens.** All panel requests counted against the chat limit of the lowest
+  plan (30 per minute), so a customer who came to pay was blocked after a few
+  clicks. Payment endpoints now use only the panel limit.
+
+### Migration
+
+- `accounts.0039_subscription_zmiany_stripe`: three nullable fields on the
+  subscription, no data migration. The fields fill in on the next Stripe event
+  for each subscription.
+
 ## [2.1.0] — 2026-09-14
 
 ### Added

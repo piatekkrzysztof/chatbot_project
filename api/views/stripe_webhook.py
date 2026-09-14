@@ -108,7 +108,9 @@ def pobierz_subskrypcje(identyfikator):
     """
     stripe.api_key = settings.STRIPE_SECRET_KEY
     try:
-        return stripe.Subscription.retrieve(identyfikator)
+        # Harmonogram w tym samym zapytaniu: zaplanowana obniżka jest tylko
+        # tam, sama subskrypcja do dnia zmiany pokazuje dotychczasową cenę.
+        return stripe.Subscription.retrieve(identyfikator, expand=["schedule"])
     except stripe.error.InvalidRequestError:
         logger.warning("Subskrypcja %s nie istnieje w Stripe - pomijam zdarzenie", identyfikator)
         return None
@@ -123,13 +125,52 @@ def plan_z_subskrypcji(subskrypcja):
     Metadane ustawiamy przy zakupie i nie zmieniają się, gdy plan zmieni się
     po stronie Stripe. Cena mówi, za co klient faktycznie płaci.
     """
+    return _plan_z_pozycji((subskrypcja.get("items") or {}).get("data")) or (
+        subskrypcja.get("metadata") or {}
+    ).get("plan")
+
+
+def _plan_z_pozycji(pozycje):
     ceny = {cena: kod for kod, cena in settings.STRIPE_PRICE_IDS_ROCZNE.items() if cena}
     ceny.update({cena: kod for kod, cena in settings.STRIPE_PRICE_IDS.items() if cena})
-    for pozycja in (subskrypcja.get("items") or {}).get("data") or []:
+    for pozycja in pozycje or []:
         cena = _identyfikator(pozycja.get("price"))
         if cena in ceny:
             return ceny[cena]
-    return (subskrypcja.get("metadata") or {}).get("plan")
+    return None
+
+
+def zaplanowana_zmiana_planu(subskrypcja):
+    """
+    (kod planu, data) następnej fazy harmonogramu, gdy zmienia plan - albo (None, None).
+
+    Obniżka z portalu to harmonogram: bieżąca faza z dotychczasową ceną do końca
+    okresu, następna z niższą. Anulowanie z końcem okresu zostawia harmonogram
+    bez następnej fazy, więc tu nic nie znajdzie - to widać po `cancel_at`.
+    """
+    harmonogram = subskrypcja.get("schedule")
+    if not isinstance(harmonogram, dict):
+        return None, None
+    koniec_biezacej = (harmonogram.get("current_phase") or {}).get("end_date")
+    if not koniec_biezacej:
+        return None, None
+    obecny = plan_z_subskrypcji(subskrypcja)
+    for faza in harmonogram.get("phases") or []:
+        if faza.get("start_date") and faza["start_date"] >= koniec_biezacej:
+            kod = _plan_z_pozycji(faza.get("items"))
+            if kod and kod != obecny:
+                return kod, _data(faza["start_date"])
+            return None, None
+    return None, None
+
+
+def data_anulowania(subskrypcja):
+    """Dzień, w którym Stripe zakończy subskrypcję - albo None, gdy się odnawia."""
+    if subskrypcja.get("cancel_at"):
+        return _data(subskrypcja["cancel_at"])
+    if subskrypcja.get("cancel_at_period_end"):
+        return _data(subskrypcja["current_period_end"])
+    return None
 
 
 def _powiadom_o_nieudanej_platnosci(subscription_id):
@@ -198,14 +239,26 @@ def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
                 if status == "past_due"
                 else _data(subskrypcja_stripe["current_period_end"])
             )
+            koniec = koniec_oplaconego + BUFOR_PONOWIEN
+            anulowanie = data_anulowania(subskrypcja_stripe)
+            if anulowanie:
+                # Anulowana subskrypcja kończy się w Stripe dokładnie tego dnia.
+                # Zapas na ponowienia płatności nie ma sensu, skoro płatności
+                # już nie będzie - a panel i alert końca pokazywały datę o trzy
+                # dni za późną.
+                koniec = min(koniec, anulowanie)
+            zaplanowany, zaplanowany_od = zaplanowana_zmiana_planu(subskrypcja_stripe)
             pola = {
                 "plan_type": plan.code if plan else (kod_planu or "unknown"),
                 "message_limit": plan.message_limit if plan else 1_000,
                 "is_active": True,
                 "start_date": poczatek,
-                "end_date": koniec_oplaconego + BUFOR_PONOWIEN,
+                "end_date": koniec,
                 "stripe_subscription_id": sid,
                 "stripe_status": status,
+                "anulowanie_od": anulowanie,
+                "zaplanowany_plan": zaplanowany or "",
+                "zaplanowany_plan_od": zaplanowany_od,
             }
             if lokalna is None:
                 lokalna = Subscription.objects.create(tenant=tenant, **pola)
@@ -233,7 +286,18 @@ def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
         if powiazana and status in STATUSY_BEZ_DOSTEPU:
             lokalna.is_active = False
             lokalna.stripe_status = status
-            lokalna.save(update_fields=["is_active", "stripe_status"])
+            lokalna.anulowanie_od = None
+            lokalna.zaplanowany_plan = ""
+            lokalna.zaplanowany_plan_od = None
+            lokalna.save(
+                update_fields=[
+                    "is_active",
+                    "stripe_status",
+                    "anulowanie_od",
+                    "zaplanowany_plan",
+                    "zaplanowany_plan_od",
+                ]
+            )
             tenant.subscription_status = "suspended"
             tenant.save(update_fields=["subscription_status"])
             logger.warning("Subskrypcja wstrzymana (%s): tenant=%s", status, tenant.id)
