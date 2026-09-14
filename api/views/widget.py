@@ -125,10 +125,17 @@ class WidgetSettingsAPIView(APIView):
         )
 
 
+#: Ile wpisów FAQ oddaje publiczny endpoint widgetu.
+MAKS_FAQ_WIDGETU = 100
+
+
 @extend_schema(
     tags=["Widget"],
     summary="FAQ firmy",
-    description="Lista pytań i odpowiedzi skonfigurowanych przez firmę.",
+    description=(
+        "Lista pytań i odpowiedzi skonfigurowanych przez firmę, najwyżej "
+        f"{MAKS_FAQ_WIDGETU} pierwszych wpisów."
+    ),
     responses={200: PublicFAQSerializer(many=True)},
 )
 class PublicFAQView(APIView):
@@ -139,7 +146,9 @@ class PublicFAQView(APIView):
         if not getattr(request, "tenant", None):
             raise PermissionDenied("Nieprawidłowy klucz API")
 
-        faqs = FAQ.objects.filter(tenant=request.tenant).order_by("id")
+        # Publiczny endpoint bez logowania: bez limitu każdy, kto zna klucz
+        # z kodu widgetu, pobierał jednym żądaniem całe FAQ firmy (F16).
+        faqs = FAQ.objects.filter(tenant=request.tenant).order_by("id")[:MAKS_FAQ_WIDGETU]
         serializer = PublicFAQSerializer(faqs, many=True)
         return Response(serializer.data)
 

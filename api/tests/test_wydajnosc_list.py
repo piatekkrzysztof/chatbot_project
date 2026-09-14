@@ -250,7 +250,7 @@ def test_status_dokumentu_bez_zmian_po_dolaczeniu_liczby_fragmentow(firma):
     Document.objects.create(tenant=tenant, name="b", processed=True)
     Document.objects.create(tenant=tenant, name="c", processed=False)
 
-    dokumenty = klient(tenant, wlasciciel).get("/api/documents/").json()
+    dokumenty = klient(tenant, wlasciciel).get("/api/documents/").json()["results"]
 
     assert {d["name"]: (d["chunk_count"], d["status"]) for d in dokumenty} == {
         "a": (1, "ready"),

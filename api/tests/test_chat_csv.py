@@ -36,7 +36,7 @@ def test_export_prompt_logs_csv(api_client, user, tenant, subscribtion):
 
     assert res.status_code == 200
     assert res["Content-Type"] == "text/csv"
-    content = res.content.decode("utf-8")
+    content = b"".join(res.streaming_content).decode("utf-8")
     assert "prompt,response" in content or "Co to jest AI?" in content
 
 

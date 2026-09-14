@@ -80,3 +80,64 @@ sprawdzenia fragmentów.
 Testy powiązane (dokumenty, dziennik, historia, zapytania, role, czat testowy,
 limity, schemat OpenAPI): 245 passed. Panel: 5 nowych testów stronicowania,
 vitest 139/139, `tsc` i eslint czyste.
+
+---
+
+# F16, część 2 - listy wiedzy, publiczne FAQ i eksport CSV
+
+**Wersja:** 2.4.0. **Zakres:** `api/views/documents.py`, `api/views/faq.py`,
+`api/views/widget.py`, `api/views/chat_csv.py`, `chat/eksport_csv.py`,
+`chat/admin.py`; panel: Baza wiedzy i FAQ.
+
+**Wdrożenie:** bez migracji, najlepiej razem z panelem. Obecny panel przyjmie
+odpowiedź ze stronami, ale pokaże tylko pierwsze 50 dokumentów i wpisów FAQ,
+bez przycisków stron.
+
+## Co było nie tak
+
+| Lista | Dlaczego rośnie | Skutek |
+|---|---|---|
+| Dokumenty | import strony zakłada dokument na każdą podstronę (do 20 na źródło), źródeł nie ogranicza plan | setki pozycji przy każdym wejściu w Bazę wiedzy |
+| FAQ | wpisy dodaje się ręcznie, bez górnej granicy | cała lista przy każdym wejściu |
+| `/api/widget/faq/` | publiczny endpoint, sam klucz z kodu widgetu | całe FAQ firmy jednym żądaniem dla każdego, kto zna klucz |
+| Eksport CSV | cała historia rozmów | `HttpResponse` zbierał plik w pamięci procesu przed wysłaniem |
+
+Źródła stron, użytkownicy i zaproszenia zostają bez stron: pierwsze dodaje się
+ręcznie pojedynczo, dwa pozostałe ogranicza limit miejsc w planie.
+
+## Jak jest teraz
+
+1. **Dokumenty i FAQ stronami** (`StronicowaniePanelu`, 50, maks. 200), od
+   najnowszych. Panel: nowy dokument i nowy wpis FAQ na pierwszej stronie;
+   usunięcie ostatniego wpisu FAQ na dalszej stronie cofa o jedną (inaczej 404).
+2. **Publiczne FAQ widgetu** zwraca najwyżej `MAKS_FAQ_WIDGETU = 100` pierwszych
+   wpisów (w kolejności dodania, jak dotąd).
+3. **Eksport CSV strumieniem** (`strumien_csv`): wiersz po wierszu, historia
+   czytana porcjami po 1000 wierszy. BOM, nagłówek i neutralizacja formuł bez
+   zmian. Tak samo eksport z panelu administracyjnego.
+
+## Świadome ograniczenia
+
+- Test pilnuje, że eksport jest strumieniem, ma tę samą treść i nie robi zapytań
+  na wiersz. Zużycie pamięci nie jest mierzone wprost.
+- Nazwa pobieranego pliku i kolumny eksportu bez zmian.
+
+## Weryfikacja
+
+`api/tests/test_wiedza_i_eksport.py`: 6 testów. Zmienione oczekiwania istniejących
+testów: eksport czytany ze strumienia (`test_csv_i_oceny.py`, `test_chat_csv.py`,
+`test_access_boundaries.py`), listy FAQ i dokumentów z `results`
+(`test_analytics_faq.py`, `test_wydajnosc_list.py`).
+
+**Odtworzenie:** na kodzie sprzed zmiany czerwienieje 6 z 6. Cztery odtwarzają
+błąd (dokumenty i FAQ bez stron, publiczne FAQ bez limitu, eksport w pamięci).
+Dwa pozostałe - treść strumienia i brak zapytań na wiersz - to straże; na starym
+kodzie padają tylko dlatego, że odpowiedź nie była strumieniem.
+
+**Mutacje** (14.09.2026): 9 z 9 uszkodzeń czerwieni co najmniej jeden test -
+dokumenty i FAQ bez stron oraz od najstarszych, publiczne FAQ bez limitu, eksport
+w pamięci, bez neutralizacji formuł, bez BOM, zapytanie o rozmowę na wiersz
+eksportu.
+
+Testy powiązane: 291 passed. Panel: 3 nowe testy, vitest 142/142, `tsc`
+i eslint czyste.
