@@ -187,9 +187,22 @@ class UnansweredSerializer(serializers.Serializer):
     asked_at = serializers.DateTimeField()
 
 
+class PierwszeKrokiSerializer(serializers.Serializer):
+    wiedza = serializers.BooleanField(help_text="Opis firmy, przetworzony dokument albo FAQ.")
+    rozmowa_testowa = serializers.BooleanField(
+        help_text="Rozmowa testowa w panelu albo pierwsza rozmowa odwiedzającego."
+    )
+    widget_na_stronie = serializers.BooleanField(
+        help_text="Widget zapytał z publicznej witryny; adresy lokalne się nie liczą."
+    )
+    adres_powiadomien = serializers.BooleanField()
+    polityka_prywatnosci = serializers.BooleanField()
+
+
 class AnalyticsSerializer(serializers.Serializer):
     tenant_name = serializers.CharField()
     knowledge = KnowledgeSummarySerializer()
+    pierwsze_kroki = PierwszeKrokiSerializer()
     conversations = ConversationCountsSerializer()
     questions = QuestionCountsSerializer()
     answer_sources = AnswerSourcesSerializer()
