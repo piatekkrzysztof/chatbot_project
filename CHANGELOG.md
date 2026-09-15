@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-09-15
+
+### Added
+
+- **"First steps" on the dashboard.** The panel summary now reports which setup
+  steps a company has completed: knowledge about the company, a test
+  conversation, the widget placed on a public website, an address for
+  notifications and a privacy policy link. Each step is worked out from the
+  company's data, so it cannot be ticked off without doing it. Widget
+  addresses on a local computer do not count as the widget being on the
+  website. The panel shows the list until every step is done.
+
 ## [2.5.0] — 2026-09-15
 
 ### Added
