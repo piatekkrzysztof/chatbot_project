@@ -80,6 +80,28 @@ class SessionRefreshToken(RefreshToken):
 
 
 class SessionJWTAuthentication(JWTAuthentication):
+    #: Atrybut żądania Django z wynikiem uwierzytelnienia dla danego nagłówka.
+    ZAPAMIETANE = "_uwierzytelnienie_jwt"
+
+    def authenticate(self, request):
+        """
+        Jedno sprawdzenie tokenu na żądanie (F16).
+
+        TenantMiddleware uwierzytelnia żądanie, żeby ustalić firmę, a potem DRF
+        robi to samo przed widokiem. Każde żądanie panelu czytało więc dwa razy
+        użytkownika, sesję logowania i firmę. Wynik zapamiętujemy na żądaniu
+        Django razem z nagłówkiem, z którego powstał - inny nagłówek sprawdzamy
+        od nowa. Błąd uwierzytelnienia nie jest zapamiętywany.
+        """
+        zadanie = getattr(request, "_request", request)
+        naglowek = self.get_header(request)
+        zapamietane = getattr(zadanie, self.ZAPAMIETANE, None)
+        if zapamietane is not None and zapamietane[0] == naglowek:
+            return zapamietane[1]
+        wynik = super().authenticate(request)
+        setattr(zadanie, self.ZAPAMIETANE, (naglowek, wynik))
+        return wynik
+
     def get_user(self, validated_token):
         user = super().get_user(validated_token)
         try:

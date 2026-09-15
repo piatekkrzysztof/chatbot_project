@@ -22,7 +22,7 @@ from api.schemas import (
     WidgetBrandingSerializer,
 )
 from api.serializers import ChatRequestSerializer, PublicFAQSerializer, WidgetDomainSerializer
-from api.throttles import APIKeyRateThrottle, VisitorRateThrottle
+from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle, VisitorRateThrottle
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
 from chat.models import FAQ, Conversation
 from chat.privacy import visitor_identifier
@@ -110,6 +110,8 @@ def serialize_widget_branding(tenant, request):
 class WidgetSettingsAPIView(APIView):
     authentication_classes = []
     permission_classes = []
+    # Ruch odwiedzających - limit czatu firmy, nie limit panelu
+    throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
 
     def get(self, request):
         if not getattr(request, "tenant", None):
@@ -141,6 +143,7 @@ MAKS_FAQ_WIDGETU = 100
 class PublicFAQView(APIView):
     authentication_classes = []  # brak JWT
     permission_classes = []  # walidacja przez API key (X-API-KEY), wykonana w TenantMiddleware
+    throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
 
     def get(self, request):
         if not getattr(request, "tenant", None):

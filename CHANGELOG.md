@@ -16,6 +16,30 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.4.1] — 2026-09-15
+
+### Fixed
+
+- **A company without an active plan got "Too many requests" in the panel.**
+  Every panel screen also counted against the company's chat limit, which is 30
+  requests per minute without an active plan, and widget traffic from visitors
+  used up the same limit. The panel now counts only against the panel limit.
+  Visitor-facing widget endpoints (chat, streaming, widget settings, FAQ,
+  contact, answer rating) keep the chat limit, and a test fails if a new public
+  widget endpoint lacks it.
+- **Every panel request checked the login token twice**, reading the user, the
+  login session and the company twice. The result of the first check is now
+  reused for the same token within the request: `/api/accounts/me/` went from
+  7 database queries to 4.
+
+### Added
+
+- **Slow API requests leave a line in the server log** with the route pattern
+  (no IDs or query parameters), status, duration and number of database queries.
+  The threshold is `WOLNE_ZADANIE_MS` (default 1000 ms, 0 turns it off).
+  Proposed response-time targets and how to check them:
+  `docs/slo-i-czasy-odpowiedzi.md`.
+
 ## [2.4.0] — 2026-09-14
 
 ### Changed

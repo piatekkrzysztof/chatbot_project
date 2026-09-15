@@ -45,6 +45,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Tuż za bezpieczeństwem, żeby czas obejmował uwierzytelnienie i firmę.
+    "chatbot_project.pomiar_czasu.PomiarCzasuMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -82,8 +84,12 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "api.session_tokens.SessionJWTAuthentication",
     ],
+    # Domyślnie tylko limit panelu (F16). Limit czatu obowiązywał wcześniej
+    # także na każdym ekranie panelu: firma bez aktywnego planu dostawała 429 po
+    # 30 żądaniach na minutę w całym panelu. Widoki ruchu odwiedzających
+    # (api/views/widget.py, contact.py, feedback.py, chat.py) ustawiają limit
+    # czatu jawnie - pilnuje tego test_sesja_limity_czasy.py.
     "DEFAULT_THROTTLE_CLASSES": [
-        "api.throttles.APIKeyRateThrottle",
         "api.throttles.SubscriptionRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
@@ -284,6 +290,11 @@ OPENAI_MAX_OUTPUT_TOKENS = int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "600"))
 # Najdłuższe sensowne pytanie odwiedzającego. Powyżej tego to albo wklejony
 # dokument, albo próba nabicia nam kosztu na tokenach wejściowych.
 MAX_WIADOMOSC_ZNAKOW = int(os.getenv("MAX_WIADOMOSC_ZNAKOW", "2000"))
+
+# Próg wolnego żądania API w milisekundach (chatbot_project/pomiar_czasu.py).
+# Dłuższe zostawiają linię w logu z trasą, czasem i liczbą zapytań SQL.
+# 0 wyłącza pomiar. Cele czasów: docs/slo-i-czasy-odpowiedzi.md.
+WOLNE_ZADANIE_MS = int(os.getenv("WOLNE_ZADANIE_MS", "1000"))
 
 # Ile serwerów pośredniczących stoi przed aplikacją i dopisuje się do
 # X-Forwarded-For. Na Renderze ruch idzie przez Cloudflare i load balancer,
