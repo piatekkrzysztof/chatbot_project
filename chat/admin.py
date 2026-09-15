@@ -34,6 +34,7 @@ class PromptLogAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "prompt", "response")
     actions = ["export_as_csv"]
 
+    @admin.action(description="Eksportuj zaznaczone do CSV")
     def export_as_csv(self, request, queryset):
         # Treść pisze odwiedzający, więc przez tę samą neutralizację formuł co
         # eksport w API - patrz chat/eksport_csv.py.
@@ -55,18 +56,15 @@ class PromptLogAdmin(admin.ModelAdmin):
             wiersze,
         )
 
-    export_as_csv.short_description = "Eksportuj zaznaczone do CSV"
-
+    @admin.display(description="Prompt (skrót)")
     def short_prompt(self, obj):
         return obj.prompt[:80] + "..." if len(obj.prompt) > 80 else obj.prompt
 
+    @admin.display(description="Odpowiedź (skrót)")
     def short_response(self, obj):
         if obj.response:
             return obj.response[:80] + "..." if len(obj.response) > 80 else obj.response
         return "–"
-
-    short_prompt.short_description = "Prompt (skrót)"
-    short_response.short_description = "Odpowiedź (skrót)"
 
 
 @admin.register(ChatFeedback)

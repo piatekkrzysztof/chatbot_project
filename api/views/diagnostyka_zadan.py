@@ -81,7 +81,9 @@ def _slad_pobierania(teraz, tenant):
         return {
             "aktywnych_zrodel": 0,
             "wniosek": "brak-danych",
-            "opis": "Nie ma aktywnych źródeł WWW, więc nie ma po czym poznać, czy harmonogram działa.",
+            "opis": (
+                "Nie ma aktywnych źródeł WWW, więc nie ma po czym poznać, czy harmonogram działa."
+            ),
         }
 
     ostatnie = aktywne.exclude(last_crawled_at=None).order_by("-last_crawled_at").first()
@@ -122,7 +124,9 @@ def _slad_pobierania(teraz, tenant):
             "aktywnych_zrodel": liczba,
             "ostatnie_pobranie": None,
             "wniosek": "nie-dziala",
-            "opis": f"Próbowano pobrać {probowane} źródeł, żadne się nie udało i nie zapisano błędu.",
+            "opis": (
+                f"Próbowano pobrać {probowane} źródeł, żadne się nie udało i nie zapisano błędu."
+            ),
         }
 
     godzin = (teraz - ostatnie.last_crawled_at).total_seconds() / 3600

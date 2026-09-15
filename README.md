@@ -454,13 +454,12 @@ Honest list. These are measured or known, not hypothetical.
   `ocen_generowanie` score a versioned question set (retrieval accuracy, correct and
   false refusals, grounded answers) and a regression subset runs in CI, but the full
   measurement against the real model is a manual step, not a scheduled one.
-- **Type and lint debt is capped, not gone.** Every quality check blocks a merge on a
-  ratchet set at the measured value: Ruff findings, mypy errors (with the Django plugin),
-  Bandit findings of medium or high severity, dependency vulnerabilities, and formatting.
-  A number above the threshold fails the build; lowering it is the way down. Current
-  values are in `.github/workflows/ci.yml` next to each threshold.
-- **`main` is not a protected branch.** The checks run on every pull request, but GitHub
-  does not require them to pass before merging - that is a repository setting, not code.
+- **Lint debt is capped, not gone.** Every quality check blocks a merge: mypy (with the
+  Django plugin) at zero errors, Bandit findings of medium or high severity, dependency
+  vulnerabilities, formatting, and Ruff on a ratchet set at the measured value. What Ruff
+  still reports is nullable string fields on models (fixing them is a schema migration on
+  live data) and the order of members inside models (cosmetic). `main` in both
+  repositories requires these checks to pass before merging.
 - **Dependency vulnerabilities: 0.** `pip-audit` runs on every pull request. It reported
   78 in August 2026, cleared in two passes: three direct packages first, then three more
   that only the tool's own resolution surfaced - including PyJWT, which verifies the

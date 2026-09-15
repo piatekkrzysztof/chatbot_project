@@ -27,7 +27,7 @@ def fragmenty_do_przeszukania(tenant_id: int):
 
 
 def query_similar_chunks_pgvector(
-    tenant_id: int, query: str, top_k: int = 5, max_distance: float = None
+    tenant_id: int, query: str, top_k: int = 5, max_distance: float | None = None
 ):
     """
     Zwraca fragmenty dokumentów podobne do zapytania.

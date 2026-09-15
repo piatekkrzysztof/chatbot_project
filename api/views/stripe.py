@@ -492,8 +492,8 @@ class CheckoutSessionStatusView(APIView):
     ),
 )
 class PublicPricingView(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
 
     def get(self, request):
         return Response(

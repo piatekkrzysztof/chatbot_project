@@ -49,7 +49,8 @@ class Command(BaseCommand):
         if na_sucho:
             self.stdout.write(
                 self.style.WARNING(
-                    "PRÓBA NA SUCHO — nic nie zostanie zapisane. Dopisz --wykonaj, żeby przeliczyć.\n"
+                    "PRÓBA NA SUCHO — nic nie zostanie zapisane. "
+                    "Dopisz --wykonaj, żeby przeliczyć.\n"
                 )
             )
 

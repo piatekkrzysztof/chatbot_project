@@ -157,7 +157,8 @@ class Command(BaseCommand):
                 kolumny.append("  —  ")
 
             self.stdout.write(
-                f"{kolumny[0]:>10} {kolumny[1]:>7} {kolumny[2]:>7}  {ile_przejdzie:>9}  {pytanie[:58]}"
+                f"{kolumny[0]:>10} {kolumny[1]:>7} {kolumny[2]:>7}  "
+                f"{ile_przejdzie:>9}  {pytanie[:58]}"
             )
             # Strzalka z ASCII, nie znak ramki. Konsola Windows pracuje
             # w cp1250, ktore nie ma U+2514 - komenda wywracala sie na
