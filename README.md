@@ -450,14 +450,17 @@ line — and a test fails if that version drifts from the newest changelog entry
 
 Honest list. These are measured or known, not hypothetical.
 
-- **No retrieval quality metrics.** There is no versioned evaluation set, no Recall@k,
-  no faithfulness or abstention scoring. "RAG works" is currently an opinion backed by
-  spot checks and one threshold-measuring command, not a number. This is the single
-  biggest gap and the top of the roadmap.
-- **277 lint findings and 1 type error, both unenforced.** Ruff, mypy, Bandit and
-  `pip-audit` all run on every pull request, but only coverage (83%, measured at 85%)
-  and formatting block a merge. The rest report a number and nothing more - a debt with
-  a figure attached rather than a hidden one.
+- **Retrieval and answer quality are measured, but only on demand.** `ocen_rag` and
+  `ocen_generowanie` score a versioned question set (retrieval accuracy, correct and
+  false refusals, grounded answers) and a regression subset runs in CI, but the full
+  measurement against the real model is a manual step, not a scheduled one.
+- **Type and lint debt is capped, not gone.** Every quality check blocks a merge on a
+  ratchet set at the measured value: Ruff findings, mypy errors (with the Django plugin),
+  Bandit findings of medium or high severity, dependency vulnerabilities, and formatting.
+  A number above the threshold fails the build; lowering it is the way down. Current
+  values are in `.github/workflows/ci.yml` next to each threshold.
+- **`main` is not a protected branch.** The checks run on every pull request, but GitHub
+  does not require them to pass before merging - that is a repository setting, not code.
 - **Dependency vulnerabilities: 0.** `pip-audit` runs on every pull request. It reported
   78 in August 2026, cleared in two passes: three direct packages first, then three more
   that only the tool's own resolution surfaced - including PyJWT, which verifies the
@@ -475,21 +478,17 @@ Honest list. These are measured or known, not hypothetical.
 - **Annual pricing and message top-up packs are advertised but not implemented.**
   `STRIPE_PRICE_*_ROCZNY` and `STRIPE_PRICE_PAKIET` are read from the environment and
   never used. Either wire them up or remove them from the public pricing page.
-- **No plan changes in the panel.** Checkout always creates a new subscription; an upgrade
-  goes through support.
 - **`accounts/tests/test_backup.py` is intermittently flaky.** It passed in isolation and
   in three of four full runs, erroring twice with `SystemExit` in the fourth. Not yet
   diagnosed. A randomly red pipeline is worse than none, so this needs fixing before
   coverage gates go in.
-- **No load test.** Throughput and p95 latency under concurrency are unknown.
-- **No monitoring.** There is no dashboard on which a chatbot going quiet would be
-  visible, and no alert on a drop in conversation volume. That is the signal that would
-  have caught the August incident in minutes rather than a day.
-- **Middleware refusals are silent.** A request rejected by `SubscriptionMiddleware`
-  writes no log line and records no event, so refusals cannot be counted after the fact.
-- **The OpenAPI schema is behind authentication.** `drf-spectacular` is wired up and the
-  schema is generated, but `/api/schema/` returns 401, so the API cannot be browsed
-  without an account.
+- **No load test.** Throughput under concurrency is unknown. Slow API requests (over
+  `WOLNE_ZADANIE_MS`) leave a log line with route, status, duration and query count, and
+  proposed response-time targets are in `docs/slo-i-czasy-odpowiedzi.md`, but they are
+  not yet measured against production traffic.
+- **Monitoring is alerts, not a dashboard.** Widget refusals are counted
+  (`accounts/odmowy.py`) and alerted on (`accounts/czuwanie.py`), and a chatbot that goes
+  quiet is detected (`accounts/cisza.py`). There is still no dashboard for trends.
 
 ---
 
