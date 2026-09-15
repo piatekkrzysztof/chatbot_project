@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from api.permissions import IsTenantMember
 from api.schemas import ChatFeedbackRequestSerializer, ErrorSerializer, StatusSerializer
 from api.serializers import ChatFeedbackSerializer
+from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle
 from chat.zapytania import ZRODLO_TESTOWE
 
 # Ten sam komunikat co przy nieistniejącej wiadomości: odmowa nie może
@@ -90,6 +91,8 @@ class PublicFeedbackView(APIView):
 
     authentication_classes = []
     permission_classes = []
+    # Ruch odwiedzających - limit czatu firmy, nie limit panelu
+    throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
 
     def post(self, request):
         tenant = getattr(request, "tenant", None)

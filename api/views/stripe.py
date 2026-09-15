@@ -29,7 +29,6 @@ from api.schemas import (
     PortalResponseSerializer,
     PublicPricingSerializer,
 )
-from api.throttles import SubscriptionRateThrottle
 from api.utils.stripe_klient import kartoteka_klienta
 from api.utils.stripe_portal import konfiguracja_portalu, zapomnij_konfiguracje
 from api.views.stripe_webhook import (
@@ -54,12 +53,6 @@ WZOR_SESJI = re.compile(r"^cs_(test|live)_[A-Za-z0-9]{8,200}$")
 PLATNOSC_ZAKONCZONA = frozenset({"paid", "no_payment_required"})
 
 NIE_ZNALEZIONO_PLATNOSCI = "Nie znaleźliśmy tej płatności na Twoim koncie."
-
-#: Ekrany płatności liczy tylko limit panelu. Domyślnie obowiązuje też limit
-#: czatu, a firma bez aktywnej subskrypcji ma najniższą stawkę (30 zapytań na
-#: minutę na cały panel) - klient z wygasłym planem, który przyszedł zapłacić,
-#: dostawał 429 po kilku kliknięciach.
-PLATNOSCI_LIMITY = [SubscriptionRateThrottle]
 
 
 class BladPlatnosci(ValidationError):
@@ -360,7 +353,6 @@ def stan_zakupu(tenant, identyfikator_sesji):
 )
 class BillingOverviewView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = PLATNOSCI_LIMITY
 
     def get(self, request):
         tenant = request.user.tenant
@@ -438,7 +430,6 @@ class CreateCheckoutSessionView(APIView):
     # Wcześniej wystarczało zalogowanie, więc plan mógł kupić także pracownik
     # albo konto tylko do podglądu.
     permission_classes = [IsOwner]
-    throttle_classes = PLATNOSCI_LIMITY
 
     def post(self, request):
         checkout_url = create_checkout_session(
@@ -463,7 +454,6 @@ class CreateCheckoutSessionView(APIView):
 )
 class BillingPortalView(APIView):
     permission_classes = [IsOwner]
-    throttle_classes = PLATNOSCI_LIMITY
 
     def post(self, request):
         portal_url = otworz_portal(
@@ -486,7 +476,6 @@ class BillingPortalView(APIView):
 )
 class CheckoutSessionStatusView(APIView):
     permission_classes = [IsOwner]
-    throttle_classes = PLATNOSCI_LIMITY
 
     def get(self, request, session_id):
         return Response(stan_zakupu(request.user.tenant, session_id))
