@@ -16,8 +16,25 @@ dotyczy usług webowych i może nie być ustawione dla workerów.
 
 import logging
 import os
+import re
 
 logger = logging.getLogger(__name__)
+
+#: Wartości w ścieżce, które same otwierają dostęp albo wskazują osobę: token
+#: zaproszenia i identyfikator rozmowy odwiedzającego (UUID) oraz sesja
+#: płatności Stripe. Do diagnozy błędu wystarczy wiedzieć, która to trasa.
+WZORY_DO_MASKOWANIA = (
+    (re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"), "[uuid]"),
+    (re.compile(r"cs_(?:test|live)_[A-Za-z0-9]+"), "[sesja-stripe]"),
+)
+
+
+def zamaskuj_adres(tekst):
+    if not isinstance(tekst, str):
+        return tekst
+    for wzor, zamiennik in WZORY_DO_MASKOWANIA:
+        tekst = wzor.sub(zamiennik, tekst)
+    return tekst
 
 
 def redact_credentials(event, hint):
@@ -25,6 +42,13 @@ def redact_credentials(event, hint):
     if isinstance(request, dict):
         request.pop("data", None)
         request.pop("cookies", None)
+        # Zapytanie w adresie niesie filtry i wyszukiwania z panelu, także
+        # e-maile klientów firmy. Do diagnozy wystarczy sama trasa.
+        request.pop("query_string", None)
+        if "url" in request:
+            request["url"] = zamaskuj_adres(request["url"])
+    if "transaction" in event:
+        event["transaction"] = zamaskuj_adres(event["transaction"])
     extra = event.get("extra")
     job = extra.get("celery-job") if isinstance(extra, dict) else None
     if isinstance(job, dict):
