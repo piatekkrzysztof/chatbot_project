@@ -32,8 +32,8 @@ class PublicContactRequestView(APIView):
     Publiczne — autoryzacja kluczem API widgetu, jak reszta endpointów widgetu.
     """
 
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     # Ruch odwiedzających - limit czatu firmy, nie limit panelu
     throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
 

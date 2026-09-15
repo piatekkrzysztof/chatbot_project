@@ -142,7 +142,7 @@ class LoginView(SessionBoundaryMixin, TokenObtainPairView):
     """
 
     serializer_class = CustomTokenObtainPairSerializer
-    permission_classes = []
+    permission_classes = ()
     # Domyslne throttle'e tego projektu opieraja sie na request.tenant albo
     # request.subscription, a tu jeszcze zadnego nie ma - wiec nie obowiazywaly
     # i hasla mozna bylo zgadywac bez ograniczen. Podajemy je wprost.
@@ -190,7 +190,7 @@ class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
     """
 
     authentication_classes = ()
-    permission_classes = []
+    permission_classes = ()
     # Wspólne liczniki IP/global, dodatkowo konto i budżet samego biletu.
     throttle_classes = [MfaThrottle]
 
@@ -240,7 +240,7 @@ class OdswiezTokenView(SessionBoundaryMixin, TokenRefreshView):
     czytamy go z ciasteczka i tam tez odsylamy nowy.
     """
 
-    permission_classes = []
+    permission_classes = ()
     serializer_class = AtomicTokenRefreshSerializer
     # Koncowka nieuwierzytelniona, ktora wykonuje prace kryptograficzna przy
     # kazdym wywolaniu - bez limitu jest darmowym obciazeniem dla kazdego.
@@ -315,7 +315,7 @@ class WylogujView(SessionBoundaryMixin, APIView):
     """
 
     authentication_classes = ()
-    permission_classes = []
+    permission_classes = ()
 
     def post(self, zadanie):
         token = odczytaj_token_odswiezania(zadanie)
@@ -394,8 +394,8 @@ class CreateInvitationView(generics.CreateAPIView):
 )
 class AcceptInvitationView(APIView):
     # Zapraszany jeszcze nie ma konta, więc nie może być uwierzytelniony
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     throttle_classes = [InvitationAcceptThrottle]
 
     def post(self, request):
@@ -421,8 +421,8 @@ class InvitationPreviewView(APIView):
     przy zapisie dowiedzieć się, że link wygasł.
     """
 
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     throttle_classes = [InvitationPreviewThrottle]
 
     def get(self, request, token):

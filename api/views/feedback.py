@@ -89,8 +89,8 @@ class PublicFeedbackView(APIView):
     wiadomość - zna go tylko przeglądarka, która tę rozmowę prowadziła.
     """
 
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     # Ruch odwiedzających - limit czatu firmy, nie limit panelu
     throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
 

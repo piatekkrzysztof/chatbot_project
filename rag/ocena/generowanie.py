@@ -152,7 +152,9 @@ class OcenaGenerowania:
         odpowiedzią. Dla wyszukiwania to sukces - właściwy fragment wrócił.
         """
         sprawdzalne = [o for o in self.odpowiedzi if o.trafil_fakt is not None]
-        return sum(o.trafil_fakt for o in sprawdzalne) / len(sprawdzalne) if sprawdzalne else 0.0
+        return (
+            sum(1 for o in sprawdzalne if o.trafil_fakt) / len(sprawdzalne) if sprawdzalne else 0.0
+        )
 
     @property
     def uprzejmosci_odrzucone(self) -> float:

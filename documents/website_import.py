@@ -237,7 +237,7 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
     normalized_base = validate_url(base_url)
     max_pages = max(0, min(max_pages, 20))
     max_depth = max(0, min(max_depth, 2))
-    visited = set()
+    visited: set[str] = set()
     # Keep the original root spelling for updates of already imported documents.
     scheduled = {normalized_base}
     to_visit = [(base_url, 0)] if max_pages else []

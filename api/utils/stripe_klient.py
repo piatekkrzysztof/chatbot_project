@@ -18,7 +18,7 @@ w swoim tempie.
 """
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import stripe
 
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 #: z przedrostkiem kraju. Numer jest sprawdzany przez VIES asynchronicznie,
 #: więc firma spoza rejestru VAT-UE dostanie go na fakturze jako
 #: niezweryfikowany. To jest wciąż o klasę lepsze niż faktura bez NIP-u.
-TYP_NIP = "eu_vat"
+TYP_NIP: Literal["eu_vat"] = "eu_vat"
 
 
 def _adres(dane: DaneRozliczeniowe) -> dict | None:
@@ -78,7 +78,7 @@ def _przypnij_nip(identyfikator: str, dane: DaneRozliczeniowe) -> None:
             return
 
         stripe.Customer.create_tax_id(identyfikator, type=TYP_NIP, value=wartosc)
-    except stripe.error.StripeError:
+    except stripe.StripeError:
         logger.warning(
             "Nie udalo sie przypiac NIP-u do kartoteki %s - platnosc idzie dalej",
             identyfikator,
@@ -119,7 +119,7 @@ def kartoteka_klienta(tenant, email: str | None = None) -> str | None:
             klient = stripe.Customer.create(**pola)
             tenant.stripe_customer_id = klient.id
             tenant.save(update_fields=["stripe_customer_id"])
-    except stripe.error.InvalidRequestError:
+    except stripe.InvalidRequestError:
         # Najczestszy przypadek: kartoteka skasowana recznie w panelu Stripe
         # albo zapisana w trybie testowym, a klucz jest produkcyjny. Zakladamy
         # nowa zamiast odbijac klienta od platnosci.
@@ -133,10 +133,10 @@ def kartoteka_klienta(tenant, email: str | None = None) -> str | None:
             klient = stripe.Customer.create(**pola)
             tenant.stripe_customer_id = klient.id
             tenant.save(update_fields=["stripe_customer_id"])
-        except stripe.error.StripeError:
+        except stripe.StripeError:
             logger.exception("Nie udalo sie zalozyc kartoteki dla firmy %s", tenant.id)
             return None
-    except stripe.error.StripeError:
+    except stripe.StripeError:
         logger.exception("Stripe odmowil obslugi kartoteki firmy %s", tenant.id)
         return None
 
