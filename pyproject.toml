@@ -52,6 +52,11 @@ ignore = [
 # settings/*.py używa `from .base import *` — to jest wzorzec Django, nie błąd.
 "chatbot_project/settings/*.py" = ["F403", "F405"]
 "api/views/documents.py" = ["F403", "F405"]
+# Długie wiersze to TREŚĆ: szablon e-maila i strony HTML w fixturach testów.
+# Złamanie ich zmieniłoby wysyłaną wiadomość albo testowaną stronę.
+"accounts/utils/email.py" = ["E501"]
+"api/tests/test_tresc_strony.py" = ["E501"]
+"api/tests/test_fragmenty.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["accounts", "api", "chat", "documents", "rag", "chatbot_project"]

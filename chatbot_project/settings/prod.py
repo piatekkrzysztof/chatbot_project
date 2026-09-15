@@ -5,6 +5,9 @@ from chatbot_project.storage import private_storage_config
 
 from .base import *
 
+# Jawnie, bo niżej są przypisywane ponownie - bez tego mypy widzi użycie przed definicją.
+from .base import CIASTECZKO_ODSWIEZANIA_DOMENA, FRONTEND_URL
+
 DEBUG = False
 
 
@@ -62,7 +65,7 @@ if FRONTEND_URL:
     if frontend_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(frontend_origin)
 
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = str(BASE_DIR / "staticfiles")
 
 # Sekretny token zostaje na hoście API (__Host-, Secure, Path=/, bez Domain).
 # Wspólna domena dotyczy wyłącznie znacznika panelu i kasowanego legacy cookie.
