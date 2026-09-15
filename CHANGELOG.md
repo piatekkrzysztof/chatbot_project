@@ -16,6 +16,27 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.6.1] — 2026-09-15
+
+### Security
+
+- **The "viewer" role can no longer send messages through the panel chat
+  endpoint.** Each answer there uses up a message from the plan's paid limit and
+  counts as a visitor conversation. Owners and employees keep it; the panel
+  itself does not use this endpoint, and viewers can still try the bot in the
+  free test chat.
+- **The API root no longer lists panel endpoints.** `GET /api/` answered anyone
+  holding the public widget key with a list of panel endpoints. It is removed;
+  nothing used it.
+- **Asking for the chunks of another company's document returns 404.** It used
+  to return an empty list, which revealed nothing but claimed the document
+  existed.
+
+### Added
+
+- `docs/kontrakt-dostepu.md` and a test that holds every API route and method
+  to a written access policy. A new endpoint without a policy fails CI.
+
 ## [2.6.0] — 2026-09-15
 
 ### Added

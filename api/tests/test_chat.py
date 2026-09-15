@@ -37,8 +37,10 @@ def subscribtion(db, tenant):
 
 @pytest.fixture
 def user(db, tenant):
+    # Pracownik, nie domyślny viewer: czat panelu rezerwuje wiadomość z płatnego
+    # limitu planu i od etapu 8 jest tylko dla właściciela i pracownika.
     return CustomUser.objects.create_user(
-        username="x", email="x@x.com", password="secret", tenant=tenant
+        username="x", email="x@x.com", password="secret", tenant=tenant, role="employee"
     )
 
 
