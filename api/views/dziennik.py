@@ -32,8 +32,10 @@ class WpisDziennikaSerializer(serializers.ModelSerializer):
     tags=["Panel — bezpieczeństwo"],
     summary="Dziennik audytowy firmy",
     description=(
-        "Kto, co, kiedy i skąd. Wyłącznie żądania zmieniające dane - odczyty "
-        "nie są zapisywane. Treści żądań nie są przechowywane."
+        "Kto, co, kiedy i skąd. Żądania zmieniające dane, zdarzenia dostępu "
+        "(logowanie, wylogowanie, nowe hasło, przyjęcie zaproszenia) oraz "
+        "odczyty wynoszące dane: eksport rozmów i pobranie dokumentu. Zwykłe "
+        "odczyty i treści żądań nie są zapisywane."
     ),
 )
 class DziennikView(TenantQuerysetMixin, ListAPIView):

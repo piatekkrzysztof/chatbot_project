@@ -279,10 +279,18 @@ class SubscriptionMiddleware(MiddlewareMixin):
 #: po stronie Stripe'a.
 SCIEZKI_POZA_DZIENNIKIEM = ("/api/widget/", "/api/billing/webhook/")
 
+#: Odczyty zapisywane mimo metody GET, rozpoznawane po nazwie trasy.
+#:
+#: Zwykłych odczytów nie zapisujemy: wpis przy każdym wejściu na ekran utopiłby
+#: w dzienniku to, po co powstał. Te są inne - jednym żądaniem wynoszą dane
+#: firmy poza system: całą historię rozmów albo oryginał pliku. To o nie pyta
+#: się po incydencie ("kto wyeksportował nasze rozmowy").
+ODCZYTY_W_DZIENNIKU = frozenset({"chat-export-csv", "documents-download"})
+
 
 class DziennikAudytuMiddleware(MiddlewareMixin):
     """
-    Zapisuje każde żądanie zmieniające dane.
+    Zapisuje każde żądanie zmieniające dane oraz odczyty wynoszące dane.
 
     Automatycznie, a nie przez wywołania rozsiane po widokach - bo o wywołanie
     da się zapomnieć przy dopisywaniu nowej końcówki, a wtedy dziennik jest
@@ -297,24 +305,36 @@ class DziennikAudytuMiddleware(MiddlewareMixin):
 
     METODY_ZMIENIAJACE = {"POST", "PUT", "PATCH", "DELETE"}
 
-    def process_response(self, request, response):
-        if request.method not in self.METODY_ZMIENIAJACE:
-            return response
+    def do_dziennika(self, request):
         if not request.path.startswith("/api/"):
-            return response
+            return False
         if request.path.startswith(SCIEZKI_POZA_DZIENNIKIEM):
+            return False
+        if request.method in self.METODY_ZMIENIAJACE:
+            return True
+        trasa = getattr(request, "resolver_match", None)
+        return request.method == "GET" and getattr(trasa, "url_name", None) in ODCZYTY_W_DZIENNIKU
+
+    def process_response(self, request, response):
+        if not self.do_dziennika(request):
             return response
 
+        from accounts.dziennik import wskazany_autor
         from accounts.models import WpisDziennika
         from chat.privacy import client_ip
 
         uzytkownik = getattr(request, "user", None)
         if not getattr(uzytkownik, "is_authenticated", False):
-            uzytkownik = None
+            # Zdarzenia dostępu nie mają zalogowanego użytkownika; osobę
+            # wskazuje widok po udanym sprawdzeniu - patrz accounts/dziennik.py.
+            uzytkownik = wskazany_autor(request)
 
         try:
+            firma = getattr(request, "tenant", None)
+            if firma is None and uzytkownik is not None:
+                firma = uzytkownik.tenant
             WpisDziennika.objects.create(
-                tenant=getattr(request, "tenant", None),
+                tenant=firma,
                 # Usunięte własne konto ma już pk=None; nazwa autora zostaje
                 # w osobnym polu także po takim poprawnym zakończeniu żądania.
                 uzytkownik_id=getattr(uzytkownik, "pk", None),
