@@ -28,7 +28,9 @@ from accounts.plans import get_plan
 # "[::1]" nigdy się nie dopasowywał i praca po IPv6 na localhoście zjadała
 # domenę z pakietu. Adresy prywatne i pętli zwrotnej łapiemy dodatkowo
 # rachunkiem, w _adres_lokalny — sama lista nazw ich nie obejmie.
-HOSTY_DEWELOPERSKIE = {"localhost", "0.0.0.0"}
+# nosec B104: to nie nasłuchiwanie na wszystkich interfejsach, tylko nazwa
+# hosta z nagłówka Origin, którą rozpoznajemy jako lokalną.
+HOSTY_DEWELOPERSKIE = {"localhost", "0.0.0.0"}  # nosec B104
 
 # Końcówki zarezerwowane dla pracy lokalnej i sieci domowych (RFC 6761, mDNS).
 KONCOWKI_DEWELOPERSKIE = (".localhost", ".local", ".test")
