@@ -274,6 +274,17 @@ jobs:
   typy:
     name: Typy
     runs-on: ubuntu-latest
+    # Plugin django-stubs importuje ustawienia Django, a te bez sekretu przerywają
+    # import - mypy kończył się bez podsumowania (pierwszy przebieg F24).
+    # Wartości syntetyczne, jak w zadaniu test; mypy nie łączy się z bazą.
+    env:
+      DJANGO_SECRET_KEY: ci-secret-key-not-used-outside-ci
+      DEV_DB_NAME: saas_restore_ci
+      DEV_DB_USER: postgres
+      DEV_DB_PASSWORD: postgres
+      DEV_DB_HOST: localhost
+      DEV_DB_PORT: 5432
+      OPENAI_API_KEY: not-used-tests-are-mocked
 
     steps:
       - uses: actions/checkout@v5
