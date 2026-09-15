@@ -172,19 +172,16 @@ jobs:
         # Zapadka, nie cel. Próg stoi DOKŁADNIE na zmierzonej liczbie, bez
         # zapasu: zapas jest miejscem, w które dług wraca po cichu.
         #
-        # 4 września 2026 było 203 trafienia. Zostało 50 i wszystkie mają
-        # powód, dla którego zostają:
+        # 4 września 2026 było 203 trafienia, 15 września 29. Zostało 15
+        # (F24 cz. 2) i wszystkie mają powód, dla którego zostają:
         #
-        #   E402 (14) — importy nie na górze pliku; w settings i conftest
-        #               kolejność jest celowa,
-        #   E501 (14) — długie wiersze, w większości adresy i komunikaty,
-        #               których łamanie pogorszyłoby czytelność,
         #   DJ001 (9) — pola tekstowe z null=True; poprawka to zmiana schematu
         #               i migracja na żywej bazie, nie porządki,
         #   DJ012 (6) — kolejność elementów w modelu; czysta kosmetyka,
-        #               przestawianie ciała modeli niesie ryzyko bez korzyści,
-        #   F403/F405 (4) — `from .base import *` w ustawieniach Django,
-        #               idiom tego frameworka.
+        #               przestawianie ciała modeli niesie ryzyko bez korzyści.
+        #
+        # Długie wiersze będące treścią (szablon e-maila, strony HTML w fixturach)
+        # mają wyjątek w pyproject.toml; pozostałe zostały złamane.
         #
         # Obniżenie progu przy okazji innej pracy jest mile widziane. Podniesienie
         # wymaga wpisania tu powodu — inaczej ta lista przestanie cokolwiek znaczyć.
@@ -202,9 +199,12 @@ jobs:
           # formatowania miał tu `2>/dev/null`, gubił wiersze ze STDERR
           # i podawał zero niezależnie od stanu kodu — ta sama pułapka.
           ruff check . --output-format=concise > ruff.txt 2>&1 || true
-          ILE=$(grep -c . ruff.txt || true)
-          # 15.09.2026: obniżony z 50 do zmierzonych 29 (F24).
-          PROG=29
+          # Tylko wiersze trafień (plik:wiersz:kolumna:). `grep -c .` liczył też
+          # podsumowanie „Found N errors." i w CI zawsze wychodziło o jedno
+          # trafienie więcej niż w rzeczywistości (F24 cz. 2).
+          ILE=$(grep -cE '^[^:]+:[0-9]+:[0-9]+: ' ruff.txt || true)
+          # 15.09.2026: obniżony z 50 do 29, potem do 15 (F24).
+          PROG=15
 
           echo "::notice title=Ruff::${ILE} trafień (próg: ${PROG})"
 
@@ -325,8 +325,9 @@ jobs:
           # Zapadka jak przy ruff (F24, 15.09.2026). Do tej pory krok nie
           # blokował i dług rósł po cichu: audyt 12.09 zmierzył 218 błędów,
           # 15.09 było 223. Plugin django-stubs zdjął 176 fałszywych trafień
-          # z pól modeli, dwie poprawki kolejne - zostało 47.
-          PROG=47
+          # z pól modeli, poprawki w kodzie resztę (F24 cz. 2) - zero błędów.
+          # Każdy nowy błąd typów zatrzymuje scalenie.
+          PROG=0
 
           # Sama liczba nie wystarcza: żeby naprawić błąd, trzeba wiedzieć,
           # który. Podsumowanie przebiegu widać dopiero po zalogowaniu, więc

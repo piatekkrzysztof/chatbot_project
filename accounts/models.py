@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.validators import MinValueValidator
@@ -83,7 +84,9 @@ class Tenant(models.Model):
     gpt_prompt = models.TextField(
         blank=True,
         null=True,
-        help_text="Unikalny prompt charakterystyczny dla firmy (np. 'Jesteśmy hurtownią elektryczną...')",
+        help_text=(
+            "Unikalny prompt charakterystyczny dla firmy (np. 'Jesteśmy hurtownią elektryczną...')"
+        ),
     )
 
     # OpenAI
@@ -344,7 +347,7 @@ class CustomUser(AbstractUser):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="users")
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.VIEWER)
 
-    objects = MenedzerUzytkownikow()
+    objects: ClassVar[MenedzerUzytkownikow] = MenedzerUzytkownikow()
 
     class Meta(AbstractUser.Meta):
         constraints = [

@@ -33,7 +33,7 @@ def zbuduj_pdf(tekst: str) -> bytes:
     je w trakcie składania - wpisane na sztywno rozjechałyby się przy pierwszej
     zmianie treści.
     """
-    obiekty = [
+    obiekty: list[bytes | None] = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
         b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] "
@@ -50,6 +50,7 @@ def zbuduj_pdf(tekst: str) -> bytes:
     plik = bytearray(b"%PDF-1.4\n")
     przesuniecia = []
     for numer, tresc in enumerate(obiekty, start=1):
+        assert tresc is not None
         przesuniecia.append(len(plik))
         plik += str(numer).encode() + b" 0 obj\n" + tresc + b"\nendobj\n"
 

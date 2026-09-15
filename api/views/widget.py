@@ -108,8 +108,8 @@ def serialize_widget_branding(tenant, request):
     },
 )
 class WidgetSettingsAPIView(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     # Ruch odwiedzających - limit czatu firmy, nie limit panelu
     throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
 
@@ -141,8 +141,8 @@ MAKS_FAQ_WIDGETU = 100
     responses={200: PublicFAQSerializer(many=True)},
 )
 class PublicFAQView(APIView):
-    authentication_classes = []  # brak JWT
-    permission_classes = []  # walidacja przez API key (X-API-KEY), wykonana w TenantMiddleware
+    authentication_classes = ()  # brak JWT
+    permission_classes = ()  # walidacja przez API key (X-API-KEY), wykonana w TenantMiddleware
     throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
 
     def get(self, request):
@@ -179,8 +179,8 @@ class PublicChatView(APIView):
     stronę klienta.
     """
 
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     # Limit per firma chroni nas, limit per odwiedzający chroni klienta przed
     # jednym rozmówcą wyczerpującym mu cały miesięczny pakiet
     throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
@@ -243,8 +243,8 @@ class PublicChatStreamView(APIView):
     dzięki czemu użytkownik widzi ją od razu zamiast czekać na całość.
     """
 
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
     throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
 
     def post(self, request):

@@ -36,7 +36,7 @@ def extract_text(source, filename: str | None = None) -> str:
         with open(source, "rb") as handle:
             return _extract(handle, filename or str(source))
 
-    return _extract(source, filename or getattr(source, "name", ""))
+    return _extract(source, filename or getattr(source, "name", None) or "")
 
 
 def _extract(handle, name: str) -> str:

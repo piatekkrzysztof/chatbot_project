@@ -26,7 +26,7 @@ class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_display = ("username", "email", "tenant", "role", "is_staff")
     list_filter = ("role", "tenant")
-    fieldsets = UserAdmin.fieldsets + (("Tenant", {"fields": ("tenant", "role")}),)
+    fieldsets = (*(UserAdmin.fieldsets or ()), ("Tenant", {"fields": ("tenant", "role")}))
     add_fieldsets = UserAdmin.add_fieldsets + (("Tenant", {"fields": ("tenant", "role")}),)
 
 
@@ -48,10 +48,9 @@ class InvitationTokenAdmin(admin.ModelAdmin):
     readonly_fields = ("token", "created_at", "expires_at")
     list_filter = ("role", "duration")
 
+    @admin.display(boolean=True)
     def is_valid_token(self, obj):
         return obj.is_valid()
-
-    is_valid_token.boolean = True
 
 
 @admin.register(ZliczenieOdmow)
