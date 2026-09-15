@@ -122,6 +122,7 @@ def revoke_session(value):
     LoginSession.objects.filter(pk=session_id(token), user=user, revoked_at__isnull=True).update(
         revoked_at=timezone.now()
     )
+    return user
 
 
 class RefreshAlreadyUsed(TokenError):

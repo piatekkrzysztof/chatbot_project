@@ -242,3 +242,34 @@ def test_lista_zaproszen_pokazuje_tylko_wlasne(user, tenant):
     data = response.json()
     rows = data if isinstance(data, list) else data["results"]
     assert [row["email"] for row in rows] == ["moj@example.com"]
+
+
+@pytest.mark.django_db
+def test_awaria_poczty_nie_zapisuje_adresu_zapraszanego_w_logu(user, tenant, mocker, caplog):
+    """
+    Log aplikacji trafia do Rendera i jako okruszki do Sentry. Do znalezienia
+    zaproszenia wystarczy jego numer - adres e-mail osoby, która jeszcze nie
+    ma konta, nie jest tam potrzebny.
+    """
+    mocker.patch(
+        "api.views.accounts.send_invitation_email",
+        side_effect=OSError("SMTP niedostępny"),
+    )
+    client = owner_client(user, tenant)
+
+    with caplog.at_level("ERROR", logger="api.views.accounts"):
+        response = client.post(
+            "/api/accounts/invitations/",
+            {
+                "email": "pracownik@example.com",
+                "role": "employee",
+                "duration": "1d",
+                "max_users": 1,
+            },
+            format="json",
+        )
+
+    assert response.status_code == 201
+    invitation = InvitationToken.objects.get(email="pracownik@example.com")
+    assert "pracownik@example.com" not in caplog.text
+    assert f"zaproszenia {invitation.pk}" in caplog.text
