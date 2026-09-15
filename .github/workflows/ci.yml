@@ -203,7 +203,8 @@ jobs:
           # i podawał zero niezależnie od stanu kodu — ta sama pułapka.
           ruff check . --output-format=concise > ruff.txt 2>&1 || true
           ILE=$(grep -c . ruff.txt || true)
-          PROG=50
+          # 15.09.2026: obniżony z 50 do zmierzonych 29 (F24).
+          PROG=29
 
           echo "::notice title=Ruff::${ILE} trafień (próg: ${PROG})"
 
@@ -298,13 +299,38 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           mypy . > mypy.txt 2>&1 || true
-          ILE=$(grep -c "error:" mypy.txt || true)
+
+          # Liczba z WIERSZA PODSUMOWANIA, nie z liczenia "error:". Gdy mypy się
+          # wywróci (np. plugin Django nie wczyta ustawień), linii z błędami
+          # nie ma wcale - licznik dałby zero i zielony krok bez sprawdzenia.
+          PODSUMOWANIE=$(grep -E "^(Found [0-9]+ errors? in|Success: no issues found)" mypy.txt || true)
+          if [ -z "$PODSUMOWANIE" ]; then
+            echo "::error title=Mypy::brak podsumowania - mypy nie zakończył sprawdzania"
+            tail -30 mypy.txt
+            exit 1
+          fi
+          ILE=$(echo "$PODSUMOWANIE" | grep -oE "^Found [0-9]+" | grep -oE "[0-9]+" || echo 0)
+
+          # Zapadka jak przy ruff (F24, 15.09.2026). Do tej pory krok nie
+          # blokował i dług rósł po cichu: audyt 12.09 zmierzył 218 błędów,
+          # 15.09 było 223. Plugin django-stubs zdjął 176 fałszywych trafień
+          # z pól modeli, dwie poprawki kolejne - zostało 47.
+          PROG=47
+
           # Sama liczba nie wystarcza: żeby naprawić błąd, trzeba wiedzieć,
           # który. Podsumowanie przebiegu widać dopiero po zalogowaniu, więc
           # pierwszy błąd trafia wprost do adnotacji.
           PIERWSZY=$(grep -m1 "error:" mypy.txt | cut -c1-200 || true)
-          echo "::notice title=Mypy::${ILE} błędów typów — pierwszy: ${PIERWSZY:-brak}"
-        continue-on-error: true
+          echo "::notice title=Mypy::${ILE} błędów typów (próg: ${PROG}) — pierwszy: ${PIERWSZY:-brak}"
+
+          if [ "$ILE" -gt "$PROG" ]; then
+            echo "::error title=Mypy::${ILE} błędów, próg ${PROG} — dług rośnie"
+            grep "error:" mypy.txt | tail -20
+            exit 1
+          fi
+          if [ "$ILE" -lt "$PROG" ]; then
+            echo "::notice title=Mypy::poniżej progu o $((PROG - ILE)) — obniż PROG w ci.yml do ${ILE}"
+          fi
 
   bezpieczenstwo:
     name: Bezpieczeństwo
@@ -343,11 +369,21 @@ jobs:
             WYSOKIE=$(python -c "import json; print(sum(1 for x in json.load(open('bandit.json')).get('results',[]) if x['issue_severity']=='HIGH'))")
             echo "::notice title=Bandit::${RAZEM} znalezisk, w tym ${WYSOKIE} o wysokiej wadze"
           else
-            # Ostrzeżenie, nie cicha adnotacja z pustą liczbą: brak wyniku ma
-            # wyglądać na brak wyniku.
-            echo "::warning title=Bandit::nie udało się odczytać wyniku: $(head -c 300 bandit.err)"
+            # Błąd, nie ostrzeżenie: krok blokuje, więc brak wyniku nie może
+            # przejść jako brak znalezisk.
+            echo "::error title=Bandit::nie udało się odczytać wyniku: $(head -c 300 bandit.err)"
+            exit 1
           fi
-        continue-on-error: true
+
+          # Blokuje waga średnia i wysoka (F24, 15.09.2026). Niskie (random
+          # w danych demo, subprocess w izolowanym parserze) zostają w raporcie.
+          # Fałszywe trafienie oznacza się w kodzie `# nosec B<numer>` z powodem.
+          POWAZNE=$(python -c "import json; print(sum(1 for x in json.load(open('bandit.json')).get('results',[]) if x['issue_severity'] in ('MEDIUM','HIGH')))")
+          if [ "$POWAZNE" -gt 0 ]; then
+            echo "::error title=Bandit::${POWAZNE} znalezisk o wadze średniej lub wysokiej"
+            python -c "import json; [print(x['issue_severity'], x['test_id'], x['filename'], x['line_number'], x['issue_text']) for x in json.load(open('bandit.json')).get('results',[]) if x['issue_severity'] in ('MEDIUM','HIGH')]"
+            exit 1
+          fi
 
       - name: pip-audit — zależności produkcyjne
         run: |
@@ -361,7 +397,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           ILE=$(pip-audit -r requirements.txt --progress-spinner off -f json 2>/dev/null             | python -c "import sys,json; d=json.load(sys.stdin); print(sum(len(p.get('vulns',[])) for p in d.get('dependencies',[])))" 2>/dev/null || echo "?")
           echo "::notice title=pip-audit::${ILE} podatności w zależnościach produkcyjnych"
-        continue-on-error: true
+          # Blokuje każda znana podatność (F24, 15.09.2026) - i nieudany odczyt.
+          # Nowa podatność w zależności zatrzyma też PR, który jej nie dotyczy:
+          # to celowe, bo inaczej nikt jej nie podbije.
+          if [ "$ILE" != "0" ]; then
+            echo "::error title=pip-audit::${ILE} podatności albo nieudany odczyt wyniku"
+            pip-audit -r requirements.txt --progress-spinner off 2>&1 | tail -20
+            exit 1
+          fi
 
   obraz:
     name: Obraz Docker

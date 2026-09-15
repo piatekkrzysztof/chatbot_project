@@ -18,6 +18,7 @@ w swoim tempie.
 """
 
 import logging
+from typing import Any
 
 import stripe
 
@@ -96,7 +97,9 @@ def kartoteka_klienta(tenant, email: str | None = None) -> str | None:
     """
     dane = DaneRozliczeniowe.objects.filter(tenant=tenant).first()
 
-    pola = {
+    # Typ wprost: bez niego mypy wnioskował typ z pierwszych trzech pól i każde
+    # rozpakowanie do Customer.create/modify dawało kilkanaście błędów naraz.
+    pola: dict[str, Any] = {
         "name": (dane.nazwa if dane and dane.nazwa else tenant.name),
         "email": email or tenant.owner_email,
         "metadata": {"tenant_id": str(tenant.id)},

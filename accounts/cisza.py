@@ -40,6 +40,7 @@ tygodnia.
 """
 
 import logging
+from datetime import date, timedelta
 
 from celery import shared_task
 from django.conf import settings
@@ -124,7 +125,7 @@ def _dni_z_rozmowami(tenant, od_dnia, do_dnia) -> set:
     )
 
 
-def _poczatek_ciszy(tenant, ostatni_dzien) -> "timezone.datetime.date | None":
+def _poczatek_ciszy(tenant, ostatni_dzien) -> date | None:
     """
     Pierwszy dzień nieprzerwanej ciszy kończącej się `ostatni_dzien`.
 
@@ -135,10 +136,10 @@ def _poczatek_ciszy(tenant, ostatni_dzien) -> "timezone.datetime.date | None":
     from chat.models import Conversation
 
     dzien = ostatni_dzien
-    najdalej = ostatni_dzien - timezone.timedelta(days=OKNO_CISZY + OKNO_ODNIESIENIA)
+    najdalej = ostatni_dzien - timedelta(days=OKNO_CISZY + OKNO_ODNIESIENIA)
 
     while dzien > najdalej:
-        poprzedni = dzien - timezone.timedelta(days=1)
+        poprzedni = dzien - timedelta(days=1)
         byl_ruch = Conversation.objects.filter(
             tenant=tenant,
             source=ZRODLO_WIDGETU,
@@ -166,10 +167,10 @@ def firmy_ktore_zamilkly(dzis=None) -> list[dict]:
 
     # Wczoraj, nie dzisiaj: dzisiejszy dzien jeszcze trwa i jego pustka
     # niczego nie znaczy o poranku.
-    koniec_ciszy = dzis - timezone.timedelta(days=1)
-    poczatek_ciszy = koniec_ciszy - timezone.timedelta(days=OKNO_CISZY - 1)
-    koniec_odniesienia = poczatek_ciszy - timezone.timedelta(days=1)
-    poczatek_odniesienia = koniec_odniesienia - timezone.timedelta(days=OKNO_ODNIESIENIA - 1)
+    koniec_ciszy = dzis - timedelta(days=1)
+    poczatek_ciszy = koniec_ciszy - timedelta(days=OKNO_CISZY - 1)
+    koniec_odniesienia = poczatek_ciszy - timedelta(days=1)
+    poczatek_odniesienia = koniec_odniesienia - timedelta(days=OKNO_ODNIESIENIA - 1)
 
     znalezione = []
 
