@@ -3,6 +3,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.response import Response
 
+from accounts.dziennik import wskaz_autora
 from accounts.password_reset import RECEIPT, confirm_reset, reset_user
 from accounts.tasks import send_password_reset
 from api.password_throttles import (
@@ -93,5 +94,5 @@ class PasswordResetConfirmView(SessionBoundaryMixin, PublicActivationView):
     def post(self, request):
         data = ResetPasswordSerializer(data=request.data)
         data.is_valid(raise_exception=True)
-        confirm_reset(**data.validated_data)
+        wskaz_autora(request, confirm_reset(**data.validated_data))
         return Response({"detail": "Hasło zmienione. Zaloguj się ponownie."})

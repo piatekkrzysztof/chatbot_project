@@ -98,3 +98,4 @@ def confirm_reset(uid, token, password):
         revoked_at=timezone.now()
     )
     # No JWT, login, cookie mutation, MFA removal or account activation here.
+    return user

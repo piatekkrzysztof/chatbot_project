@@ -16,6 +16,31 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-09-15
+
+### Added
+
+- **The audit log records conversation exports and document downloads.**
+  Downloading the whole conversation history as CSV or the original file of a
+  document now leaves an entry, including refused attempts. Ordinary panel
+  reads are still not recorded.
+- **Logins in the audit log show who logged in.** Login, the second login
+  step, logout, confirming a registration, accepting an invitation and setting
+  a new password from a reset link are now attributed to the person and their
+  company, so the owner sees them. Failed attempts stay anonymous, so nobody
+  can add entries to another company's log by knowing a login.
+- `docs/przeplywy-danych.md`: what the audit log records, which services
+  receive personal data and how long each kind of data is kept today. No new
+  automatic deletion is enabled.
+
+### Changed
+
+- **Error reports no longer carry tokens or search terms from the address.**
+  Reports sent to Sentry drop the query string and mask invitation tokens,
+  conversation identifiers and Stripe checkout sessions in the address.
+- A failed invitation e-mail is logged with the invitation number instead of
+  the invited person's address.
+
 ## [2.4.1] — 2026-09-15
 
 ### Fixed

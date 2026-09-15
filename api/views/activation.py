@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.dziennik import wskaz_autora
 from accounts.registration import normalized_email
 from accounts.signup import RECEIPT, request_email, valid_pending
 from api.registration_throttles import InvitationAcceptThrottle, InvitationPreviewThrottle
@@ -142,6 +143,7 @@ class ActivateRegistrationView(PublicActivationView):
             # Erase the consumed hash; this is not a configured password.
             pending.token_digest = ""  # nosec B105
             pending.save(update_fields=["used_at", "payload", "token_digest"])
+        wskaz_autora(request, result["user"])
         # Checkout requires a logged-in owner; activation cannot charge a customer.
         return Response(
             {

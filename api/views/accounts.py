@@ -14,6 +14,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts import dwuskladnikowe
+from accounts.dziennik import wskaz_autora
 from accounts.models import InvitationToken, Subscription
 from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
 from accounts.registration import lock_invitation_team
@@ -156,6 +157,8 @@ class LoginView(SessionBoundaryMixin, TokenObtainPairView):
         serializer = self.get_serializer(data=zadanie.data)
         serializer.is_valid(raise_exception=True)
         uzytkownik = serializer.user
+        # Haslo juz sprawdzone, wiec wpis dziennika moze wskazac osobe.
+        wskaz_autora(zadanie, uzytkownik)
 
         if dwuskladnikowe.ma_wlaczony_drugi_skladnik(uzytkownik):
             # Haslo bylo poprawne, ale sesja jeszcze nie powstaje. Bilet niesie
@@ -209,6 +212,7 @@ class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
                 status=result,
             )
 
+        wskaz_autora(zadanie, uzytkownik)
         odswiezenie = SessionRefreshToken.for_user(uzytkownik)
         return odpowiedz_z_sesja(
             {"refresh": str(odswiezenie), "access": str(odswiezenie.access_token)}
@@ -323,7 +327,7 @@ class WylogujView(SessionBoundaryMixin, APIView):
 
         if token:
             try:
-                revoke_session(token)
+                wskaz_autora(zadanie, revoke_session(token))
             except TokenError:
                 # Token juz wygasly albo juz uniewazniony. Z punktu widzenia
                 # uzytkownika wylogowanie sie udalo, wiec nie ma o czym
@@ -377,7 +381,9 @@ class CreateInvitationView(generics.CreateAPIView):
             send_invitation_email(invitation)
             email_sent = True
         except Exception:
-            logger.exception("Nie udało się wysłać zaproszenia na %s", invitation.email)
+            # Numer, nie adres: log trafia do Rendera i Sentry, a do znalezienia
+            # zaproszenia wystarczy numer.
+            logger.exception("Nie udało się wysłać zaproszenia %s", invitation.pk)
             email_sent = False
 
         data = InvitationReadSerializer(invitation).data
@@ -401,7 +407,7 @@ class AcceptInvitationView(APIView):
     def post(self, request):
         serializer = AcceptInvitationSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            wskaz_autora(request, serializer.save())
             return Response(
                 {"message": "User registered successfully."}, status=status.HTTP_201_CREATED
             )

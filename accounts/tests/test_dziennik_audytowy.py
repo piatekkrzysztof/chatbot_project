@@ -12,11 +12,21 @@ Zapis dzieje się w middleware, automatycznie. Testy pilnują trzech rzeczy:
 powinien, i że dziennik nie potrafi wywrócić żądania, które się powiodło.
 """
 
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
-from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import get_resolver, reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounts.models import Tenant, WpisDziennika
+from accounts import totp
+from accounts.models import DrugiSkladnik, InvitationToken, Tenant, WpisDziennika
+from accounts.password_reset import reset_url
+from documents.models import Document
+
+HASLO = "tajne-haslo-2026"
+PANEL = "https://panel.example.test"
 
 
 @pytest.fixture
@@ -221,3 +231,205 @@ class TestOdczytuPrzezWlasciciela:
         # Zapis, który da się poprawić po fakcie, nie jest dowodem niczego.
         assert klient.post(self.URL, {}, format="json").status_code == 405
         assert klient.delete(self.URL).status_code == 405
+
+
+def wpis_dla(sciezka):
+    return WpisDziennika.objects.get(sciezka=sciezka)
+
+
+@pytest.mark.django_db
+class TestOdczytowWynoszacychDane:
+    """
+    Model dziennika obiecuje odpowiedź na pytanie "kto wyeksportował nasze
+    rozmowy", a ekran dziennika wymienia eksporty wśród zapisywanych zdarzeń.
+    Zapisywane były jednak tylko żądania zmieniające dane, a eksport rozmów
+    i pobranie pliku to GET - czyli akurat te zdarzenia, o które pyta się po
+    incydencie, nie zostawiały śladu.
+    """
+
+    def test_eksport_rozmow_zostawia_wpis(self, klient, wlascicielka, firma):
+        odpowiedz = klient.get(reverse("chat-export-csv"))
+        b"".join(odpowiedz.streaming_content)
+
+        assert odpowiedz.status_code == 200
+        wpis = wpis_dla("/api/chat/export/")
+        assert wpis.metoda == "GET"
+        assert wpis.uzytkownik == wlascicielka
+        assert wpis.tenant == firma
+
+    def test_odmowa_eksportu_tez_zostawia_slad(self, klient, wlascicielka):
+        # Próba wyniesienia danych bez uprawnień mówi po incydencie więcej
+        # niż udany eksport osoby, która miała do tego prawo.
+        wlascicielka.role = "viewer"
+        wlascicielka.save()
+
+        assert klient.get(reverse("chat-export-csv")).status_code == 403
+        assert wpis_dla("/api/chat/export/").status == 403
+
+    def test_pobranie_dokumentu_zostawia_wpis(self, klient, firma, settings, tmp_path):
+        settings.PRIVATE_MEDIA_ROOT = tmp_path / "private"
+        dokument = Document.objects.create(
+            tenant=firma, name="cennik.txt", file=SimpleUploadedFile("cennik.txt", b"CENNIK")
+        )
+
+        odpowiedz = klient.get(reverse("documents-download", args=[dokument.pk]))
+
+        assert odpowiedz.status_code == 200
+        wpis = wpis_dla(f"/api/documents/{dokument.pk}/download/")
+        assert wpis.metoda == "GET"
+        assert wpis.tenant == firma
+        # Zamknięcie odpowiedzi kończy żądanie i zamyka połączenie z bazą,
+        # więc dopiero po sprawdzeniu wpisu.
+        odpowiedz.close()
+
+    def test_zwykly_podglad_dokumentu_nie_trafia_do_dziennika(self, klient, firma):
+        # Zapis odczytów jest wąski celowo: wpis przy każdym wejściu na ekran
+        # utopiłby wynoszenie danych w zwykłym przeglądaniu panelu.
+        dokument = Document.objects.create(tenant=firma, name="cennik.txt", content="CENNIK")
+
+        assert klient.get(reverse("document-detail", args=[dokument.pk])).status_code == 200
+        assert not WpisDziennika.objects.exists()
+
+    def test_nazwy_zapisywanych_odczytow_istnieja(self):
+        # Odczyt jest rozpoznawany po nazwie trasy. Zmiana nazwy bez zmiany
+        # listy wyłączyłaby zapis po cichu - ten test to zatrzymuje.
+        from accounts.middleware import ODCZYTY_W_DZIENNIKU
+
+        nazwy = get_resolver().reverse_dict
+        assert ODCZYTY_W_DZIENNIKU
+        for nazwa in ODCZYTY_W_DZIENNIKU:
+            assert nazwa in nazwy
+
+
+@pytest.mark.django_db
+class TestAutoraZdarzenDostepu:
+    """
+    Logowanie, wylogowanie, założenie konta, przyjęcie zaproszenia i ustawienie
+    nowego hasła dzieją się, zanim żądanie ma zalogowanego użytkownika. Wpis
+    powstawał bez osoby i bez firmy, więc właściciel go nie widział - choć
+    ekran dziennika obiecuje właśnie logowania. Po przejęciu konta pracownika
+    to pierwszy wpis, którego się szuka.
+    """
+
+    def zaloguj(self, api, uzytkownik, haslo=HASLO):
+        return api.post(
+            reverse("login"),
+            {"username": uzytkownik.username, "password": haslo},
+            format="json",
+            REMOTE_ADDR="203.0.113.7",
+        )
+
+    def test_udane_logowanie_wskazuje_osobe_i_firme(self, klient, wlascicielka, firma):
+        odpowiedz = self.zaloguj(APIClient(HTTP_ORIGIN=PANEL), wlascicielka)
+
+        assert odpowiedz.status_code == 200
+        wpis = wpis_dla("/api/accounts/login/")
+        assert (wpis.uzytkownik, wpis.tenant) == (wlascicielka, firma)
+        assert wpis.nazwa_uzytkownika == wlascicielka.username
+        assert wpis.adres_ip == "203.0.113.7"
+        widoczne = klient.get("/api/accounts/dziennik/").data["results"]
+        assert "/api/accounts/login/" in [w["sciezka"] for w in widoczne]
+
+    def test_zle_haslo_do_istniejacego_konta_zostaje_anonimowe(self, wlascicielka):
+        # Przypisanie nieudanej próby do konta pozwalałoby każdemu dopisywać
+        # wpisy do dziennika cudzej firmy, znając sam adres e-mail.
+        odpowiedz = self.zaloguj(APIClient(HTTP_ORIGIN=PANEL), wlascicielka, haslo="zle")
+
+        assert odpowiedz.status_code == 401
+        wpis = wpis_dla("/api/accounts/login/")
+        assert (wpis.uzytkownik, wpis.tenant) == (None, None)
+
+    def test_logowanie_dwuetapowe_wskazuje_osobe_w_obu_krokach(self, wlascicielka, firma):
+        skladnik = DrugiSkladnik.objects.create(
+            uzytkownik=wlascicielka, sekret=totp.nowy_sekret(), potwierdzony_od=timezone.now()
+        )
+        api = APIClient(HTTP_ORIGIN=PANEL)
+        bilet = self.zaloguj(api, wlascicielka).data["bilet"]
+
+        odpowiedz = api.post(
+            reverse("login-2fa"),
+            {"bilet": bilet, "kod": totp.kod(skladnik.sekret)},
+            format="json",
+        )
+
+        assert odpowiedz.status_code == 200
+        for sciezka in ("/api/accounts/login/", "/api/accounts/login/2fa/"):
+            wpis = wpis_dla(sciezka)
+            assert (wpis.uzytkownik, wpis.tenant) == (wlascicielka, firma)
+
+    def test_bledny_kod_drugiego_skladnika_zostaje_anonimowy(self, wlascicielka):
+        DrugiSkladnik.objects.create(
+            uzytkownik=wlascicielka, sekret=totp.nowy_sekret(), potwierdzony_od=timezone.now()
+        )
+        api = APIClient(HTTP_ORIGIN=PANEL)
+        bilet = self.zaloguj(api, wlascicielka).data["bilet"]
+
+        odpowiedz = api.post(reverse("login-2fa"), {"bilet": bilet, "kod": "000000"}, format="json")
+
+        assert odpowiedz.status_code == 400
+        assert wpis_dla("/api/accounts/login/2fa/").uzytkownik is None
+
+    def test_wylogowanie_wskazuje_osobe(self, wlascicielka, firma):
+        api = APIClient(HTTP_ORIGIN=PANEL)
+        assert self.zaloguj(api, wlascicielka).status_code == 200
+
+        odpowiedz = api.post(reverse("logout"))
+
+        assert odpowiedz.status_code == 204
+        wpis = wpis_dla("/api/accounts/logout/")
+        assert (wpis.uzytkownik, wpis.tenant) == (wlascicielka, firma)
+
+    def test_przyjecie_zaproszenia_wskazuje_nowa_osobe(self, firma):
+        zaproszenie = InvitationToken.objects.create(
+            tenant=firma, email="nowa@rowerownia.pl", role="employee", duration="1d", max_users=1
+        )
+
+        odpowiedz = APIClient().post(
+            "/api/accounts/accept-invite/",
+            {
+                "token": str(zaproszenie.token),
+                "username": "nowa",
+                "email": "nowa@rowerownia.pl",
+                "password": "TajneHaslo123",
+            },
+            format="json",
+        )
+
+        assert odpowiedz.status_code == 201
+        wpis = wpis_dla("/api/accounts/accept-invite/")
+        assert wpis.nazwa_uzytkownika == "nowa"
+        assert wpis.tenant == firma
+
+    def test_potwierdzenie_rejestracji_wskazuje_nowa_firme(self):
+        from api.tests.signup_helpers import latest_token
+        from api.tests.test_registration_security import PASSWORD, registration
+
+        dane = registration()
+        dane.pop("password", None)
+        assert APIClient().post("/api/accounts/register/", dane).status_code == 202
+
+        odpowiedz = APIClient().post(
+            "/api/accounts/registration/activate/",
+            {"token": latest_token(), "password": PASSWORD},
+        )
+
+        assert odpowiedz.status_code == 201
+        wpis = wpis_dla("/api/accounts/registration/activate/")
+        assert wpis.uzytkownik is not None
+        assert wpis.tenant == wpis.uzytkownik.tenant
+
+    def test_nowe_haslo_z_linku_wskazuje_osobe(self, wlascicielka, firma):
+        dowod = {
+            nazwa: wartosci[0]
+            for nazwa, wartosci in parse_qs(urlsplit(reset_url(wlascicielka)).fragment).items()
+        }
+
+        odpowiedz = APIClient(HTTP_ORIGIN=PANEL).post(
+            "/api/accounts/password-reset/confirm/",
+            {**dowod, "password": "Niezalezne-haslo!739"},
+            format="json",
+        )
+
+        assert odpowiedz.status_code == 200
+        wpis = wpis_dla("/api/accounts/password-reset/confirm/")
+        assert (wpis.uzytkownik, wpis.tenant) == (wlascicielka, firma)
