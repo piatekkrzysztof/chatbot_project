@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.message_quota import reserve_message
-from api.permissions import IsTenantMember
+from api.permissions import IsOwnerOrEmployee
 from api.schemas import PublicChatResponseSerializer
 from api.serializers import ChatRequestSerializer
 from api.throttles import APIKeyRateThrottle
@@ -25,7 +25,10 @@ from chat.privacy import visitor_identifier
 )
 class ChatWithGPTView(APIView):
     throttle_classes = [APIKeyRateThrottle]
-    permission_classes = [IsTenantMember]
+    # Nie IsTenantMember: każda odpowiedź rezerwuje wiadomość z płatnego limitu
+    # planu i trafia do statystyk jak rozmowa odwiedzającego. Rola `viewer` jest
+    # do oglądania - sprawdzenie bota bez kosztów daje jej czat testowy.
+    permission_classes = [IsOwnerOrEmployee]
 
     def post(self, request):
         serializer = ChatRequestSerializer(data=request.data)
