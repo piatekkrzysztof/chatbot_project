@@ -9,11 +9,18 @@ from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.domains import wyglada_na_adres_witryny
+from accounts.models import WidgetDomain
 from api.permissions import IsTenantMember
 from api.schemas import AnalyticsSerializer
-from chat.models import FAQ
+from chat.models import FAQ, Conversation
 from chat.raport_luk import luki_w_wiedzy
-from chat.zapytania import logi_klientow, rozmowy_klientow, wiadomosci_klientow
+from chat.zapytania import (
+    ZRODLO_TESTOWE,
+    logi_klientow,
+    rozmowy_klientow,
+    wiadomosci_klientow,
+)
 from documents.models import Document, WebsiteSource
 
 UNANSWERED_LIMIT = 20
@@ -54,6 +61,30 @@ def knowledge_summary(tenant):
     }
 
 
+def pierwsze_kroki(tenant, wiedza):
+    """
+    Co nowa firma musi zrobić, żeby bot naprawdę działał u niej na stronie.
+
+    Każdy krok wynika z danych w bazie, a nie z kliknięcia "zrobione": lista,
+    którą da się odhaczyć bez wykonania kroku, uspokaja właściciela akurat
+    wtedy, gdy widget nadal nie działa.
+    """
+    # Rejestracja domen pomija dziś adresy lokalne, ale starsze wpisy mogły
+    # zostać. Widget otwarty na własnym komputerze nie jest na stronie klienta.
+    hosty = WidgetDomain.objects.filter(tenant=tenant).values_list("host", flat=True)
+    # Rozmowa odwiedzającego też zamyka krok testu: skoro piszą klienci, wiadomo,
+    # że bot odpowiada. Czyszczenie rozmowy testowej kasuje tylko wiadomości.
+    testowa = Conversation.objects.filter(tenant=tenant, source=ZRODLO_TESTOWE).exists()
+    rozmowa = testowa or rozmowy_klientow(tenant).exists()
+    return {
+        "wiedza": not wiedza["is_empty"],
+        "rozmowa_testowa": rozmowa,
+        "widget_na_stronie": any(wyglada_na_adres_witryny(host) for host in hosty),
+        "adres_powiadomien": bool((tenant.owner_email or "").strip()),
+        "polityka_prywatnosci": bool((tenant.privacy_policy_url or "").strip()),
+    }
+
+
 @extend_schema(
     tags=["Panel — analityka"],
     summary="Podsumowanie działania chatbota",
@@ -74,7 +105,9 @@ class TenantAnalyticsView(APIView):
 
     def get(self, request):
         tenant = request.user.tenant
-        cache_key = f"tenant-analytics:v2:{tenant.pk}"
+        # v3: odpowiedź dostała pierwsze_kroki; wpis w starym kształcie z pamięci
+        # podręcznej nie może trafić do panelu, który ich oczekuje.
+        cache_key = f"tenant-analytics:v3:{tenant.pk}"
         use_shared_cache = getattr(settings, "USE_SHARED_CACHE", False)
         if use_shared_cache:
             cached_payload = cache.get(cache_key)
@@ -134,10 +167,12 @@ class TenantAnalyticsView(APIView):
         )
 
         subscription = getattr(tenant, "subscription", None)
+        wiedza = knowledge_summary(tenant)
 
         payload = {
             "tenant_name": tenant.name,
-            "knowledge": knowledge_summary(tenant),
+            "knowledge": wiedza,
+            "pierwsze_kroki": pierwsze_kroki(tenant, wiedza),
             "conversations": conversation_counts,
             "questions": {
                 **question_counts,
