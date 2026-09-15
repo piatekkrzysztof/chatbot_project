@@ -199,7 +199,10 @@ jobs:
           # formatowania miał tu `2>/dev/null`, gubił wiersze ze STDERR
           # i podawał zero niezależnie od stanu kodu — ta sama pułapka.
           ruff check . --output-format=concise > ruff.txt 2>&1 || true
-          ILE=$(grep -c . ruff.txt || true)
+          # Tylko wiersze trafień (plik:wiersz:kolumna:). `grep -c .` liczył też
+          # podsumowanie „Found N errors." i w CI zawsze wychodziło o jedno
+          # trafienie więcej niż w rzeczywistości (F24 cz. 2).
+          ILE=$(grep -cE '^[^:]+:[0-9]+:[0-9]+: ' ruff.txt || true)
           # 15.09.2026: obniżony z 50 do 29, potem do 15 (F24).
           PROG=15
 
