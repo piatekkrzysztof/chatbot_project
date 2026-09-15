@@ -70,17 +70,34 @@ ignore_missing_imports = true
 check_untyped_defs = false
 warn_redundant_casts = true
 warn_unused_ignores = true
+# Bez pluginu mypy nie rozumie pól modeli Django: 147 z 223 błędów (15.09.2026)
+# siedziało w models.py, a "Tenant nie ma atrybutu id" wyglądało jak błąd kodu.
+plugins = ["mypy_django_plugin.main"]
 exclude = [
     "venv/",
     ".*/migrations/.*",
     "chroma_db/",
 ]
 
+[tool.django-stubs]
+django_settings_module = "chatbot_project.settings"
+
 [tool.bandit]
 # Testy celowo używają rzeczy, które w kodzie produkcyjnym byłyby podejrzane:
 # hasła w kodzie ("secret"), assert, tymczasowe pliki. Skanowanie ich zalewa
 # raport szumem i uczy ignorowania wyników.
-exclude_dirs = ["venv", "api/tests", "accounts/tests", "documents/tests", "chroma_db"]
+#
+# Wzorce, nie tylko katalogi: testy leżą też w rag/test_*.py, chat/tests,
+# chatbot_project/tests i conftest.py. Bez nich z 213 znalezisk (15.09.2026)
+# ponad 200 to assert i hasła z testów, a 7 z kodu produkcyjnego ginęło w szumie.
+exclude_dirs = [
+    "venv",
+    "chroma_db",
+    "*/tests/*",
+    "*/test_*.py",
+    "conftest.py",
+    "*/conftest.py",
+]
 
 [tool.coverage.run]
 source = ["accounts", "api", "chat", "documents", "rag", "chatbot_project"]
