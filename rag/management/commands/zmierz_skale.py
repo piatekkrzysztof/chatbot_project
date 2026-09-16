@@ -288,7 +288,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING(
                     "  UWAGA: rozjazd ponad 15%. KB_NA_FRAGMENT w zmierz_skale.py "
-                    "opisuje inna baze niz ta - popraw KB_NARZUTU_NA_FRAGMENT."
+                    "opisuje inna baze niz ta - popraw KB_NA_FRAGMENT."
                 )
             )
 
