@@ -361,6 +361,7 @@ class DocumentSerializer(serializers.ModelSerializer):
     chunk_count = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     preview = serializers.SerializerMethodField()
+    ma_plik = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
@@ -375,6 +376,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "preview",
             "uzywaj_w_wyszukiwaniu",
             "source_url",
+            "ma_plik",
         ]
         read_only_fields = ["processing_error"]
 
@@ -401,6 +403,12 @@ class DocumentSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_preview(self, obj):
         return obj.content[:500] if obj.content else ""
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_ma_plik(self, obj):
+        # Dokument z importu strony WWW ma treść, ale nie ma pliku. Bez tego
+        # pola panel pokazywałby przy nim pobieranie prowadzące do 404.
+        return bool(obj.file)
 
 
 class DocumentChunkSerializer(serializers.ModelSerializer):

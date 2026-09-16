@@ -16,6 +16,15 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-09-16
+
+### Added
+
+- **The document list says which documents have a file to download.** Documents
+  created by importing a website have text but no file, so the panel can now
+  show a download button only where it leads somewhere. Downloading a document
+  that has no file answers 404, as it did before.
+
 ## [2.6.1] — 2026-09-15
 
 ### Security
