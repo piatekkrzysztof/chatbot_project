@@ -86,7 +86,7 @@ def test_upload_without_file_returns_400(user, tenant, subscribtion):
 
 
 @pytest.mark.django_db
-def test_chunk_list_nonexistent_document_returns_empty(user, tenant, subscribtion):
+def test_chunk_list_nonexistent_document_returns_404(user, tenant, subscribtion):
     client = APIClient()
     user.tenant = tenant
     user.role = "owner"
@@ -95,8 +95,9 @@ def test_chunk_list_nonexistent_document_returns_empty(user, tenant, subscribtio
     client.force_authenticate(user=user)
     url = reverse("document-chunks", args=[9999])  # nieistniejący ID
     res = client.get(url, HTTP_X_API_KEY=str(tenant.api_key))
-    assert res.status_code == 200
-    assert res.data == []
+    # 404 jak w pozostałych zasobach z identyfikatorem (etap 8). Pusta lista
+    # z 200 mówiła, że dokument istnieje i nie ma fragmentów - nieprawdę.
+    assert res.status_code == 404
 
 
 @pytest.mark.django_db

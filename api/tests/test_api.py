@@ -24,8 +24,9 @@ class ChatAPITest(APITestCase):
             end_date=timezone.now().date(),
             is_active=True,
         )
+        # Pracownik: czat panelu zużywa płatny limit, rola viewer dostaje 403.
         self.user = CustomUser.objects.create_user(
-            username="x", email="x@x.com", password="secret", tenant=self.tenant
+            username="x", email="x@x.com", password="secret", tenant=self.tenant, role="employee"
         )
         print(
             "ALL subscriptions for tenant:",

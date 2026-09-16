@@ -29,6 +29,10 @@ def test_chat_throttling_enforces_limit(
     subscribtion.save()
     limit = PLANS["start"].rate_per_minute
     user.tenant = tenant
+    # Pracownik, nie domyślny viewer: czat panelu zużywa płatny limit planu
+    # i od etapu 8 nie jest dostępny dla roli do oglądania. Test sprawdza
+    # limit zapytań, więc rola musi przez kontrolę przejść.
+    user.role = "employee"
     user.save()
     client.force_authenticate(user=user)
 

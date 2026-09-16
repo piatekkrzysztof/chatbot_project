@@ -11,6 +11,15 @@ from chat.models import Conversation, PromptLog
 
 
 @pytest.fixture
+def user(user):
+    # Wspólna fikstura tworzy konto z domyślną rolą viewer. Czat panelu zużywa
+    # płatny limit planu i od etapu 8 jest tylko dla właściciela i pracownika.
+    user.role = "employee"
+    user.save()
+    return user
+
+
+@pytest.fixture
 def conversation(tenant):
     return Conversation.objects.create(
         tenant=tenant,
