@@ -135,10 +135,16 @@ Jeśli progi nie zostaną dotrzymane, kolejność poprawek (od najtańszej):
 
 ## Stan wykonania
 
-Krok 1 (wariant A, lokalnie) zrobiony: [pomiar lokalny z 16.09.2026](pomiar-obciazenia-lokalny.md).
-Wynikła z niego poprawka do tego planu: **ruch musi pochodzić z wielu firm naraz**.
-Jedno konto trafia we własny limit planu, zanim zdąży obciążyć instancję, więc
-profil z jednym kluczem mierzy throttling, a nie system.
+Krok 1 zrobiony: [pomiar z 16.09.2026](pomiar-obciazenia-lokalny.md), lokalnie
+i na produkcji. Dwie poprawki do tego planu:
+
+1. **Ruch musi pochodzić z wielu firm naraz.** Jedno konto trafia we własny limit
+   planu, zanim zdąży obciążyć instancję, więc profil z jednym kluczem mierzy
+   throttling, a nie system.
+2. **Indeks wektorowy przed testem pojemności.** Na produkcji wyszukiwanie zajmuje
+   303 ms przy 5 tysiącach fragmentów i około 1,4-2 s przy pełnym planie Pro, więc
+   zjada większość trzysekundowego progu, zanim jeszcze odezwie się model. Test
+   pojemności przed tą poprawką zmierzyłby stan, którego i tak nie chcemy zostawić.
 
 ## Kolejność wykonania
 
