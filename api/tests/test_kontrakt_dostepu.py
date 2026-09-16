@@ -168,7 +168,9 @@ def trasy_api():
             # nie są czytelne, a jedynym takim widokiem jest webhook Stripe.
             wynik.add((nazwa, "POST"))
             continue
-        dozwolone = set(klasa.http_method_names)
+        # Bez HEAD: DRF dokłada go do każdej trasy z GET i obsługuje tym samym
+        # kodem, więc osobny wpis w kontrakcie niczego by nie pilnował.
+        dozwolone = set(klasa.http_method_names) - {"head", "options", "trace"}
         if akcje:
             metody = [m for m in akcje if m in dozwolone]
         else:
