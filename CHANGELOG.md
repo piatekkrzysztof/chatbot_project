@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-09-16
+
+### Added
+
+- **A document can be deleted.** The knowledge base used to be read-only
+  through the API, so a document uploaded by mistake stayed forever: it counted
+  against the plan's knowledge base limit and the bot kept answering from it.
+  Owners and employees can now delete one, which also removes its chunks and
+  its file from private storage. Deleting leaves an entry in the audit log, and
+  it cannot be undone - we keep no copy of the file.
+
 ## [2.7.0] — 2026-09-16
 
 ### Added
