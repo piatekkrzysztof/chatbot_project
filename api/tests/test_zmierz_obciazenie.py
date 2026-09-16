@@ -10,7 +10,15 @@ Sam ruch HTTP nie jest tu testowany: to biblioteka standardowa i sieć.
 Testujemy część, która z liczb robi werdykt.
 """
 
-from api.management.commands.zmierz_obciazenie import PROGI_P95, ocena, podsumuj, profil
+import pytest
+
+from api.management.commands.zmierz_obciazenie import (
+    PROGI_P95,
+    ocena,
+    podsumuj,
+    profil,
+    wyslij,
+)
 
 
 def test_p95_bierze_wartosc_z_ogona_a_nie_srednia():
@@ -93,3 +101,12 @@ def test_profil_z_tokenem_dokłada_ekrany_panelu():
     assert all(
         s.naglowki.get("Authorization") == "Bearer jwt" for s in scenariusze if s.obszar == "panel"
     )
+
+
+def test_adres_spoza_http_jest_odrzucany():
+    # `urlopen` otwiera także `file:` - bez tej kontroli `--adres file:///etc/passwd`
+    # zamieniłby przyrząd pomiarowy w czytnik plików z maszyny, na której działa.
+    scenariusz = profil(klucz="klucz", token="")[0]
+
+    with pytest.raises(ValueError):
+        wyslij("file:///etc", scenariusz)

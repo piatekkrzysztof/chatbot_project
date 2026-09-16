@@ -37,6 +37,9 @@ PROGI_P95 = {"widget": 500, "panel": 800}
 #: Dopuszczalny udział odpowiedzi 5xx.
 PROG_BLEDOW = 0.005
 
+#: Tylko ruch HTTP. `urlopen` obsługuje także `file:` i schematy własne.
+DOZWOLONE_SCHEMATY = ("http://", "https://")
+
 
 class Scenariusz:
     """Jedno żądanie w profilu ruchu: ścieżka, waga i obszar progu SLO."""
@@ -75,11 +78,21 @@ def profil(klucz, token):
 
 
 def wyslij(adres, scenariusz, limit_czasu=30):
-    """Zwraca (kod odpowiedzi, czas w ms). Kod 0 oznacza brak odpowiedzi."""
-    zadanie = urllib.request.Request(adres + scenariusz.sciezka, headers=scenariusz.naglowki or {})
+    """
+    Zwraca (kod odpowiedzi, czas w ms). Kod 0 oznacza brak odpowiedzi.
+
+    Schemat sprawdzany tuż przy wywołaniu, a nie tylko przy argumentach:
+    `urlopen` otwiera też `file:` i schematy własne, więc `--adres file:///...`
+    zamieniłby przyrząd pomiarowy w czytnik plików.
+    """
+    pelny = adres + scenariusz.sciezka
+    if not pelny.startswith(DOZWOLONE_SCHEMATY):
+        raise ValueError(f"Adres musi zaczynać się od {' albo '.join(DOZWOLONE_SCHEMATY)}.")
+
+    zadanie = urllib.request.Request(pelny, headers=scenariusz.naglowki or {})
     start = time.perf_counter()
     try:
-        with urllib.request.urlopen(zadanie, timeout=limit_czasu) as odpowiedz:
+        with urllib.request.urlopen(zadanie, timeout=limit_czasu) as odpowiedz:  # nosec B310
             odpowiedz.read()
             kod = odpowiedz.status
     except urllib.error.HTTPError as blad:
@@ -144,6 +157,8 @@ class Command(BaseCommand):
             )
 
         adres = opcje["adres"].rstrip("/")
+        if not adres.startswith(DOZWOLONE_SCHEMATY):
+            raise CommandError(f"Adres musi zaczynać się od {' albo '.join(DOZWOLONE_SCHEMATY)}.")
         if "localhost" not in adres and "127.0.0.1" not in adres:
             self.stdout.write(
                 self.style.WARNING(
