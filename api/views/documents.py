@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import extend_schema
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -50,7 +50,9 @@ class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
 
 
 @extend_schema(tags=["Panel — baza wiedzy"])
-class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
+class DocumentsViewSet(
+    TenantQuerysetMixin, mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
+):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
     permission_classes = [IsTenantMember]
@@ -60,6 +62,46 @@ class DocumentsViewSet(TenantQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return z_liczba_fragmentow(super().get_queryset()).order_by("-uploaded_at", "-id")
+
+    def get_permissions(self):
+        # Kasowanie jak wgrywanie: właściciel i pracownik. Odczyt zostaje dla
+        # każdej roli w firmie, także dla `viewer`.
+        if self.action == "destroy":
+            return [IsOwnerOrEmployee()]
+        return super().get_permissions()
+
+    @extend_schema(
+        tags=["Panel — baza wiedzy"],
+        summary="Usuń dokument razem z plikiem",
+        description=(
+            "Usuwa dokument, jego fragmenty i plik z prywatnego magazynu. "
+            "Operacji nie da się cofnąć - kopii pliku nie przechowujemy."
+        ),
+        responses={204: None, 403: ErrorSerializer, 404: ErrorSerializer},
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        """
+        Najpierw wpis, potem plik.
+
+        Django nie kasuje pliku przy usunięciu rekordu, więc bez tego dokument
+        "usunięty" dalej zajmowałby miejsce w magazynie, za które klient płaci.
+
+        Kolejność jest celowa: gdyby magazyn odmówił, zostaje osierocony plik
+        bez wpisu - to da się posprzątać. Odwrotna kolejność zostawiałaby wpis
+        wskazujący na nieistniejący plik, czyli dokument, którego panel nie
+        potrafi ani pobrać, ani usunąć.
+        """
+        plik = instance.file
+        instance.delete()
+        try:
+            # Dokument z importu strony nie ma pliku; FieldFile.delete() sam
+            # wtedy nic nie robi, więc nie ma czego sprawdzać osobno.
+            plik.delete(save=False)
+        except Exception:
+            logger.exception("Nie udało się usunąć pliku dokumentu %s z magazynu", plik.name)
 
     @extend_schema(responses={(200, "application/octet-stream"): bytes})
     @action(detail=True, methods=["get"], url_path="download")
