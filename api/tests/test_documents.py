@@ -121,3 +121,52 @@ def test_upload_requires_logged_in_user(user, tenant, subscribtion):
     """Sam klucz API nie wystarcza — upload wymaga zalogowanego użytkownika (JWT)."""
     response = APIClient().post("/api/documents-upload/", HTTP_X_API_KEY=str(tenant.api_key))
     assert response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_lista_mowi_ktory_dokument_ma_plik_do_pobrania(
+    user, tenant, subscribtion, settings, tmp_path
+):
+    """
+    Panel musi wiedzieć, przy którym dokumencie pokazać pobieranie.
+
+    Dokument z importu strony WWW nie ma pliku - przycisk przy nim prowadziłby
+    do 404, a klient nie ma jak odróżnić tego przypadku od awarii.
+    """
+    settings.PRIVATE_MEDIA_ROOT = tmp_path / "private"
+    wgrany = Document.objects.create(
+        tenant=tenant, name="cennik.txt", file=SimpleUploadedFile("cennik.txt", b"CENNIK")
+    )
+    ze_strony = Document.objects.create(
+        tenant=tenant, name="Strona firmy", content="treść", source_url="https://firma.pl/oferta"
+    )
+    client = APIClient()
+    user.tenant = tenant
+    user.role = "owner"
+    user.save()
+    client.force_authenticate(user=user)
+
+    odpowiedz = client.get("/api/documents/", HTTP_X_API_KEY=str(tenant.api_key))
+
+    assert odpowiedz.status_code == 200
+    po_id = {pozycja["id"]: pozycja for pozycja in odpowiedz.json()["results"]}
+    assert po_id[wgrany.pk]["ma_plik"] is True
+    assert po_id[ze_strony.pk]["ma_plik"] is False
+
+
+@pytest.mark.django_db
+def test_pobranie_dokumentu_bez_pliku_konczy_sie_404(user, tenant, subscribtion):
+    ze_strony = Document.objects.create(
+        tenant=tenant, name="Strona firmy", content="treść", source_url="https://firma.pl/oferta"
+    )
+    client = APIClient()
+    user.tenant = tenant
+    user.role = "owner"
+    user.save()
+    client.force_authenticate(user=user)
+
+    odpowiedz = client.get(
+        reverse("documents-download", args=[ze_strony.pk]), HTTP_X_API_KEY=str(tenant.api_key)
+    )
+
+    assert odpowiedz.status_code == 404
