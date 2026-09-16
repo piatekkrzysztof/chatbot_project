@@ -201,6 +201,13 @@ class DocumentChunkListView(TenantQuerysetMixin, ListAPIView):
     permission_classes = [IsTenantMember]
 
     def get_queryset(self):
+        # Dokument innej firmy albo nieistniejący: 404 jak w pozostałych
+        # zasobach z identyfikatorem. Pusta lista z 200 nie zdradzała treści,
+        # ale mówiła "ten dokument jest, tylko bez fragmentów" - nieprawdę.
+        if not Document.objects.filter(
+            tenant=self.request.tenant, pk=self.kwargs["document_id"]
+        ).exists():
+            raise Http404
         return DocumentChunk.objects.filter(
             document__tenant=self.request.tenant, document_id=self.kwargs["document_id"]
         )
