@@ -133,6 +133,13 @@ Jeśli progi nie zostaną dotrzymane, kolejność poprawek (od najtańszej):
 2. Ograniczenie `top_k` i progu odległości dla dużych baz wiedzy.
 3. Więcej wątków albo instancji web na Renderze - dopiero tutaj rosną koszty.
 
+## Stan wykonania
+
+Krok 1 (wariant A, lokalnie) zrobiony: [pomiar lokalny z 16.09.2026](pomiar-obciazenia-lokalny.md).
+Wynikła z niego poprawka do tego planu: **ruch musi pochodzić z wielu firm naraz**.
+Jedno konto trafia we własny limit planu, zanim zdąży obciążyć instancję, więc
+profil z jednym kluczem mierzy throttling, a nie system.
+
 ## Kolejność wykonania
 
 1. Zatwierdzasz narzędzie, środowisko i koszt scenariusza 2.
