@@ -103,6 +103,7 @@ KONTRAKT = {
     ("chat-export-csv", "GET"): PRACOWNIK,
     ("chat-import-csv", "POST"): PRACOWNIK,
     ("upload-document", "POST"): PRACOWNIK,
+    ("documents-detail", "DELETE"): PRACOWNIK,
     ("documents-przelacz-wyszukiwanie", "PATCH"): PRACOWNIK,
     ("website-sources-list", "POST"): PRACOWNIK,
     ("website-sources-detail", "PUT"): PRACOWNIK,
