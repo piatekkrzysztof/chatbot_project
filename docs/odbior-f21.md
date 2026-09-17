@@ -1,6 +1,7 @@
 # Odbiór F21: kopia, odtworzenie i alarmy
 
-Stan na 17.09.2026, wersja 2.9.0. Protokół odbioru dla właściciela. Kod kopii
+Stan na 17.09.2026, wersja 2.9.0. Protokół odbioru dla właściciela, **przeprowadzony
+17.09.2026** - wyniki na końcu dokumentu. Kod kopii
 i odtwarzania jest gotowy od 2.0.14 ([opis formatu](pelna-kopia-i-odtworzenie.md));
 ten dokument dokłada brakujące kontrole i prowadzi przez odbiór krok po kroku.
 
@@ -78,9 +79,17 @@ tu skrót kolejności:
 1. Pobierz kopię z R2 do prywatnego katalogu.
 2. Przygotuj pustą bazę **PostgreSQL 16 z pgvector**, nazwaną `saas_restore_<cokolwiek>`.
    Polecenie odmawia pracy na innej nazwie, na zdalnym adresie i na Renderze.
+   Najprościej kontenerem z tego samego obrazu, którego używa CI
+   (`pgvector/pgvector:pg16`), na porcie innym niż zajęty przez bazę roboczą.
 3. Uruchom proces bez produkcyjnego `.env`: ustaw `PYTHON_DOTENV_DISABLED=1`
    i podaj wyłącznie adres lokalnej bazy, `BACKUP_ENCRYPTION_KEY` oraz oryginalny
-   `DJANGO_SECRET_KEY`. **Nie podawaj** Stripe, OpenAI, poczty ani dostępu do R2.
+   `DJANGO_SECRET_KEY`. **Nie podawaj** Stripe, poczty ani dostępu do R2.
+
+   Jeden wyjątek, znaleziony przy pierwszej próbie: `OPENAI_API_KEY` musi być
+   **niepuste**, bo klient OpenAI powstaje przy imporcie ustawień i na pustym
+   kluczu przewraca cały proces, zanim dojdzie do odtwarzania. Wystarczy wartość
+   pozorna w rodzaju `nieuzywany-w-odtwarzaniu`: odtwarzanie i tak blokuje sieć
+   poza portem lokalnej bazy, więc nie ma czym i dokąd zadzwonić.
 4. `python manage.py migrate`, potem:
 
 ```bash
@@ -104,22 +113,38 @@ Na jednej, wybranej firmie - najlepiej Twojej własnej, nie klienta:
 
 Nie wysyłaj z odtworzonego środowiska wiadomości, nie wołaj płatności ani modelu.
 
+Część z tych sprawdzeń da się zrobić zapytaniami do odtworzonej bazy, bez
+uruchamiania aplikacji i bez produkcyjnego klucza - wyniki z 17.09.2026 są
+w sekcji „Wynik odbioru". Zapytania wypisują liczby i fakty, nie dane osobowe:
+raport z odbioru nie ma powodu zawierać adresów ani nazwisk klientów.
+
 ## Krok D: pomiar RPO i RTO
 
 Czas wypisany przez polecenie obejmuje tylko jego własny proces - to nie jest RTO.
 Wypełnij tabelę własnymi pomiarami:
 
-| Pozycja | Zmierzone | Uwagi |
+| Pozycja | Zmierzone 17.09.2026 | Uwagi |
 |---|---|---|
-| Długość okna wstrzymania zapisów (krok A) | | realna przerwa dla klientów |
-| Czas tworzenia kopii | | |
-| Rozmiar kopii | | rośnie z bazą wiedzy klientów |
-| Czas pobrania kopii z R2 | | zależy od łącza |
-| Czas przygotowania środowiska (baza, migracje) | | |
-| Czas samego odtworzenia | | wypisuje polecenie |
-| Czas sprawdzeń z kroku C | | |
-| **RTO (suma od decyzji do działającej aplikacji)** | | |
-| **RPO (wiek ostatniej zweryfikowanej kopii)** | | z częstotliwości, nie z tego testu |
+| Długość okna wstrzymania zapisów (krok A) | ~2 min | prawie w całości klikanie w panelu Rendera |
+| Czas tworzenia kopii | ~6 s | snapshot 10:00:16 UTC, nazwa nadana 10:00:22 |
+| Rozmiar kopii | 3,54 MB danych / 4,73 MB szyfrogramu | rośnie z bazą wiedzy klientów |
+| Czas pobrania kopii z R2 | poniżej minuty | plik 4,73 MB, pobranie z panelu Cloudflare |
+| Czas przygotowania środowiska (baza, migracje) | ~3 min | kontener PG16 z obrazem CI, 90 migracji |
+| Czas samego odtworzenia | **2,49 s** | wypisane przez polecenie |
+| Czas sprawdzeń z kroku C | ~2 min | zapytania z tabeli wyżej |
+| **RTO danych: do zweryfikowanej kopii lokalnie** | **~10 minut** | od pobrania kopii do sprawdzonych danych |
+| **RTO produkcji: do działającej aplikacji** | **niezmierzone** | wymagałoby odbudowy usług i bazy na Renderze - patrz niżej |
+| **RPO (wiek ostatniej zweryfikowanej kopii)** | **5 dni 15 godzin** | z braku harmonogramu, nie z tego testu |
+
+**RTO produkcji jest nadal nieznane** i nie wolno tych dziesięciu minut brać za
+czas powrotu do działania. Zmierzyliśmy odzyskanie **danych** do sprawdzonej
+postaci. Odbudowa działającej usługi wymagałaby dodatkowo nowej instancji bazy
+na Renderze, wgrania do niej danych, przestawienia zmiennych i wdrożenia - żaden
+z tych kroków nie był dziś wykonywany, bo każdy dotyka produkcji.
+
+**RPO wynika z częstotliwości, nie z powodzenia próby.** 5 dni 15 godzin to wiek
+ostatniej kopii dziennej w chwili pomiaru: powstała 11.09.2026 o 18:32 UTC, ręcznie,
+przy odbiorze F04. Bez harmonogramu każda kolejna liczba będzie równie przypadkowa.
 
 RPO bierze się z tego, jak często kopia powstaje, a nie z powodzenia jednej próby.
 Przy kopii dziennej RPO to do 24 godzin utraconych danych; przy pełnej kopii
@@ -160,7 +185,61 @@ Usuń wyłącznie testową bazę `saas_restore_*` i prywatny katalog próby. Nie
 kopii, kluczy ani niczego z produkcji. Zapisz wynik odbioru w tym dokumencie:
 datę, wersję kodu, zmierzone czasy i wykryte problemy.
 
-## Wynik odbioru
+## Wynik odbioru - 17.09.2026
 
-Do wypełnienia po przeprowadzeniu. Dopóki ta sekcja jest pusta, F21 zostaje otwarte,
-a razem z nim retencja z F20 i kasowanie plików osieroconych z F18.
+Wersja kodu: 2.9.0 (produkcja i środowisko próby). Kopia
+`full-backups/full-20260917-100022-...saas`, snapshot 10:00:16 UTC.
+
+### Zaliczone
+
+| Warunek | Dowód |
+|---|---|
+| Pierwsza pełna kopia produkcji w historii projektu | `backup_full --source-quiesced --to-storage`, zweryfikowana ponownym odczytem z R2 |
+| Kopia jest kompletna | 1 plik w kopii wobec 1 dokumentu z plikiem, 0 logo i 0 awatarów w bazie; rozmiar obiektu w R2 zgodny co do bajta |
+| Izolowane odtworzenie na PostgreSQL 16 | kontener `pgvector/pgvector:pg16`, baza `saas_restore_probny`, 2,49 s |
+| Dane wróciły w całości | 2 firmy, 3 konta (1 właściciel, 2 podglądy), 2 subskrypcje, 27 dokumentów, 320 fragmentów, 86 rozmów, 188 wiadomości |
+| Relacje przetrwały | 0 dokumentów bez firmy, 0 kont bez firmy, 0 fragmentów bez dokumentu |
+| Hasła przetrwały | 3 z 3 kont ze skrótem `pbkdf2_`, nie pustym polem |
+| Wektory przetrwały | wymiar 512 zgodny z kodem, wartości niezerowe |
+| Bajty plików przetrwały | odtworzony PDF zaczyna się od `%PDF-1.7`, 187 805 B - tyle samo, co obiekt w R2 |
+| Klucze widgetu przetrwały | unikalne i niepuste |
+| Zgodność kluczy wymuszona | polecenie liczy dowód z `DJANGO_SECRET_KEY` i odmówiłoby przy innym |
+
+### Niezaliczone: alarmy i harmonogram
+
+**To jest jedyny warunek F21, którego dziś nie da się zamknąć** - i nie z powodu
+kodu, tylko dlatego, że nie ma czego monitorować.
+
+Właściciel zdecydował 17.09.2026, że **nie uruchamiamy płatnego zadania cron na
+Renderze**. Decyzja świadoma, zapisana tutaj razem z jej ceną: bez harmonogramu
+kopia powstaje wtedy, gdy ktoś o niej pamięta, więc RPO pozostaje nieokreślone.
+Zmierzone dziś 5 dni 15 godzin nie jest gwarancją, tylko fotografią jednego dnia.
+
+Monitor braku przebiegów (`kontrola_obecnosci_kopii` w GitHub Actions) jest gotowy,
+ale włączony teraz świeciłby na czerwono codziennie - i słusznie, bo kopie dzienne
+faktycznie nie powstają. Alarm, który zapala się zawsze, przestaje być alarmem.
+
+Do rozstrzygnięcia przez właściciela, w kolejności rosnącego kosztu:
+
+1. **Nic.** RPO nieokreślone, świadomie. Monitor zostaje wyłączony.
+2. **Pełna kopia raz w miesiącu, ręcznie**, plus monitor z progiem 31 dni na obu
+   archiwach. Koszt: zero pieniędzy i kilka minut raz w miesiącu. Wykrywa
+   „zapomniałem o tym na dłużej niż miesiąc". RPO: do miesiąca.
+3. **Cron kopii dziennej na Renderze** plus monitor z progiem 30 godzin. Osobno
+   rozliczana usługa. RPO: do 24 godzin.
+
+Próbny fałszywy alarm (tabela w kroku E) ma sens dopiero po wyborze wariantu 2 albo 3.
+
+### Czego ten odbiór nie dowodzi
+
+- **RTO produkcji.** Zmierzone zostało odzyskanie danych, nie powrót usługi.
+- **Logowania i drugiego składnika end-to-end.** Sprawdzone strukturalnie: skróty
+  haseł są na miejscu. Drugiego składnika nie ma dziś na produkcji ani jednego
+  (0 wpisów), więc nie było czego odtwarzać. Warto wiedzieć, że nasiona TOTP są
+  szyfrowane kluczem wyprowadzonym z `DJANGO_SECRET_KEY`: odtworzenie z innym
+  kluczem zamknęłoby dostęp wszystkim, którzy mają włączony drugi składnik.
+  Polecenie temu zapobiega, odmawiając pracy przy niezgodnym kluczu.
+- **Retencji kopii.** Archiwum nie jest sprzątane; nic dziś nie usunęliśmy.
+
+Dopóki punkt „alarmy i harmonogram" jest otwarty, F21 zostaje otwarte, a razem
+z nim retencja z F20.
