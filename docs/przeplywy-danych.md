@@ -5,8 +5,13 @@ Stan na 15.09.2026, wersja 2.5.0. Etap 7 [roadmapy](roadmapa-po-audycie.md).
 Dokument odpowiada na trzy pytania, które zada audytor klienta albo urząd po
 incydencie: co zapisujemy o działaniach na koncie, gdzie trafiają dane osobowe
 poza naszą bazę i jak długo je trzymamy. Część 1 F20 zamyka luki w zapisie
-i w logach. **Nie włącza żadnego nowego automatycznego usuwania danych** - to
-czeka na odbiór pełnej kopii i odtworzenia (F21), patrz ostatnia sekcja.
+i w logach. **Nie włącza żadnego nowego automatycznego usuwania danych.**
+
+Aktualizacja 17.09.2026: odbiór F21 jest zamknięty
+([protokół](odbior-f21.md#wynik-odbioru---17092026)), więc warunek, który
+wstrzymywał retencję, przestał obowiązywać. Powstał raport `raport_retencji`
+(ostatnia sekcja) - **nadal nic nie usuwa**, ale pokazuje liczby, na których
+właściciel może oprzeć decyzję o okresach.
 
 ## Część 1: luki i poprawki
 
@@ -124,20 +129,41 @@ Usunięcie danych w bazie nie usuwa ich z kopii zapasowych, dopóki kopia nie
 wypadnie z rotacji. Dopóki retencja kopii nie jest ustalona, każdy okres
 przechowywania z tabeli dotyczy bazy, a nie kopii.
 
-## Dlaczego bez nowego usuwania
+## Raport przed decyzją: `raport_retencji`
 
-Roadmapa zastrzega, że przed odbiorem pełnej kopii i odtworzenia (F21) nie
-włączamy nowych operacji automatycznego usuwania. Komendy do sesji i
-rozpoczętych rejestracji są gotowe, ale nie trafiają do harmonogramu.
+Okresy przechowywania są decyzją właściciela, ale decyzja bez liczb jest
+zgadywaniem. „Dwanaście miesięcy" brzmi rozsądnie, dopóki nie okaże się, że
+dotyczy trzech wpisów albo trzystu tysięcy - a to są dwie różne decyzje.
 
-Kolejność po odbiorze F21:
+```bash
+python manage.py raport_retencji
+```
 
-1. Właściciel ustala okresy z kolumny "Otwarte".
-2. Każda operacja najpierw działa na produkcji w trybie próbnym i tylko
+Dla każdego rodzaju danych wypisuje: ile jest wierszy, jak stary jest
+najstarszy, ile zniknęłoby przy każdym rozważanym progu i **ile zostaje**.
+Osobno wymienia wiersze, których żaden próg nie ruszy: ważne zaproszenie
+i niewysłane powiadomienie o zmianie hasła. Pierwsze odebrałoby komuś dostęp
+do firmy, drugie zgubiłoby jedyny sygnał przy przejęciu konta.
+
+Raport **niczego nie usuwa i nie zmienia** - pilnuje tego osobny test. Drugi
+test porównuje jego liczby z rzeczywistym przebiegiem komend `purge_*`: raport
+liczący innym warunkiem niż wykonanie byłby gorszy niż jego brak, bo decyzja
+zapadłaby na podstawie fikcji.
+
+## Dlaczego nadal bez automatycznego usuwania
+
+Warunek F21 jest spełniony, więc zostało już tylko to, czego kod nie rozstrzyga.
+
+1. **Właściciel ustala okresy z kolumny „Otwarte"** - na liczbach z raportu.
+2. Każda operacja najpierw chodzi na produkcji w trybie próbnym i tylko
    raportuje liczby.
 3. Harmonogram na istniejącym workerze, bez nowych płatnych usług.
 4. Testy granic (rekord tuż przed i tuż po terminie) oraz przebiegu
    przerwanego w połowie.
+
+Punkt 1 jest dziś jedyną przeszkodą. Dopóki nie ma okresów, nie ma czego
+wdrażać - i to jest właściwa kolejność: usuwanie danych klientów nie jest
+miejscem na domyślne wartości wybrane przez programistę.
 
 ## Weryfikacja
 
