@@ -200,6 +200,35 @@ class TestObecnosciKopii:
         with pytest.raises(CommandError):
             call_command("kontrola_pelnej_kopii")
 
+    def test_mozna_sprawdzac_samo_archiwum_pelnych_kopii(self, seed, magazyn):
+        # Wariant przyjęty 17.09.2026: pełna kopia raz w miesiącu, bez kopii
+        # dziennych. Archiwum, do którego świadomie nic nie trafia, ma dać się
+        # pominąć - inaczej monitor jest czerwony z powodu decyzji, nie awarii,
+        # a taki alarm nikt po tygodniu nie czyta.
+        dodaj_pelna(magazyn)
+
+        odpowiedz = wynik("kontrola_obecnosci_kopii", archiwa=["pelna"])
+
+        assert odpowiedz["sprawdzone"] == ["pelna"]
+        assert "dzienna" not in odpowiedz
+        assert odpowiedz["pelna"]["wiek_godzin"] < 1
+
+    def test_pominiete_archiwum_nie_udaje_sprawdzonego(self, seed, magazyn):
+        # Zielona odpowiedź musi mówić, czego dotyczy. Bez tego raport
+        # z pominiętym archiwum wygląda identycznie jak raport z pełnej kontroli.
+        dodaj_pelna(magazyn)
+        add_backup(magazyn)
+
+        assert wynik("kontrola_obecnosci_kopii")["sprawdzone"] == ["dzienna", "pelna"]
+        assert wynik("kontrola_obecnosci_kopii", archiwa=["pelna"])["sprawdzone"] == ["pelna"]
+
+    def test_wybrane_archiwum_dalej_alarmuje_o_braku(self, seed, magazyn):
+        # Pominięcie jednego archiwum nie może rozluźnić kontroli drugiego.
+        add_backup(magazyn)
+
+        with pytest.raises(CommandError, match="ani jednej kopii"):
+            call_command("kontrola_obecnosci_kopii", archiwa=["pelna"])
+
     def test_magazyn_bez_daty_zapisu_dalej_dziala(self, seed, magazyn):
         # Token tylko do listowania może nie mieć prawa do odczytu metadanych
         # obiektu. Zostaje wtedy data z nazwy - z adnotacją w wyniku, żeby
