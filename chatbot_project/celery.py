@@ -43,6 +43,16 @@ app.conf.beat_schedule = {
         "task": "chat.tasks.purge_expired_conversations",
         "schedule": crontab(minute=30, hour=3),
     },
+    # Reszta danych osobowych: dziennik, zaproszenia, sesje, wyzwania MFA,
+    # rozpoczęte rejestracje i kolejka powiadomień. Okresy zatwierdzone przez
+    # właściciela 17.09.2026 i zebrane w accounts/retencja.py.
+    #
+    # Kwadrans po sprzątaniu rozmów, nie w tej samej minucie: oba zadania biją
+    # w tę samą bazę, a rozmowy potrafią usuwać najwięcej.
+    "retencja-pozostalych-danych-codziennie": {
+        "task": "accounts.tasks_retencja.sprzataj_retencje",
+        "schedule": crontab(minute=45, hour=3),
+    },
     # Poniedziałek rano, przed rozkręceniem się tygodnia: lista pytań, na które
     # bot nie umiał odpowiedzieć, jest do załatwienia w kwadrans i najlepiej
     # zrobić to, zanim przyjdą kolejne. Godzina w Europe/Warsaw (TIME_ZONE).
