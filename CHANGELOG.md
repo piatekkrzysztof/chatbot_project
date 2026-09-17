@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.8.1] — 2026-09-17
+
+### Fixed
+
+- **A deleted file really leaves the storage now.** Removing a document took
+  its file with it only through the panel's delete button. Every other route -
+  the Django admin, deleting a company, a bulk delete from the shell - removed
+  the row and left the file in private storage, where no row pointed to it any
+  more and nothing would ever remove it. Content a customer asked us to delete
+  stayed with us while the panel showed it gone. File removal now hangs on the
+  deletion of the row itself, so it covers every route.
+- **Replacing the widget logo or avatar removes the previous image.** Each
+  upload was stored under a new name and the old one stopped being referenced
+  by anything. A customer who corrected their logo five times left five files
+  behind, four of them impossible to find again. Deleting a company now also
+  takes its logo and avatar.
+
 ## [2.8.0] — 2026-09-16
 
 ### Added

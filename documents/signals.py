@@ -1,9 +1,10 @@
 from functools import partial
 
 from django.db import transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
+from chatbot_project.pliki import usun_plik_po_zatwierdzeniu
 from documents import tasks
 from documents.models import Document
 from documents.utils.queue import enqueue
@@ -45,3 +46,21 @@ def handle_new_document(sender, instance, created, raw=False, **kwargs):
 
     if instance.processed and not instance.chunks.exists():
         transaction.on_commit(partial(enqueue, tasks.generate_embeddings_for_document, instance.id))
+
+
+@receiver(post_delete, sender=Document)
+def usun_plik_dokumentu(sender, instance, **kwargs):
+    """
+    Usuwa plik z prywatnego magazynu razem z dokumentem - każdą drogą.
+
+    Kasowanie pliku było wcześniej dopisane w widoku panelu (2.8.0), czyli
+    w jednej z dróg, którymi dokument znika. Panel administracyjny, usunięcie
+    firmy, `queryset.delete()` z powłoki i żądanie klienta o skasowanie danych
+    zabierały wiersz, a plik zostawiały w magazynie - bez wiersza nikt go już
+    nie znajdzie i nikt nie skasuje.
+
+    Sygnał, a nie nadpisany `Document.delete()`: `queryset.delete()` nie woła
+    metody modelu dla żadnego wiersza, a kaskada przy usuwaniu firmy nie woła
+    jej tym bardziej. `post_delete` dostaje każdy usunięty wiersz.
+    """
+    usun_plik_po_zatwierdzeniu(instance.file.storage, instance.file.name)
