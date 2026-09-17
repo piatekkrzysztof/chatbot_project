@@ -21,6 +21,7 @@ import io
 import json
 import zipfile
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from django.core.files.base import ContentFile
@@ -250,3 +251,31 @@ def test_zip_pelnej_kopii_nie_jest_zwyklym_archiwum(seed, magazyn):
     with zipfile.ZipFile(io.BytesIO(magazyn[nazwa])) as archiwum:
         assert "manifest.fernet" in archiwum.namelist()
         assert backup_cipher().decrypt(archiwum.read("manifest.fernet"))
+
+
+def test_przebieg_monitora_nie_polyka_bledu_w_potoku():
+    """
+    Kontrola może mówić prawdę, a alarm i tak nie dojdzie.
+
+    17.09.2026, próbny fałszywy alarm przy odbiorze F21: komenda poprawnie
+    wykryła kopię starszą niż próg i wypisała powód, a przebieg zszedł na
+    zielono. GitHub uruchamia krok przez `bash -e`, więc bez `pipefail` kodem
+    wyjścia potoku jest kod `tee` - zawsze zerowy. Alarm, który nie dochodzi,
+    jest gorszy niż brak alarmu, bo daje pewność bez pokrycia.
+
+    Znalazła to próba, nie przegląd kodu - i dlatego protokół każe ten alarm
+    wywołać umyślnie, zamiast zakładać, że zadziała.
+    """
+    plik = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "kontrola-kopii.yml"
+    tresc = plik.read_text(encoding="utf-8")
+
+    wywolania = [w for w in tresc.splitlines() if "manage.py kontrola_obecnosci_kopii" in w]
+    assert wywolania, "przebieg nie uruchamia już kontroli obecności kopii"
+
+    for wywolanie in wywolania:
+        po_komendzie = wywolanie.split("kontrola_obecnosci_kopii", 1)[1]
+        if "|" in po_komendzie:
+            assert "set -o pipefail" in tresc, (
+                "kontrola idzie przez potok bez `set -o pipefail`: nieudana kontrola "
+                "skończy się zielonym przebiegiem i alarm nie dojdzie"
+            )
