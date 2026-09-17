@@ -153,6 +153,31 @@ class TestWierszyNietykalnych:
         assert ile_do_usuniecia(dane, "nie do użycia już dziś") == 1
         assert ile_nietykalnych(dane) == 1
 
+    def test_swieze_wykorzystane_zaproszenie_nie_jest_stare(self, tenant):
+        """
+        Wykryte pierwszym raportem z produkcji, 17.09.2026.
+
+        Zaproszenie wykorzystane dzień wcześniej trafiało do wszystkich progów,
+        łącznie z „ponad 90 dni": warunek wykorzystania nie patrzył na wiek
+        w ogóle. Raport pokazywał wtedy liczbę, której żadne usuwanie by nie
+        powtórzyło - czyli dokładnie to, przed czym ten plik miał chronić.
+        """
+        zaproszenie(tenant, ile_dni_temu=1, dlugosc="7d", uzyte=1, miejsc=1)
+
+        progi = dict(raport_zaproszen(timezone.now())["progi"])
+
+        assert progi["nie do użycia już dziś"] == 1
+        assert progi["j.w. i utworzone ponad 30 dni temu"] == 0
+        assert progi["j.w. i utworzone ponad 90 dni temu"] == 0
+
+    def test_stare_wykorzystane_zaproszenie_wchodzi_do_progow(self, tenant):
+        zaproszenie(tenant, ile_dni_temu=120, dlugosc="7d", uzyte=1, miejsc=1)
+
+        progi = dict(raport_zaproszen(timezone.now())["progi"])
+
+        assert progi["j.w. i utworzone ponad 30 dni temu"] == 1
+        assert progi["j.w. i utworzone ponad 90 dni temu"] == 1
+
     def test_niewyslane_powiadomienie_zostaje(self, user):
         teraz = timezone.now()
         PasswordNotification.objects.create(
