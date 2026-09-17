@@ -16,6 +16,20 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.10.0] — 2026-09-17
+
+### Added
+
+- **A report of what each retention period would actually delete.**
+  Choosing how long to keep audit entries, invitations or sessions is the
+  owner's decision, but a decision without numbers is a guess: "twelve months"
+  sounds reasonable until it turns out to mean three rows or three hundred
+  thousand. The report shows, per kind of data, how many rows each candidate
+  threshold removes and how many stay, and lists separately the rows no
+  threshold will touch - a live invitation, an unsent password-change
+  notice. It deletes nothing, and its numbers are checked against what the
+  existing purge commands really remove.
+
 ## [2.9.2] — 2026-09-17
 
 ### Fixed
