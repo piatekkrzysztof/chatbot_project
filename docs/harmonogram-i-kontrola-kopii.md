@@ -100,7 +100,14 @@ Nie zastępuje to pełnej próby odtworzenia produkcji na stagingu.
 
 ## Otwarte warunki odbioru
 
-- Działający harmonogram i potwierdzone powiadomienia, w tym brak przebiegów.
+Stan na 17.09.2026: pierwsze dwa punkty zamknięte odbiorem F21
+([protokół](odbior-f21.md#wynik-odbioru---17092026)). Pełna kopia produkcji
+powstaje raz w miesiącu ręcznie, monitor braku przebiegów chodzi co tydzień
+poza Renderem, a jego alarm został wywołany próbnie i odebrany. Deklarowane
+RPO: do miesiąca.
+
+- ~~Działający harmonogram i potwierdzone powiadomienia, w tym brak przebiegów.~~
+  Zamknięte 17.09.2026.
 - Backup PostgreSQL/PITR oraz ustalone RPO/RTO. Zrzut Django jest kopią logiczną
   aplikacji, pomija wybrane tabele i nie zapewnia jednej transakcyjnej migawki
   przy równoległych zmianach. Nie zastępuje kopii PostgreSQL.
