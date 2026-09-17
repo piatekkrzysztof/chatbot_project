@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.9.2] — 2026-09-17
+
+### Fixed
+
+- **The backup alarm could not go off.** The scheduled check ran the command
+  through a pipe, and the shell reports the exit code of the last command in a
+  pipeline - so a check that correctly found a stale backup, said so, and
+  failed still ended as a green run. The alarm was configured, wired and
+  silent. Found by deliberately triggering a false alarm during the backup
+  acceptance, not by reading the file - which is why the protocol asks for that
+  test instead of assuming delivery works.
+
 ## [2.9.1] — 2026-09-17
 
 ### Changed
