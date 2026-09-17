@@ -16,6 +16,28 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-09-17
+
+### Added
+
+- **Two new checks that say out loud when backups stop happening.** The full
+  backup format had no check that finds the newest copy on its own - verifying
+  one meant typing its file name, which cannot be put on a schedule, so full
+  backups were outside monitoring. `kontrola_pelnej_kopii` finds the newest one
+  and verifies it; an empty archive is an error, not silence, because a schedule
+  that never ran looks exactly like one that works.
+- **A backup monitor that does not run on the hosting it watches.**
+  `kontrola_obecnosci_kopii` answers one question - is anything new arriving in
+  the archive - and needs no encryption key, so it can run somewhere other than
+  Render. A check running on the same hosting as the backup cannot report that
+  hosting being down or the schedule being stopped: it goes quiet, and quiet
+  looks like calm. A scheduled GitHub Actions run is included, switched off
+  until the owner adds a read-only storage token.
+- **An acceptance protocol for backup and restore** (`docs/odbior-f21.md`):
+  the window, the isolated restore on PostgreSQL 16, tables to fill in with
+  measured RPO and RTO, and a deliberate false alarm to prove notifications
+  actually arrive.
+
 ## [2.8.1] — 2026-09-17
 
 ### Fixed

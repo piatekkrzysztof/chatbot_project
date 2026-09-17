@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import struct
 import uuid
 import zipfile
@@ -26,6 +27,14 @@ CHUNK = 1024 * 1024
 MAX_ENTRIES = 4096
 MAX_MANIFEST = 2 * CHUNK
 DEFAULT_LIMIT = 512 * CHUNK
+
+# Nazwa pełnej kopii w prywatnym magazynie. Wzorzec i budowanie nazwy stoją
+# obok siebie celowo: kontrola szuka najnowszej kopii po tym samym wzorcu,
+# którym zapisuje ją `backup_full`. Rozjazd tych dwóch miejsc znaczyłby, że
+# monitor przestaje widzieć nowe kopie, a zauważylibyśmy to dopiero wtedy,
+# gdy ostatnia widziana przekroczy próg wieku.
+KATALOG_PELNYCH_KOPII = "full-backups"
+NAZWA_PELNEJ_KOPII = re.compile(r"full-[0-9]{8}-[0-9]{6}-[a-f0-9]{32}\.saas\Z")
 FIELDS = {
     ("documents.document", "file"): "private_documents",
     ("accounts.tenant", "widget_logo"): "public",
@@ -396,3 +405,30 @@ def unpack_bundle(stream, directory):
         with os.fdopen(descriptor, "w", encoding="utf-8") as output:
             json.dump(manifest, output, ensure_ascii=True)
     return manifest
+
+
+def nazwa_nowej_pelnej_kopii(teraz):
+    return f"{KATALOG_PELNYCH_KOPII}/full-{teraz:%Y%m%d-%H%M%S}-{uuid.uuid4().hex}.saas"
+
+
+def najnowsza_pelna_kopia(storage):
+    """
+    Nazwa najnowszej pełnej kopii w magazynie; brak kopii to błąd, nie cisza.
+
+    Rozstrzyga nazwa, bo data uploadu bywa odświeżana przez samo skopiowanie
+    obiektu. To tylko wybór kandydata - o wieku decyduje podpisany czas
+    snapshotu wewnątrz kopii, sprawdzany przy weryfikacji.
+
+    Pusty magazyn kończy się błędem. Cichy sukces przy zerowej liczbie kopii
+    znaczyłby, że harmonogram, który nigdy nie ruszył, wygląda tak samo jak
+    harmonogram działający poprawnie - a to jest dokładnie ta awaria, której
+    ta kontrola ma szukać.
+    """
+    try:
+        _, nazwy = storage.listdir(KATALOG_PELNYCH_KOPII)
+    except Exception:
+        raise CommandError("Nie można odczytać listy pełnych kopii z magazynu.") from None
+    nazwa = max((n for n in nazwy if NAZWA_PELNEJ_KOPII.fullmatch(n)), default=None)
+    if nazwa is None:
+        raise CommandError("Brak pełnych kopii w prywatnym magazynie.")
+    return f"{KATALOG_PELNYCH_KOPII}/{nazwa}"
