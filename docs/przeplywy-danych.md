@@ -107,7 +107,8 @@ Hosting panelu (Next.js) jest poza tym repozytorium.
 | Rozmowy odwiedzających i oceny odpowiedzi (identyfikator rozmówcy to zanonimizowany adres IP) | PostgreSQL | Automatycznie, codziennie 3:30, po okresie `data_retention_days` firmy (domyślnie 90 dni, 0 = bez usuwania); pojedyncza rozmowa na żądanie | - |
 | Logi promptów i zużycia | PostgreSQL | Jak rozmowy | - |
 | Zapytania kontaktowe (imię, e-mail lub telefon, wiadomość) | PostgreSQL; kopia w skrzynce właściciela firmy | Jak rozmowy; kopia w poczcie poza naszą kontrolą | - |
-| Dokumenty i ich fragmenty (mogą zawierać dane osobowe wgrane przez klienta) | PostgreSQL, R2 | Gdy klient usunie dokument | - |
+| Dokumenty i ich fragmenty (mogą zawierać dane osobowe wgrane przez klienta) | PostgreSQL, R2 | Gdy klient usunie dokument; od 2.8.1 plik znika z magazynu każdą drogą usunięcia, nie tylko przyciskiem w panelu ([opis](usuwanie-plikow.md)) | Pliki osierocone przed 2.8.1 - raport przed odbiorem F21 |
+| Logo i awatar widgetu (obrazy wgrane przez klienta) | PostgreSQL, R2 | Z usunięciem firmy; poprzedni obraz przy wymianie (od 2.8.1) | - |
 | Konta: login, e-mail, skrót hasła, drugi składnik, kody zapasowe | PostgreSQL | Z usunięciem konta | - |
 | E-mail właściciela, dane do faktury | PostgreSQL, Stripe | Z usunięciem firmy; kopia w Stripe | - |
 | Dziennik audytowy (osoba, adres IP, ścieżka) | PostgreSQL | Brak | Okres przechowywania do decyzji właściciela (propozycja: 12 miesięcy) |

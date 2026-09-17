@@ -1,5 +1,3 @@
-import logging
-
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import storages
@@ -32,8 +30,6 @@ from documents.tasks import crawl_and_import_website_source
 from documents.uploads import LimitedMultiPartParser
 from documents.utils.queue import enqueue
 from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
-
-logger = logging.getLogger(__name__)
 
 
 def z_liczba_fragmentow(queryset):
@@ -82,26 +78,10 @@ class DocumentsViewSet(
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
 
-    def perform_destroy(self, instance):
-        """
-        Najpierw wpis, potem plik.
-
-        Django nie kasuje pliku przy usunięciu rekordu, więc bez tego dokument
-        "usunięty" dalej zajmowałby miejsce w magazynie, za które klient płaci.
-
-        Kolejność jest celowa: gdyby magazyn odmówił, zostaje osierocony plik
-        bez wpisu - to da się posprzątać. Odwrotna kolejność zostawiałaby wpis
-        wskazujący na nieistniejący plik, czyli dokument, którego panel nie
-        potrafi ani pobrać, ani usunąć.
-        """
-        plik = instance.file
-        instance.delete()
-        try:
-            # Dokument z importu strony nie ma pliku; FieldFile.delete() sam
-            # wtedy nic nie robi, więc nie ma czego sprawdzać osobno.
-            plik.delete(save=False)
-        except Exception:
-            logger.exception("Nie udało się usunąć pliku dokumentu %s z magazynu", plik.name)
+    # Pliku nie kasuje tu nic: robi to sygnał `documents.signals`, który
+    # dostaje każdy usunięty wiersz - także z panelu administracyjnego,
+    # z kaskady przy usuwaniu firmy i z `queryset.delete()`. Dopisane tutaj
+    # (2.8.0) działało wyłącznie dla tego jednego przycisku.
 
     @extend_schema(responses={(200, "application/octet-stream"): bytes})
     @action(detail=True, methods=["get"], url_path="download")
