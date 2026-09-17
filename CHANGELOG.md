@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-09-17
+
+### Added
+
+- **The knowledge base says how full it is.** Until now the plan limit was
+  invisible until an upload failed - after picking the file and waiting for it
+  to be read. After moving to a smaller plan it stayed invisible entirely,
+  even though from that moment the base could no longer grow. The knowledge
+  page now shows what is used out of what the plan allows, and says plainly,
+  when the base is over the limit, that it can be refreshed and reduced but not
+  grown.
+
 ## [2.11.1] — 2026-09-17
 
 ### Fixed

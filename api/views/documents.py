@@ -15,7 +15,12 @@ from rest_framework.views import APIView
 
 from api.pagination import StronicowaniePanelu
 from api.permissions import *
-from api.schemas import DocumentUploadSerializer, ErrorSerializer, MessageSerializer
+from api.schemas import (
+    DocumentUploadSerializer,
+    ErrorSerializer,
+    MessageSerializer,
+    ZajetoscBazyWiedzySerializer,
+)
 from api.serializers import DocumentChunkSerializer, DocumentSerializer, WebsiteSourceSerializer
 from api.utils.mixins import TenantQuerysetMixin
 
@@ -29,7 +34,13 @@ from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.tasks import crawl_and_import_website_source
 from documents.uploads import LimitedMultiPartParser
 from documents.utils.queue import enqueue
-from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
+from documents.validators import (
+    MB,
+    limit_bazy_wiedzy_mb,
+    rozmiar_bazy_wiedzy,
+    sprawdz_limit_bazy_wiedzy,
+    zablokuj_baze_wiedzy,
+)
 
 
 def z_liczba_fragmentow(queryset):
@@ -105,6 +116,43 @@ class DocumentsViewSet(
         response["X-Content-Type-Options"] = "nosniff"
         response["Content-Security-Policy"] = "sandbox"
         return response
+
+    @extend_schema(
+        tags=["Panel — baza wiedzy"],
+        summary="Ile miejsca zajmuje baza wiedzy",
+        description=(
+            "Zajętość liczona tak samo, jak przy sprawdzaniu limitu: po długości "
+            "wyodrębnionego tekstu, nie po rozmiarze plików. Strony z importu "
+            "witryny nie mają pliku, a wiedzą są tak samo."
+        ),
+        responses=ZajetoscBazyWiedzySerializer,
+    )
+    @action(detail=False, methods=["get"], url_path="uzycie")
+    def uzycie(self, request):
+        """
+        Zajętość bazy wiedzy dla paska w panelu.
+
+        Bez tego klient dowiadywał się o przekroczeniu limitu dopiero przy
+        nieudanym wgraniu - czyli w najgorszym momencie, po przygotowaniu pliku
+        i czekaniu na odczyt. Po zejściu z wyższego planu nie dowiadywał się
+        w ogóle, dopóki czegoś nie dodał.
+
+        Procent potrafi przekroczyć 100: po obniżeniu planu baza bywa większa
+        niż limit i to jest stan, który trzeba pokazać, a nie przyciąć do setki.
+        """
+        tenant = request.tenant
+        zajete = rozmiar_bazy_wiedzy(tenant)
+        limit_mb = limit_bazy_wiedzy_mb(tenant)
+        limit_bajtow = limit_mb * MB
+        return Response(
+            {
+                "zajete_bajty": zajete,
+                "limit_bajtow": limit_bajtow,
+                "limit_mb": limit_mb,
+                "procent": round(100 * zajete / limit_bajtow) if limit_bajtow else 0,
+                "ponad_limitem": zajete > limit_bajtow,
+            }
+        )
 
     @extend_schema(
         tags=["Panel — baza wiedzy"],
