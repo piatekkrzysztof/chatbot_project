@@ -93,14 +93,33 @@ def sprawdz_limit_bazy_wiedzy(tenant, dodawany_tekst="", zastepowany_tekst=""):
     odświeżanej podstrony. Bez odjęcia jej licznik brałby starą i nową wersję
     naraz, więc klient blisko limitu nie mógłby odświeżyć własnej strony,
     mimo że po odświeżeniu zajęłaby mniej więcej tyle samo miejsca.
+
+    Blokujemy WZROST, nie sam stan „ponad limit". Przekroczyć limit można bez
+    dodawania czegokolwiek: wystarczy zejść z planu Pro na Start i tego samego
+    dnia mieć 40 MB przy limicie 5 MB. Warunek liczący wyłącznie wynik końcowy
+    odrzucał wtedy wszystko — także odświeżenie podstrony tej samej wielkości
+    i zamianę dużej treści na mniejszą, czyli jedyny sposób, w jaki klient mógł
+    schodzić do limitu małymi krokami.
+
+    Nic na tym nie zyskiwaliśmy: wyszukiwanie limitu nie zna, więc bot i tak
+    odpowiadał z całych 40 MB, tylko z wersji, której klient nie mógł już
+    poprawić. Dlatego progiem jest większa z dwóch liczb — limit planu albo
+    obecny rozmiar bazy.
     """
     limit_mb = limit_bazy_wiedzy_mb(tenant)
     limit_bajtow = limit_mb * MB
 
     obecnie = rozmiar_bazy_wiedzy(tenant)
     po_dodaniu = obecnie - len(zastepowany_tekst or "") + len(dodawany_tekst or "")
+    ponad_limitem = obecnie > limit_bajtow
 
-    if po_dodaniu > limit_bajtow:
+    if po_dodaniu > max(limit_bajtow, obecnie):
+        if ponad_limitem:
+            raise ValidationError(
+                f"Twoja baza wiedzy przekracza limit {limit_mb} MB dla Twojego planu "
+                f"(obecnie {obecnie / MB:.1f} MB). Możesz ją zmniejszać i odświeżać, "
+                f"ale nie powiększać. Usuń część materiałów albo przejdź na wyższy plan."
+            )
         raise ValidationError(
             f"Baza wiedzy przekroczyłaby limit {limit_mb} MB dla Twojego planu "
             f"(obecnie {obecnie / MB:.1f} MB). Usuń część materiałów "

@@ -9,7 +9,7 @@ Prywatny magazyn dokumentów i publiczny magazyn brandingu nadal mają oddzielne
 | Wejście | Granica |
 |---|---|
 | Dokument | PDF, DOCX, TXT, MD; 10 MiB otrzymanych bajtów |
-| Wyodrębniony tekst | 2 097 152 znaki; dodatkowo limit bazy wiedzy planu |
+| Wyodrębniony tekst | 2 097 152 znaki; dodatkowo limit bazy wiedzy planu (patrz niżej) |
 | PDF | 200 stron, bez szyfrowania; do 8 MiB rozpakowanego strumienia strony |
 | DOCX | 256 elementów ZIP, 20 MiB po rozpakowaniu, 8 MiB na element |
 | Logo/awatar | PNG, JPEG, WebP; 2 MiB, 4 mln pikseli, 4096 px na bok |
@@ -82,3 +82,36 @@ logo i awatara nie jest transakcją między bazą a magazynem obiektowym.
 
 Polityka opiera się na [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)
 i ostrzeżeniu [pypdf o pamięci przy ekstrakcji tekstu](https://pypdf.readthedocs.io/en/stable/user/extract-text.html).
+
+## Limit bazy wiedzy a obniżenie planu
+
+Limit planu blokuje **wzrost** bazy wiedzy, a nie sam stan „ponad limit".
+Rozróżnienie ma znaczenie, bo limit da się przekroczyć bez dodawania
+czegokolwiek: wystarczy zejść z planu Pro (50 MB) na Start (5 MB) i tego samego
+dnia mieć 40 MB przy limicie 5 MB.
+
+Do 2.11.1 warunek liczył wyłącznie wynik końcowy, więc taki klient miał
+zablokowane wszystko:
+
+- odświeżenie podstrony tej samej wielkości (crawler zgłaszał błąd przy każdym
+  przebiegu),
+- zamianę dużej treści na mniejszą, jeśli wynik nadal przekraczał limit -
+  czyli jedyny sposób, żeby schodzić do limitu małymi krokami.
+
+Nikt na tym nie zyskiwał. Wyszukiwanie limitu nie zna, więc bot i tak
+odpowiadał z całych 40 MB - tylko z wersji, której klient nie mógł już poprawić.
+
+Od 2.11.1 progiem jest **większa z dwóch liczb: limit planu albo obecny rozmiar
+bazy**. W praktyce:
+
+| Operacja przy bazie 8 MB i limicie 5 MB | Wynik |
+|---|---|
+| Odświeżenie strony: 6 MB → 6 MB | przechodzi |
+| Zamiana 6 MB → 4 MB (baza 8 → 6 MB, wciąż ponad limitem) | przechodzi |
+| Nowy dokument 1 MB | odrzucone |
+| Zamiana 1 MB → 2 MB | odrzucone |
+
+Komunikat odmowy rozróżnia te dwa stany. „Baza przekroczyłaby limit" mówi
+klientowi mieszczącemu się w planie, że ta operacja go z niego wyrzuci.
+Klientowi, który jest już ponad, mówi wprost, że jest ponad, i co mu wolno -
+szukanie „co ja takiego dodaję" przy 100-bajtowym dopisku prowadziło donikąd.
