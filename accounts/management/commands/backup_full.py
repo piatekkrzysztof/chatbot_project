@@ -1,7 +1,6 @@
 """A complete, encrypted application snapshot including referenced file bytes."""
 
 import tempfile
-import uuid
 from pathlib import Path
 
 from django.conf import settings
@@ -11,7 +10,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from accounts.backups import private_backup_storage
-from accounts.full_backups import create_bundle, verify_bundle
+from accounts.full_backups import create_bundle, nazwa_nowej_pelnej_kopii, verify_bundle
 
 
 class Command(BaseCommand):
@@ -58,7 +57,7 @@ class Command(BaseCommand):
                     target.unlink(missing_ok=True)
                     raise
             if storage is not None:
-                name = f"full-backups/full-{timezone.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex}.saas"
+                name = nazwa_nowej_pelnej_kopii(timezone.now())
                 try:
                     encrypted.seek(0)
                     saved = storage.save(name, File(encrypted))

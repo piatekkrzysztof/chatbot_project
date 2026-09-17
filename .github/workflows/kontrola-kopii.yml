@@ -1,0 +1,99 @@
+name: Kontrola kopii
+
+# Niezależny monitor braku przebiegów - warunek odbioru F21.
+#
+# Kontrole kopii uruchamiane na Renderze nie wykryją dwóch awarii, które są tu
+# najgroźniejsze: zatrzymania harmonogramu i awarii samego Rendera. W obu
+# przypadkach nie przychodzi żaden alarm, bo alarmować miało to, co właśnie
+# przestało działać. Ten przebieg chodzi u innego dostawcy i kończy się na
+# czerwono, gdy w magazynie nie pojawia się nic nowego. GitHub wysyła
+# powiadomienie o nieudanym przebiegu zaplanowanym - tą samą drogą, którą
+# dostajesz wynik CI.
+#
+# Nie potrzebuje klucza szyfrowania. Sprawdza, czy kopie powstają, a nie czy
+# dają się odczytać - tego pilnują `check_backup` i `kontrola_pelnej_kopii`,
+# uruchamiane tam, gdzie klucz już leży. Dzięki temu klucz odszyfrowujący
+# wszystkie kopie nie musi trafiać do sekretów repozytorium.
+#
+# WŁĄCZENIE (krok właściciela, opisany w docs/odbior-f21.md):
+#   1. Utwórz w R2 token TYLKO do odczytu i listowania bucketa kopii.
+#   2. Dodaj sekrety repozytorium: BACKUPS_STORAGE_BUCKET_NAME,
+#      BACKUPS_ACCESS_KEY_ID, BACKUPS_SECRET_ACCESS_KEY, BACKUPS_S3_ENDPOINT_URL.
+#   3. Odkomentuj blok `schedule` poniżej.
+#   4. Sprawdź alarm: uruchom ręcznie z progiem `--pelna-godzin 1`, potwierdź
+#      czerwony przebieg i powiadomienie w skrzynce. Dopiero to jest dowodem.
+#
+# Do czasu kroku 3 przebieg rusza wyłącznie ręcznie. Harmonogram włączony bez
+# sekretów wysyłałby codzienny fałszywy alarm, a fałszywy alarm powtarzany
+# kończy się tym, że przestaje się go czytać.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dzienna-godzin:
+        description: Próg wieku kopii dziennej (godziny)
+        default: '30'
+      pelna-godzin:
+        description: Próg wieku pełnej kopii (godziny)
+        default: '744'
+  # schedule:
+  #   # 06:20 UTC - po nocnym oknie kopii, o porze, o której ktoś czyta pocztę.
+  #   - cron: '20 6 * * *'
+
+jobs:
+  obecnosc-kopii:
+    name: Czy kopie w ogóle powstają
+    runs-on: ubuntu-latest
+
+    env:
+      # Magazyn kopii jest skonfigurowany tylko w ustawieniach produkcyjnych,
+      # więc monitor musi je wczytać. Nie dostaje przy tym żadnego sekretu
+      # poza tokenem do odczytu kopii: ani bazy, ani Stripe, ani poczty.
+      DJANGO_ENV: prod
+      DJANGO_SECRET_KEY: monitor-nie-obsluguje-sesji
+      DJANGO_ALLOWED_HOSTS: example.com
+      OPENAI_API_KEY: nic-nie-jest-wolane
+      # Polecenie nie łączy się z bazą; adres jest wymagany przez ustawienia.
+      DATABASE_URL: postgres://nieuzywany:nieuzywany@127.0.0.1:5432/nieuzywana
+      BACKUPS_STORAGE_BUCKET_NAME: ${{ secrets.BACKUPS_STORAGE_BUCKET_NAME }}
+      BACKUPS_ACCESS_KEY_ID: ${{ secrets.BACKUPS_ACCESS_KEY_ID }}
+      BACKUPS_SECRET_ACCESS_KEY: ${{ secrets.BACKUPS_SECRET_ACCESS_KEY }}
+      BACKUPS_S3_ENDPOINT_URL: ${{ secrets.BACKUPS_S3_ENDPOINT_URL }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalacja zależności produkcyjnych
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Brak sekretów to błąd, nie pominięcie
+        # Krok, który po cichu przepuszcza brak konfiguracji, zamienia monitor
+        # w zielony znaczek bez treści. Lepiej niech się zepsuje głośno.
+        run: |
+          test -n "$BACKUPS_STORAGE_BUCKET_NAME" || { echo "Brak sekretu BACKUPS_STORAGE_BUCKET_NAME"; exit 1; }
+          test -n "$BACKUPS_ACCESS_KEY_ID" || { echo "Brak sekretu BACKUPS_ACCESS_KEY_ID"; exit 1; }
+          test -n "$BACKUPS_SECRET_ACCESS_KEY" || { echo "Brak sekretu BACKUPS_SECRET_ACCESS_KEY"; exit 1; }
+
+      - name: Kontrola obecności kopii
+        run: |
+          python manage.py kontrola_obecnosci_kopii \
+            --dzienna-godzin "${{ inputs.dzienna-godzin || '30' }}" \
+            --pelna-godzin "${{ inputs.pelna-godzin || '744' }}" \
+            | tee wynik.json
+
+      - name: Wynik w podsumowaniu przebiegu
+        if: always()
+        run: |
+          {
+            echo '### Kontrola obecności kopii'
+            echo '```json'
+            cat wynik.json 2>/dev/null || echo '{"status": "brak wyniku - kontrola nie doszła do końca"}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
