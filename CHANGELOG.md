@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.10.1] — 2026-09-17
+
+### Fixed
+
+- **The retention report counted a fresh invitation as ancient.** An invitation
+  that had been fully used showed up under every threshold, including "over 90
+  days", even when it was created yesterday: the used-up condition never looked
+  at age at all. The thresholds now count from the creation date, which is what
+  the database actually knows - the moment someone accepted an invitation is
+  not stored anywhere. Found by the first report run against production, which
+  is what the report is for.
+
 ## [2.10.0] — 2026-09-17
 
 ### Added
