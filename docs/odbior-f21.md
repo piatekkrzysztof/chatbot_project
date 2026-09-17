@@ -181,7 +181,16 @@ z progiem 30 godzin i dopisanie `dzienna` do `--archiwa` w monitorze.
 | Alarm | Wywołany próbnie | Powiadomienie odebrane |
 |---|---|---|
 | Brak pełnej kopii (`kontrola_pelnej_kopii`) | 17.09.2026 - odpowiedziało „Brak pełnych kopii w prywatnym magazynie" przed pierwszym oknem | nie dotyczy, uruchomione ręcznie |
-| Kopia starsza niż próg (GitHub Actions, `--pelna-godzin 1`) | | |
+| Kopia starsza niż próg (GitHub Actions, `--pelna-godzin 1`) | 17.09.2026, 14:21 UTC - przebieg czerwony, `Najnowsza kopia w full-backups ma 4.4 h, próg to 1.0 h` | **tak**, potwierdzone przez właściciela |
+
+Pierwsza próba tego alarmu, 17.09.2026 o 13:24 UTC, **wykryła usterkę w samym
+przebiegu**: kontrola poprawnie odmówiła i wypisała powód, a przebieg mimo to
+zszedł na zielono, bo polecenie szło przez potok bez `set -o pipefail` i kodem
+wyjścia był kod `tee`. Alarm był skonfigurowany, podpięty i niemy. Naprawione
+w 2.9.2 razem z testem regresji.
+
+To jest cały powód, dla którego ten krok jest w protokole: usterki nie znalazł
+przegląd kodu ani zielone CI, tylko umyślne wywołanie fałszywego alarmu.
 
 ## Krok F: sprzątanie
 
@@ -209,10 +218,15 @@ Wersja kodu: 2.9.0 (produkcja i środowisko próby). Kopia
 | Klucze widgetu przetrwały | unikalne i niepuste |
 | Zgodność kluczy wymuszona | polecenie liczy dowód z `DJANGO_SECRET_KEY` i odmówiłoby przy innym |
 
-### Niezaliczone: alarmy i harmonogram
+### Zaliczone: alarmy i harmonogram
 
-**To jest jedyny warunek F21, którego dziś nie da się zamknąć** - i nie z powodu
-kodu, tylko dlatego, że nie ma czego monitorować.
+Warunek zamknięty **17.09.2026**: przebieg [`kontrola-kopii.yml`](../.github/workflows/kontrola-kopii.yml)
+chodzi w każdy poniedziałek o 06:20 UTC, próbny fałszywy alarm zszedł czerwony,
+a powiadomienie dotarło do właściciela. Harmonogram włączył właściciel osobiście,
+bo GitHub kieruje powiadomienia o nieudanym przebiegu zaplanowanym do osoby,
+która ostatnio zmieniała linię `cron`.
+
+Poniżej zapisana decyzja o częstotliwości kopii, bo od niej zależy deklarowane RPO.
 
 Właściciel zdecydował 17.09.2026, że **nie uruchamiamy płatnego zadania cron na
 Renderze**. Decyzja świadoma, zapisana tutaj razem z jej ceną: bez harmonogramu
@@ -243,9 +257,8 @@ Odrzucone świadomie:
    kopia jest proporcjonalna. Wraca, gdy pojawi się klient, którego miesięczna
    strata danych by dotknęła.
 
-Do zamknięcia tego punktu zostaje włączenie monitora i próbny fałszywy alarm
-(tabela w kroku E) - obie rzeczy są po stronie właściciela, bo wymagają sekretów
-repozytorium.
+Monitor jest włączony, a alarm sprawdzony i odebrany - szczegóły w tabeli
+w kroku E. **F21 zamknięte 17.09.2026.**
 
 ### Czego ten odbiór nie dowodzi
 
@@ -258,5 +271,9 @@ repozytorium.
   Polecenie temu zapobiega, odmawiając pracy przy niezgodnym kluczu.
 - **Retencji kopii.** Archiwum nie jest sprzątane; nic dziś nie usunęliśmy.
 
-Dopóki punkt „alarmy i harmonogram" jest otwarty, F21 zostaje otwarte, a razem
-z nim retencja z F20.
+**F21 zamknięte 17.09.2026.** Odblokowuje to retencję z F20: okresy przechowywania
+i harmonogram usuwania czekały właśnie na odbiór odtwarzania.
+
+Co zostaje w rytmie miesięcznym, po stronie właściciela: powtórzenie kroków A i B
+(okno, kopia, sprawdzenie). Monitor złapie zapomnienie dopiero po 31 dniach - jest
+siatką bezpieczeństwa, nie przypomnieniem.
