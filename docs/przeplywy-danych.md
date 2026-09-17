@@ -164,6 +164,26 @@ Zadanie loguje wynik także wtedy, gdy nic nie znalazło. Cisza w logu nie
 odróżnia przebiegu, który nic nie usunął, od przebiegu, którego nie było - ta
 sama pomyłka zdarzyła się już przy monitorze kopii.
 
+## Stan wdrożenia
+
+Wdrożone 17.09.2026 (2.11.0). Przebieg próbny na produkcji, przed pierwszym
+nocnym sprzątaniem, dał **same zera** - nic nie dobiło jeszcze do żadnego progu:
+
+```text
+python manage.py purge_retencja --dry-run
+Dziennik audytowy: 0        Zaproszenia do zespołu: 0
+Sesje logowania: 0          Wyzwania drugiego składnika: 0
+Rozpoczęte rejestracje: 0   Kolejka powiadomień o zmianie hasła: 0
+```
+
+Kiedy spodziewać się pierwszych niezerowych liczb: sesje - dobę po wygaśnięciu
+pierwszej z nich; zaproszenia - około 16.10.2026; dziennik - we wrześniu 2027.
+
+Zero nie jest dowodem, że zadanie ruszyło: przebieg, który nic nie znalazł,
+i przebieg, którego nie było, dają ten sam wynik. Dlatego zadanie zapisuje
+w logu wynik także przy zerach, a potwierdzeniem pierwszego przebiegu jest
+linia `Retencja: usunięto 0 wierszy (...)` w logu usługi `celery-worker`.
+
 ## Czego automat nie usunie nigdy
 
 - **ważnego, niewykorzystanego zaproszenia** - to odebrałoby komuś dostęp do firmy;
