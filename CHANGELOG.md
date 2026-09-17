@@ -16,6 +16,16 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.9.1] — 2026-09-17
+
+### Changed
+
+- **The backup monitor can be told which archive to watch.** An archive nothing
+  is being written to on purpose would otherwise make the monitor red every run,
+  which is an alarm about a decision rather than a failure - and an alarm that
+  is always on stops being read. The result now also lists which archives were
+  checked, so a green answer cannot be mistaken for "everything was checked".
+
 ## [2.9.0] — 2026-09-17
 
 ### Added
