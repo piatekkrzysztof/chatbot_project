@@ -10,6 +10,12 @@ Drugi warunek, równie ważny: plik musi zniknąć z magazynu. Django przy
 usunięciu rekordu zostawia plik tam, gdzie leżał, więc "usunięty" dokument
 dalej zajmowałby miejsce, za które klient płaci, a jego treść byłaby do
 odczytania dla każdego, kto ma dostęp do magazynu.
+
+Od 2.8.1 kasuje go sygnał `documents.signals`, po zatwierdzeniu transakcji -
+stąd `django_capture_on_commit_callbacks` w teście, który tego pilnuje. Poza
+testem zapytanie nie jest owinięte transakcją (`ATOMIC_REQUESTS` wyłączone),
+więc plik znika jeszcze w trakcie odpowiedzi. Dlaczego akurat po zatwierdzeniu,
+mówi docs/usuwanie-plikow.md.
 """
 
 import pytest
@@ -49,12 +55,15 @@ def dokument_z_plikiem(tenant, nazwa="cennik.txt"):
     return dokument
 
 
-def test_wlasciciel_usuwa_dokument_razem_z_fragmentami_i_plikiem(user, tenant, subscribtion):
+def test_wlasciciel_usuwa_dokument_razem_z_fragmentami_i_plikiem(
+    user, tenant, subscribtion, django_capture_on_commit_callbacks
+):
     dokument = dokument_z_plikiem(tenant)
     magazyn, nazwa_pliku = dokument.file.storage, dokument.file.name
     assert magazyn.exists(nazwa_pliku)
 
-    odpowiedz = klient(user, tenant).delete(reverse("documents-detail", args=[dokument.pk]))
+    with django_capture_on_commit_callbacks(execute=True):
+        odpowiedz = klient(user, tenant).delete(reverse("documents-detail", args=[dokument.pk]))
 
     assert odpowiedz.status_code == 204
     assert not Document.objects.filter(pk=dokument.pk).exists()
@@ -95,14 +104,17 @@ def test_dokumentu_innej_firmy_nie_da_sie_usunac(user, tenant, subscribtion):
     assert Document.objects.filter(pk=cudzy.pk).exists()
 
 
-def test_brak_pliku_w_magazynie_nie_zatrzymuje_usuniecia(user, tenant, subscribtion):
+def test_brak_pliku_w_magazynie_nie_zatrzymuje_usuniecia(
+    user, tenant, subscribtion, django_capture_on_commit_callbacks
+):
     # Plik mógł zniknąć wcześniej: nieudane wdrożenie, ręczne porządki
     # w magazynie, przeniesienie między magazynami. Wpis w bazie musi dać się
     # usunąć mimo to, inaczej klient zostaje z dokumentem nie do ruszenia.
     dokument = dokument_z_plikiem(tenant)
     dokument.file.storage.delete(dokument.file.name)
 
-    odpowiedz = klient(user, tenant).delete(reverse("documents-detail", args=[dokument.pk]))
+    with django_capture_on_commit_callbacks(execute=True):
+        odpowiedz = klient(user, tenant).delete(reverse("documents-detail", args=[dokument.pk]))
 
     assert odpowiedz.status_code == 204
     assert not Document.objects.filter(pk=dokument.pk).exists()
