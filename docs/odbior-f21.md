@@ -155,29 +155,33 @@ raz w miesiącu - do miesiąca, jeśli dzienna zawiedzie.
 To jest warunek, o który najłatwiej się potknąć, bo wszystko wygląda dobrze,
 dopóki nie sprawdzisz.
 
-1. **Kopia dzienna na Renderze.** Zadanie cron z
-   [przykładowego Blueprintu](render-backups.example.yaml), komenda
-   `python manage.py backup_data --to-storage`. **To jest osobno rozliczana
-   usługa Rendera** - wymaga Twojej decyzji o koszcie, tak jak ustaliliśmy
-   przy budżecie.
-2. **Kontrola dzienna na Renderze:** `python manage.py check_backup --max-age-hours 30`,
-   osobne zadanie, token do odczytu.
-3. **Kontrola pełnej kopii:** `python manage.py kontrola_pelnej_kopii` - po każdym
-   oknie pełnej kopii, ręcznie, albo jako trzecie zadanie cron z progiem 744 godzin.
-4. **Niezależny monitor braku przebiegów** (bez kosztu): w repozytorium backendu
-   dodaj sekrety `BACKUPS_STORAGE_BUCKET_NAME`, `BACKUPS_ACCESS_KEY_ID`,
+Wariant przyjęty 17.09.2026: **pełna kopia raz w miesiącu, ręcznie, bez
+płatnych zadań na Renderze** (wariant 2 z sekcji „Wynik odbioru").
+
+1. **Raz w miesiącu powtórz kroki A i B tego protokołu.** Kopia zajmuje około
+   dwóch minut okna i kilka sekund liczenia; odtworzenie warto powtarzać
+   rzadziej, ale przynajmniej po każdej zmianie schematu bazy.
+2. **Po każdym oknie sprawdź kopię:** `python manage.py kontrola_pelnej_kopii`.
+   Odpowiedź inna niż `status: ok` znaczy, że okno trzeba powtórzyć.
+3. **Włącz niezależny monitor** (bez kosztu): w repozytorium backendu dodaj
+   sekrety `BACKUPS_STORAGE_BUCKET_NAME`, `BACKUPS_ACCESS_KEY_ID`,
    `BACKUPS_SECRET_ACCESS_KEY`, `BACKUPS_S3_ENDPOINT_URL` z tokenu R2 **tylko do
    odczytu i listowania**, a potem odkomentuj `schedule` w
-   [`kontrola-kopii.yml`](../.github/workflows/kontrola-kopii.yml).
-5. **Sprawdź alarm, zamiast zakładać, że działa.** Uruchom przebieg ręcznie
+   [`kontrola-kopii.yml`](../.github/workflows/kontrola-kopii.yml). Przebieg
+   sprawdza wyłącznie archiwum pełnych kopii, co tydzień, z progiem 31 dni -
+   czyli odzywa się dokładnie wtedy, gdy miesiąc minął, a kopii nie ma.
+4. **Sprawdź alarm, zamiast zakładać, że działa.** Uruchom przebieg ręcznie
    z progiem `--pelna-godzin 1`: ma zejść czerwony, a powiadomienie ma trafić do
    Twojej skrzynki. Dopiero to jest dowodem. Zapisz datę tej próby.
 
+Gdy pojawi się ruch, który miesięcznej straty nie zniesie, wraca wariant 3:
+[zadanie cron kopii dziennej](render-backups.example.yaml) plus `check_backup`
+z progiem 30 godzin i dopisanie `dzienna` do `--archiwa` w monitorze.
+
 | Alarm | Wywołany próbnie | Powiadomienie odebrane |
 |---|---|---|
-| Błąd zadania kopii na Renderze | | |
-| Stara kopia (`check_backup`) | | |
-| Brak przebiegu (GitHub Actions) | | |
+| Brak pełnej kopii (`kontrola_pelnej_kopii`) | 17.09.2026 - odpowiedziało „Brak pełnych kopii w prywatnym magazynie" przed pierwszym oknem | nie dotyczy, uruchomione ręcznie |
+| Kopia starsza niż próg (GitHub Actions, `--pelna-godzin 1`) | | |
 
 ## Krok F: sprzątanie
 
@@ -219,16 +223,29 @@ Monitor braku przebiegów (`kontrola_obecnosci_kopii` w GitHub Actions) jest got
 ale włączony teraz świeciłby na czerwono codziennie - i słusznie, bo kopie dzienne
 faktycznie nie powstają. Alarm, który zapala się zawsze, przestaje być alarmem.
 
-Do rozstrzygnięcia przez właściciela, w kolejności rosnącego kosztu:
+**Wybrany wariant (17.09.2026): pełna kopia raz w miesiącu, ręcznie**, plus
+niezależny monitor z progiem 31 dni na archiwum pełnych kopii. Koszt: zero
+pieniędzy i kilka minut miesięcznie. Deklarowane RPO: **do miesiąca** - i to jest
+liczba, którą wolno podawać klientowi, bo wynika z ustalonej częstotliwości,
+a nie z jednego udanego dnia.
 
-1. **Nic.** RPO nieokreślone, świadomie. Monitor zostaje wyłączony.
-2. **Pełna kopia raz w miesiącu, ręcznie**, plus monitor z progiem 31 dni na obu
-   archiwach. Koszt: zero pieniędzy i kilka minut raz w miesiącu. Wykrywa
-   „zapomniałem o tym na dłużej niż miesiąc". RPO: do miesiąca.
-3. **Cron kopii dziennej na Renderze** plus monitor z progiem 30 godzin. Osobno
-   rozliczana usługa. RPO: do 24 godzin.
+Monitor sprawdza **wyłącznie archiwum pełnych kopii**. Archiwum kopii dziennych
+zostaje bez harmonogramu, więc pilnowanie go oznaczałoby cotygodniowy alarm
+o decyzji, a nie o awarii - dlatego `--archiwa` pozwala je pominąć, a wynik
+kontroli wypisuje, czego dotyczył.
 
-Próbny fałszywy alarm (tabela w kroku E) ma sens dopiero po wyborze wariantu 2 albo 3.
+Odrzucone świadomie:
+
+1. **Nic.** RPO nieokreślone. Odrzucone, bo „nie wiemy" nie jest odpowiedzią,
+   którą da się dać klientowi pytającemu o kopie.
+2. **Cron kopii dziennej na Renderze**, RPO do 24 godzin. Odłożone: osobno
+   rozliczana usługa, a przy dzisiejszym ruchu (2 firmy, 86 rozmów) miesięczna
+   kopia jest proporcjonalna. Wraca, gdy pojawi się klient, którego miesięczna
+   strata danych by dotknęła.
+
+Do zamknięcia tego punktu zostaje włączenie monitora i próbny fałszywy alarm
+(tabela w kroku E) - obie rzeczy są po stronie właściciela, bo wymagają sekretów
+repozytorium.
 
 ### Czego ten odbiór nie dowodzi
 

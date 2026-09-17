@@ -96,18 +96,31 @@ class Command(BaseCommand):
     requires_system_checks = []
 
     def add_arguments(self, parser):
+        # Które archiwa mają być sprawdzane. Domyślnie oba, ale archiwum, do
+        # którego świadomie nic nie trafia, trzeba dać się pominąć: inaczej
+        # monitor świeci na czerwono z powodu decyzji, nie awarii - a alarm,
+        # który zapala się zawsze, przestaje być czytany.
+        parser.add_argument(
+            "--archiwa", nargs="+", choices=sorted(ARCHIWA), default=sorted(ARCHIWA)
+        )
         parser.add_argument("--dzienna-godzin", type=float, default=30)
         parser.add_argument("--pelna-godzin", type=float, default=744)
 
     def handle(self, *args, **options):
+        wybrane = list(dict.fromkeys(options["archiwa"]))
         progi = {"dzienna": options["dzienna_godzin"], "pelna": options["pelna_godzin"]}
-        for nazwa, prog in progi.items():
+        for nazwa in wybrane:
+            prog = progi[nazwa]
             if not math.isfinite(prog) or not 0 < prog <= 8760:
                 raise CommandError(f"Próg {nazwa} musi być większy od 0 i nie większy niż 8760.")
         magazyn = private_backup_storage()
         teraz = datetime.now(UTC)
         wynik = {
-            rodzaj: sprawdz_archiwum(magazyn, katalog, wzorzec, progi[rodzaj], teraz)
-            for rodzaj, (katalog, wzorzec) in ARCHIWA.items()
+            rodzaj: sprawdz_archiwum(magazyn, *ARCHIWA[rodzaj], progi[rodzaj], teraz)
+            for rodzaj in wybrane
         }
-        self.stdout.write(json.dumps({"status": "ok", **wynik}, sort_keys=True))
+        # Lista sprawdzonych archiwów jest częścią wyniku, żeby zielona odpowiedź
+        # nie dała się wziąć za „wszystko sprawdzone".
+        self.stdout.write(
+            json.dumps({"status": "ok", "sprawdzone": sorted(wybrane), **wynik}, sort_keys=True)
+        )
