@@ -75,6 +75,7 @@ KONTRAKT = {
     # Odczyt dla każdej roli
     ("analytics", "GET"): CZLONEK,
     ("documents-list", "GET"): CZLONEK,
+    ("documents-uzycie", "GET"): CZLONEK,
     ("documents-detail", "GET"): CZLONEK,
     ("documents-download", "GET"): CZLONEK,
     ("document-detail", "GET"): CZLONEK,
