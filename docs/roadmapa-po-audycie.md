@@ -108,6 +108,11 @@ automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audyt
    `/health/` jest gotowy i zwraca stan bazy oraz brokera; brakuje czujki
    z zewnątrz. [Konfiguracja do ustawienia przez właściciela](monitoring-dostepnosci.md).
 
+9. **Koszt krańcowy klienta.** Do 17.09.2026 nigdzie nie policzony, więc cennik
+   opierał się na oszacowaniu. `zmierz_koszt_klienta` czyta logi zużycia i pokazuje,
+   co zostaje z ceny planu przy pełnym wykorzystaniu limitu.
+   [Opis i sposób czytania wyniku](koszt-klienta.md). Pomiar na produkcji do wykonania.
+
 P1 dotyczące kont, administracji i płatności nadal blokują deklarację gotowości
 komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 

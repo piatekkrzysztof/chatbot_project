@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-09-17
+
+### Added
+
+- **A measurement of what a customer actually costs.** The price list promises
+  2 000, 8 000 and 25 000 messages a month, but nobody had ever worked out what
+  one message costs, so those three numbers were a guess that looked like a
+  decision. The new command reads the usage logs and reports the cost of a
+  single message and what is left of each plan's price when a customer uses the
+  whole limit. Rates are passed on the command line rather than baked in,
+  because a hardcoded price goes stale quietly while the result still looks
+  credible.
+
 ## [2.12.0] — 2026-09-17
 
 ### Added
