@@ -359,3 +359,13 @@ class UstawieniaFirmySerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Adres, na który trafiają powiadomienia. Pusty = nie powiadamiaj.",
     )
+
+
+class ZajetoscBazyWiedzySerializer(serializers.Serializer):
+    """Ile miejsca zajmuje wiedza firmy i ile jej przysługuje."""
+
+    zajete_bajty = serializers.IntegerField()
+    limit_bajtow = serializers.IntegerField()
+    limit_mb = serializers.IntegerField()
+    procent = serializers.IntegerField()
+    ponad_limitem = serializers.BooleanField()
