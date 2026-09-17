@@ -16,6 +16,20 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.11.1] — 2026-09-17
+
+### Fixed
+
+- **After moving to a smaller plan, the knowledge base was frozen.** The plan
+  limit refused every change once the base was over it - including refreshing a
+  page to the same size, and replacing a large text with a smaller one when the
+  result was still above the limit. That is the only way a customer could work
+  their way back down without deleting documents, and it was blocked. Nothing
+  was gained by blocking it: search does not know about the limit, so the bot
+  kept answering from the whole base anyway - just from a version the customer
+  could no longer correct. The limit now blocks growth rather than the state of
+  being over it, and the refusal says which of the two situations you are in.
+
 ## [2.11.0] — 2026-09-17
 
 ### Added
