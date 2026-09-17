@@ -90,7 +90,15 @@ jobs:
 
       - name: Kontrola obecności kopii
         # Tylko archiwum pełnych kopii - uzasadnienie w nagłówku pliku.
-        run: python manage.py kontrola_obecnosci_kopii --archiwa pelna --pelna-godzin "${{ inputs.pelna-godzin || '744' }}" | tee wynik.json
+        #
+        # `pipefail` nie jest ozdobą. GitHub uruchamia krok przez `bash -e`, a bez
+        # tego ustawienia kodem wyjścia potoku jest kod OSTATNIEGO polecenia -
+        # czyli `tee`, które udaje się zawsze. Wykryta stara kopia kończyła się
+        # więc zielonym przebiegiem: kontrola mówiła prawdę, a alarm nie dochodził.
+        # Znalezione 17.09.2026 próbnym fałszywym alarmem, nie przeglądem kodu.
+        run: |
+          set -o pipefail
+          python manage.py kontrola_obecnosci_kopii --archiwa pelna --pelna-godzin "${{ inputs.pelna-godzin || '744' }}" | tee wynik.json
 
       - name: Wynik w podsumowaniu przebiegu
         if: always()
@@ -98,6 +106,9 @@ jobs:
           {
             echo '### Kontrola obecności kopii'
             echo '```json'
-            cat wynik.json 2>/dev/null || echo '{"status": "brak wyniku - kontrola nie doszła do końca"}'
+            # Przy błędzie plik istnieje, ale jest pusty - `cat` sam z siebie
+            # niczego by nie zgłosił, a puste okienko w podsumowaniu wygląda
+            # jak wynik, którego nikt nie przeczytał do końca.
+            if [ -s wynik.json ]; then cat wynik.json; else echo '{"status": "brak wyniku - powód w logu kroku wyżej"}'; fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
