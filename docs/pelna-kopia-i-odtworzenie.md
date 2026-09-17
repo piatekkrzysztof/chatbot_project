@@ -112,8 +112,14 @@ pełnej kopii jest błędem, nie cichym sukcesem. Kolejność odbioru:
 1. Pobrać szyfrogram do prywatnego katalogu. Przygotować odizolowany proces
    bez produkcyjnego pliku `.env`, ustawiając `PYTHON_DOTENV_DISABLED=1` przed
    uruchomieniem Django. Używać wyłącznie lokalnej bazy i wyłączonych usług
-   web/worker/beat. Nie przekazywać kluczy SMTP, Stripe, AI ani dostępu do R2
+   web/worker/beat. Nie przekazywać kluczy SMTP, Stripe ani dostępu do R2
    procesowi odtwarzania.
+
+   `OPENAI_API_KEY` musi mieć wartość **pozorną, ale niepustą** (np.
+   `nieuzywany-w-odtwarzaniu`). Klient OpenAI powstaje przy imporcie ustawień
+   i na pustym kluczu przerywa proces, zanim dojdzie do odtwarzania - sprawdzone
+   przy odbiorze 17.09.2026. Prawdziwego klucza nie przekazujemy: odtwarzanie
+   blokuje sieć poza portem lokalnej bazy.
 2. Przygotować PostgreSQL z pgvector w tej samej głównej wersji co źródło
    (produkcja: 16), kod w wersji zapisanej w kopii oraz pustą bazę o nazwie
    `saas_restore_<identyfikator>`. Połączyć się przez localhost/127.0.0.1/::1.
@@ -171,3 +177,6 @@ klucza ani nie usuwać wcześniejszych kopii w ramach rollbacku.
 Warunek zamknięcia F04/F21: rzeczywista kompletna kopia i jej izolowany restore
 na PostgreSQL 16, zmierzone RPO/RTO, sprawdzony harmonogram oraz odbiór alarmów,
 w tym braku przebiegu. Zielony CI na danych syntetycznych nie zamyka tych punktów.
+
+17.09.2026 wykonano pierwsze trzy: kopia produkcji, odtworzenie na PG16 w 2,49 s
+i pomiar. Wyniki i to, co zostaje otwarte, są w [protokole odbioru](odbior-f21.md#wynik-odbioru---17092026).
