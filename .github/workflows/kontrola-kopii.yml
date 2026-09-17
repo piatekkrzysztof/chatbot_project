@@ -43,9 +43,9 @@ on:
       pelna-godzin:
         description: Próg wieku pełnej kopii w godzinach (744 = 31 dni; do próby alarmu wpisz 1)
         default: '744'
-  # schedule:
-  #   # Poniedziałek 06:20 UTC - początek tygodnia, pora, o której ktoś czyta pocztę.
-  #   - cron: '20 6 * * 1'
+  schedule:
+    # Poniedziałek 06:20 UTC - początek tygodnia, pora, o której ktoś czyta pocztę.
+    - cron: '20 6 * * 1'
 
 jobs:
   obecnosc-kopii:
