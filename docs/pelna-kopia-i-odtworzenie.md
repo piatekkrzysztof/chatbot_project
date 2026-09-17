@@ -101,6 +101,12 @@ daty uploadu. Błędna/stara kopia daje niezerowy kod wyjścia; kontrola nie wra
 po cichu do starszej. Stary `check_backup` nie monitoruje nowego formatu.
 Polecenie nie konfiguruje harmonogramu ani odbiorcy alarmów.
 
+Od 2.9.0 kontrolę bez podawania nazwy robi `kontrola_pelnej_kopii`: sama znajduje
+najnowszą kopię w `full-backups/`, weryfikuje ją i sprawdza wiek (domyślnie 31 dni,
+bo pełna kopia powstaje w uzgodnionym oknie, a nie co noc). Brak jakiejkolwiek
+pełnej kopii jest błędem, nie cichym sukcesem. Kolejność odbioru:
+[protokół F21](odbior-f21.md).
+
 ## Próba odtworzenia — nowa lokalna baza
 
 1. Pobrać szyfrogram do prywatnego katalogu. Przygotować odizolowany proces

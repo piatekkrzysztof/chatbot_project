@@ -67,6 +67,15 @@ Sama kontrola uruchamiana na Renderze nie wykryje awarii całego Rendera lub
 zatrzymania obu harmonogramów. Do odbioru komercyjnego potrzebny jest niezależny
 monitor braku przebiegów, poza tym hostingiem, z przetestowanym alarmem.
 
+Od 2.9.0 ten monitor istnieje: `kontrola_obecnosci_kopii` sprawdza, czy w archiwum
+w ogóle coś przybywa, i nie potrzebuje do tego klucza szyfrowania, więc może chodzić
+poza Renderem. Przebieg [`kontrola-kopii.yml`](../.github/workflows/kontrola-kopii.yml)
+uruchamia ją w GitHub Actions; harmonogram jest zakomentowany do czasu dodania
+sekretów przez właściciela. Pełną kopię `.saas` kontroluje `kontrola_pelnej_kopii`,
+która sama znajduje najnowszą - `verify_full_backup` wymaga podania nazwy i nadaje
+się do sprawdzenia konkretnego pliku, nie do harmonogramu. Kolejność odbioru:
+[protokół F21](odbior-f21.md).
+
 ## Odtwarzanie na stagingu
 
 1. Przygotuj pustą, izolowaną bazę PostgreSQL z pgvector i kod zgodny ze schematem
