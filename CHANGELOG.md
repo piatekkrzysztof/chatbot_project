@@ -16,6 +16,22 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-09-17
+
+### Added
+
+- **Personal data now disappears on a schedule, not when someone remembers.**
+  Audit entries are kept for 12 months, invitations for 30 days after they were
+  created, sessions and second-factor challenges for a day after they expire,
+  unfinished signups for a week, and sent or failed password notices for 90
+  days. The periods were chosen from the first report run against production,
+  and a test pins them so that changing one is a deliberate decision rather
+  than a tidy-up. Nothing touches a live invitation, a valid session or a
+  notice still waiting to be sent.
+- **The clean-up can be rehearsed.** `purge_retencja --dry-run` counts what the
+  next run would remove without removing it, using the same rule the run itself
+  uses.
+
 ## [2.10.1] — 2026-09-17
 
 ### Fixed

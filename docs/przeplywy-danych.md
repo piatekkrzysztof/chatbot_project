@@ -116,11 +116,12 @@ Hosting panelu (Next.js) jest poza tym repozytorium.
 | Logo i awatar widgetu (obrazy wgrane przez klienta) | PostgreSQL, R2 | Z usunięciem firmy; poprzedni obraz przy wymianie (od 2.8.1) | - |
 | Konta: login, e-mail, skrót hasła, drugi składnik, kody zapasowe | PostgreSQL | Z usunięciem konta | - |
 | E-mail właściciela, dane do faktury | PostgreSQL, Stripe | Z usunięciem firmy; kopia w Stripe | - |
-| Dziennik audytowy (osoba, adres IP, ścieżka) | PostgreSQL | Brak | Okres przechowywania do decyzji właściciela (propozycja: 12 miesięcy) |
-| Sesje logowania (bez adresu IP) | PostgreSQL | Komenda `purge_login_sessions` istnieje, bez harmonogramu | Harmonogram po F21 |
-| Rozpoczęte rejestracje (e-mail, dane firmy, bez hasła; dane czyszczone przy aktywacji) | PostgreSQL | Komenda `purge_pending_registrations` (7 dni) istnieje, bez harmonogramu | Harmonogram po F21 |
-| Zaproszenia (e-mail zapraszanego) | PostgreSQL | Brak; panel pokazuje listę zaproszeń | Okres po wygaśnięciu albo wykorzystaniu, po F21 |
-| Wyzwania drugiego składnika, kolejka powiadomień o zmianie hasła (adres odbiorcy) | PostgreSQL | Brak | Czyszczenie po F21, razem z sesjami |
+| Dziennik audytowy (osoba, adres IP, ścieżka) | PostgreSQL | Automatycznie, codziennie 3:45, po **12 miesiącach** | - |
+| Sesje logowania (bez adresu IP) | PostgreSQL | Automatycznie, codziennie 3:45, **24 h po wygaśnięciu** | - |
+| Rozpoczęte rejestracje (e-mail, dane firmy, bez hasła; dane czyszczone przy aktywacji) | PostgreSQL | Automatycznie, codziennie 3:45, po **7 dniach** | - |
+| Zaproszenia (e-mail zapraszanego) | PostgreSQL | Automatycznie, codziennie 3:45: **30 dni od utworzenia**, i tylko te wygasłe albo wykorzystane do końca | - |
+| Wyzwania drugiego składnika | PostgreSQL | Automatycznie, codziennie 3:45, **24 h po wygaśnięciu** | - |
+| Kolejka powiadomień o zmianie hasła (adres odbiorcy) | PostgreSQL | Automatycznie, codziennie 3:45: **90 dni**, i tylko wysłane albo nieudane | - |
 | Liczniki limitów (adres IP w kluczu) | Redis | Wygasają same razem z oknem limitu | - |
 | Pełne kopie zapasowe (wszystko powyżej) | R2 | Polecenia kopii niczego nie usuwają | Retencja kopii - [harmonogram kopii](harmonogram-i-kontrola-kopii.md) |
 | Logi Rendera, zdarzenia Sentry | Render, Sentry | Według ustawień usług | Do sprawdzenia przez właściciela |
@@ -129,41 +130,52 @@ Usunięcie danych w bazie nie usuwa ich z kopii zapasowych, dopóki kopia nie
 wypadnie z rotacji. Dopóki retencja kopii nie jest ustalona, każdy okres
 przechowywania z tabeli dotyczy bazy, a nie kopii.
 
-## Raport przed decyzją: `raport_retencji`
+## Jak to działa: `accounts/retencja.py`
 
-Okresy przechowywania są decyzją właściciela, ale decyzja bez liczb jest
-zgadywaniem. „Dwanaście miesięcy" brzmi rozsądnie, dopóki nie okaże się, że
-dotyczy trzech wpisów albo trzystu tysięcy - a to są dwie różne decyzje.
+Okresy i warunki „co jest do usunięcia" siedzą w **jednym module**, z którego
+czyta i raport, i nocne zadanie. Dwie kopie tej samej reguły rozjeżdżają się po
+cichu - a wtedy raport obiecuje jedno, a sprzątanie robi drugie i nikt tego nie
+zauważy, bo obie liczby wyglądają wiarygodnie. To nie jest obawa teoretyczna:
+pierwszy raport z produkcji pokazał zaproszenie sprzed jednego dnia jako
+„bezużyteczne od ponad 90 dni", bo warunek wieku był napisany osobno dla każdej
+gałęzi.
+
+Podgląd przed operacją, której nie da się cofnąć:
 
 ```bash
 python manage.py raport_retencji
 ```
 
-Dla każdego rodzaju danych wypisuje: ile jest wierszy, jak stary jest
-najstarszy, ile zniknęłoby przy każdym rozważanym progu i **ile zostaje**.
-Osobno wymienia wiersze, których żaden próg nie ruszy: ważne zaproszenie
-i niewysłane powiadomienie o zmianie hasła. Pierwsze odebrałoby komuś dostęp
-do firmy, drugie zgubiłoby jedyny sygnał przy przejęciu konta.
+Wypisuje dla każdego rodzaju danych: okres, ile jest wierszy, jak stary jest
+najstarszy, **ile zniknie przy najbliższym przebiegu** i ile zostanie. Niczego
+nie usuwa. To samo bez usuwania robi `purge_retencja --dry-run`; obie liczby
+muszą się zgadzać, bo pochodzą z tej samej reguły.
 
-Raport **niczego nie usuwa i nie zmienia** - pilnuje tego osobny test. Drugi
-test porównuje jego liczby z rzeczywistym przebiegiem komend `purge_*`: raport
-liczący innym warunkiem niż wykonanie byłby gorszy niż jego brak, bo decyzja
-zapadłaby na podstawie fikcji.
+Sprzątanie: `accounts.tasks_retencja.sprzataj_retencje`, codziennie **3:45 UTC**
+na istniejącym workerze - kwadrans po sprzątaniu rozmów, żeby dwa zadania nie
+zaczynały się w tej samej minucie na jednej bazie. Bez nowej usługi i bez kosztu.
 
-## Dlaczego nadal bez automatycznego usuwania
+Usuwanie idzie partiami po 1000 wierszy. Jedno `DELETE` na sto tysięcy wierszy
+blokuje tabelę na czas, którego nikt nie przewidział; przy partiach przebieg
+przerwany awarią zostawia bazę w stanie pośrednim, ale spójnym, a następny
+przebieg kończy robotę. Osobny test to odtwarza.
 
-Warunek F21 jest spełniony, więc zostało już tylko to, czego kod nie rozstrzyga.
+Zadanie loguje wynik także wtedy, gdy nic nie znalazło. Cisza w logu nie
+odróżnia przebiegu, który nic nie usunął, od przebiegu, którego nie było - ta
+sama pomyłka zdarzyła się już przy monitorze kopii.
 
-1. **Właściciel ustala okresy z kolumny „Otwarte"** - na liczbach z raportu.
-2. Każda operacja najpierw chodzi na produkcji w trybie próbnym i tylko
-   raportuje liczby.
-3. Harmonogram na istniejącym workerze, bez nowych płatnych usług.
-4. Testy granic (rekord tuż przed i tuż po terminie) oraz przebiegu
-   przerwanego w połowie.
+## Czego automat nie usunie nigdy
 
-Punkt 1 jest dziś jedyną przeszkodą. Dopóki nie ma okresów, nie ma czego
-wdrażać - i to jest właściwa kolejność: usuwanie danych klientów nie jest
-miejscem na domyślne wartości wybrane przez programistę.
+- **ważnego, niewykorzystanego zaproszenia** - to odebrałoby komuś dostęp do firmy;
+- **ważnej sesji** - to wylogowałoby ludzi w trakcie pracy;
+- **powiadomienia czekającego na wysyłkę** - to jedyny sygnał, jaki dostaje
+  właściciel przy przejęciu konta;
+- **rozmów odwiedzających** - mają własny okres, ustawiany przez klienta
+  w panelu, i własne zadanie od dawna w harmonogramie.
+
+Zmiana któregokolwiek okresu jest decyzją o danych klientów, a nie porządkami
+w kodzie: osobny test przypina zatwierdzone wartości i zatrzymuje zmianę
+zrobioną mimochodem.
 
 ## Weryfikacja
 
