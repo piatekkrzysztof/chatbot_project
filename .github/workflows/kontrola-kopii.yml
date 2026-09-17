@@ -24,21 +24,28 @@ name: Kontrola kopii
 #      czerwony przebieg i powiadomienie w skrzynce. Dopiero to jest dowodem.
 #
 # Do czasu kroku 3 przebieg rusza wyłącznie ręcznie. Harmonogram włączony bez
-# sekretów wysyłałby codzienny fałszywy alarm, a fałszywy alarm powtarzany
+# sekretów wysyłałby fałszywy alarm co przebieg, a fałszywy alarm powtarzany
 # kończy się tym, że przestaje się go czytać.
+#
+# CO SPRAWDZAMY: wyłącznie archiwum pełnych kopii. Właściciel zdecydował
+# 17.09.2026 o rezygnacji z płatnego zadania cron na Renderze i comiesięcznej
+# pełnej kopii robionej ręcznie (wariant 2 z docs/odbior-f21.md). Do archiwum
+# kopii dziennych świadomie nic nie trafia, więc pilnowanie go tutaj znaczyłoby
+# alarm o decyzji, a nie o awarii. Gdy kopia dzienna wróci, dopisz `dzienna`
+# do `--archiwa` i przywróć próg 30 godzin.
+#
+# Raz w tygodniu wystarczy: przy kopii miesięcznej nic się nie zmienia z dnia
+# na dzień, a rzadszy przebieg to rzadsza okazja, żeby wynik zignorować.
 
 on:
   workflow_dispatch:
     inputs:
-      dzienna-godzin:
-        description: Próg wieku kopii dziennej (godziny)
-        default: '30'
       pelna-godzin:
-        description: Próg wieku pełnej kopii (godziny)
+        description: Próg wieku pełnej kopii w godzinach (744 = 31 dni; do próby alarmu wpisz 1)
         default: '744'
   # schedule:
-  #   # 06:20 UTC - po nocnym oknie kopii, o porze, o której ktoś czyta pocztę.
-  #   - cron: '20 6 * * *'
+  #   # Poniedziałek 06:20 UTC - początek tygodnia, pora, o której ktoś czyta pocztę.
+  #   - cron: '20 6 * * 1'
 
 jobs:
   obecnosc-kopii:
@@ -82,11 +89,8 @@ jobs:
           test -n "$BACKUPS_SECRET_ACCESS_KEY" || { echo "Brak sekretu BACKUPS_SECRET_ACCESS_KEY"; exit 1; }
 
       - name: Kontrola obecności kopii
-        run: |
-          python manage.py kontrola_obecnosci_kopii \
-            --dzienna-godzin "${{ inputs.dzienna-godzin || '30' }}" \
-            --pelna-godzin "${{ inputs.pelna-godzin || '744' }}" \
-            | tee wynik.json
+        # Tylko archiwum pełnych kopii - uzasadnienie w nagłówku pliku.
+        run: python manage.py kontrola_obecnosci_kopii --archiwa pelna --pelna-godzin "${{ inputs.pelna-godzin || '744' }}" | tee wynik.json
 
       - name: Wynik w podsumowaniu przebiegu
         if: always()
