@@ -111,7 +111,7 @@ def raport_rejestracji(teraz):
     }
 
 
-def zaproszenia_nie_do_uzycia(teraz, zapas=timedelta()):
+def zaproszenia_nie_do_uzycia(teraz):
     """
     Zaproszenia, których nikt już nie użyje: wygasłe albo wykorzystane do końca.
 
@@ -122,21 +122,28 @@ def zaproszenia_nie_do_uzycia(teraz, zapas=timedelta()):
     """
     warunek = Q(users__gte=F("max_users"))
     for wybor, delta in InvitationToken.DURATION_DELTAS.items():
-        warunek |= Q(duration=wybor, created_at__lt=teraz - delta - zapas)
+        warunek |= Q(duration=wybor, created_at__lt=teraz - delta)
     return InvitationToken.objects.filter(warunek)
 
 
 def raport_zaproszen(teraz):
     wiersze = InvitationToken.objects.all()
-    progi = [("nie do użycia już dziś", zaproszenia_nie_do_uzycia(teraz).count())]
+    bezuzyteczne = zaproszenia_nie_do_uzycia(teraz)
+    # Próg liczony od UTWORZENIA, nie od chwili, w której zaproszenie przestało
+    # działać. Kiedy ktoś je wykorzystał, w bazie nie ma - jest tylko licznik
+    # miejsc. Pierwszy raport z produkcji policzył wykorzystane zaproszenie
+    # sprzed jednego dnia jako „bezużyteczne od ponad 90 dni"; liczba brała się
+    # stąd, że warunek wykorzystania nie patrzył na wiek w ogóle. Data utworzenia
+    # jest tym, co baza wie na pewno - i tym, od czego zwykle liczy się retencję.
+    progi = [("nie do użycia już dziś", bezuzyteczne.count())]
     progi += [
         (
-            f"j.w. i bezużyteczne od ponad {ile} dni",
-            zaproszenia_nie_do_uzycia(teraz, timedelta(days=ile)).count(),
+            f"j.w. i utworzone ponad {ile} dni temu",
+            bezuzyteczne.filter(created_at__lt=teraz - timedelta(days=ile)).count(),
         )
         for ile in (30, 90)
     ]
-    nadal_wazne = wiersze.exclude(pk__in=zaproszenia_nie_do_uzycia(teraz).values("pk"))
+    nadal_wazne = wiersze.exclude(pk__in=bezuzyteczne.values("pk"))
     return {
         "nazwa": "Zaproszenia do zespołu",
         "model": "accounts.InvitationToken",
