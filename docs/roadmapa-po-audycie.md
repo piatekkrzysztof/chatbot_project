@@ -103,6 +103,11 @@ automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audyt
 7. **Odbiór komercyjny.** Pełny negatywny test dostępu, obciążenie, restore,
    onboarding, dostępność i płatności testowe w środowisku zgodnym z produkcją.
 
+8. **Monitoring dostępności.** Czuwania w kodzie pilnują objawów u klientów,
+   ale wszystkie chodzą na Renderze - gdy padnie Render, nie zaalarmuje nic.
+   `/health/` jest gotowy i zwraca stan bazy oraz brokera; brakuje czujki
+   z zewnątrz. [Konfiguracja do ustawienia przez właściciela](monitoring-dostepnosci.md).
+
 P1 dotyczące kont, administracji i płatności nadal blokują deklarację gotowości
 komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 
