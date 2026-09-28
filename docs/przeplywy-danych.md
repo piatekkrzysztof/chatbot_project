@@ -184,6 +184,26 @@ i przebieg, którego nie było, dają ten sam wynik. Dlatego zadanie zapisuje
 w logu wynik także przy zerach, a potwierdzeniem pierwszego przebiegu jest
 linia `Retencja: usunięto 0 wierszy (...)` w logu usługi `celery-worker`.
 
+**I właśnie ta linia nie pojawiła się ani razu.** Sprawdzenie logu 28.09.2026
+pokazało, że przez jedenaście dni beat zlecał zadanie, a worker je odrzucał:
+
+```text
+Received unregistered task of type 'accounts.tasks_retencja.sprzataj_retencje'
+```
+
+Celery odkrywa automatycznie wyłącznie moduły nazwane `tasks.py`, a beat zleca
+zadania po nazwie i nie sprawdza, czy ktokolwiek je zna. Naprawione w 2.14.1
+razem z dwoma innymi zadaniami, które umarły tak samo i wcześniej:
+powiadomieniem o wygasłej subskrypcji (w harmonogramie od 26.08.2026)
+i alarmem o odmowach widgetu (od 2.09.2026). Test porównujący harmonogram
+z tym, co worker naprawdę zna, jest w `accounts/tests/test_rejestracja_zadan.py`.
+
+Wniosek dla retencji: **pierwsze prawdziwe sprzątanie odbędzie się dopiero po
+wdrożeniu 2.14.1.** Do tego czasu żaden wiersz nie został usunięty, więc dane
+starsze niż okresy przechowywania wciąż tam są - co akurat nie zaszkodziło
+nikomu, ale przez jedenaście dni wyglądało na zgodność z polityką, której
+system nie realizował.
+
 ## Czego automat nie usunie nigdy
 
 - **ważnego, niewykorzystanego zaproszenia** - to odebrałoby komuś dostęp do firmy;
