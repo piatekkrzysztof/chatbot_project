@@ -46,7 +46,20 @@ ZNAKI_NA_TOKEN = 3
 
 def rozklad_tokenow(wpisy):
     """
-    Średni udział wyjścia w tokenach, oszacowany z długości tekstów.
+    Udział wyjścia w tokenach: z rozbicia, gdy jest, inaczej z długości tekstów.
+
+    Od 2.14.0 zapisujemy `prompt_tokens` i `completion_tokens` osobno i wtedy
+    nie ma tu czego szacować.
+
+    Wpisy sprzed tej zmiany rozbicia nie mają, więc dla nich zostaje stary
+    sposób - z zastrzeżeniem, które go dyskwalifikuje jako miarę: `prompt`
+    w logu to pytanie odwiedzającego, a nie prompt wysłany do modelu, bo
+    kontekstu z bazy wiedzy nie zapisujemy w ogóle. Porównanie pytania
+    z odpowiedzią zawyża udział wyjścia, a wyjście kosztuje czterokrotnie
+    drożej - stary wynik jest więc GÓRNYM ograniczeniem kosztu, nie pomiarem.
+
+    Wynik mówi, ile wpisów policzono dokładnie. Bez tej liczby nie dałoby się
+    odróżnić pomiaru od szacunku, a w wypisie wyglądają identycznie.
 
     Wpisy bez odpowiedzi albo bez tokenów pomijamy: import historii z CSV
     zapisuje log z zerem, a wliczony do średniej zaniżałby koszt wiadomości,
@@ -56,21 +69,44 @@ def rozklad_tokenow(wpisy):
     znaki_odpowiedzi = 0
     tokeny = 0
     ile = 0
-    for prompt, odpowiedz, tokens in wpisy:
+    dokladne = 0
+    wejscie_dokladne = 0
+    wyjscie_dokladne = 0
+    for prompt, odpowiedz, tokens, wejscia, wyjscia in wpisy:
         if not tokens or not odpowiedz:
             continue
-        znaki_promptu += len(prompt or "")
-        znaki_odpowiedzi += len(odpowiedz)
         tokeny += tokens
         ile += 1
+        if wejscia is not None and wyjscia is not None:
+            dokladne += 1
+            wejscie_dokladne += wejscia
+            wyjscie_dokladne += wyjscia
+        else:
+            znaki_promptu += len(prompt or "")
+            znaki_odpowiedzi += len(odpowiedz)
     if not ile:
-        return {"wiadomosci": 0, "tokenow": 0, "udzial_wyjscia": 0.0, "na_wiadomosc": 0.0}
-    razem_znakow = znaki_promptu + znaki_odpowiedzi
+        return {
+            "wiadomosci": 0,
+            "tokenow": 0,
+            "udzial_wyjscia": 0.0,
+            "na_wiadomosc": 0.0,
+            "dokladnych": 0,
+        }
+    if dokladne:
+        # Proporcja ze zmierzonych wpisów obowiązuje dla całości: to ten sam
+        # ruch i ten sam model, a zmierzone jest bliższe prawdzie niż szacunek
+        # z długości tekstów, który i tak mierzy co innego.
+        razem = wejscie_dokladne + wyjscie_dokladne
+        udzial = wyjscie_dokladne / razem if razem else 0.0
+    else:
+        razem_znakow = znaki_promptu + znaki_odpowiedzi
+        udzial = znaki_odpowiedzi / razem_znakow if razem_znakow else 0.0
     return {
         "wiadomosci": ile,
         "tokenow": tokeny,
-        "udzial_wyjscia": znaki_odpowiedzi / razem_znakow if razem_znakow else 0.0,
+        "udzial_wyjscia": udzial,
         "na_wiadomosc": tokeny / ile,
+        "dokladnych": dokladne,
     }
 
 
@@ -129,7 +165,7 @@ class Command(BaseCommand):
         od = timezone.now() - timedelta(days=options["dni"])
 
         wpisy = PromptLog.objects.filter(created_at__gte=od).values_list(
-            "prompt", "response", "tokens"
+            "prompt", "response", "tokens", "tokeny_wejscia", "tokeny_wyjscia"
         )
         rozklad = rozklad_tokenow(wpisy)
         if not rozklad["wiadomosci"]:
@@ -160,8 +196,14 @@ class Command(BaseCommand):
             f"Koszt krańcowy klienta, z logów z ostatnich {options['dni']} dni.\n"
             f"Stawki: wejście {ceny['wejscie']} USD/mln, wyjście {ceny['wyjscie']} USD/mln, "
             f"embedding {ceny['embedding']} USD/mln, kurs {ceny['kurs']} PLN/USD.\n"
-            "SZACUNEK: logi mają sumę tokenów, podział na wejście i wyjście "
-            "odtworzony z długości tekstów.\n"
+            + (
+                "POMIAR: podział na wejście i wyjście wprost z odpowiedzi OpenAI.\n"
+                if rozklad["dokladnych"] == rozklad["wiadomosci"]
+                else f"CZĘŚCIOWY SZACUNEK: {rozklad['dokladnych']} z "
+                f"{rozklad['wiadomosci']} wiadomości ma zapisane rozbicie tokenów; "
+                "dla reszty podział odtworzony z długości tekstów, co zawyża "
+                "udział wyjścia - wynik jest wtedy górnym ograniczeniem.\n"
+            )
         )
         self.stdout.write(
             f"\nZmierzone: {rozklad['wiadomosci']} wiadomości, "

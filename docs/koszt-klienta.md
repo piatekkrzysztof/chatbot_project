@@ -1,6 +1,6 @@
 # Koszt krańcowy klienta
 
-Stan na 17.09.2026, wersja 2.13.0. Odpowiedź na pytanie, którego dotąd nikt nie
+Stan na 28.09.2026, wersja 2.14.0. Odpowiedź na pytanie, którego dotąd nikt nie
 zadał liczbami: **ile kosztuje nas klient, który wykorzysta to, za co zapłacił.**
 
 ## Po co
@@ -18,23 +18,23 @@ Komenda czyta logi zużycia, liczy koszt jednej wiadomości i pokazuje, co z cen
 każdego planu zostaje przy pełnym wykorzystaniu limitu. Niczego nie wywołuje
 i nie zmienia.
 
-## Czego ten pomiar nie wie dokładnie
+## Jak pomiar dzieli tokeny
 
-**Logi zapisują sumę tokenów, nie rozbicie.** `usage.total_tokens` to wejście
-i wyjście razem, a OpenAI liczy je osobno i po różnych stawkach - wyjście zwykle
-kilkukrotnie drożej. Z jednej liczby nie da się odtworzyć rachunku.
+Od 2.14.0 zapisujemy `prompt_tokens` i `completion_tokens` osobno, wprost
+z odpowiedzi OpenAI. Dla wpisów po tej zmianie nie ma tu czego szacować,
+a wypis mówi „POMIAR".
 
-Podział szacujemy z długości tekstów, które w logu są: promptu i odpowiedzi.
-To przybliżenie - tokenizacja nie jest wprost proporcjonalna do znaków, a polski
-tekst ma inny stosunek znaków do tokenów niż angielski. Przy stawkach
-różniących się czterokrotnie błąd podziału o kilka punktów procentowych zmienia
-wynik o kilka procent, nie o rząd wielkości: **do decyzji cenowej wystarczy, do
-faktury nie.**
+**Dlaczego to było potrzebne.** Do 2.13.0 log miał wyłącznie sumę, więc podział
+odtwarzaliśmy z długości promptu i odpowiedzi. Pierwsze uruchomienie na
+produkcji pokazało 74% udziału wyjścia - liczbę niemożliwą przy RAG-u, gdzie
+wejście niesie kontekst z bazy wiedzy. Przyczyna: `PromptLog.prompt` zapisuje
+**pytanie odwiedzającego**, a nie prompt wysłany do modelu. Kontekstu z bazy
+wiedzy nie ma w logu w ogóle, więc porównanie mierzyło długość pytania wobec
+długości odpowiedzi, czyli nic z tego, co miało mierzyć.
 
-Właściwe rozwiązanie to zapisywanie `prompt_tokens` i `completion_tokens`
-osobno. OpenAI zwraca oba w tej samej odpowiedzi, z której bierzemy dziś sumę,
-więc to kilka linii w `api/utils/chat_engine.py` plus migracja. Do czasu tej
-zmiany wynik jest oznaczony jako szacunek i tak należy go czytać.
+Ponieważ wyjście kosztuje czterokrotnie drożej, stary sposób **zawyżał** koszt.
+Wpisy sprzed 2.14.0 dalej liczą się po staremu i wypis podaje, ile ich jest -
+dla nich wynik należy czytać jako górne ograniczenie, nie jako pomiar.
 
 ## Ceny podaje się z linii poleceń
 
@@ -81,8 +81,30 @@ wiedzy wysyłamy przy każdym pytaniu - nie sam rozmiar bazy. Klient z dużą ba
 kosztuje więcej nie dlatego, że trzyma dużo, tylko dlatego, że do każdego
 pytania dokładamy więcej fragmentów.
 
-## Wynik pomiaru
+## Wynik z produkcji - 28.09.2026
 
-Do wypełnienia po uruchomieniu na produkcji. Pomiar z bazy deweloperskiej nie
-nadaje się na nic: prompty pochodzą z testów i są kilkanaście razy krótsze niż
-prawdziwe.
+Pierwszy pomiar, jeszcze **starą metodą** (przed 2.14.0), na 24 wiadomościach
+z 30 dni. Traktować jako górne ograniczenie:
+
+| Pozycja | Wartość |
+|---|---|
+| Tokenów na wiadomość | 814 |
+| Udział wyjścia (zawyżony, patrz wyżej) | 74% |
+| Koszt wiadomości | 0,0016 zł |
+| Start: koszt modelu przy pełnym limicie | 3,11 zł z 149 zł (**2%**) |
+| Grow | 12,45 zł z 349 zł (**4%**) |
+| Pro | 38,90 zł z 899 zł (**4%**) |
+
+Stawki: 0,15 / 0,60 / 0,02 USD za milion, kurs 3,95. Ceny sprawdzone tego dnia
+na [cenniku OpenAI](https://developers.openai.com/api/docs/pricing).
+
+**Wniosek jest odporny na błąd metody.** Nawet gdyby wszystkie 814 tokenów było
+wyjściem - przypadek najdroższy z możliwych - Pro kosztowałby 48 zł z 899, czyli
+5%. Gdyby wszystko było wejściem: 12 zł, czyli 1%. Cały przedział mieści się
+w paśmie „zdrowa marża", więc decyzji cenowej nie zmienia.
+
+**Czego ta liczba nie mówi.** Zmierzono ją na bazie wiedzy praktycznie pustej
+(320 fragmentów). Koszt rośnie z długością promptu, czyli z liczbą fragmentów
+dokładanych do każdego pytania - klient z wypełnionym planem Pro wyśle
+kilkukrotnie dłuższe wejście. Pomiar warto powtórzyć, gdy taki klient się
+pojawi; wtedy będzie już liczony nową metodą, bez szacowania.

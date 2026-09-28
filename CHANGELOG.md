@@ -16,6 +16,21 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.14.0] — 2026-09-28
+
+### Added
+
+- **Usage logs now record input and output tokens separately.** OpenAI charges
+  about four times more for output than for input and returns both counts in
+  the same response we already read, but the log kept only their sum. The cost
+  of a message could therefore be estimated, not computed - and the estimate
+  turned out to measure the wrong thing: it compared the visitor's question
+  with the answer, while the actual input is mostly knowledge-base context that
+  never reaches the log. The first production run showed 74% of tokens as
+  output, which is impossible for this kind of prompt. Entries from before this
+  change are still counted the old way, and the report says how many of them
+  there are and that their result is an upper bound.
+
 ## [2.13.0] — 2026-09-17
 
 ### Added
