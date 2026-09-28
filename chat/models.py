@@ -140,6 +140,19 @@ class PromptLog(models.Model):
     prompt = models.TextField()
     source = models.CharField(max_length=50, choices=ZRODLA_ODPOWIEDZI)
     tokens = models.PositiveIntegerField(default=0)
+    # Rozbicie sumy z `tokens`. OpenAI zwraca oba w tej samej odpowiedzi,
+    # z której bierzemy sumę, a liczy je po stawkach różniących się
+    # czterokrotnie - bez rozbicia kosztu nie da się policzyć, tylko oszacować.
+    #
+    # Szacowaliśmy go z długości `prompt` i `response`, dopóki nie wyszło, że
+    # `prompt` to pytanie odwiedzającego, a nie prompt wysłany do modelu:
+    # kontekstu z bazy wiedzy nie ma w logu w ogóle. Podział wychodził wtedy
+    # z porównania pytania z odpowiedzią, czyli z niczego.
+    #
+    # Puste dla wpisów sprzed 2.14.0 i dla importu historii z CSV, gdzie model
+    # niczego nie liczył.
+    tokeny_wejscia = models.PositiveIntegerField(null=True, blank=True)
+    tokeny_wyjscia = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     response = models.TextField(blank=True, null=True)
 
