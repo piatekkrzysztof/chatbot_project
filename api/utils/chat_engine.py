@@ -183,6 +183,23 @@ def parametry_modelu(temperatura=...):
     return parametry
 
 
+def liczba_tokenow(uzycie, nazwa):
+    """
+    Wartość z `usage`, ale tylko jeśli jest liczbą.
+
+    Rozbicie na wejście i wyjście dokłada OpenAI, ale nie każda odpowiedź je
+    niesie: starsze wersje interfejsu, pośrednik albo inny dostawca mogą podać
+    samą sumę. Zapisanie wtedy czegokolwiek innego niż liczby kończy się albo
+    śmieciem w kolumnie, który wygląda jak pomiar, albo wywrotką w połowie
+    strumienia - a wtedy ginie odpowiedź, którą klient już zobaczył na ekranie.
+
+    Brak liczby zapisujemy jako brak. Pusta kolumna mówi prawdę: tego nie
+    zmierzyliśmy.
+    """
+    wartosc = getattr(uzycie, nazwa, None)
+    return wartosc if isinstance(wartosc, int) else None
+
+
 def get_openai_response(messages, model=None, tenant=None, temperatura=...):
     model = model or settings.OPENAI_CHAT_MODEL
     try:
@@ -194,6 +211,8 @@ def get_openai_response(messages, model=None, tenant=None, temperatura=...):
         return {
             "content": response.choices[0].message.content,
             "tokens": response.usage.total_tokens,
+            "tokeny_wejscia": liczba_tokenow(response.usage, "prompt_tokens"),
+            "tokeny_wyjscia": liczba_tokenow(response.usage, "completion_tokens"),
         }
     except openai.OpenAIError as e:
         logger.exception("Błąd w OpenAI: %s", e)
@@ -230,7 +249,17 @@ def zapisz_pytanie_i_zglos_start(tenant, conversation, message_text):
         enqueue(powiadom_o_rozmowie_task, conversation.id)
 
 
-def persist_exchange(tenant, conversation, response_text, source, tokens, model, prompt_text):
+def persist_exchange(
+    tenant,
+    conversation,
+    response_text,
+    source,
+    tokens,
+    model,
+    prompt_text,
+    tokeny_wejscia=None,
+    tokeny_wyjscia=None,
+):
     """
     Zapisuje odpowiedź bota wraz z logami zużycia i promptu.
 
@@ -258,6 +287,8 @@ def persist_exchange(tenant, conversation, response_text, source, tokens, model,
         response=response_text,
         source=source,
         tokens=tokens,
+        tokeny_wejscia=tokeny_wejscia,
+        tokeny_wyjscia=tokeny_wyjscia,
         model=model,
     )
 
@@ -285,9 +316,12 @@ def process_chat_message(tenant, conversation, message_text, on_billable=None):
         gpt_response = get_openai_response(messages, model=model, tenant=tenant)
         response_text = gpt_response["content"]
         tokens = gpt_response["tokens"]
+        tokeny_wejscia = gpt_response.get("tokeny_wejscia")
+        tokeny_wyjscia = gpt_response.get("tokeny_wyjscia")
     except Exception:
         response_text = FALLBACK_MESSAGE
         tokens = 0
+        tokeny_wejscia = tokeny_wyjscia = None
         billable = False
 
     if billable and on_billable:
@@ -307,6 +341,8 @@ def process_chat_message(tenant, conversation, message_text, on_billable=None):
         tokens,
         model,
         prompt_text=message_text,
+        tokeny_wejscia=tokeny_wejscia,
+        tokeny_wyjscia=tokeny_wyjscia,
     )
 
     return {
@@ -347,6 +383,8 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
     obcinacz = ObcinaczZnacznika()
     pieces = []
     tokens = 0
+    tokeny_wejscia = None
+    tokeny_wyjscia = None
     awaria = False
     charged = False
     stream = None
@@ -372,6 +410,8 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
                     raise TimeoutError("Chat stream deadline exceeded")
                 if getattr(event, "usage", None):
                     tokens = event.usage.total_tokens
+                    tokeny_wejscia = liczba_tokenow(event.usage, "prompt_tokens")
+                    tokeny_wyjscia = liczba_tokenow(event.usage, "completion_tokens")
                 if event.choices and event.choices[0].delta.content:
                     piece = obcinacz.podaj(event.choices[0].delta.content)
                     if piece:
@@ -410,6 +450,8 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
             tokens,
             model,
             prompt_text=message_text,
+            tokeny_wejscia=tokeny_wejscia,
+            tokeny_wyjscia=tokeny_wyjscia,
         )
 
     yield _sse(

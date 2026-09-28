@@ -38,9 +38,9 @@ class TestRozkladu:
         # wiadomości nie wygenerował. Wliczony do średniej obniżałby koszt
         # wiadomości, za którą naprawdę płacimy.
         wpisy = [
-            ("prompt", "odpowiedz", 1000),
-            ("z csv", "z csv", 0),
-            ("z csv", "z csv", 0),
+            ("prompt", "odpowiedz", 1000, None, None),
+            ("z csv", "z csv", 0, None, None),
+            ("z csv", "z csv", 0, None, None),
         ]
 
         wynik = rozklad_tokenow(wpisy)
@@ -50,12 +50,12 @@ class TestRozkladu:
 
     def test_wpis_bez_odpowiedzi_nie_liczy_sie(self):
         # Przerwana rozmowa: pytanie poszło, odpowiedź nie wróciła.
-        assert rozklad_tokenow([("prompt", "", 500)])["wiadomosci"] == 0
-        assert rozklad_tokenow([("prompt", None, 500)])["wiadomosci"] == 0
+        assert rozklad_tokenow([("prompt", "", 500, None, None)])["wiadomosci"] == 0
+        assert rozklad_tokenow([("prompt", None, 500, None, None)])["wiadomosci"] == 0
 
     def test_udzial_wyjscia_z_dlugosci_tekstow(self):
         # Trzy razy dłuższy prompt niż odpowiedź: wyjście to jedna czwarta.
-        wynik = rozklad_tokenow([("x" * 300, "y" * 100, 400)])
+        wynik = rozklad_tokenow([("x" * 300, "y" * 100, 400, None, None)])
 
         assert wynik["udzial_wyjscia"] == pytest.approx(0.25)
 
@@ -67,7 +67,41 @@ class TestRozkladu:
             "tokenow": 0,
             "udzial_wyjscia": 0.0,
             "na_wiadomosc": 0.0,
+            "dokladnych": 0,
         }
+
+
+class TestRozbicia:
+    """Od 2.14.0 podziału nie szacujemy, tylko go czytamy."""
+
+    def test_rozbicie_z_logu_wygrywa_z_dlugoscia_tekstow(self):
+        # Pytanie krótkie, odpowiedź długa - z długości wyszłoby 90% wyjścia.
+        # Prawdziwe rozbicie mówi co innego, bo wejście niesie kontekst z bazy
+        # wiedzy, którego w logu nie ma.
+        wynik = rozklad_tokenow([("pytanie", "o" * 700, 1000, 800, 200)])
+
+        assert wynik["udzial_wyjscia"] == pytest.approx(0.2)
+        assert wynik["dokladnych"] == 1
+
+    def test_brak_rozbicia_to_dalej_szacunek(self):
+        wynik = rozklad_tokenow([("x" * 100, "y" * 100, 400, None, None)])
+
+        assert wynik["udzial_wyjscia"] == pytest.approx(0.5)
+        assert wynik["dokladnych"] == 0
+
+    def test_polowiczne_rozbicie_liczy_sie_z_dokladnych(self):
+        # Wpisy sprzed migracji i po niej w jednym oknie. Proporcja z tych
+        # dokładnych jest bliższa prawdzie niż średnia z dwóch metod naraz.
+        wpisy = [
+            ("pytanie", "o" * 900, 1000, 800, 200),
+            ("pytanie", "o" * 900, 1000, None, None),
+        ]
+
+        wynik = rozklad_tokenow(wpisy)
+
+        assert wynik["wiadomosci"] == 2
+        assert wynik["dokladnych"] == 1
+        assert wynik["udzial_wyjscia"] == pytest.approx(0.2)
 
 
 class TestKosztu:
