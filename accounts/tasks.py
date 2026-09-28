@@ -13,6 +13,28 @@ from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
 
+# Celery odkrywa automatycznie WYŁĄCZNIE moduły nazwane `tasks.py`
+# (`app.autodiscover_tasks()` w chatbot_project/celery.py). Zadania z modułów
+# o innych nazwach nie rejestrują się u workera - a beat zleca je po nazwie,
+# więc niczego nie zauważa i harmonogram wygląda na działający.
+#
+# Tak umarły trzy zadania, każde po cichu:
+#   • accounts.tasks_konce - powiadomienie „subskrypcja wygasła, bot zamilkł",
+#     w harmonogramie od 26.08.2026, wykonane ani razu;
+#   • accounts.czuwanie - alarm o odmowach widgetu, od 2.09.2026, ten sam,
+#     który powstał PO awarii trwającej dobę i niezauważonej;
+#   • accounts.tasks_retencja - sprzątanie retencyjne, od 17.09.2026.
+#
+# Worker wypisywał wtedy „Received unregistered task" do logu, którego nikt nie
+# czytał, bo nic innego nie wskazywało na problem. Znalezione 28.09.2026 przy
+# sprawdzaniu, czy retencja w ogóle rusza.
+#
+# Import tutaj wystarcza, bo ten moduł autodiscovery wczytuje. Nowe zadanie
+# w module o innej nazwie trzeba dopisać do tej listy - pilnuje tego
+# accounts/tests/test_rejestracja_zadan.py, który porównuje harmonogram
+# z tym, co worker naprawdę zna.
+from accounts import cisza, czuwanie, rozmiar_bazy, tasks_konce, tasks_retencja  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 

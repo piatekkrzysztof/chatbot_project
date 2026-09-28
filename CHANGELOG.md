@@ -16,6 +16,22 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.14.1] — 2026-09-28
+
+### Fixed
+
+- **Three scheduled jobs had never run.** Celery only discovers modules named
+  `tasks.py`, and these three live elsewhere, so the worker rejected every
+  attempt with "Received unregistered task" into a log nobody was reading.
+  The scheduler kept sending them, which made the schedule look alive. The
+  oldest of them was the notice telling an owner that their subscription had
+  expired and the bot had gone quiet - scheduled on 26 August and never
+  delivered. The second was the alert about the widget refusing to answer,
+  added on 2 September after an outage that went unnoticed for a day. The third
+  was retention clean-up, added on 17 September. Found by reading the worker
+  log, not by any test - so a test now compares the schedule against what the
+  worker actually knows.
+
 ## [2.14.0] — 2026-09-28
 
 ### Added
