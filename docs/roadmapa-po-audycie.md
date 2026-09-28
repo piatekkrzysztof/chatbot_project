@@ -111,7 +111,7 @@ automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audyt
 9. **Koszt krańcowy klienta.** Do 17.09.2026 nigdzie nie policzony, więc cennik
    opierał się na oszacowaniu. `zmierz_koszt_klienta` czyta logi zużycia i pokazuje,
    co zostaje z ceny planu przy pełnym wykorzystaniu limitu.
-   [Opis i sposób czytania wyniku](koszt-klienta.md). Pomiar na produkcji do wykonania.
+   [Opis, wynik i sufit](koszt-klienta.md). Zmierzone 28.09.2026: sufit kosztu modelu to 7% ceny planu Start, 12% Grow i 14% Pro - granica wynikająca z limitu tokenów promptu, więc nieprzekraczalna niezależnie od wielkości bazy wiedzy klienta.
 
 P1 dotyczące kont, administracji i płatności nadal blokują deklarację gotowości
 komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
