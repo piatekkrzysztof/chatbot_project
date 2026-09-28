@@ -81,30 +81,76 @@ wiedzy wysyłamy przy każdym pytaniu - nie sam rozmiar bazy. Klient z dużą ba
 kosztuje więcej nie dlatego, że trzyma dużo, tylko dlatego, że do każdego
 pytania dokładamy więcej fragmentów.
 
+## Sufit kosztu: liczba do decyzji cenowej
+
+Prompt jest przycinany do budżetu przed wysyłką (`OPENAI_MAX_INPUT_TOKENS`,
+domyślnie 6000), a odpowiedź ograniczona przez `OPENAI_MAX_OUTPUT_TOKENS`
+(600). Najdroższa możliwa wiadomość kosztuje więc:
+
+```text
+(6000 x 0,15 + 600 x 0,60) / 1 mln x 4,0 zł = 0,005 zł
+```
+
+Z tego wynika granica, której **żaden klient nie przekroczy, niezależnie od
+wielkości swojej bazy wiedzy**:
+
+| Plan | Cena | Sufit kosztu modelu | Udział w cenie |
+|---|---|---|---|
+| Start | 149 zł | 10 zł | **7%** |
+| Grow | 349 zł | 40 zł | **12%** |
+| Pro | 899 zł | 126 zł | **14%** |
+
+To nie jest prognoza ani średnia, tylko konsekwencja limitów, które już są
+w kodzie. Jeśli kiedyś przestaną wystarczać - bo podniesiemy budżet wejścia
+albo zmienią się stawki OpenAI - te trzy liczby trzeba przeliczyć razem z nimi.
+
 ## Wynik z produkcji - 28.09.2026
 
-Pierwszy pomiar, jeszcze **starą metodą** (przed 2.14.0), na 24 wiadomościach
-z 30 dni. Traktować jako górne ograniczenie:
+Pierwszy pomiar **nową metodą** (2.14.0), z rozbiciem prosto od OpenAI:
 
 | Pozycja | Wartość |
 |---|---|
-| Tokenów na wiadomość | 814 |
-| Udział wyjścia (zawyżony, patrz wyżej) | 74% |
-| Koszt wiadomości | 0,0016 zł |
-| Start: koszt modelu przy pełnym limicie | 3,11 zł z 149 zł (**2%**) |
-| Grow | 12,45 zł z 349 zł (**4%**) |
-| Pro | 38,90 zł z 899 zł (**4%**) |
+| Tokenów na wiadomość | 4 763 |
+| Udział wyjścia | **1%** (wejście ~4 715, wyjście ~48) |
+| Koszt wiadomości | 0,0029 zł |
+| Start przy pełnym limicie | 5,85 zł z 149 zł (4%) |
+| Grow | 23,39 zł z 349 zł (7%) |
+| Pro | 73,10 zł z 899 zł (8%) |
 
-Stawki: 0,15 / 0,60 / 0,02 USD za milion, kurs 3,95. Ceny sprawdzone tego dnia
-na [cenniku OpenAI](https://developers.openai.com/api/docs/pricing).
+Stawki 0,15 / 0,60 / 0,02 USD za milion, kurs 4,0, sprawdzone tego dnia na
+[cenniku OpenAI](https://developers.openai.com/api/docs/pricing).
 
-**Wniosek jest odporny na błąd metody.** Nawet gdyby wszystkie 814 tokenów było
-wyjściem - przypadek najdroższy z możliwych - Pro kosztowałby 48 zł z 899, czyli
-5%. Gdyby wszystko było wejściem: 12 zł, czyli 1%. Cały przedział mieści się
-w paśmie „zdrowa marża", więc decyzji cenowej nie zmienia.
+**Zastrzeżenie: to jedna wiadomość**, z czatu testowego panelu. Ruch z widgetu
+może wyglądać inaczej. Pomiar warto powtórzyć, gdy uzbiera się kilkanaście
+prawdziwych rozmów po wdrożeniu 2.14.0.
 
-**Czego ta liczba nie mówi.** Zmierzono ją na bazie wiedzy praktycznie pustej
-(320 fragmentów). Koszt rośnie z długością promptu, czyli z liczbą fragmentów
-dokładanych do każdego pytania - klient z wypełnionym planem Pro wyśle
-kilkukrotnie dłuższe wejście. Pomiar warto powtórzyć, gdy taki klient się
-pojawi; wtedy będzie już liczony nową metodą, bez szacowania.
+### Co ten pomiar zmienił w obrazie
+
+Poprzedni pomiar, starą metodą, dawał 814 tokenów na wiadomość i 74% udziału
+wyjścia. Obie liczby były nieprawdziwe, ale **w przeciwnych kierunkach**:
+
+- udział wyjścia był zawyżony dwa rzędy wielkości (74% wobec 1%), bo metoda
+  porównywała długość pytania z długością odpowiedzi;
+- suma tokenów była zaniżona sześciokrotnie w stosunku do tego, co widać
+  w czacie testowym - prompt z kontekstem jest znacznie dłuższy, niż wynikało
+  ze średniej po starych wpisach.
+
+Efekt netto: koszt wiadomości **wzrósł** z 0,0016 na 0,0029 zł, mimo że tańsza
+okazała się ta część, która kosztuje najwięcej. Tańszy podział nie nadrobił
+dłuższego promptu.
+
+Wniosek dla cennika pozostaje ten sam co wczoraj, tylko teraz oparty na
+pomiarze i na suficie, a nie na przedziale: marża jest zdrowa.
+
+## Czego większy plan NIE daje
+
+Dzisiejsza wiadomość zużyła **79% budżetu wejścia** przy bazie liczącej 320
+fragmentów, czyli praktycznie pustej. Przy większej bazie `przytnij_do_budzetu`
+zaczyna obcinać - najpierw najstarszą historię rozmowy, potem wiedzę od dołu
+promptu systemowego (zasady zachowania i zakaz zmyślania zostają na górze).
+
+Klient z planem Pro i bazą 50 MB **nie dostaje więcej kontekstu na odpowiedź**
+niż klient z planem Start. Dostaje ten sam budżet 6000 tokenów, tylko lepiej
+dobrany, bo jest z czego wybierać. Wartością większego planu jest trafniejszy
+wybór fragmentów, a nie ich liczba w prompcie - i tak należy o tym mówić
+w cenniku, żeby nie obiecać czegoś, czego produkt nie robi.
