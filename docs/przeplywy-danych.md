@@ -124,7 +124,18 @@ Hosting panelu (Next.js) jest poza tym repozytorium.
 | Kolejka powiadomień o zmianie hasła (adres odbiorcy) | PostgreSQL | Automatycznie, codziennie 3:45: **90 dni**, i tylko wysłane albo nieudane | - |
 | Liczniki limitów (adres IP w kluczu) | Redis | Wygasają same razem z oknem limitu | - |
 | Pełne kopie zapasowe (wszystko powyżej) | R2 | Polecenia kopii niczego nie usuwają | Retencja kopii - [harmonogram kopii](harmonogram-i-kontrola-kopii.md) |
-| Logi Rendera, zdarzenia Sentry | Render, Sentry | Według ustawień usług | Do sprawdzenia przez właściciela |
+| Logi aplikacji (adresy IP w treści żądań) | Render | Automatycznie, **7 dni** - dalej wstecz panel nie sięga | - |
+| Zdarzenia błędów (po wyczyszczeniu treści, patrz wyżej) | Sentry | Automatycznie, **30 dni** - plan Developer, retencja jest właściwością planu, nie ustawieniem | - |
+
+Siedem dni logów Rendera ma konsekwencję przy badaniu incydentów: po tygodniu
+zostaje tylko to, co zapisujemy do bazy. Dziennik audytowy trzyma 12 miesięcy,
+ale niesie metodę, ścieżkę i wynik - nie treść błędu. Przy sprawie starszej niż
+tydzień odtworzenie „dlaczego to się stało" opiera się więc na dzienniku
+i Sentry, a nie na logu aplikacji.
+
+To nie jest teoria: komunikat `Received unregistered task`, przez który trzy
+zadania nie działały, znikał z logu po tygodniu. Zauważyliśmy go tylko dlatego,
+że powtarzał się codziennie.
 
 Usunięcie danych w bazie nie usuwa ich z kopii zapasowych, dopóki kopia nie
 wypadnie z rotacji. Dopóki retencja kopii nie jest ustalona, każdy okres
