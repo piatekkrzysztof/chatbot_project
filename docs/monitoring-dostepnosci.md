@@ -92,7 +92,13 @@ na alarm, potwierdz odbiór wiadomości i skasuj monitor. Zapisz datę tej prób
 
 | Alarm | Wywołany próbnie | Powiadomienie odebrane |
 |---|---|---|
-| Aplikacja nie odpowiada | | |
+| Aplikacja nie odpowiada | 28.09.2026, monitor na nieistniejącym adresie, odpowiedź 404 | **tak**, potwierdzone przez właściciela |
+
+Ustawione 28.09.2026 w UptimeRobocie, na darmowym planie, sprawdzanie co
+5 minut: monitor słowa kluczowego na `/health/` oraz zwykły monitor HTTP na
+adresie backendu. Monitor próbny skasowany po odebraniu alarmu - zostawiony
+świeciłby na czerwono bez powodu, a alarm zapalony zawsze przestaje być
+czytany.
 
 ## Czego ten monitoring nie daje
 
