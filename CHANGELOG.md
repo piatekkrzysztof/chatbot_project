@@ -16,6 +16,22 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.17.0] — 2026-09-29
+
+### Added
+
+- **A second free trial on the same mailbox now gets noticed.** A confirmed
+  e-mail address buys fourteen days and two thousand messages, which is real
+  money at our end - but an address is not a mailbox. `jan+shop@gmail.com`,
+  `jan+bot@gmail.com` and `j.a.n@gmail.com` all deliver to one inbox and one
+  person, while the database saw three strangers and handed out three trials.
+  Nothing noticed, because nothing was looking. Trials are still granted
+  exactly as before; the difference is that whoever is on call now hears about
+  it and can look. Refusing was the other option and was deliberately not
+  taken: we do not yet know whether this ever happens, and turning away an
+  honest customer costs more than the trial does. What we store alongside the
+  company is a one-way digest, not a second copy of somebody's e-mail address.
+
 ## [2.16.0] — 2026-09-29
 
 ### Fixed

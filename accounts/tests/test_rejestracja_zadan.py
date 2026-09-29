@@ -20,9 +20,16 @@ Tak umarły trzy zadania naraz, każde na tygodnie:
 Znalezione 28.09.2026 przez zajrzenie do logu workera, nie przez testy.
 Ten plik istnieje, żeby następnym razem znalazło to CI.
 
+Od 29.09.2026 sprawdzamy nie tylko harmonogram. Zadanie zlecane z kodu
+(`enqueue`) nie ma wpisu w harmonogramie, więc pierwsza wersja tego pliku go
+nie obejmowała - a milknie dokładnie tak samo i w gorszym momencie, bo takie
+zadania zleca się przy zdarzeniu, na które właśnie czekamy.
+
 Sprawdzamy w osobnym procesie, który startuje Django i Celery tak jak worker.
 W procesie pytest moduły są już wczytane przez inne testy, więc rejestracja
-wyszłaby poprawna niezależnie od tego, co robi autodiscovery.
+wyszłaby poprawna niezależnie od tego, co robi autodiscovery. To nie jest
+drobiazg: asercja `"nazwa" in app.tasks` napisana wprost w teście przechodzi
+nawet wtedy, gdy worker tego zadania nie zna.
 """
 
 import os
@@ -46,14 +53,35 @@ SKRYPT = textwrap.dedent(
     # To samo, co robi worker przy starcie.
     app.loader.import_default_modules()
     znane = set(app.tasks)
+
     for wpis in app.conf.beat_schedule.values():
         zadanie = wpis["task"]
         print(("ZNANE " if zadanie in znane else "BRAK  ") + zadanie)
+
+    # Zadania zlecane z kodu: nie ma ich w harmonogramie, a muszą być znane
+    # tak samo. Szukamy ich w źródłach, nie przez import - import w tym
+    # procesie rejestrowałby je i zacierał to, czego właśnie szukamy.
+    import ast
+    import pathlib
+
+    for plik in sorted(pathlib.Path("accounts").glob("*.py")):
+        drzewo = ast.parse(plik.read_text(encoding="utf-8"))
+        for wezel in drzewo.body:
+            if not isinstance(wezel, ast.FunctionDef):
+                continue
+            dekoratory = {
+                d.id if isinstance(d, ast.Name) else getattr(d, "attr", "")
+                for d in wezel.decorator_list
+            }
+            if "shared_task" not in dekoratory:
+                continue
+            zadanie = f"accounts.{plik.stem}.{wezel.name}"
+            print(("ZNANE " if zadanie in znane else "BRAK  ") + zadanie)
     """
 )
 
 
-def test_kazde_zadanie_z_harmonogramu_jest_zarejestrowane():
+def test_kazde_zadanie_jest_zarejestrowane():
     wynik = subprocess.run(
         [sys.executable, "-c", SKRYPT],
         capture_output=True,
@@ -71,8 +99,8 @@ def test_kazde_zadanie_z_harmonogramu_jest_zarejestrowane():
 
     brakujace = [w.removeprefix("BRAK  ") for w in linie if w.startswith("BRAK")]
     assert not brakujace, (
-        "Zadania z harmonogramu, których worker nie zna - beat będzie je zlecał, "
-        "a worker odrzucał komunikatem 'Received unregistered task': " + ", ".join(brakujace)
+        "Zadania, których worker nie zna - zlecający je beat albo kod dostanie "
+        "'Received unregistered task' i nic więcej: " + ", ".join(brakujace)
     )
 
 
@@ -82,3 +110,30 @@ def test_harmonogram_nie_jest_pusty():
     from chatbot_project.celery import app
 
     assert len(app.conf.beat_schedule) >= 8
+
+
+def test_skrypt_znajduje_takze_zadania_spoza_harmonogramu():
+    """
+    Druga kontrola pozytywna, dla części dopisanej 29.09.2026.
+
+    Gdyby wyszukiwanie po źródłach przestało cokolwiek znajdować - inna nazwa
+    dekoratora, przeniesienie zadań do podkatalogu - test wyżej nadal by
+    przechodził, bo lista „BRAK" byłaby pusta z powodu pustej listy zadań.
+    """
+    wynik = subprocess.run(
+        [sys.executable, "-c", SKRYPT],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=180,
+        cwd=KATALOG_PROJEKTU,
+        env=os.environ.copy(),
+    )
+    wypisane = {w[6:] for w in wynik.stdout.splitlines() if w.startswith(("ZNANE", "BRAK"))}
+    zlecane_z_kodu = {
+        "accounts.tasks_probne.zglos_powtorny_okres_probny",
+        "accounts.tasks.powiadom_o_zuzyciu",
+    }
+
+    assert zlecane_z_kodu <= wypisane, f"skrypt nie znalazł zadań zlecanych z kodu: {wypisane}"
