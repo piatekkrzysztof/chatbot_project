@@ -72,15 +72,47 @@ Powtórzenie tej samej decyzji nie zmienia licznika. Komenda odrzuca zmianę
 już zamkniętego wyniku oraz ingerencję przed upływem ważności rezerwacji.
 Decyzję i uzasadnienie należy zapisać w zgłoszeniu incydentu.
 
-Usuwanie rozliczonych rezerwacji starszych niż 90 dni (do 1000 na wykonanie,
-bez bieżącego cyklu i stanów niewyjaśnionych):
+Usuwanie rozliczonych rezerwacji starszych niż 90 dni (bez bieżącego cyklu
+i bez stanów niewyjaśnionych):
 
 ```sh
 python manage.py check_message_reservations --prune
 ```
 
-Podpięcie kontroli do harmonogramu, alertów i retencji pozostaje zadaniem
-operacyjnym. Ten PR nie uruchamia harmonogramu ani nie zmienia Rendera.
+## Kto to wszystko uruchamia (2.16.0)
+
+Do 2.16.0: **nikt.** Powyższe komendy istniały od #44 i działały, ale nie było
+ich w żadnym harmonogramie ani alarmie. Przez cały ten czas nie policzył
+nierozliczonych biletów ani nie usunął starych rozliczonych ani jeden przebieg.
+
+To o stopień gorszy wariant awarii z 2.14.1. Tamte trzy zadania były
+w harmonogramie i beat je zlecał, więc worker zostawiał w logu
+`Received unregistered task` - ślad, po którym dało się je znaleźć. Tutaj nie
+było czego znaleźć: brak wpisu nie zostawia śladu nigdzie.
+
+Od 2.16.0 codziennie o 4:00 robi to zadanie
+`accounts.tasks_rezerwacje.czuwaj_nad_rezerwacjami` na istniejącym workerze
+(bez nowej usługi i bez nowego crona). Zadanie:
+
+1. liczy bilety do rozliczenia i przy niezerowej liczbie wysyła alert na
+   `EMAIL_ALERTOW` z listą i gotowymi komendami,
+2. usuwa bilety rozliczone dawniej niż 90 dni,
+3. zapisuje obie liczby w logu **także przy zerach** - cisza w logu nie
+   odróżnia przebiegu, który nic nie znalazł, od przebiegu, którego nie było.
+
+Potwierdzenie pierwszego przebiegu: w logu usługi `celery-worker` po 4:00 ma
+się pojawić linia `Rezerwacje: do rozliczenia 0, usuniętych rozliczonych 0`.
+
+Czego zadanie NIE robi: nie rozlicza niczego samo. Stan `uncertain` znaczy
+dokładnie tyle, że nie wiemy, czy zapytanie doszło do OpenAI. Automat musiałby
+zgadnąć - obciążyć klienta za pracę, której mogło nie być, albo darować pracę,
+za którą mogliśmy zapłacić. Zgadywanie jest gorsze od czekania, bo nikt się
+o nim nie dowie. Decyzja zostaje przy człowieku i przy komendzie wyżej.
+
+Alert przychodzi codziennie, dopóki jest co rozliczać. Nie ma tu znacznika
+„zgłoszone" jak przy odmowach widgetu: tam znacznik chroni przed powtarzaniem
+tej samej przyczyny co godzinę, tutaj każdy bilet to osobna decyzja i dopóki
+jej nie ma, sprawa nie jest załatwiona.
 
 ## Wdrożenie i odbiór
 

@@ -55,7 +55,7 @@ class BrakAdresuAlertow(RuntimeError):
     """Nie ma dokąd wysłać alertu."""
 
 
-def _adres_operatora() -> str:
+def adres_operatora() -> str:
     """
     Dokąd idą alerty.
 
@@ -147,7 +147,7 @@ def sprawdz_odmowy_widgetu():
             subject=temat,
             message=_tresc_alertu(zliczenia),
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[_adres_operatora()],
+            recipient_list=[adres_operatora()],
             fail_silently=False,
         )
         if not wyslane:

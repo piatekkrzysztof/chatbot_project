@@ -84,6 +84,15 @@ app.conf.beat_schedule = {
         "task": "accounts.rozmiar_bazy.sprawdz_rozmiary_zadanie",
         "schedule": crontab(minute=0, hour=9),
     },
+    # Rezerwacje AI: bilety, przy ktorych nie wiadomo, czy praca sie odbyla,
+    # zajmuja klientowi limit do konca cyklu, a rozliczyc je moze tylko
+    # czlowiek. Komenda umiala je wypisac od #44, ale nie bylo jej tutaj -
+    # narzedzie gotowe, ktorego nikt nie wolal. Kwadrans po retencji, zeby
+    # nocne zadania nie zaczynaly sie w tej samej minucie na jednej bazie.
+    "rezerwacje-do-rozliczenia-codziennie": {
+        "task": "accounts.tasks_rezerwacje.czuwaj_nad_rezerwacjami",
+        "schedule": crontab(minute=0, hour=4),
+    },
     "konce-subskrypcji-codziennie": {
         "task": "accounts.tasks_konce.sprawdz_konce_subskrypcji",
         "schedule": crontab(minute=15, hour=8),
