@@ -111,6 +111,57 @@ RPO: do miesiąca.
 - Backup PostgreSQL/PITR oraz ustalone RPO/RTO. Zrzut Django jest kopią logiczną
   aplikacji, pomija wybrane tabele i nie zapewnia jednej transakcyjnej migawki
   przy równoległych zmianach. Nie zastępuje kopii PostgreSQL.
-- Niezależne kopie bajtów uploadów, polityka retencji i dostęp do starszych
-  kluczy szyfrowania. Ten PR nie dodaje automatycznego kasowania archiwum.
+- Niezależne kopie bajtów uploadów i dostęp do starszych kluczy szyfrowania.
+- ~~Polityka retencji archiwum.~~ Dodana w 2.15.0, opis niżej.
 - Pełny test odtworzenia na stagingu i regularne ponawianie tej próby.
+
+## Retencja archiwum kopii (2.15.0)
+
+Do 2.15.0 nic nie usuwało starych kopii. Przy dzisiejszej skali to jeszcze nie
+jest problem miejsca, ale jest problem danych: **kopia niesie dane osobowe
+klientów, także tych, którzy odeszli.** Zdanie „usunęliśmy Pana dane" przestaje
+być prawdziwe, jeśli leżą w kopii sprzed dwóch lat, bo retencja z F20 kasuje je
+wyłącznie w bazie.
+
+```bash
+python manage.py purge_kopie              # tylko wypisuje, co by zniknęło
+python manage.py purge_kopie --wykonaj    # dopiero to usuwa
+```
+
+| Archiwum | Okres | Zostaje zawsze |
+|---|---|---|
+| Pełne kopie (`.saas`) | 365 dni | 3 najnowsze |
+| Kopie dzienne (`.json.fernet`) | 90 dni | 3 najnowsze |
+
+### Trzy zasady, na których to stoi
+
+**Minimum, które zostaje zawsze.** Niezależnie od wieku zachowujemy trzy
+najnowsze kopie w każdym archiwum. Bez tej reguły sam warunek wieku wyzerowałby
+archiwum przy zatrzymanym tworzeniu kopii - czyli dokładnie wtedy, gdy kopii
+zaczyna brakować. Że tworzenie potrafi stanąć po cichu, wiemy z własnego
+doświadczenia: trzy zadania z harmonogramu nie działały przez tygodnie, a
+wszystko wyglądało poprawnie. Monitor braku przebiegów krzyknie, ale krzyk nie
+przywróci skasowanego pliku.
+
+**Nie ruszamy tego, czego nie rozpoznajemy.** Usuwamy wyłącznie obiekty
+pasujące do wzorców nazw, którymi sami zapisujemy kopie. Cokolwiek innego leży
+w tym samym miejscu - wgrane ręcznie, zostawione przez inne narzędzie - zostaje
+nietknięte, nawet jeśli w nazwie ma starą datę.
+
+**Kasowanie wymaga jawnego `--wykonaj`.** To jedyna operacja w systemie, która
+usuwa dane nieodwracalnie i bez drugiej szansy: kopii zapasowej kopii nie ma.
+Domyślna próba kosztuje jedno dodatkowe uruchomienie, a pomyłka bez niej
+kosztuje archiwum.
+
+### Dlaczego tego nie ma w harmonogramie
+
+Kopie powstają dziś **ręcznie, raz w miesiącu** (decyzja właściciela z
+17.09.2026). Automat kasujący przy ręcznym tworzeniu to układ, w którym jedna
+strona działa zawsze, a druga tylko wtedy, gdy ktoś pamięta - i po roku takiego
+układu archiwum schodzi do minimum. Dopóki kopie robi człowiek, kasuje je też
+człowiek: najprościej przy tej samej comiesięcznej okazji, zaraz po
+`kontrola_pelnej_kopii`.
+
+Gdy pojawi się cron kopii dziennej, sprzątanie warto dopisać do harmonogramu -
+i wtedy wrócić do progów, bo przy kopii dziennej 90 dni znaczy co innego niż
+przy miesięcznej.
