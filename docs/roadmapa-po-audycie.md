@@ -90,11 +90,10 @@ jak alarm, który dzwoni bez powodu.
 
 **Do napisania.**
 
-4. Ocena nadużyć przez wiele skrzynek i aliasów przy rejestracji (F07).
-   Dziś limit liczy się na adres IP i na pojedynczy e-mail; ta sama osoba
-   zakłada dowolnie wiele kont z aliasów jednej skrzynki.
-5. Pełny test formularza z Turnstile w przeglądarce (F23), na żywej stronie,
+4. Pełny test formularza z Turnstile w przeglądarce (F23), na żywej stronie,
    bo to jedyne miejsce, gdzie da się sprawdzić prawdziwy token.
+5. Zaproszenia: link jest dziś uprawnieniem do użycia go jako wskazany
+   adresat, a panel wciąż pozwala wybrać wielokrotne użycie (F07).
 6. Umowa powierzenia: **wzór napisany**, do przejrzenia przez prawnika
    i do pięciu decyzji właściciela ([wzór](umowa-powierzenia.md)). Nie ma
    numeru F, bo audyt jej nie objął, a bez niej nie sprzedaje się w UE firmie,
@@ -139,7 +138,7 @@ sprawdzeniem retencji.
 | F04 | Prywatne magazyny, szyfrowanie i klucze poza hostingiem; 2.0.14 dodaje pełne kopie z bajtami plików i zweryfikowaną próbę na danych syntetycznych | Wykonane 17.09.2026 razem z F21: rzeczywista kopia przy wstrzymanych zapisach, izolowany restore na PG16, monitor i sprawdzony alarm ([protokół](odbior-f21.md#wynik-odbioru---17092026)). Retencja archiwum kopii dodana w 2.15.0 ([opis](harmonogram-i-kontrola-kopii.md#retencja-archiwum-kopii-2150)) |
 | F05 | Bezpieczny kontekst/obraz, #39 | Końcowy skan używanego obrazu |
 | F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
-| F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; potwierdzenie `TRUSTED_PROXY_DEPTH` na produkcji (jest `/api/diagnostyka/`, brakuje odczytu); ocena nadużyć przez wiele skrzynek i aliasów. Retencja i alerty zgłoszeń **są zrobione**: zgłoszenia znikają razem z rozmowami, po `data_retention_days` firmy (`chat/retention.py`, codziennie 3:30), a o nowym zgłoszeniu powiadamia `powiadom_o_zapytaniu_task` |
+| F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; potwierdzenie `TRUSTED_PROXY_DEPTH` na produkcji (jest `/api/diagnostyka/`, brakuje odczytu); ocena nadużyć przez wiele skrzynek i aliasów **zrobiona w 2.17.0** (zgłoszenie, nie blokada - [opis](rejestracja-i-zaproszenia.md#powtórny-okres-próbny-na-tę-samą-skrzynkę-2170)). Retencja i alerty zgłoszeń **są zrobione**: zgłoszenia znikają razem z rozmowami, po `data_retention_days` firmy (`chat/retention.py`, codziennie 3:30), a o nowym zgłoszeniu powiadamia `powiadom_o_zapytaniu_task` |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Pomiar kosztów zrobiony 28.09.2026 ([koszt klienta](koszt-klienta.md)). Alarm o biletach do rozliczenia i sprzątanie rozliczonych w 2.16.0: komenda istniała od #44, ale nie było jej w harmonogramie, więc nie wykonała się ani razu ([opis](rezerwacje-wiadomosci.md#kto-to-wszystko-uruchamia-2160)). Zostaje potwierdzenie pierwszego przebiegu w logu workera po wdrożeniu |
 | F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
 | F10 | Część 1: #58 scalony (2.0.17): typ treści przy pobieraniu stron, PDF/DOCX/TXT/MD podlinkowane na stronie przez izolowany parser, adres źródła zawsze pobierany, mapy stron stałych przed wpisami, jedna za duża odpowiedź nie przerywa pobierania. Część 2: #59 scalony (2.0.18): limit bazy wiedzy pod blokadą doradczą, zlecenia zadań po zatwierdzeniu transakcji, TXT w Windows-1250, ISO-8859-2 i UTF-16, tabele i pola tekstowe DOCX, przywrócone podłączenie sygnału dokumentów (usunięte w #21, 4.09.2026: dokumenty z panelu bez embeddingów) | Przegląd i CI części 2, jednorazowe przeliczenie dokumentów bez fragmentów po wdrożeniu, wdrożenie web i workera, kontrole z [kompletny-import.md](kompletny-import.md) |

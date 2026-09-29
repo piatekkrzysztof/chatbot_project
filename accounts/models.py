@@ -279,6 +279,14 @@ class Tenant(models.Model):
         default=90,
         help_text="Po ilu dniach automatycznie usuwać rozmowy i logi. 0 = nie usuwaj.",
     )
+    # Skrót skrzynki, do której trafił okres próbny. Nie adres: do rozpoznania
+    # powtórki wystarcza równość, a drugi adres obok `owner_email` byłby kopią
+    # danych osobowych trzymaną na wszelki wypadek. Liczony w accounts/adresy.py,
+    # pusty u firm sprzed 2.17.0 i u tych, które okresu próbnego nie brały.
+    skrot_skrzynki: models.CharField = models.CharField(
+        max_length=64, blank=True, default="", db_index=True
+    )
+
     privacy_policy_url = models.URLField(
         blank=True,
         default="",

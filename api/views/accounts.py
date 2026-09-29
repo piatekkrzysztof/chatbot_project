@@ -14,8 +14,9 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts import dwuskladnikowe
+from accounts.adresy import skrot_skrzynki
 from accounts.dziennik import wskaz_autora
-from accounts.models import InvitationToken, Subscription
+from accounts.models import InvitationToken, Subscription, Tenant
 from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
 from accounts.registration import lock_invitation_team
 from accounts.signup import RECEIPT, request_email
@@ -61,6 +62,40 @@ from api.utils.mixins import TenantQuerysetMixin
 logger = logging.getLogger(__name__)
 
 
+def _zglos_jesli_powtorka(tenant):
+    """
+    Zapisuje skrót skrzynki i zgłasza, jeśli ta skrzynka brała już okres próbny.
+
+    Okres próbny przysługuje adresowi, a adresów jednej skrzynki jest wiele.
+    Nic tego dotąd nie zauważało. Zgłaszamy, nie odmawiamy: decyzja właściciela
+    z 29.09.2026 - najpierw sprawdźmy, czy to się w ogóle zdarza.
+
+    Błąd tutaj nie może przewrócić rejestracji. Klient potwierdził właśnie
+    adres i czeka na konto; nasza ciekawość, skąd przyszedł, jest mniej warta
+    niż to, żeby konto powstało.
+    """
+    skrot = skrot_skrzynki(tenant.owner_email)
+    if not skrot:
+        return
+    wczesniejsze = list(
+        Tenant.objects.filter(skrot_skrzynki=skrot)
+        .exclude(pk=tenant.pk)
+        .order_by("pk")
+        .values_list("pk", flat=True)[:20]
+    )
+    tenant.skrot_skrzynki = skrot
+    tenant.save(update_fields=["skrot_skrzynki"])
+    if not wczesniejsze:
+        return
+
+    from accounts.tasks_probne import zglos_powtorny_okres_probny
+    from documents.utils.queue import enqueue
+
+    # Po zatwierdzeniu transakcji: gdyby rejestracja jednak się wycofała,
+    # zgłoszenie dotyczyłoby firmy, która nie powstała.
+    transaction.on_commit(lambda: enqueue(zglos_powtorny_okres_probny, tenant.pk, wczesniejsze))
+
+
 def zalozenie_okresu_probnego(tenant):
     """
     Subskrypcja próbna dla świeżo założonego konta.
@@ -70,7 +105,7 @@ def zalozenie_okresu_probnego(tenant):
     subskrypcję odrzuca to samo sprawdzenie dat co w płatnych planach.
     """
     dzisiaj = timezone.now().date()
-    return Subscription.objects.create(
+    subskrypcja = Subscription.objects.create(
         tenant=tenant,
         plan_type=PLAN_PROBNY,
         start_date=dzisiaj,
@@ -78,6 +113,11 @@ def zalozenie_okresu_probnego(tenant):
         is_active=True,
         message_limit=message_limit_for(PLAN_PROBNY),
     )
+    try:
+        _zglos_jesli_powtorka(tenant)
+    except Exception:
+        logger.exception("Nie udało się sprawdzić powtórki okresu próbnego: firma=%s", tenant.pk)
+    return subskrypcja
 
 
 @extend_schema(
