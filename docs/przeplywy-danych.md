@@ -129,7 +129,7 @@ Hosting panelu (Next.js) jest poza tym repozytorium.
 | Wyzwania drugiego składnika | PostgreSQL | Automatycznie, codziennie 3:45, **24 h po wygaśnięciu** | - |
 | Kolejka powiadomień o zmianie hasła (adres odbiorcy) | PostgreSQL | Automatycznie, codziennie 3:45: **90 dni**, i tylko wysłane albo nieudane | - |
 | Liczniki limitów (adres IP w kluczu) | Redis | Wygasają same razem z oknem limitu | - |
-| Pełne kopie zapasowe (wszystko powyżej) | R2 | Polecenia kopii niczego nie usuwają | Retencja kopii - [harmonogram kopii](harmonogram-i-kontrola-kopii.md) |
+| Pełne kopie zapasowe (wszystko powyżej) | R2 | Ręcznie, `purge_kopie --wykonaj`: pełne kopie po **365 dniach**, dzienne po **90**, zawsze zostają 3 najnowsze. Uruchamiane ręcznie, bo kopie też powstają ręcznie ([opis](harmonogram-i-kontrola-kopii.md#retencja-archiwum-kopii-2150)) | - |
 | Logi aplikacji (adresy IP w treści żądań) | Render | Automatycznie, **7 dni** - dalej wstecz panel nie sięga | - |
 | Zdarzenia błędów (po wyczyszczeniu treści, patrz wyżej) | Sentry | Automatycznie, **30 dni** - plan Developer, retencja jest właściwością planu, nie ustawieniem | - |
 
@@ -144,8 +144,14 @@ zadania nie działały, znikał z logu po tygodniu. Zauważyliśmy go tylko dlat
 że powtarzał się codziennie.
 
 Usunięcie danych w bazie nie usuwa ich z kopii zapasowych, dopóki kopia nie
-wypadnie z rotacji. Dopóki retencja kopii nie jest ustalona, każdy okres
-przechowywania z tabeli dotyczy bazy, a nie kopii.
+wypadnie z rotacji. Od 2.15.0 rotacja istnieje - pełne kopie po roku, dzienne
+po kwartale - ale uruchamia ją człowiek, więc okres z tabeli dotyczy bazy od
+razu, a kopii dopiero po najbliższym `purge_kopie --wykonaj`.
+
+Retencja stoi na dwóch modułach i warto wiedzieć, na którym: `chat/retention.py`
+usuwa dane rozmów po okresie, który ustawia firma (`data_retention_days`),
+a `accounts/retencja.py` dane konta po okresach stałych, zatwierdzonych
+17.09.2026. Zgłoszenia kontaktowe należą do pierwszej grupy, nie do drugiej.
 
 ## Jak to działa: `accounts/retencja.py`
 
