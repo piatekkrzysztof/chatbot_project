@@ -1,13 +1,12 @@
 """Report unresolved AI work; reconcile only an explicitly selected expired ticket."""
 
 import uuid
-from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
+from accounts import rezerwacje
 from accounts.message_quota import Reservation
 from accounts.models import MessageReservation, Tenant
 
@@ -43,22 +42,14 @@ class Command(BaseCommand):
             return
 
         if options["prune"]:
-            # Keep unresolved outcomes and never delete tickets in an active quota cycle.
-            from django.db.models import F
-
-            rows = MessageReservation.objects.filter(
-                finished=True,
-                state__in=["charged", "released"],
-                created_at__lt=now - timedelta(days=90),
-            ).exclude(subscription__billing_cycle_id=F("cycle_id"))
-            batch = list(rows.values_list("pk", flat=True)[:1000])
-            count, _ = MessageReservation.objects.filter(pk__in=batch).delete()
-            self.stdout.write(f"Pruned {count} settled reservations older than 90 days.")
+            # Rules live in accounts/rezerwacje.py, shared with the nightly task.
+            # Two copies of "what may be deleted" drift the day one of them changes.
+            count = rezerwacje.usun_rozliczone(now)
+            days = rezerwacje.OKRES_ROZLICZONYCH.days
+            self.stdout.write(f"Pruned {count} settled reservations older than {days} days.")
             return
 
-        unresolved = MessageReservation.objects.filter(
-            Q(state="uncertain") | Q(state="pending", expires_at__lte=now)
-        ).order_by("created_at")
+        unresolved = rezerwacje.nierozliczone(now)
         count = unresolved.count()
         for row in unresolved[:50]:
             self.stdout.write(

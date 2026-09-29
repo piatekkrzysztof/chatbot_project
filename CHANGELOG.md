@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.16.0] — 2026-09-29
+
+### Fixed
+
+- **Nobody was watching the AI reservations.** Every message to a bot takes a
+  ticket before the model is called, and a worker that dies mid-flight leaves
+  that ticket unresolved on purpose - the dead process may well have reached
+  OpenAI, so refunding it silently would be as wrong as charging for work
+  never done. Until a human decides, the ticket keeps counting against the
+  customer's monthly limit: they paid for a message they never saw. The
+  command that lists such tickets has existed since the reservations were
+  built, but it was in no schedule and no alert, so it had never once been
+  run. It now runs nightly, mails whoever is on call when there is something
+  to settle, and removes tickets settled more than 90 days ago. It still
+  settles nothing by itself - that decision involves money and guessing in
+  either direction is worse than waiting.
+
 ## [2.15.0] — 2026-09-29
 
 ### Added
