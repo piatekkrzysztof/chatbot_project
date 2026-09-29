@@ -1,6 +1,12 @@
 # Roadmapa napraw po audycie SaaS
 
-Data rozpoczęcia: 9.09.2026. **Aktualizacja: 13.09.2026. Backend scalony i wdrożony do #62 włącznie: #56 (F25, 2.0.15), #57 (F17, 2.0.16), #58 i #59 (F10, 2.0.17-2.0.18), #60 (F19, 2.0.19), #61 (pomiar wariantów promptu, 2.0.20) i #62 (poprawka promptu F25, 2.0.21); panel frontend_chatbot#16. Etap 5 zamknięty poza F18. Pełna kopia i próba odtworzenia (2.0.14) nadal czekają na odbiór operacyjny, więc F18 nie włącza automatycznego usuwania. 14.09.2026: etap 6 zamknięty - F11 #64, #65 i #66 (2.0.22-2.2.0) oraz panel #17 i #18 scalone, odbiór w trybie testowym Stripe zaliczony. Następny: etap 7, zaczynamy od F16 (część 1: 2.3.0).**
+Data rozpoczęcia: 9.09.2026. **Aktualizacja: 29.09.2026, wersja 2.16.0.**
+Bieżący stan każdego ustalenia jest w rejestrze F01-F25 na dole tego pliku
+i to jedyne miejsce, które utrzymujemy na bieżąco. Akapit niżej zostaje jako
+zapis z 13.09.2026 i od tamtego dnia się nie zmienia.
+
+**Zapis z 13.09.2026. Backend scalony i wdrożony do #62 włącznie: #56 (F25, 2.0.15), #57 (F17, 2.0.16), #58 i #59 (F10, 2.0.17-2.0.18), #60 (F19, 2.0.19), #61 (pomiar wariantów promptu, 2.0.20) i #62 (poprawka promptu F25, 2.0.21); panel frontend_chatbot#16. Etap 5 zamknięty poza F18. Pełna kopia i próba odtworzenia (2.0.14) nadal czekają na odbiór operacyjny, więc F18 nie włącza automatycznego usuwania. 14.09.2026: etap 6 zamknięty - F11 #64, #65 i #66 (2.0.22-2.2.0) oraz panel #17 i #18 scalone, odbiór w trybie testowym Stripe zaliczony. Następny: etap 7, zaczynamy od F16 (część 1: 2.3.0).**
+
 Ta lista obejmuje wszystkie 25 grup ustaleń. Osobno wskazujemy scalony kod,
 potwierdzone wdrożenie i pozostały odbiór operacyjny. Historia niżej zachowuje
 wyniki z dnia danego etapu; bieżący status określają poniższe tabele.
@@ -64,59 +70,54 @@ automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audyt
 
 ## Najbliższa kolejność prac
 
-1. **Domknąć odbiór już wdrożonych zmian.** Ustalić prawdziwy adres klienta
-   za proxy i sprawdzić odporność na podrobione nagłówki także po ewentualnej
-   zmianie ustawień. Przeprowadzić pełny test formularza z Turnstile w przeglądarce.
-   Podłączyć kontrolę kolejki, kopii i rezerwacji do alarmów na obecnych zasobach;
-   sprawdzić, że brak kolejnego przebiegu też wywołuje alarm. Odtworzyć dane i pliki
-   w izolacji oraz zapisać zmierzone RPO/RTO. Dostępny PITR nie zastępuje testu restore.
-2. **F07 część 2 scalona.** Backend #47 i panel #12 po merge. Read-only Render
-   potwierdził web i worker live na `7236475`. Nadal wymagany rzeczywisty odbiór
-   poczty aktywacyjnej i harmonogram retencji zgłoszeń; kod panelu jest już we wdrożonym #14
-   na obecnych zasobach. Instrukcja: [aktywacja konta](aktywacja-konta.md).
-3. **MFA #48 wdrożone; teraz F15 i odzyskiwanie konta.** Obowiązkowy drugi składnik
-   admina, atomowe kody/bilety, limity i szyfrowanie działają na web i workerze.
-   Właściciel zabezpieczył DJANGO_SECRET_KEY; test HTTPS z syntetycznym kontem
-   zaliczony, konto usunięte. Po merge przywrócono automatyczne wdrożenia obu usług.
-   Cookies/CSRF #49, atomowa rotacja #50 i wiele kart w panelu #13 wdrożone.
-   Backend web/worker: `ac7c51f` (2.0.13); panel Production: `dffdc9e`.
-   Panel #13 usuwa również cztery zgłoszenia npm audit; wynik po poprawce: 0.
-   PR #51 wdrożył odwoływanie rodzin/access JWT po logout i zmianie hasła
-   oraz limit 14 dni od logowania: [instrukcja](odwolywanie-sesji.md).
-   PR #52 i panel #14 wdrożyły reset i hasło przy konfiguracji MFA:
-   [instrukcja odbioru](odzyskiwanie-hasla.md). Pozostał rzeczywisty odbiór SMTP.
-   Wdrożone #53 i panel #15 dodały zmianę hasła w ustawieniach, listę własnych sesji,
-   odwołanie wybranej/pozostałych sesji oraz potwierdzenie hasłem i MFA.
-   [Instrukcja odbioru](ustawienia-bezpieczenstwa.md).
-   Powiadomienia po zmianie hasła w 2.0.13 wdrożone jako #54 — [instrukcja](powiadomienia-o-zmianie-hasla.md).
-   Następnie pełny restore bazy i plików, retencja/alarmy i procedura utraty MFA.
-   Kod przygotowany nie oznacza jeszcze zakończonego odbioru.
-4. **F10/F17/F18/F19/F25 — wiedza i RAG.** Import wszystkich formatów, idempotentne
-   zadania, atomowa publikacja i usuwanie plików/embeddingów, bezpieczne CSV,
-   poprawność feedbacku, wyszukiwanie FAQ i regresja jakości/izolacji.
-5. **F11 i płatności z F22.** Idempotencja Checkout/webhooków, okresy subskrypcji,
-   uzgadnianie błędów i jednoznaczny status konkretnego zakupu. Testy w trybie
-   testowym Stripe; brak rzeczywistych obciążeń bez osobnej zgody.
-6. **F12/F16/F20–F22/F24 — utrzymanie i UX.** Dokończenie zależności frontendu,
-   paginacja/N+1, log zdarzeń i minimalizacja danych, obowiązkowe kontrole CI,
-   onboarding i komplet stanów ładowania/błędów/pustych danych.
-7. **Odbiór komercyjny.** Pełny negatywny test dostępu, obciążenie, restore,
-   onboarding, dostępność i płatności testowe w środowisku zgodnym z produkcją.
+Stan 29.09.2026. Poprzednia wersja tej listy pochodziła z 12.09.2026 i prosiła
+o rzeczy zrobione dawno temu - odtworzenie kopii, podpięcie alarmów, pomiar
+RPO/RTO. Lista, która prosi o wykonaną pracę, przestaje być czytana tak samo
+jak alarm, który dzwoni bez powodu.
 
-8. **Monitoring dostępności.** Czuwania w kodzie pilnują objawów u klientów,
-   ale wszystkie chodzą na Renderze - gdy padnie Render, nie zaalarmuje nic.
-   `/health/` jest gotowy i zwraca stan bazy oraz brokera; brakuje czujki
-   z zewnątrz. [Konfiguracja do ustawienia przez właściciela](monitoring-dostepnosci.md).
+**Czeka na właściciela, nie na kod.**
 
-9. **Koszt krańcowy klienta.** Do 17.09.2026 nigdzie nie policzony, więc cennik
-   opierał się na oszacowaniu. `zmierz_koszt_klienta` czyta logi zużycia i pokazuje,
-   co zostaje z ceny planu przy pełnym wykorzystaniu limitu.
-   [Opis, wynik i sufit](koszt-klienta.md). Zmierzone 28.09.2026: sufit kosztu modelu to 7% ceny planu Start, 12% Grow i 14% Pro - granica wynikająca z limitu tokenów promptu, więc nieprzekraczalna niezależnie od wielkości bazy wiedzy klienta.
+1. Potwierdzenie pierwszych przebiegów dwóch nocnych zadań w logu
+   `celery-worker`: retencji (F20, po 3:45) i czuwania nad rezerwacjami
+   (F08, po 4:00). Oba zadania istnieją i są w harmonogramie; potwierdzenia
+   nie zastąpi nic poza zajrzeniem do logu.
+2. Odbiory operacyjne wymagające prawdziwej poczty i prawdziwego konta: SMTP
+   aktywacji (F07), upload na wydzielonej firmie (F09), ustawienia
+   bezpieczeństwa (F14, F15), stan zakupu i lista pierwszych kroków (F22).
+3. Decyzje, które wstrzymują pracę: cele SLO (F16), indeks wektorowy,
+   efemeryczne środowisko przedprodukcyjne, płatny cron kopii dziennej,
+   deklarowane SLA i sposób komunikowania awarii.
+
+**Do napisania.**
+
+4. Import CSV w panelu (F22). Backend gotowy od #60, z panelu nie ma drogi -
+   sprawdzone 29.09.2026.
+5. Retencja i alerty zgłoszeń z formularza oraz prawdziwy adres klienta za
+   proxy (F07, F23). F20 objęła dziennik, zaproszenia, sesje, wyzwania MFA,
+   rejestracje i kolejkę powiadomień, ale nie zgłoszenia.
+6. Umowa powierzenia przetwarzania danych. Nie ma numeru F, bo audyt jej nie
+   objął, a bez niej nie sprzedaje się w UE firmie, która ma własne RODO.
+   Materiał jest gotowy w [przepływach danych](przeplywy-danych.md): komplet
+   podprzetwarzających, kategorie danych i okresy przechowywania.
+7. Przeglądy i CI części, które czekają: F10 część 2, F16 część 3, F24
+   część 2. Skany: obraz Dockera (F05), ponowne skany zależności (F12).
+
+**Etap 8, odbiór komercyjny.**
+
+8. Macierz dostępu (F01), test obciążeniowy (F16), dostępność, środowisko
+   zgodne z produkcją, RTO produkcji (F21 - wymaga odbudowy usług, nie samych
+   danych).
 
 P1 dotyczące kont, administracji i płatności nadal blokują deklarację gotowości
 komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 
-## Rejestr wszystkich ustaleń — stan 12.09.2026
+## Rejestr wszystkich ustaleń
+
+Przegląd 29.09.2026: z kolumny „co pozostaje" zdjęte punkty, które były już
+wykonane, a wiersz wciąż ich żądał - wdrożenia #57, #58, #59 i #60 (zapisane
+w nagłówku tego pliku jako wykonane 13.09.2026), zajętość bazy wiedzy w panelu
+i usuwanie osoby z zespołu. Rejestr, który prosi o zrobioną pracę, przestaje
+być podstawą decyzji o kolejności - i przez dwa tygodnie nią nie był.
 
 | ID | Stan i dowód | Co pozostaje do odbioru lub naprawy |
 |---|---|---|
@@ -126,23 +127,23 @@ komercyjnej. Sukces wdrożenia formularza nie zamyka audytu całego SaaS.
 | F04 | Prywatne magazyny, szyfrowanie i klucze poza hostingiem; 2.0.14 dodaje pełne kopie z bajtami plików i zweryfikowaną próbę na danych syntetycznych | Wykonane 17.09.2026 razem z F21: rzeczywista kopia przy wstrzymanych zapisach, izolowany restore na PG16, monitor i sprawdzony alarm ([protokół](odbior-f21.md#wynik-odbioru---17092026)). Retencja archiwum kopii dodana w 2.15.0 ([opis](harmonogram-i-kontrola-kopii.md#retencja-archiwum-kopii-2150)) |
 | F05 | Bezpieczny kontekst/obraz, #39 | Końcowy skan używanego obrazu |
 | F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
-| F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; retencja/alerty zgłoszeń, IP za proxy i ocena nadużyć przez wiele skrzynek/aliasów |
+| F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; IP za proxy i ocena nadużyć przez wiele skrzynek/aliasów. Retencja i alerty zgłoszeń nadal otwarte: F20 (2.11.0) objęła dziennik, zaproszenia, sesje, wyzwania MFA, rejestracje i kolejkę powiadomień, ale nie zgłoszenia z formularza (sprawdzone 29.09.2026 w `accounts/retencja.py`) |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Pomiar kosztów zrobiony 28.09.2026 ([koszt klienta](koszt-klienta.md)). Alarm o biletach do rozliczenia i sprzątanie rozliczonych w 2.16.0: komenda istniała od #44, ale nie było jej w harmonogramie, więc nie wykonała się ani razu ([opis](rezerwacje-wiadomosci.md#kto-to-wszystko-uruchamia-2160)). Zostaje potwierdzenie pierwszego przebiegu w logu workera po wdrożeniu |
 | F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
 | F10 | Część 1: #58 scalony (2.0.17): typ treści przy pobieraniu stron, PDF/DOCX/TXT/MD podlinkowane na stronie przez izolowany parser, adres źródła zawsze pobierany, mapy stron stałych przed wpisami, jedna za duża odpowiedź nie przerywa pobierania. Część 2: #59 scalony (2.0.18): limit bazy wiedzy pod blokadą doradczą, zlecenia zadań po zatwierdzeniu transakcji, TXT w Windows-1250, ISO-8859-2 i UTF-16, tabele i pola tekstowe DOCX, przywrócone podłączenie sygnału dokumentów (usunięte w #21, 4.09.2026: dokumenty z panelu bez embeddingów) | Przegląd i CI części 2, jednorazowe przeliczenie dokumentów bez fragmentów po wdrożeniu, wdrożenie web i workera, kontrole z [kompletny-import.md](kompletny-import.md) |
 | F11 | Część 1: #64 wdrożony (2.0.22), migracja 0038 na produkcji; stan subskrypcji pobierany ze Stripe, dostęp do końca opłaconego okresu + 3 dni przy nieudanym odnowieniu, blokada drugiego zakupu, klucz idempotencji. Odbiór w trybie testowym 14.09.2026: zakup, odmowa drugiego zakupu, powtórka zakupu po anulowaniu i nieudane odnowienie zaliczone ([wynik](platnosci-spojnosc.md#wynik-odbioru---14092026)). Część 2 przygotowana do przeglądu (2.1.0): portal Stripe do zmiany planu (wyższy od razu z dopłatą, niższy od następnego okresu), karty, faktur i anulowania; potwierdzenie konkretnej sesji Checkout z uzgodnieniem stanu; zakup i portal tylko dla właściciela; e-mail przy wejściu w `past_due` | Część 2 scalona (#65, frontend_chatbot#17), odbiór w trybie testowym 14.09.2026: zakup bez webhooka, podwyżka z dopłatą, obniżka od następnego okresu, portal, uprawnienia, zmyślona sesja i nieudana płatność zaliczone ([wynik](platnosci-portal.md#wynik-odbioru---14092026)). Uwagi z odbioru (anulowanie i zaplanowana obniżka niewidoczne w panelu, anulowany plan jako obecny, 429 na ekranie płatności) naprawia 2.2.0 - przegląd, CI, migracja 0039 i wdrożenie. Po wdrożeniu produkcyjnym: pierwszy prawdziwy zakup obserwowany w logach |
 | F12 | DRF i strona poprawione; panel #13 aktualizuje Next.js do 16.3.5, sharp do 0.35.4 i zależności pośrednie; npm audit: 4 zgłoszenia → 0 | Panel #13: CI zielone, produkcja wdrożona; ponowne skany całości przed wydaniem |
-| F13 | Retencja aktywnych rozmów naprawiona, #39 | Końcowy odbiór polityki retencji |
-| F14 | #48/#52/#53 wdrożone: MFA, aktualne hasło przy konfiguracji, kod przy zmianie hasła i kończeniu sesji | Odbiór nowych ustawień, retencja i procedura utraty MFA |
-| F15 | #49–#54 i panel #15 wdrożone; reset, sesje i trwałe powiadomienia po zmianie hasła. CI #54: 1791 testów, 88,21% | Rzeczywisty odbiór ustawień/poczty, retencja sesji i kolejki, alarmy |
+| F13 | Retencja aktywnych rozmów naprawiona, #39 | Polityka wdrożona w 2.11.0, okresy zatwierdzone przez właściciela 17.09.2026. Zostaje to samo co przy F20: potwierdzenie pierwszego nocnego przebiegu w logu workera |
+| F14 | #48/#52/#53 wdrożone: MFA, aktualne hasło przy konfiguracji, kod przy zmianie hasła i kończeniu sesji | Odbiór nowych ustawień i procedura utraty MFA. Retencja wyzwań MFA objęta F20 (2.11.0): 24 h po wygaśnięciu |
+| F15 | #49–#54 i panel #15 wdrożone; reset, sesje i trwałe powiadomienia po zmianie hasła. CI #54: 1791 testów, 88,21% | Rzeczywisty odbiór ustawień i poczty. Retencja sesji i kolejki powiadomień objęta F20 (2.11.0). Alarmy: czujka z zewnątrz ustawiona 28.09.2026, alarm wywołany próbnie i odebrany ([opis](monitoring-dostepnosci.md)) |
 | F16 | Część 1 scalona (#67, panel #19, 2.3.0): pomiar liczby zapytań na wszystkich listach panelu (3 i 30 obiektów) wykrył N+1 w dokumentach (2 zapytania na dokument) i historii rozmów (1 na wpis) - naprawione, test pilnuje stałej liczby zapytań; historia rozmów i zapytania kontaktowe stronami (50, maks. 200); filtr ocen w historii ograniczony do rozmów firmy. Część 2 scalona (#68, panel #20, 2.4.0): dokumenty i FAQ stronami od najnowszych, publiczne FAQ widgetu najwyżej 100 wpisów, eksport CSV (API i panel administracyjny) strumieniem. [Opis](listy-i-zapytania.md). Część 3 przygotowana do przeglądu (2.4.1): jedno uwierzytelnienie na żądanie (żądanie panelu z JWT: 7 → 4 zapytania na /api/accounts/me/), limit panelu oddzielony od limitu czatu z testem pilnującym widoków widgetu, wolne żądania w logu (`WOLNE_ZADANIE_MS`), propozycja SLO. [Opis](slo-i-czasy-odpowiedzi.md) | Przegląd i CI części 3; akceptacja celów SLO przez właściciela i tydzień pomiaru wyjściowego po wdrożeniu; test obciążeniowy w odbiorze komercyjnym (etap 8) |
-| F17 | #57 scalony (2.0.16): publikacja w jednej transakcji pod blokadą wiersza dokumentu, kontrola aktualności treści, pominięcie dokumentów bez zmian, `acks_late` zadania i status błędu przy dokumencie | Wdrożenie web i workera, kontrole z [atomowa-publikacja-wektorow.md](atomowa-publikacja-wektorow.md) |
-| F18 | Część 1 (2.8.1): plik znika z magazynu razem z wierszem, do którego należał - każdą drogą usunięcia, nie tylko przyciskiem w panelu (panel administracyjny, kaskada przy usunięciu firmy, `queryset.delete()`); wymiana logo albo awatara kasuje poprzedni obraz. Kasowanie po zatwierdzeniu transakcji, z wyjściem przy odtwarzaniu kopii. [Opis](usuwanie-plikow.md) ; część 2 (2.11.1): limit blokuje wzrost bazy, a nie stan „ponad limit" - po zejściu z wyższego planu klient może odświeżać i zmniejszać wiedzę, czego wcześniej nie mógł, a komunikat rozróżnia „przekroczyłaby" od „przekracza" | Raport plików osieroconych okazał się zbędny (17.09.2026: 1 obiekt w magazynie wobec 1 dokumentu z plikiem, zero sierot); pokazanie zajętości bazy wiedzy w panelu - dziś klient dowiaduje się o przekroczeniu dopiero przy nieudanym wgraniu |
-| F19 | #60 scalony, produkcja zwraca 2.0.19: neutralizacja formuł i BOM w obu eksportach, eksport odporny na rozmowy usunięte retencją, import w całości albo wcale z limitami i czytelnymi błędami, import poza statystykami ruchu, ocena z widgetu wymaga sesji rozmowy, panel ocenia tylko rozmowy testowe | Przegląd i CI, wdrożenie frontendu (frontend_chatbot#16) przed backendem, kontrole z [csv-i-oceny.md](csv-i-oceny.md) |
+| F17 | #57 scalony (2.0.16): publikacja w jednej transakcji pod blokadą wiersza dokumentu, kontrola aktualności treści, pominięcie dokumentów bez zmian, `acks_late` zadania i status błędu przy dokumencie | Kontrole z [atomowa-publikacja-wektorow.md](atomowa-publikacja-wektorow.md) |
+| F18 | Część 1 (2.8.1): plik znika z magazynu razem z wierszem, do którego należał - każdą drogą usunięcia, nie tylko przyciskiem w panelu (panel administracyjny, kaskada przy usunięciu firmy, `queryset.delete()`); wymiana logo albo awatara kasuje poprzedni obraz. Kasowanie po zatwierdzeniu transakcji, z wyjściem przy odtwarzaniu kopii. [Opis](usuwanie-plikow.md) ; część 2 (2.11.1): limit blokuje wzrost bazy, a nie stan „ponad limit" - po zejściu z wyższego planu klient może odświeżać i zmniejszać wiedzę, czego wcześniej nie mógł, a komunikat rozróżnia „przekroczyłaby" od „przekracza" | **Zamknięte 29.09.2026.** Raport plików osieroconych okazał się zbędny (17.09.2026: 1 obiekt w magazynie wobec 1 dokumentu z plikiem, zero sierot). Zajętość bazy wiedzy widać w panelu na liście dokumentów (2.12.0 i panel #32): pasek z procentem, także powyżej 100%, więc klient nie dowiaduje się o przekroczeniu dopiero przy nieudanym wgraniu |
+| F19 | #60 scalony, produkcja zwraca 2.0.19: neutralizacja formuł i BOM w obu eksportach, eksport odporny na rozmowy usunięte retencją, import w całości albo wcale z limitami i czytelnymi błędami, import poza statystykami ruchu, ocena z widgetu wymaga sesji rozmowy, panel ocenia tylko rozmowy testowe | Kontrole z [csv-i-oceny.md](csv-i-oceny.md) |
 | F20 | Częściowo: 2.0.11 ogranicza body/cookies/zmienne lokalne i argumenty zadań w Sentry; 2.5.0 (część 1): odczyty wynoszące dane i zdarzenia dostępu w dzienniku z osobą i firmą, Sentry bez zapytań i tokenów z adresu, log bez e-maila zaproszenia, inwentarz przepływów i retencji ; 2.10.0: `raport_retencji` - ile danych zniknęłoby przy każdym progu, z liczbami zgodnymi z tym, co zrobi usuwanie; nic nie kasuje ; 2.11.0: okresy zatwierdzone przez właściciela 17.09.2026 (dziennik 12 mies., zaproszenia 30 dni, sesje i wyzwania MFA 24 h po wygaśnięciu, rejestracje 7 dni, powiadomienia 90 dni), reguły w jednym module dla raportu i usuwania, nocne zadanie o 3:45 na istniejącym workerze, testy granic i przebiegu przerwanego w połowie | Retencja Rendera (7 dni) i Sentry (30 dni, plan Developer) sprawdzone 28.09.2026 i wpisane do tabeli przepływów. Zostaje potwierdzenie pierwszego nocnego przebiegu sprzątania: do 28.09.2026 zadanie nie wykonało się ani razu, bo worker go nie znał - naprawione w 2.14.1 |
 | F21 | Kontrola kopii #41, dostępny PITR; 2.0.14: zaszyfrowany pełny format, próba odtworzenia bazy i plików na danych syntetycznych; 2.9.0: `kontrola_pelnej_kopii` (sama znajduje najnowszą kopię `.saas`, brak kopii to błąd, nie cisza), `kontrola_obecnosci_kopii` (bez klucza szyfrowania, do uruchomienia poza Renderem) i przebieg GitHub Actions jako niezależny monitor braku przebiegów; [protokół odbioru](odbior-f21.md). **Zamknięte 17.09.2026.** Pierwsza pełna kopia produkcji, izolowane odtworzenie na PG16 w 2,49 s, dane i pliki w komplecie, RTO danych ~10 min. Kopia miesięczna ręcznie (decyzja właściciela: bez płatnego crona), deklarowane RPO do miesiąca. Monitor braku przebiegów co tydzień poza Renderem, alarm wywołany próbnie i odebrany - pierwsza próba wykryła, że przebieg połyka kod błędu w potoku (2.9.2). [Wynik](odbior-f21.md#wynik-odbioru---17092026) | RTO produkcji niezmierzone (wymaga odbudowy usług). Retencja archiwum dodana w 2.15.0: 365 dni dla pełnych kopii, 90 dla dziennych, zawsze zostają 3 najnowsze; uruchamiana ręcznie, bo kopie też powstają ręcznie ([opis](harmonogram-i-kontrola-kopii.md#retencja-archiwum-kopii-2150)) |
-| F22 | Upload, formularze, reset i ustawienia bezpieczeństwa wdrożone w panelu #15/backendzie #53. Stan zakupu w F11 część 2 (2.1.0): strona sukcesu pyta o konkretną sesję, rozróżnia aktywny plan, płatność w toku, wygasłą sesję i cudzą albo nieistniejącą płatność; ostrzeżenie o nieudanej płatności na ekranie Subskrypcja. Część 1 (panel #23): Prywatność i Widget blokują zapis do poprawnego odczytu ustawień (wcześniej zapis wartości domyślnych mógł skrócić okres przechowywania i usunąć rozmowy), Zespół i Subskrypcja bez fałszywych pustych stanów. Część 2 (2.6.0): lista pierwszych kroków na pulpicie - wiedza, rozmowa testowa, widget na publicznej witrynie, adres powiadomień, polityka prywatności. Część 3 (panel #28): granica roli pokazywana jako wyjaśnienie, nie awaria - Zespół i Ustawienia konta zamiast komunikatu z DRF, pracownik bez formularza zaproszeń, który i tak go odbijał. Część 4 (panel #29): zmiana roli osoby w Zespole, dotąd możliwa wyłącznie przez API albo panel administracyjny; odmowa backendu cofa wybór i pokazuje powód (ostatni aktywny właściciel) | Odbiór ustawień i rzeczywistych e-maili; odbiór stanu zakupu z F11; odbiór listy pierwszych kroków na nowym koncie; usunięcie osoby z zespołu i import CSV w panelu (backend gotowy, brak drogi z panelu) |
-| F23 | Kod #1 strony wdrożony; test SMTP i odbiór w skrzynce zaliczone | Pełny E2E Turnstile, rzeczywiste IP za proxy, alerty i docelowy proces backup/restore |
+| F22 | Upload, formularze, reset i ustawienia bezpieczeństwa wdrożone w panelu #15/backendzie #53. Stan zakupu w F11 część 2 (2.1.0): strona sukcesu pyta o konkretną sesję, rozróżnia aktywny plan, płatność w toku, wygasłą sesję i cudzą albo nieistniejącą płatność; ostrzeżenie o nieudanej płatności na ekranie Subskrypcja. Część 1 (panel #23): Prywatność i Widget blokują zapis do poprawnego odczytu ustawień (wcześniej zapis wartości domyślnych mógł skrócić okres przechowywania i usunąć rozmowy), Zespół i Subskrypcja bez fałszywych pustych stanów. Część 2 (2.6.0): lista pierwszych kroków na pulpicie - wiedza, rozmowa testowa, widget na publicznej witrynie, adres powiadomień, polityka prywatności. Część 3 (panel #28): granica roli pokazywana jako wyjaśnienie, nie awaria - Zespół i Ustawienia konta zamiast komunikatu z DRF, pracownik bez formularza zaproszeń, który i tak go odbijał. Część 4 (panel #29): zmiana roli osoby w Zespole, dotąd możliwa wyłącznie przez API albo panel administracyjny; odmowa backendu cofa wybór i pokazuje powód (ostatni aktywny właściciel) | Odbiór ustawień i rzeczywistych e-maili; odbiór stanu zakupu z F11; odbiór listy pierwszych kroków na nowym koncie; import CSV w panelu (backend gotowy, brak drogi z panelu - sprawdzone 29.09.2026). Usunięcie osoby z zespołu jest w panelu razem z potwierdzeniem, wiersz żądał go jeszcze po wdrożeniu |
+| F23 | Kod #1 strony wdrożony; test SMTP i odbiór w skrzynce zaliczone | Pełny E2E Turnstile, rzeczywiste IP za proxy, alerty. Docelowy proces backup/restore zamknięty w F21 17.09.2026 ([wynik](odbior-f21.md#wynik-odbioru---17092026)) |
 | F24 | Część 1 scalona (#70, panel #21): wszystkie kontrole CI backendu blokujące, eslint bez ostrzeżeń, test martwych odnośników w dokumentacji, README bez nieaktualnych ograniczeń; ochrona `main` w obu repozytoriach ustawiona przez właściciela 15.09.2026 (wymagane kontrole CI, obejście dla administratora). Część 2 przygotowana do przeglądu: mypy 47 → 0 (puste listy uprawnień jako krotki, adnotacje w panelu administracyjnym, wyjątki Stripe, typy parametrów), ruff 29 → 15 (długie wiersze w kodzie złamane, treść szablonu e-maila i fixtur z wyjątkiem) | Przegląd i CI części 2. Zostaje świadomie: 9 pól tekstowych z null=True (migracja na żywej bazie) i 6 uwag o kolejności w modelach (kosmetyka) |
 | F25 | #56 scalony (2.0.15): FAQ wybierane po dopasowaniu do pytania, treść klienta między ogranicznikami, wycięcie tokenów protokołu z treści; regresja RAG już w CI | Zamknięte 13.09.2026. Regresja znacznika z 2.0.15 wykryta przy odbiorze, przyczyna wskazana pomiarem wariantów (#61), poprawka #62. Odbiór 2.0.21 na produkcji, 5 powtórzeń: odmowy trafne 100%, fałszywe 0%, uprzejmości 0% i 0%, oparte na wiedzy 100%. Szczegóły w [faq-i-rozdzielenie-tresci.md](faq-i-rozdzielenie-tresci.md) |
 
