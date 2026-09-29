@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.15.0] — 2026-09-29
+
+### Added
+
+- **Old backups can now be removed, carefully.** Nothing deleted them before,
+  which meant personal data of customers who had left stayed in the archive
+  indefinitely even after retention removed it from the database. Full backups
+  are kept for a year, daily ones for 90 days - but the three newest in each
+  archive are kept regardless of age, because age alone would empty the archive
+  whenever backups stopped being made, which is exactly when they are needed.
+  Anything the tool does not recognise as its own backup is left alone, and
+  deleting requires an explicit flag: there is no backup of a backup.
+
 ## [2.14.1] — 2026-09-28
 
 ### Fixed
