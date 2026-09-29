@@ -195,7 +195,7 @@ def _tresc(znalezione: list[dict]) -> str:
 
 def sprawdz_rozmiary() -> int:
     """Zgłasza firmy przy progu. Zwraca liczbę zgłoszeń."""
-    from accounts.czuwanie import _adres_operatora
+    from accounts.czuwanie import adres_operatora
 
     znalezione = firmy_przy_progu()
     if not znalezione:
@@ -213,7 +213,7 @@ def sprawdz_rozmiary() -> int:
             subject=temat,
             message=_tresc(znalezione),
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[_adres_operatora()],
+            recipient_list=[adres_operatora()],
             fail_silently=False,
         )
         if not wyslane:

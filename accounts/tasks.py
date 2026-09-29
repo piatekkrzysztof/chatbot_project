@@ -33,7 +33,14 @@ from django.core.mail import send_mail
 # w module o innej nazwie trzeba dopisać do tej listy - pilnuje tego
 # accounts/tests/test_rejestracja_zadan.py, który porównuje harmonogram
 # z tym, co worker naprawdę zna.
-from accounts import cisza, czuwanie, rozmiar_bazy, tasks_konce, tasks_retencja  # noqa: F401
+from accounts import (  # noqa: F401
+    cisza,
+    czuwanie,
+    rozmiar_bazy,
+    tasks_konce,
+    tasks_retencja,
+    tasks_rezerwacje,
+)
 
 logger = logging.getLogger(__name__)
 
