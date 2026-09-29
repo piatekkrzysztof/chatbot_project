@@ -485,6 +485,12 @@ jobs:
           assert not list(root.rglob('tests'))
           for package in ('pytest', 'factory', 'reportlab'):
               assert importlib.util.find_spec(package) is None, package
+          # Narzędzia budowania usunięte w ostatnim etapie: nic ich w runtime
+          # nie uruchamia, a dopóki tam leżały, skan podatności zgłaszał ich
+          # kopie z `setuptools/_vendor` przy każdym przebiegu - zgłoszenia,
+          # których nie dało się naprawić po naszej stronie.
+          for package in ('pip', 'setuptools', 'wheel'):
+              assert importlib.util.find_spec(package) is None, package
           for name in ('accounts/models.py', 'api/views/widget.py', 'chat/models.py',
                        'documents/models.py', 'chatbot_project/settings/prod.py',
                        'rag/ocena/wzorzec.json', 'accounts/templates/admin/mfa_login.html'):
@@ -506,6 +512,12 @@ jobs:
       # to ruchomy znacznik, więc świeży obraz bazowy często wystarcza), potem
       # sprawdź, czy poprawka jest w nowszym wydaniu Pythona. Wyłączenie tego
       # kroku jest decyzją właściciela, nie sposobem na zielone CI.
+      #
+      # Pierwszy przebieg zapalił się na czerwono i było to trafienie prawdziwe:
+      # cztery podatności HIGH w narzędziach budowania, których obraz runtime
+      # w ogóle nie potrzebował. `ignore-unfixed` ich nie pominął, bo poprawki
+      # istnieją - tyle że po stronie setuptools, nie naszej. Naprawione
+      # usunięciem pip, setuptools i wheel z ostatniego etapu obrazu.
       - name: Podatności w obrazie
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -526,6 +538,32 @@ jobs:
             -e OPENAI_API_KEY=not-used-nothing-is-called \
             chatbot-backend:ci \
             python -c "from chatbot_project.wsgi import application; print('WSGI OK')"
+
+      # Worker wczytuje inny zestaw modułów niż WSGI i to on wykonuje zadania
+      # z harmonogramu. Dopisane razem z usunięciem setuptools z obrazu:
+      # sprawdzenie samego WSGI nie zauważyłoby, gdyby zabrakło czegoś,
+      # czego potrzebuje dopiero Celery przy wczytywaniu zadań.
+      - name: Worker wczytuje swoje zadania
+        run: |
+          docker run --rm \
+            -e DJANGO_ENV=prod \
+            -e DJANGO_SECRET_KEY=ci-secret-key-not-used-outside-ci \
+            -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/nieuzywana \
+            -e DJANGO_ALLOWED_HOSTS=example.com \
+            -e OPENAI_API_KEY=not-used-nothing-is-called \
+            chatbot-backend:ci \
+            python - <<'PY'
+          from chatbot_project.celery import app
+
+          app.loader.import_default_modules()
+          brakujace = [
+              wpis["task"]
+              for wpis in app.conf.beat_schedule.values()
+              if wpis["task"] not in app.tasks
+          ]
+          assert not brakujace, brakujace
+          print(f"Worker zna wszystkie {len(app.conf.beat_schedule)} zadania")
+          PY
 
   zaleznosci-produkcyjne:
     name: Zależności produkcyjne
