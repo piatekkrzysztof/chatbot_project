@@ -95,10 +95,12 @@ jak alarm, który dzwoni bez powodu.
 5. Retencja i alerty zgłoszeń z formularza oraz prawdziwy adres klienta za
    proxy (F07, F23). F20 objęła dziennik, zaproszenia, sesje, wyzwania MFA,
    rejestracje i kolejkę powiadomień, ale nie zgłoszenia.
-6. Umowa powierzenia przetwarzania danych. Nie ma numeru F, bo audyt jej nie
-   objął, a bez niej nie sprzedaje się w UE firmie, która ma własne RODO.
-   Materiał jest gotowy w [przepływach danych](przeplywy-danych.md): komplet
-   podprzetwarzających, kategorie danych i okresy przechowywania.
+6. Umowa powierzenia: **wzór napisany**, do przejrzenia przez prawnika
+   i do pięciu decyzji właściciela ([wzór](umowa-powierzenia.md)). Nie ma
+   numeru F, bo audyt jej nie objął, a bez niej nie sprzedaje się w UE firmie,
+   która ma własne RODO. Otwarta zostaje przede wszystkim podstawa
+   przekazywania danych poza EOG - kolumna w załączniku B jest pusta celowo,
+   bo tego nie da się rozstrzygnąć czytaniem naszego kodu.
 7. Przeglądy i CI części, które czekają: F10 część 2, F16 część 3, F24
    część 2. Skany: obraz Dockera (F05), ponowne skany zależności (F12).
 
