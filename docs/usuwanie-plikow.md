@@ -2,9 +2,14 @@
 
 Stan na 17.09.2026, wersja 2.8.1. Pierwsza część F18 z
 [roadmapy](roadmapa-po-audycie.md): spójne usuwanie pochodnych. Dotyczy
-plików w magazynie, nie okresów przechowywania - **ten dokument nie włącza
-żadnego nowego automatycznego usuwania danych**, zgodnie z zastrzeżeniem
-z [przepływów danych](przeplywy-danych.md#dlaczego-bez-nowego-usuwania).
+plików w magazynie, nie okresów przechowywania: tamte opisują
+[przepływy danych](przeplywy-danych.md#dane-osobowe-i-czas-przechowywania).
+
+W wersji 2.8.1 stało tu zastrzeżenie, że nic tu nie włącza nowego
+automatycznego usuwania danych - warunek postawiony do czasu odbioru kopii
+i odtworzenia. Odbiór odbył się 17.09.2026 (F21), automatyczne usuwanie
+retencyjne ruszyło w 2.11.0, a retencja archiwum kopii w 2.15.0. Zastrzeżenie
+odsyłało przy okazji do nagłówka, którego od dawna nie ma.
 
 ## Po co
 
