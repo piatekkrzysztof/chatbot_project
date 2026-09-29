@@ -92,6 +92,12 @@ Dziennik czyta tylko właściciel firmy, wyłącznie wpisy własnej firmy
 
 ## Kto przetwarza dane poza naszą bazą
 
+Ta tabela jest źródłem załącznika B [umowy powierzenia](umowa-powierzenia.md),
+czyli listy, którą klient bierze do własnego audytu. Dopisanie tu usługi bez
+dopisania jej tam zamienia zdanie „to są wszyscy" w nieprawdę - pilnuje tego
+test w `chatbot_project/tests/test_umowa_powierzenia.py`, więc CI nie pozwoli
+o tym zapomnieć.
+
 | Usługa | Co dostaje | Po co |
 |---|---|---|
 | Render | Całość: API, worker, PostgreSQL, Redis, logi | Hosting |
