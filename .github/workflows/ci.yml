@@ -492,6 +492,30 @@ jobs:
           print('Kod runtime obecny; sekrety, dane i narzędzia testowe wykluczone')
           PY
 
+      # pip-audit wyżej sprawdza nasze zależności Pythona. To zadanie sprawdza
+      # drugą połowę obrazu, której tamto nie widzi: pakiety systemowe Debiana
+      # przyniesione przez `python:3.11-slim`. Bez tego skanu żadna kontrola nie
+      # patrzyła na warstwę, która stanowi większość obrazu.
+      #
+      # `ignore-unfixed` jest tu warunkiem sensowności, nie wygody. Podatność
+      # bez dostępnej poprawki nie daje się naprawić przebudową ani podbiciem
+      # wersji - blokowanie na niej zatrzymałoby wszystkie PR-y do czasu, aż
+      # ktoś obcy wyda łatkę. Blokujemy na tym, co da się naprawić dzisiaj.
+      #
+      # Gdy to zapali się na czerwono: najpierw przebuduj bez cache'u (`slim`
+      # to ruchomy znacznik, więc świeży obraz bazowy często wystarcza), potem
+      # sprawdź, czy poprawka jest w nowszym wydaniu Pythona. Wyłączenie tego
+      # kroku jest decyzją właściciela, nie sposobem na zielone CI.
+      - name: Podatności w obrazie
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: chatbot-backend:ci
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+          scanners: vuln
+
       - name: Obraz wstaje i widzi swoją konfigurację
         run: |
           docker run --rm \
