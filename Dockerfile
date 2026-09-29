@@ -39,6 +39,22 @@ COPY chatbot_project/ ./chatbot_project/
 COPY documents/ ./documents/
 COPY rag/ ./rag/
 
+# Obraz runtime nie instaluje niczego, więc nie potrzebuje pip, setuptools ani
+# wheel. Dopóki tu leżały, skan podatności zgłaszał je co przebieg - i były to
+# zgłoszenia nie do naprawienia: setuptools wozi w `_vendor` własne kopie
+# jaraco.context i wheel, a sprawdzone setuptools 80.9.0 wozi dokładnie te
+# same podatne wersje co 79.0.1. Podbicie wersji nic nie dawało, bo poprawka
+# musiałaby wyjść po stronie setuptools, nie naszej.
+#
+# Usunięcie ich naprawia przyczynę zamiast uciszać objaw i przy okazji zdejmuje
+# z obrazu produkcyjnego kod, który potrafi rozpakowywać archiwa i instalować
+# pakiety - a tego w działającej usłudze nie robi nic.
+#
+# Sprawdzone przed usunięciem: ani nasz kod, ani Django, celery i kombu nie
+# importują `pkg_resources`. Sentry ma taki import wyłącznie jako gałąź dla
+# Pythona starszego niż 3.8, za `try/except ImportError`.
+RUN pip uninstall --yes setuptools wheel pip
+
 # Procesy aplikacji działają jako zwykły użytkownik.
 RUN useradd --create-home --uid 10001 aplikacja \
     && chown -R aplikacja:aplikacja /app
