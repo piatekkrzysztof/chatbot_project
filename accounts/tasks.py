@@ -38,6 +38,7 @@ from accounts import (  # noqa: F401
     czuwanie,
     rozmiar_bazy,
     tasks_konce,
+    tasks_probne,
     tasks_retencja,
     tasks_rezerwacje,
 )
