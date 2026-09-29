@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.18.0] — 2026-09-29
+
+### Added
+
+- **The container image is now scanned for known vulnerabilities.** Our own
+  Python dependencies were already checked on every run, but that is the
+  smaller half of the image: the rest comes from the Debian base, and nothing
+  was looking at it. The scan blocks a merge only on problems that have a fix
+  available - a vulnerability nobody has patched yet cannot be fixed by us
+  either, and a gate that cannot be satisfied is a gate people learn to switch
+  off.
+
 ## [2.17.0] — 2026-09-29
 
 ### Added
