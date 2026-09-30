@@ -11,7 +11,9 @@ z żądania HTTP:
 
   • ponowne pobieranie stron WWW co 12 godzin — płatna obietnica planów Grow
     i Pro (baza wiedzy nadąża za zmianami na stronie klienta),
-  • czyszczenie rozmów po okresie retencji — obowiązek wynikający z RODO.
+  • czyszczenie rozmów po okresie retencji — obowiązek wynikający z RODO,
+  • nocne czuwanie nad rezerwacjami AI — pieniądze: bilet, przy którym nie
+    wiadomo, czy praca się odbyła, zajmuje klientowi wiadomość z limitu.
 
 Dlatego nie pytamy tylko brokera „czy ktoś odpowiada", ale też danych: czy
 strony faktycznie były ostatnio pobrane i czy w bazie nie zalegają rozmowy
@@ -27,7 +29,8 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Tenant
+from accounts import rezerwacje
+from accounts.models import MessageReservation, Tenant
 from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from chat.models import Conversation
 from documents.models import WebsiteSource
@@ -205,7 +208,72 @@ def _slad_retencji(teraz, tenant_zadania):
     }
 
 
-def _poziom(broker, pobieranie, retencja):
+def _slad_rezerwacji(teraz, tenant):
+    """
+    Czy nocne czuwanie nad rezerwacjami AI zostawia ślad w danych.
+
+    Zadanie robi dwie rzeczy i tylko jedna jest widoczna stąd. Sprzątanie
+    usuwa bilety rozliczone dawniej niż okres przechowywania, więc bilet,
+    który ten okres przekroczył i wciąż leży, jest dowodem, że zadanie nie
+    przebiegło. Wysyłki alarmu z bazy nie widać wcale i nie udajemy, że widać.
+
+    Dobę zapasu liczymy tak samo jak przy retencji: zadanie chodzi o 4:00,
+    więc bilet, który przekroczył próg trzy godziny temu, jest normalny.
+
+    `do_rozliczenia` to osobna sprawa i nie mówi o zdrowiu zadania - zadanie
+    może działać bezbłędnie i mieć co zgłaszać. To jedyna liczba w tej
+    diagnostyce dotycząca pieniędzy: każdy taki bilet zajmuje klientowi jedną
+    wiadomość z limitu do końca cyklu, choć nie wiadomo, czy bot odpowiedział.
+    """
+    okres = rezerwacje.OKRES_ROZLICZONYCH
+    do_rozliczenia = rezerwacje.nierozliczone(teraz).filter(tenant=tenant).count()
+
+    # Przesunięcie `teraz` o dobę wstecz cofa próg wieku o tę samą dobę,
+    # bez powtarzania tutaj reguły, którą zna `accounts/rezerwacje.py`.
+    zalegle = (
+        rezerwacje.rozliczone_do_usuniecia(teraz - timedelta(days=1)).filter(tenant=tenant).count()
+    )
+
+    # Czy którykolwiek bilet zbliżył się do progu. Bez tego brak zaległości
+    # znaczyłby „sprzątanie działa" także wtedy, gdy najstarszy rozliczony
+    # bilet ma tydzień przy okresie 90 dni - czyli gdy nie było czego kasować.
+    dobil_do_progu = (
+        MessageReservation.objects.filter(tenant=tenant, created_at__lt=teraz - okres * 0.8)
+        .exclude(state="pending")
+        .exists()
+    )
+
+    if zalegle:
+        return {
+            "do_rozliczenia": do_rozliczenia,
+            "zaleglych_biletow": zalegle,
+            "wniosek": "nie-dziala",
+            "opis": (
+                f"{zalegle} rozliczonych biletów przekracza {okres.days} dni i nadal "
+                "leży w bazie. Nocne sprzątanie rezerwacji się nie wykonuje."
+            ),
+        }
+
+    if not dobil_do_progu:
+        return {
+            "do_rozliczenia": do_rozliczenia,
+            "zaleglych_biletow": 0,
+            "wniosek": "brak-danych",
+            "opis": (
+                f"Żaden rozliczony bilet nie zbliżył się do {okres.days} dni, więc nie ma "
+                "czego kasować - brak zaległości nie dowodzi, że sprzątanie działa."
+            ),
+        }
+
+    return {
+        "do_rozliczenia": do_rozliczenia,
+        "zaleglych_biletow": 0,
+        "wniosek": "dziala",
+        "opis": f"Są bilety w okolicy {okres.days} dni i żaden nie przekracza progu.",
+    }
+
+
+def _poziom(broker, sygnaly):
     """
     Powaga stanu w jednym słowie, wyliczana po stronie serwera.
 
@@ -213,29 +281,38 @@ def _poziom(broker, pobieranie, retencja):
     dwie definicje tego, co znaczy „awaria" — tu i w przeglądarce — i prędzej
     czy później by się rozjechały. Kolejność warunków musi odpowiadać
     kolejności w _werdykt, żeby kolor zgadzał się z treścią.
-    """
-    slady = [pobieranie["wniosek"], retencja["wniosek"]]
 
-    if "nie-dziala" in slady:
+    Sygnały przychodzą listą, a nie osobnymi argumentami. Przy dwóch to była
+    różnica bez znaczenia; przy trzecim okazało się, że dopisanie sygnału
+    wymagało ruszania każdej gałęzi osobno — a to jest dokładnie ten rodzaj
+    pracy, przy którym łatwo zapomnieć o jednej z nich.
+    """
+    wnioski = [sygnal["wniosek"] for _, sygnal in sygnaly]
+
+    if "nie-dziala" in wnioski:
         return "awaria"
     if not broker["broker_osiagalny"] or broker["odpowiedzialo_workerow"] == 0:
         return "awaria"
-    if "nie-probowano" in slady or "brak-danych" in slady:
+    if "nie-probowano" in wnioski or "brak-danych" in wnioski:
+        return "uwaga"
+    # Zadanie działa, ale ma co zgłosić. To nie awaria zaplecza, tylko sprawa
+    # czekająca na człowieka - i nie może wyglądać na „wszystko w porządku",
+    # bo klient płaci za wiadomości zajęte przez te bilety.
+    if any(sygnal.get("do_rozliczenia") for _, sygnal in sygnaly):
         return "uwaga"
     return "ok"
 
 
-def _werdykt(broker, pobieranie, retencja):
+def _werdykt(broker, sygnaly):
     """
     Jedno zdanie, od którego można zacząć działać.
 
-    Składane z obu sygnałów osobno, a nie z jednej wspólnej gałęzi. Wcześniej
-    komunikat „brak danych" był zaszyty pod pobieranie stron, więc gdy danych
-    brakowało retencji, werdykt kazał dodać źródło WWW — komuś, kto miał trzy
-    i właśnie je pobrał. Diagnostyka, która myli sygnały, kieruje w złe miejsce.
+    Składane z każdego sygnału osobno, a nie z jednej wspólnej gałęzi.
+    Wcześniej komunikat „brak danych" był zaszyty pod pobieranie stron, więc
+    gdy danych brakowało retencji, werdykt kazał dodać źródło WWW — komuś, kto
+    miał trzy i właśnie je pobrał. Diagnostyka, która myli sygnały, kieruje
+    w złe miejsce.
     """
-    sygnaly = (("pobieranie stron", pobieranie), ("czyszczenie RODO", retencja))
-
     # 1. Awarie mają pierwszeństwo i muszą wskazywać właściwą przyczynę:
     #    stare pobieranie to zegar, zaległe rozmowy to zadanie czyszczące,
     #    zapisany błąd crawlera to ani jedno, ani drugie.
@@ -271,7 +348,7 @@ def _werdykt(broker, pobieranie, retencja):
     # wyżej i potrafiła oznajmić „zaplecze działa (worker odpowiada: 0)" —
     # zdanie wewnętrznie sprzeczne, w dodatku niezgodne z polem `poziom`,
     # które w tej samej sytuacji zwracało awarię.
-    if pobieranie["wniosek"] == "nie-probowano":
+    if any(sygnal["wniosek"] == "nie-probowano" for _, sygnal in sygnaly):
         return (
             f"Zaplecze działa (worker odpowiada: {broker['odpowiedzialo_workerow']}), ale "
             "żadnego źródła WWW nie próbowano jeszcze pobrać. To nie jest awaria — "
@@ -279,7 +356,20 @@ def _werdykt(broker, pobieranie, retencja):
             "przy źródłach w panelu albo poczekaj na najbliższy przebieg harmonogramu."
         )
 
-    # 2. Nic nie jest zepsute. Zostaje pytanie, ile z tego umiemy potwierdzić —
+    # 2. Zadanie działa, ale zostawiło sprawę dla człowieka. Przed gałęzią
+    #    „wszystko działa", bo inaczej bilety zajmujące klientowi limit
+    #    zniknęłyby pod zdaniem „wszystko działa".
+    czekajace = sum(sygnal.get("do_rozliczenia") or 0 for _, sygnal in sygnaly)
+    if czekajace:
+        return (
+            f"ZAPLECZE DZIAŁA, ALE {czekajace} REZERWACJI AI CZEKA NA ROZLICZENIE. "
+            "Każda zajmuje jedną wiadomość z limitu do końca cyklu, choć nie wiadomo, "
+            "czy bot odpowiedział. Rozliczenia nie robi żaden automat, bo trzeba "
+            "najpierw ustalić, czy praca się odbyła: "
+            "`python manage.py check_message_reservations`."
+        )
+
+    # 3. Nic nie jest zepsute. Zostaje pytanie, ile z tego umiemy potwierdzić —
     #    i tu trzeba nazwać konkretny sygnał, a nie mówić ogólnie „brak danych".
     potwierdzone = [nazwa for nazwa, s in sygnaly if s["wniosek"] == "dziala"]
     niepotwierdzone = [nazwa for nazwa, s in sygnaly if s["wniosek"] == "brak-danych"]
@@ -322,6 +412,12 @@ class DiagnostykaZadanView(APIView):
         broker = _stan_brokera()
         pobieranie = _slad_pobierania(teraz, request.tenant)
         retencja = _slad_retencji(teraz, request.tenant)
+        rezerwacje_slad = _slad_rezerwacji(teraz, request.tenant)
+        sygnaly = (
+            ("pobieranie stron", pobieranie),
+            ("czyszczenie RODO", retencja),
+            ("rozliczanie rezerwacji AI", rezerwacje_slad),
+        )
 
         try:
             from chatbot_project.celery import app
@@ -338,14 +434,15 @@ class DiagnostykaZadanView(APIView):
                 "slady_w_danych": {
                     "pobieranie_stron": pobieranie,
                     "czyszczenie_rodo": retencja,
+                    "rozliczanie_rezerwacji": rezerwacje_slad,
                 },
                 # Dwa sygnały o tym, co widzi klient, a nie o zapleczu. Poziom
                 # ogólny ich nie obejmuje: niepełna podstrona nie znaczy, że system
                 # nie działa, tylko że wiedza jest uboższa, niż się wydaje.
                 "baza_wiedzy": _zdrowie_bazy_wiedzy(request.tenant),
                 "poczta": _zdrowie_poczty(request.tenant),
-                "poziom": _poziom(broker, pobieranie, retencja),
-                "werdykt": _werdykt(broker, pobieranie, retencja),
+                "poziom": _poziom(broker, sygnaly),
+                "werdykt": _werdykt(broker, sygnaly),
             }
         )
 

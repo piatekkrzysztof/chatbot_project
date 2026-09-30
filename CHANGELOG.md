@@ -16,6 +16,20 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.0] — 2026-09-30
+
+### Added
+
+- **The Status tab now shows whether the nightly reservation job is doing its
+  work.** It has been running since 2.16.0, but the only way to see the result
+  was to open the worker's log on the hosting panel - and a check somebody has
+  to remember to go and look at is not a check; that is the same mistake that
+  let a bot stay silent for a day in August. The card names the one number on
+  that page that means money: messages held by tickets nobody has settled,
+  each one taken out of a customer's monthly allowance for work that may never
+  have happened. When there is nothing old enough to clean up, the card says
+  it cannot confirm the job works rather than claiming it does.
+
 ## [2.18.0] — 2026-09-29
 
 ### Added
