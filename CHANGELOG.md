@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.5] - 2026-09-30
+
+### Operations
+
+- Raport plików bez odwołania: komenda raport_plikow czyta metadane
+  dokumentów i brandingu, rozróżnia żywe powiązania, świeże uploady oraz
+  zlecenia A04. Starsze pliki bez odwołania oznacza do ręcznej weryfikacji.
+  Niczego nie kasuje, nie pobiera treści ani nie zapisuje zleceń.
+- Limit czasu/obiektów i błąd magazynu dają jawnie niepełny raport.
+  Domyślnie nazwy są ukryte. Instrukcja: docs/raport-plikow-bez-odwolania.md.
+  Wymaga wcześniej wdrożonego A04; bez dodatkowych migracji i usług.
+
 ## [2.19.4] - 2026-09-30
 
 ### Fixed
