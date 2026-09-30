@@ -174,3 +174,16 @@ próba utrzymania nowego workera przy starszym web wymaga kontroli zgodności.
   kopie, CDN i polityki dostawcy wymagają osobnego odbioru infrastruktury.
 - Odbiory A01/A02 i A03/A05, końcowy test obciążenia oraz pozostałe bramki
   odbioru komercyjnego zachowują status z roadmapy; A04 ich nie zamyka.
+
+
+## Dodatkowa blokada wykryta przez CI
+
+Pierwszy skan obrazu dla A04 zgłosił CVE-2026-75804 i CVE-2026-84782
+w trzech pakietach OpenSSL (sześć trafień HIGH). Obraz bazowy zawierał
+3.5.7-1~deb13u2, podczas gdy repozytorium bezpieczeństwa Debiana udostępniało
+3.5.7-1~deb13u3. Dockerfile wykonuje teraz aktualizację pakietów systemowych.
+Nie dodano wyjątków skanera. Przy kolejnej poprawce systemowej i trafieniu
+w cache trzeba przebudować obraz z --pull --no-cache; samo ponowne
+uruchomienie tego samego zbuforowanego kroku nie odświeża pakietów.
+
+Źródło wersji: [Debian Security Tracker — OpenSSL](https://security-tracker.debian.org/tracker/source-package/openssl).

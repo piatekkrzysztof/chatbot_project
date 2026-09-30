@@ -27,6 +27,12 @@ fails if it drifts from the newest entry here.
 - Zabezpieczone odtwarzanie pełnej kopii wstrzymuje niedokończone zlecenia
   kasowania, żeby próba restore nie uruchomiła ich w źródłowym magazynie.
 
+### Security
+
+- Obraz kontenera aktualizuje pakiety systemowe z repozytoriów Debiana.
+  Skan CI wykrył poprawione już podatności OpenSSL w obrazie bazowym;
+  kontrola podatności pozostaje obowiązkowa.
+
 ### Operations
 
 - Wymagane migracje documents.0016 i accounts.0044 oraz zgodny web/worker/Beat.
