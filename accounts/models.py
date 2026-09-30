@@ -895,3 +895,4 @@ from accounts.odmowy import ZliczenieOdmow  # noqa: E402,F401
 from accounts.rozmiar_bazy import ZgloszonyRozmiar  # noqa: E402,F401
 from accounts.security_notifications import PasswordNotification  # noqa: E402,F401
 from accounts.sessions import LoginSession  # noqa: E402,F401
+from accounts.stripe_sync import KontrolaStripe  # noqa: E402,F401

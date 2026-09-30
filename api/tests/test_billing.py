@@ -130,6 +130,11 @@ class TestKatalogPlanow:
         assert get_plan("Prymium") is None
 
 
+def uzgodnij_testowo(tenant, migawka):
+    with patch("stripe.Subscription.retrieve", return_value=migawka):
+        return synchronizuj_subskrypcje(tenant, migawka["id"])
+
+
 def subskrypcja_stripe(tenant, plan="pro", status="active", sid="sub_1"):
     """Subskrypcja w kształcie zwracanym przez stripe.Subscription.retrieve."""
     teraz = int(time.time())
@@ -152,7 +157,7 @@ class TestAktywacjaPoPlatnosci:
 
     def test_platnosc_podnosi_limit_ktory_egzekwuje_middleware(self, tenant, subscribtion):
         """Sedno naprawy: zapłata musi zmienić Subscription, nie tylko Tenant."""
-        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "pro"))
+        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant, "pro"))
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
         assert subskrypcja.plan_type == "pro"
@@ -163,21 +168,21 @@ class TestAktywacjaPoPlatnosci:
         """Rejestracja od razu z płatnością — nie ma jeszcze czego aktualizować."""
         assert not Subscription.objects.filter(tenant=tenant).exists()
 
-        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "start"))
+        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant, "start"))
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
         assert subskrypcja.message_limit == 2_000
 
     def test_stan_na_tenancie_jest_zsynchronizowany(self, tenant, subscribtion):
-        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "pro"))
+        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant, "pro"))
 
         tenant.refresh_from_db()
         assert tenant.subscription_status == "active"
         assert tenant.subscription_plan == "pro"
 
     def test_zmiana_planu_nadpisuje_limit(self, tenant, subscribtion):
-        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "start"))
-        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant, "pro"))
+        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant, "start"))
+        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant, "pro"))
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
         assert subskrypcja.message_limit == 25_000
@@ -247,7 +252,7 @@ class TestWebhook:
         nieopłaconą. Pierwsza nieudana próba już tego nie robi - patrz
         test_platnosci_spojnosc.py (decyzja właściciela z 13.09.2026).
         """
-        synchronizuj_subskrypcje(tenant, subskrypcja_stripe(tenant))
+        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant))
         response = self._wyslij(
             self._zdarzenie("invoice.payment_failed", tenant),
             subskrypcja_stripe(tenant, status="unpaid"),
