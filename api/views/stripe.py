@@ -35,7 +35,6 @@ from api.views.stripe_webhook import (
     STATUSY_Z_DOSTEPEM,
     ZdarzenieDoPonowienia,
     _identyfikator,
-    pobierz_subskrypcje,
     synchronizuj_subskrypcje,
 )
 
@@ -282,11 +281,10 @@ def stan_zakupu(tenant, identyfikator_sesji):
     powiazana = Subscription.objects.filter(tenant=tenant, stripe_subscription_id=sid).first()
     if not (powiazana and powiazana.is_active):
         try:
-            subskrypcja = pobierz_subskrypcje(sid)
+            subskrypcja = synchronizuj_subskrypcje(tenant, sid)
         except ZdarzenieDoPonowienia as blad:
             raise PlatnosciNiedostepne() from blad
         if subskrypcja is not None:
-            synchronizuj_subskrypcje(tenant, subskrypcja)
             powiazana = Subscription.objects.filter(
                 tenant=tenant, stripe_subscription_id=sid
             ).first()
