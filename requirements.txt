@@ -19,7 +19,15 @@ djangorestframework_simplejwt==5.5.1
 # PyJWT wchodzi jako zaleznosc simplejwt, ale przypinamy go jawnie: to on
 # weryfikuje podpisy naszych tokenow dostepu, wiec jego wersja jest decyzja
 # bezpieczenstwa, a nie szczegolem cudzej paczki. W 2.9.0 bylo 6 podatnosci.
-PyJWT==2.13.0
+#
+# 30.09.2026: 2.13.0 dostalo 10 CVE naraz, jedno oznaczone jako krytyczne.
+# Wiekszosc dotyczy przypadkow, ktorych u nas nie ma - pomylenia algorytmow
+# przy weryfikacji kluczem publicznym (my mamy HS256 i sekret, ktory nie
+# opuszcza serwera), PyJWKClient (nie uzywamy) i obejscia odwolania tokenu po
+# surowym tekscie (odwolujemy po jti). Zostaje jedna realna: RecursionError
+# w jwt.decode() na gleboko zagniezdzonym naglowku, czyli odmowa uslugi
+# mozliwa spreparowanym tokenem. 2.14.0 zamyka wszystkie dziesiec.
+PyJWT==2.14.0
 django-cors-headers==4.7.0
 drf-spectacular==0.28.0
 
