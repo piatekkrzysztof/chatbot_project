@@ -6,6 +6,14 @@
 # dokładał ~250 MB i ponad minutę do każdego budowania.
 FROM python:3.11-slim AS base
 
+# Obraz bazowy może jeszcze nie zawierać opublikowanych poprawek Debiana.
+# CI A04 wykrył OpenSSL 3.5.7-1~deb13u2; poprawka jest w deb13u3.
+# Aktualizujemy z podpisanych repozytoriów dystrybucji, bez wyłączania skanu.
+# Przy nowej luce i trafieniu w cache przebudować z --pull --no-cache.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 # PYTHONUNBUFFERED: bez tego logi Pythona wiszą w buforze i `docker compose logs`
 #   pokazuje pustkę, dopóki proces nie zapisze 8 KB albo nie padnie.
 # PYTHONDONTWRITEBYTECODE: katalog jest podmontowany z hosta, .pyc tylko

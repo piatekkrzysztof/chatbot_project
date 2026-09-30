@@ -16,6 +16,31 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.4] - 2026-09-30
+
+### Fixed
+
+- Usunięcie lub wymiana dokumentu, logo i awatara zapisują trwałe zlecenie
+  usunięcia pliku. Awaria magazynu, brokera lub procesu nie gubi zlecenia;
+  worker ponawia próby i alarmuje o zaległościach. Wycofanie zapisu w bazie
+  zachowuje poprzedni plik, a równoległe wymiany zachowują aktualną wersję.
+- Zabezpieczone odtwarzanie pełnej kopii wstrzymuje niedokończone zlecenia
+  kasowania, żeby próba restore nie uruchomiła ich w źródłowym magazynie.
+
+### Security
+
+- Obraz kontenera aktualizuje pakiety systemowe z repozytoriów Debiana.
+  Skan CI wykrył poprawione już podatności OpenSSL w obrazie bazowym;
+  kontrola podatności pozostaje obowiązkowa.
+
+### Operations
+
+- Wymagane migracje documents.0016 i accounts.0044 oraz zgodny web/worker/Beat.
+  Raport i jawne ponowienie: kontrola_usuwania_plikow. Bez nowych usług
+  i sekretów; zakończone wpisy rejestru wygasają po 30 dniach, zaległości
+  pozostają do rozwiązania. Wdrożenie, odbiór, granice i rollback:
+  docs/trwale-usuwanie-plikow-a04.md.
+
 ## [2.19.3] - 2026-09-30
 
 ### Fixed

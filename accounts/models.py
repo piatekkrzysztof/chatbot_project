@@ -10,6 +10,7 @@ from django.utils import timezone
 from accounts.mfa_crypto import EncryptedMFAField
 from accounts.plans import PROGI_ALERTOW, PROGI_KONCA_SUBSKRYPCJI
 from accounts.retencja_rozmow import MAX_RETENTION_DAYS
+from chatbot_project.pliki import nazwa_brandingu
 
 
 class WidgetPosition(models.TextChoices):
@@ -102,8 +103,8 @@ class Tenant(models.Model):
     branding_mode = models.CharField(
         max_length=20, choices=BrandingMode.choices, default=BrandingMode.SMART
     )
-    widget_logo = models.FileField(upload_to="widget_branding/", null=True, blank=True)
-    widget_avatar = models.FileField(upload_to="widget_branding/", null=True, blank=True)
+    widget_logo = models.FileField(upload_to=nazwa_brandingu, null=True, blank=True)
+    widget_avatar = models.FileField(upload_to=nazwa_brandingu, null=True, blank=True)
     widget_footer_text = models.CharField(max_length=100, blank=True, default="")
 
     # Środkowy próg brandingu z cennika. Klient planu Grow kupuje przede
@@ -138,6 +139,14 @@ class Tenant(models.Model):
                 name="tenant_retencja_obslugiwany_zakres",
             )
         ]
+
+    def save(self, *args, **kwargs):
+        from chatbot_project.pliki import zapis_z_plikami
+
+        with zapis_z_plikami(
+            self, update_fields=kwargs.get("update_fields"), using=kwargs.get("using")
+        ):
+            return super().save(*args, **kwargs)
 
     def suggested_questions(self):
         """Pytania startowe jako lista, bez pustych wierszy."""

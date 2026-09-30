@@ -18,14 +18,16 @@ POLA_PLIKOW = ("widget_logo", "widget_avatar")
 
 
 @receiver(post_delete, sender=Tenant)
-def usun_pliki_brandingu(sender, instance, **kwargs):
+def usun_pliki_brandingu(sender, instance, using="default", **kwargs):
     for pole in POLA_PLIKOW:
         plik = getattr(instance, pole)
-        usun_plik_po_zatwierdzeniu(plik.storage, plik.name)
+        usun_plik_po_zatwierdzeniu("default", plik.name, using=using, tenant_id=instance.pk)
 
 
 @receiver(pre_save, sender=Tenant)
-def usun_zastapione_pliki_brandingu(sender, instance, raw=False, update_fields=None, **kwargs):
+def usun_zastapione_pliki_brandingu(
+    sender, instance, raw=False, update_fields=None, using="default", **kwargs
+):
     """
     Kasuje poprzedni obraz, gdy zapis podmienia go na inny.
 
@@ -42,11 +44,11 @@ def usun_zastapione_pliki_brandingu(sender, instance, raw=False, update_fields=N
     pola = [p for p in POLA_PLIKOW if update_fields is None or p in update_fields]
     if not pola:
         return
-    poprzednie = Tenant.objects.filter(pk=instance.pk).values(*pola).first()
+    poprzednie = Tenant.objects.using(using).filter(pk=instance.pk).values(*pola).first()
     if not poprzednie:
         return
     for pole in pola:
         stara_nazwa = poprzednie[pole]
         nowy = getattr(instance, pole)
-        if stara_nazwa and stara_nazwa != nowy.name:
-            usun_plik_po_zatwierdzeniu(nowy.storage, stara_nazwa)
+        if stara_nazwa and (stara_nazwa != nowy.name or not nowy._committed):
+            usun_plik_po_zatwierdzeniu("default", stara_nazwa, using=using, tenant_id=instance.pk)

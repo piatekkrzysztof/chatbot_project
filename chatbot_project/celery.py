@@ -29,6 +29,11 @@ app.autodiscover_tasks()
 
 
 app.conf.beat_schedule = {
+    "usuwanie-plikow-co-minute": {
+        "task": "documents.usuwanie_plikow.usun_oczekujace_pliki",
+        "schedule": 60.0,
+        "options": {"expires": 60},
+    },
     "uzgodnienie-stripe-co-5-minut": {
         "task": "accounts.tasks_stripe.uzgodnij_platnosci",
         "schedule": 300.0,
