@@ -4,6 +4,7 @@ import time
 
 import openai
 from django.conf import settings
+from django.db import transaction
 from openai import OpenAI
 
 from api.utils.pokrycie import (
@@ -14,11 +15,13 @@ from api.utils.pokrycie import (
 )
 from api.utils.prompt_systemowy import build_system_prompt
 from api.utils.tokens import przytnij_do_budzetu
+from chat.lifecycle import RozmowaUsunieta
 from chat.models import (
     FAQ,
     ZRODLO_BRAK_WIEDZY,
     ChatMessage,
     ChatUsageLog,
+    Conversation,
     PromptLog,
 )
 from documents.utils.queue import enqueue
@@ -249,6 +252,7 @@ def zapisz_pytanie_i_zglos_start(tenant, conversation, message_text):
         enqueue(powiadom_o_rozmowie_task, conversation.id)
 
 
+@transaction.atomic
 def persist_exchange(
     tenant,
     conversation,
@@ -266,6 +270,12 @@ def persist_exchange(
     Zwraca zapisaną wiadomość, bo widget potrzebuje jej identyfikatora,
     żeby dało się tę konkretną odpowiedź ocenić kciukiem.
     """
+    if (
+        not Conversation.objects.select_for_update()
+        .filter(pk=conversation.pk, tenant=tenant)
+        .first()
+    ):
+        raise RozmowaUsunieta()
     wiadomosc = ChatMessage.objects.create(
         conversation=conversation,
         sender="bot",
@@ -374,6 +384,19 @@ def _sse(payload):
 
 
 def stream_chat_message(tenant, conversation, message_text, on_billable=None):
+    try:
+        yield from _stream_chat_message(tenant, conversation, message_text, on_billable)
+    except RozmowaUsunieta:
+        yield _sse(
+            {
+                "type": "error",
+                "code": "conversation_deleted",
+                "message": str(RozmowaUsunieta.default_detail),
+            }
+        )
+
+
+def _stream_chat_message(tenant, conversation, message_text, on_billable=None):
     """Close the provider and persist partial replies even on GeneratorExit."""
     model = settings.OPENAI_CHAT_MODEL
     zapisz_pytanie_i_zglos_start(tenant, conversation, message_text)
@@ -388,6 +411,8 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
     awaria = False
     charged = False
     stream = None
+    usunieta = False
+    sprawdzono = 0.0
     deadline = time.monotonic() + settings.CHAT_STREAM_SECONDS
 
     def charge():
@@ -406,7 +431,12 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
                 stream_options={"include_usage": True},
             )
             for event in stream:
-                if time.monotonic() >= deadline:
+                teraz = time.monotonic()
+                if teraz - sprawdzono >= 0.25:
+                    if not Conversation.objects.filter(pk=conversation.pk, tenant=tenant).exists():
+                        raise RozmowaUsunieta()
+                    sprawdzono = teraz
+                if teraz >= deadline:
                     raise TimeoutError("Chat stream deadline exceeded")
                 if getattr(event, "usage", None):
                     tokens = event.usage.total_tokens
@@ -418,6 +448,8 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
                         charge()
                         pieces.append(piece)
                         yield _sse({"type": "delta", "content": piece})
+        except RozmowaUsunieta:
+            usunieta = True
         except Exception:
             logger.exception("Błąd podczas streamowania odpowiedzi")
             if not pieces:
@@ -425,7 +457,7 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
                 awaria = True
                 yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
 
-        reszta = "" if awaria else obcinacz.zakoncz()
+        reszta = "" if awaria or usunieta else obcinacz.zakoncz()
         if reszta:
             charge()
             pieces.append(reszta)
@@ -442,17 +474,30 @@ def stream_chat_message(tenant, conversation, message_text, on_billable=None):
         source = determine_source(
             chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
         )
-        wiadomosc = persist_exchange(
-            tenant,
-            conversation,
-            response_text,
-            source,
-            tokens,
-            model,
-            prompt_text=message_text,
-            tokeny_wejscia=tokeny_wejscia,
-            tokeny_wyjscia=tokeny_wyjscia,
+        try:
+            wiadomosc = persist_exchange(
+                tenant,
+                conversation,
+                response_text,
+                source,
+                tokens,
+                model,
+                prompt_text=message_text,
+                tokeny_wejscia=tokeny_wejscia,
+                tokeny_wyjscia=tokeny_wyjscia,
+            )
+        except RozmowaUsunieta:
+            usunieta = True
+
+    if usunieta:
+        yield _sse(
+            {
+                "type": "error",
+                "code": "conversation_deleted",
+                "message": str(RozmowaUsunieta.default_detail),
+            }
         )
+        return
 
     yield _sse(
         {

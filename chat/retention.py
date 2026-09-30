@@ -14,6 +14,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import Tenant
+from accounts.retencja_rozmow import poprawne_dni
+from chat.lifecycle import _blokuj_sesje, usun_rozmowe
 from chat.models import ChatUsageLog, ContactRequest, Conversation, PromptLog
 
 logger = logging.getLogger(__name__)
@@ -29,12 +31,14 @@ def _purge_conversations(tenant, cutoff, removed):
     candidates = (
         Conversation.objects.filter(tenant=tenant, last_message_at__lt=cutoff)
         .order_by("pk")
-        .values_list("pk", flat=True)
+        .values_list("pk", "session_id")
     )
-    for conversation_id in candidates.iterator(chunk_size=200):
+    for conversation_id, session_id in candidates.iterator(chunk_size=200):
         # Krótka blokada jednej rozmowy. Zapisujący wiadomość trzyma taką samą
         # blokadę; skip_locked zostawia trwającą rozmowę na kolejny przebieg.
         with transaction.atomic():
+            if _blokuj_sesje(tenant.pk, session_id, czekaj=False) is None:
+                continue
             conversation = (
                 Conversation.objects.select_for_update(skip_locked=True)
                 .filter(pk=conversation_id, tenant=tenant, last_message_at__lt=cutoff)
@@ -46,8 +50,14 @@ def _purge_conversations(tenant, cutoff, removed):
             # Sprawdzamy treść również dla danych sprzed naprawy i importów.
             if conversation.messages.filter(timestamp__gte=cutoff).exists():
                 continue
-            _, per_model = conversation.delete()
-            _record_removed(removed, per_model)
+            if any(
+                model.objects.filter(conversation=conversation, created_at__gte=cutoff).exists()
+                for model in (PromptLog, ChatUsageLog, ContactRequest)
+            ):
+                continue
+            counts = usun_rozmowe(tenant, conversation.session_id) or {}
+            for name, count in counts.items():
+                removed[name] = removed.get(name, 0) + count
 
 
 def purge_tenant(tenant, now=None):
@@ -61,15 +71,17 @@ def purge_tenant(tenant, now=None):
     da się to zaraportować i sprawdzić, że polityka faktycznie działa.
     """
     retention_days = tenant.data_retention_days or 0
+    if not poprawne_dni(retention_days):
+        raise ValueError("Nieobsługiwany okres retencji; wymagana korekta ustawień firmy")
     if retention_days <= 0:
         return {}
 
     cutoff = (now or timezone.now()) - timedelta(days=retention_days)
     removed = {}
 
-    # PromptLog i ChatUsageLog wskazują konwersację przez SET_NULL, więc nie znikną
-    # razem z nią — trzeba je usunąć osobno, inaczej treść pytań zostaje w bazie
-    # mimo skasowanej rozmowy.
+    # Wiek logów i kontaktów liczymy niezależnie od aktywności rozmowy.
+    # Dotyczy to także rekordów bez conversation_id; usunięcie całej rozmowy
+    # dodatkowo usuwa wszystkie nadal powiązane rekordy przez CASCADE.
     for model, field in (
         (PromptLog, "created_at"),
         (ChatUsageLog, "created_at"),

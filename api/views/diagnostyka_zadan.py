@@ -162,6 +162,16 @@ def _slad_retencji(teraz, tenant_zadania):
     # Tylko własne dane klienta — z tego samego powodu co przy pobieraniu.
     klienci = Tenant.objects.filter(pk=tenant_zadania.pk, data_retention_days__gt=0)
     for tenant in klienci.only("id", "data_retention_days"):
+        from accounts.retencja_rozmow import poprawne_dni
+
+        if not poprawne_dni(tenant.data_retention_days):
+            return {
+                "zaleglych_rozmow": 0,
+                "wniosek": "nie-dziala",
+                "opis": (
+                    "Okres retencji jest poza obsługiwanym zakresem. Popraw ustawienia prywatności."
+                ),
+            }
         prog = teraz - timedelta(days=tenant.data_retention_days)
         # Doba zapasu: zadanie chodzi o 3:30, więc chwilowa zaległość
         # z ostatnich godzin jest normalna, a nie objawem awarii.

@@ -1,9 +1,10 @@
 import uuid
 
-from django.db import models, router, transaction
+from django.db import models, router
 from django.db.models.functions import Greatest
 
 from accounts.models import Tenant
+from chat.lifecycle import blokada_rozmowy
 
 
 class Conversation(models.Model):
@@ -27,6 +28,29 @@ class Conversation(models.Model):
 
     def __str__(self):
         return f"Conversation {self.id} ({self.tenant.name})"
+
+
+class UsunietaRozmowa(models.Model):
+    # Minimalny znacznik blokujący ponowienie starego UUID, bez treści i IP.
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
+    skrot_sesji = models.CharField(max_length=64)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tenant", "skrot_sesji"], name="usunieta_sesja_firmy")
+        ]
+
+
+class ZapisRozmowy(models.Model):
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        using = kwargs.get("using") or router.db_for_write(type(self), instance=self)
+        if self.conversation_id is None:
+            return super().save(*args, **kwargs)
+        with blokada_rozmowy(self.conversation_id, getattr(self, "tenant_id", None), using):
+            return super().save(*args, **kwargs)
 
 
 class ChatMessage(models.Model):
@@ -72,8 +96,7 @@ class ChatMessage(models.Model):
         using = kwargs.get("using") or router.db_for_write(type(self), instance=self)
         # Retencja blokuje ten sam rekord, zanim sprawdzi wiadomości i usunie
         # rozmowę. Zapis i aktualizacja aktywności muszą być jedną transakcją.
-        with transaction.atomic(using=using):
-            Conversation.objects.using(using).select_for_update().get(pk=self.conversation_id)
+        with blokada_rozmowy(self.conversation_id, using=using):
             super().save(*args, **kwargs)
             Conversation.objects.using(using).filter(pk=self.conversation_id).update(
                 last_message_at=Greatest("last_message_at", self.timestamp)
@@ -89,13 +112,13 @@ class FAQ(models.Model):
         return f"FAQ ({self.tenant.name}): {self.question[:50]}"
 
 
-class ChatUsageLog(models.Model):
+class ChatUsageLog(ZapisRozmowy):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="usage_logs")
     created_at = models.DateTimeField(auto_now_add=True)
     tokens_used = models.PositiveIntegerField()
     model_used = models.CharField(max_length=50, default="gpt-3.5-turbo")
     source = models.CharField(max_length=20, choices=ChatMessage.SOURCE_CHOICES, default="gpt")
-    conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return (
@@ -133,9 +156,9 @@ ZRODLA_ODPOWIEDZI = [
 ]
 
 
-class PromptLog(models.Model):
+class PromptLog(ZapisRozmowy):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
-    conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True)
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, null=True, blank=True)
     model = models.CharField(max_length=50)
     prompt = models.TextField()
     source = models.CharField(max_length=50, choices=ZRODLA_ODPOWIEDZI)
@@ -169,7 +192,7 @@ class PromptLog(models.Model):
         return f"[{self.model}] ({self.source}) {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 
-class ContactRequest(models.Model):
+class ContactRequest(ZapisRozmowy):
     """
     Prośba o kontakt zostawiona przez odwiedzającego, gdy bot nie potrafił pomóc.
     Bez tego rozmowa kończy się ślepym zaułkiem, a firma traci zapytanie.
@@ -178,7 +201,7 @@ class ContactRequest(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="contact_requests")
     conversation = models.ForeignKey(
         Conversation,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="contact_requests",

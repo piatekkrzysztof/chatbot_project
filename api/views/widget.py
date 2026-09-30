@@ -24,7 +24,8 @@ from api.schemas import (
 from api.serializers import ChatRequestSerializer, PublicFAQSerializer, WidgetDomainSerializer
 from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle, VisitorRateThrottle
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
-from chat.models import FAQ, Conversation
+from chat.lifecycle import RozmowaUsunieta, otworz_rozmowe
+from chat.models import FAQ
 from chat.privacy import visitor_identifier
 from documents.file_limits import InvalidUpload, UploadTooLarge, bounded_read
 from documents.isolated_parser import ParserUnavailable, parse_bytes
@@ -168,6 +169,7 @@ class PublicFAQView(APIView):
     responses={
         200: PublicChatResponseSerializer,
         403: OpenApiResponse(response=ErrorSerializer, description="Nieprawidłowy klucz API."),
+        410: OpenApiResponse(response=ErrorSerializer, description="Sesja została usunięta."),
         429: OpenApiResponse(description="Wyczerpany limit wiadomości w planie."),
     },
 )
@@ -195,7 +197,7 @@ class PublicChatView(APIView):
 
         tenant = request.tenant
 
-        conversation, _ = Conversation.objects.get_or_create(
+        conversation, _ = otworz_rozmowe(
             session_id=data["conversation_session_id"],
             tenant=tenant,
             defaults={
@@ -212,6 +214,9 @@ class PublicChatView(APIView):
             )
             payload, billable = split_billing(result)
             reservation.settle(billable)
+        except RozmowaUsunieta:
+            reservation.settle(False)
+            raise
         except BaseException:
             reservation.settle(None)
             raise
@@ -228,12 +233,15 @@ class PublicChatView(APIView):
         "To samo co `/widget/chat/`, ale odpowiedź leci token po tokenie jako "
         "Server-Sent Events (`text/event-stream`). Każde zdarzenie to JSON: "
         '`{"type": "delta", "content": "..."}` w trakcie, a na koniec '
-        '`{"type": "done", "source": ..., "tokens": ..., "sources": [...]}`.'
+        '`{"type": "done", "source": ..., "tokens": ..., "sources": [...]}`. '
+        'Usunięcie w trakcie wysyła `{"type":"error","code":"conversation_deleted"}` '
+        "zamiast done. Klient usuwa lokalną historię i zaczyna nową sesję UUID."
     ),
     request=ChatRequestSerializer,
     responses={
         (200, "text/event-stream"): OpenApiResponse(description="Strumień zdarzeń SSE."),
         403: OpenApiResponse(response=ErrorSerializer, description="Nieprawidłowy klucz API."),
+        410: OpenApiResponse(response=ErrorSerializer, description="Sesja została usunięta."),
         429: OpenApiResponse(description="Wyczerpany limit wiadomości w planie."),
     },
 )
@@ -257,7 +265,7 @@ class PublicChatStreamView(APIView):
 
         tenant = request.tenant
 
-        conversation, _ = Conversation.objects.get_or_create(
+        conversation, _ = otworz_rozmowe(
             session_id=data["conversation_session_id"],
             tenant=tenant,
             defaults={
