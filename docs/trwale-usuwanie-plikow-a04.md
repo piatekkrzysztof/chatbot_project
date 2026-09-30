@@ -187,3 +187,9 @@ w cache trzeba przebudować obraz z --pull --no-cache; samo ponowne
 uruchomienie tego samego zbuforowanego kroku nie odświeża pakietów.
 
 Źródło wersji: [Debian Security Tracker — OpenSSL](https://security-tracker.debian.org/tracker/source-package/openssl).
+
+
+Kontrola startu workera w obrazie przekazuje teraz skrypt na stdin kontenera
+(docker run -i). Wcześniej brak tej opcji dawał zielony wynik bez wykonania
+asercji. Kontrola obejmuje wszystkie zadania harmonogramu i osobno zadanie
+pojedynczego usunięcia z A04.
