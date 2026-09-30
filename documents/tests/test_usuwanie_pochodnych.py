@@ -140,7 +140,11 @@ def test_blad_magazynu_nie_cofa_usuniecia(
         doc.delete()
 
     assert not Document.objects.filter(pk=klucz).exists()
-    assert nazwa in caplog.text
+    from documents.models import UsunieciePliku
+
+    assert UsunieciePliku.objects.get(nazwa=nazwa).blad == "blad_magazynu"
+    assert "zlecenie zachowane" in caplog.text
+    assert nazwa not in caplog.text
 
 
 @pytest.mark.django_db

@@ -5,6 +5,7 @@ import hmac
 import os
 import socket
 import time
+import uuid
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +19,8 @@ from psycopg2 import sql
 
 from accounts.full_backups import backup_models, references, unpack_bundle, verify_bundle
 from chatbot_project.wersja import WERSJA
+from documents.models import UsunieciePliku
+from documents.usuwanie_plikow import ZAKONCZONE
 
 
 def validate_target(manifest):
@@ -166,6 +169,14 @@ class Command(BaseCommand):
                                 raise CommandError(
                                     "Odtworzone powiązania plików różnią się od manifestu."
                                 )
+                            # A drill must not revive intents against the original storage.
+                            UsunieciePliku.objects.exclude(stan__in=ZAKONCZONE).update(
+                                stan="wstrzymane",
+                                blad="odtworzona_kopia",
+                                token=uuid.uuid4(),
+                                dzierzawa_do=None,
+                                alarm_at=None,
+                            )
         except CommandError:
             raise
         except Exception:

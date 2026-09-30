@@ -26,6 +26,7 @@ from pathlib import Path
 KATALOG_PROJEKTU = Path(__file__).resolve().parents[2]
 
 WYMAGANE = {
+    "documents.signals.usun_zastapiony_dokument": "wymiana pliku pozostawi poprzedni obiekt",
     "documents.signals.handle_new_document": ("dokumenty z panelu nie dostaną embeddingów"),
     "documents.signals.usun_plik_dokumentu": (
         "usunięty dokument zostawi swój plik w prywatnym magazynie"

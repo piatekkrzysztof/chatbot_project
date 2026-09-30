@@ -9,8 +9,29 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 | A01 | Dwie otwarte sesje zakupu jednego abonamentu | Poprawka 2.19.1: trwała próba, serializacja, wygaszenie przed zmianą planu, obsługa utraconej odpowiedzi i dawnych sesji. [Odbiór i kontrolowane wdrożenie](checkout-jedna-proba.md). Nie oznaczać jako wdrożone przed odbiorem |
 | A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Poprawka 2.19.2: wspólna blokada od odczytu do zapisu, okresowe uzgodnienie i alarm operatora. [Odbiór i wdrożenie](stripe-kolejnosc.md). Wdrożenie i odbiór Stripe test mode pozostają do potwierdzenia |
 | A03 | Zapis promptu równoległy z usunięciem rozmowy | Poprawka 2.19.3 przygotowana: atomowy zapis, blokady, CASCADE, znacznik usuniętej sesji i obsługa 410/error w panelu oraz widgecie. [Wdrożenie i odbiór](usuwanie-rozmow-a03.md) jeszcze niepotwierdzone |
-| A04 | Plik bez rekordu po awarii magazynu | Do naprawy: trwałe zlecenia usunięcia, retry i alarmy |
+| A04 | Plik bez rekordu po awarii magazynu | Poprawka 2.19.4 przygotowana: transakcyjne zlecenia, ponowienia i odzyskanie po awarii, ochrona współdzielonych plików oraz alarm operatora. Restore wstrzymuje zlecenia. [Wdrożenie i odbiór](trwale-usuwanie-plikow-a04.md) pozostają otwarte |
 | A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka 2.19.3 razem z A03: ścisła walidacja 0–3650, constraint bazy i kontrola przed migracją; bez automatycznej zmiany istniejących okresów. Odbiór produkcyjny pozostaje otwarty |
+
+### A04: wykonane i następna kolejność
+
+1. Odtworzono utratę callbacku usuwania oraz przedwczesne usunięcie starego
+   logo przy nieudanym zapisie nowego.
+2. Dodano trwały rejestr w transakcji zmiany danych, obsługę kaskady firmy
+   i wymiany plików; błędny zapis rejestru wycofuje zmianę.
+3. Dodano odzyskiwanie przez obecny worker/Beat, ograniczone ponowienia,
+   dzierżawy oraz ochronę przed potwierdzeniem cudzej próby.
+4. Zabezpieczono zmianę celu magazynu, współdzielone pliki i równoległe
+   wymiany; logi i alarmy nie zawierają nazw obiektów ani sekretów.
+5. Dodano raport operatora, jawne ponowienie i wstrzymanie niezakończonych
+   zleceń podczas izolowanego odtwarzania kopii.
+6. Przygotowano migracje i instrukcję odbioru. Wyniki testów i CI są w PR;
+   w tym etapie nie zmieniano produkcji.
+
+**Dalej:** odebrać PR i wdrożyć A04 według instrukcji → sprawdzić testowe
+pliki oraz alarm w rzeczywistym magazynie → potwierdzić odbiory A01/A02
+i A03/A05 → przygotować raport historycznych sierot bez kasowania →
+dokończyć pozostałe bramki operacyjne, wydajności i UX z rejestru F01–F25.
+Nie utożsamiamy zielonych testów kodu z ukończonym odbiorem komercyjnym.
 
 Końcowe odbiory operacyjne i wydajność pozostają osobnymi bramkami wydania.
 Poniższy rejestr F01-F25 zachowuje dotychczasowy zakres i historię.

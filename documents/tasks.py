@@ -11,6 +11,9 @@ from documents.file_limits import MAX_DOCUMENT_BYTES, InvalidUpload, UploadTooLa
 from documents.models import Document, WebsiteSource
 from documents.safe_http import FetchError, crawl_fetch_budget, same_site, validate_url
 from documents.sitemaps import sitemap_search
+
+# Rejestracja trwałej kolejki przy autodiscovery Celery.
+from documents.usuwanie_plikow import usun_oczekujace_pliki, usun_zlecony_plik  # noqa: F401
 from documents.utils.embedding_generator import (
     generate_embeddings_for_document as _generate_embeddings,
 )
