@@ -24,16 +24,18 @@ więc polecenia wykonane po kolei dawały stany, których w Stripe nie było:
   * zmiana planu po stronie Stripe nie docierała wcale.
 
 Teraz zdarzenie jest tylko sygnałem, KTÓREJ subskrypcji dotyczy. Webhook
-pobiera jej aktualny stan ze Stripe i przepisuje go do bazy. Powtórka,
-duplikat i zła kolejność dają ten sam wynik, bo stan jest zawsze bieżący.
+pobiera jej aktualny stan ze Stripe i przepisuje go do bazy. Odczyt i zapis
+są serializowane wspólną blokadą firmy. Okresowa kontrola naprawia brakujące
+zdarzenia; zmiana w Stripe już po odczycie wymaga kolejnego uzgodnienia.
 """
 
 import logging
 from datetime import UTC, datetime, timedelta
+from hashlib import blake2b
 
 import stripe
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -61,6 +63,10 @@ STATUSY_BEZ_DOSTEPU = frozenset({"canceled", "unpaid", "incomplete_expired", "pa
 
 class ZdarzenieDoPonowienia(Exception):
     """Przejściowy błąd Stripe - webhook oddaje 500, żeby Stripe ponowił."""
+
+
+class SynchronizacjaZajeta(ZdarzenieDoPonowienia):
+    """Inny proces uzgadnia tę firmę; ponowienie musi wykonać świeży odczyt."""
 
 
 def _data(znacznik_czasu):
@@ -188,14 +194,46 @@ def _powiadom_o_nieudanej_platnosci(subscription_id):
         )
 
 
-def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
+def synchronizuj_subskrypcje(tenant, identyfikator):
+    """Jedna kolejność odczytu i zapisu, wspólna dla webhooka, panelu i zadania.
+
+    Blokada transakcyjna PostgreSQL obejmuje firmę, także przy zmianie ID
+    abonamentu. Nie blokuje wiersza Tenant podczas sieciowego odczytu.
+    Nie przyjmujemy gotowych migawek, bo mogły już stracić aktualność.
+    """
+    if not isinstance(identyfikator, str) or not identyfikator:
+        raise ValueError("Synchronizacja wymaga identyfikatora subskrypcji")
+    klucz = int.from_bytes(
+        blake2b(f"stripe-sync:{tenant.pk}".encode(), digest_size=8).digest(),
+        "big",
+        signed=True,
+    )
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_try_advisory_xact_lock(%s)", [klucz])
+            if not cursor.fetchone()[0]:
+                raise SynchronizacjaZajeta("Trwa synchronizacja firmy")
+        subskrypcja = pobierz_subskrypcje(identyfikator)
+        if subskrypcja is None:
+            raise ZdarzenieDoPonowienia("Nie odnaleziono uzgadnianej subskrypcji")
+        firma = str((subskrypcja.get("metadata") or {}).get("tenant_id") or "")
+        if subskrypcja.get("id") != identyfikator or (firma and firma != str(tenant.pk)):
+            raise ZdarzenieDoPonowienia("Niezgodne powiązanie subskrypcji z firmą")
+        if subskrypcja.get("status") not in STATUSY_Z_DOSTEPEM | STATUSY_BEZ_DOSTEPU | {
+            "incomplete"
+        }:
+            raise ZdarzenieDoPonowienia("Nieznany stan subskrypcji")
+        return _zapisz_subskrypcje(tenant, subskrypcja)
+
+
+def _zapisz_subskrypcje(tenant, subskrypcja_stripe):
     """
     Przepisuje stan subskrypcji ze Stripe do Subscription firmy.
 
     Pod blokadą wiersza firmy: dwa zdarzenia tej samej subskrypcji naraz
     (zakup wysyła zwykle dwa w tej samej sekundzie) nie mogą założyć dwóch
-    wierszy ani nadpisać się w połowie. Wywołanie Stripe dzieje się wcześniej,
-    poza blokadą.
+    wierszy ani nadpisać się w połowie. Wyłącznie wewnątrz synchronizacji,
+    która trzyma blokadę doradczą od odczytu Stripe do zatwierdzenia zapisu.
     """
     sid = subskrypcja_stripe["id"]
     status = subskrypcja_stripe.get("status") or ""
@@ -227,7 +265,7 @@ def synchronizuj_subskrypcje(tenant, subskrypcja_stripe):
                     sid,
                     lokalna.stripe_subscription_id,
                 )
-                return lokalna
+                raise ZdarzenieDoPonowienia("Dwie aktywne subskrypcje wymagają wyjaśnienia")
 
         if status in STATUSY_Z_DOSTEPEM:
             poprzedni_status = lokalna.stripe_status if powiazana else ""
@@ -357,7 +395,12 @@ def stripe_webhook(request):
         )
         return HttpResponse(status=200)
 
-    stan = synchronizuj_subskrypcje(tenant, subskrypcja)
+    try:
+        # Pierwszy odczyt ustala tylko firmę. Jego migawki NIE zapisujemy.
+        stan = synchronizuj_subskrypcje(tenant, identyfikator)
+    except ZdarzenieDoPonowienia:
+        logger.warning("Synchronizacja Stripe odłożona: tenant=%s", tenant.pk)
+        return HttpResponse(status=500)
     logger.info(
         "Stripe %s: tenant=%s plan=%s aktywna=%s status=%s",
         event_type,

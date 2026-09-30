@@ -41,6 +41,7 @@ from accounts import (  # noqa: F401
     tasks_probne,
     tasks_retencja,
     tasks_rezerwacje,
+    tasks_stripe,
 )
 
 logger = logging.getLogger(__name__)

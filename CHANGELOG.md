@@ -16,6 +16,16 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.2] - 2026-09-30
+
+### Fixed
+
+- Starszy odczyt Stripe nie nadpisuje nowszego stanu abonamentu. Webhook,
+  potwierdzenie zakupu i kontrola okresowa wspólnie porządkują odczyt oraz zapis.
+- Obecny worker uzgadnia znane abonamenty i zapisane sesje zakupu w ograniczonych
+  porcjach. Brakujące zdarzenie może zostać odtworzone; błędy trafiają do trwałego
+  raportu oraz alarmu operatora. Komenda `kontrola_stripe` pokazuje zaległości.
+
 ## [2.19.1] - 2026-09-30
 
 ### Fixed
