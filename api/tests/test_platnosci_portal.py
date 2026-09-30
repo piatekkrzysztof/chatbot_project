@@ -101,8 +101,20 @@ def stripe_checkout():
         patch("api.views.stripe.kartoteka_klienta", return_value="cus_1"),
         patch(
             "stripe.checkout.Session.create",
-            return_value=MagicMock(url="https://checkout.stripe.test/s"),
+            return_value={
+                "id": "cs_test_first",
+                "status": "open",
+                "url": "https://checkout.stripe.test/s",
+            },
         ) as utworz,
+        patch(
+            "stripe.checkout.Session.retrieve",
+            return_value={
+                "id": "cs_test_first",
+                "status": "open",
+                "url": "https://checkout.stripe.test/s",
+            },
+        ),
     ):
         yield utworz
 

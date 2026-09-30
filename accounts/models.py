@@ -889,6 +889,7 @@ class DaneRozliczeniowe(models.Model):
 # modeli, wiec import stoi tutaj.
 # To samo co wyzej: model mieszka w osobnym module tematycznym, ale Django
 # musi go zobaczyc przy wykrywaniu modeli.
+from accounts.checkout import ProbaZakupu  # noqa: E402,F401
 from accounts.cisza import ZgloszonaCisza  # noqa: E402,F401
 from accounts.odmowy import ZliczenieOdmow  # noqa: E402,F401
 from accounts.rozmiar_bazy import ZgloszonyRozmiar  # noqa: E402,F401
