@@ -1,5 +1,6 @@
 import logging
 
+from django.db import transaction
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import PermissionDenied
@@ -12,7 +13,9 @@ from api.schemas import ErrorSerializer, MessageSerializer, PublicContactRequest
 from api.serializers import ContactRequestCreateSerializer, ContactRequestSerializer
 from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle
 from api.utils.mixins import TenantQuerysetMixin
-from chat.models import ContactRequest, Conversation
+from chat.lifecycle import otworz_rozmowe
+from chat.models import ContactRequest
+from chat.privacy import visitor_identifier
 from chat.tasks import powiadom_o_zapytaniu_task
 from documents.utils.queue import enqueue
 
@@ -24,7 +27,7 @@ logger = logging.getLogger(__name__)
     summary="Zostaw kontakt do siebie",
     description="Używane, gdy bot nie potrafi pomóc i proponuje kontakt z firmą.",
     request=PublicContactRequestSerializer,
-    responses={201: MessageSerializer, 400: ErrorSerializer},
+    responses={201: MessageSerializer, 400: ErrorSerializer, 410: ErrorSerializer},
 )
 class PublicContactRequestView(APIView):
     """
@@ -45,20 +48,24 @@ class PublicContactRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        conversation = None
-        session_id = data.get("conversation_session_id")
-        if session_id:
-            conversation = Conversation.objects.filter(
-                tenant=request.tenant, session_id=session_id
-            ).first()
-
-        contact_request = ContactRequest.objects.create(
-            tenant=request.tenant,
-            conversation=conversation,
-            name=data.get("name", ""),
-            contact=data["contact"],
-            message=data.get("message", ""),
-        )
+        with transaction.atomic():
+            conversation = None
+            session_id = data.get("conversation_session_id")
+            if session_id:
+                # Kontakt przed pierwszą wiadomością również dostaje rozmowę,
+                # żeby późniejsze usunięcie sesji obejmowało jego treść.
+                conversation, _ = otworz_rozmowe(
+                    tenant=request.tenant,
+                    session_id=session_id,
+                    defaults={"user_identifier": visitor_identifier(request), "source": "widget"},
+                )
+            contact_request = ContactRequest.objects.create(
+                tenant=request.tenant,
+                conversation=conversation,
+                name=data.get("name", ""),
+                contact=data["contact"],
+                message=data.get("message", ""),
+            )
         # Zlecamy zamiast wysyłać: odwiedzający nie ma czekać na serwer poczty.
         # enqueue przy braku brokera wykona to na miejscu, więc powiadomienie
         # nie przepada nawet bez działającego workera.

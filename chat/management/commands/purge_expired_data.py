@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from accounts.models import Tenant
+from accounts.retencja_rozmow import poprawne_dni
 from chat.retention import purge_all_tenants, purge_tenant
 
 
@@ -41,7 +42,7 @@ class Command(BaseCommand):
             self.stdout.write(f"  {model}: {count}")
 
     def _report_only(self, company):
-        """Podgląd bez kasowania — liczy to samo, co usunęłaby prawdziwa retencja."""
+        """Podgląd kryteriów wieku; równoległe zapisy i blokady mogą zmienić wynik."""
         from datetime import timedelta
 
         from django.utils import timezone
@@ -54,6 +55,9 @@ class Command(BaseCommand):
 
         for tenant in tenants:
             days = tenant.data_retention_days or 0
+            if not poprawne_dni(days):
+                self.stderr.write(f"tenant={tenant.pk}: nieobsługiwany okres retencji; pomijam.")
+                continue
             if days <= 0:
                 self.stdout.write(f"{tenant.name}: retencja wyłączona, pomijam.")
                 continue
@@ -67,9 +71,14 @@ class Command(BaseCommand):
                 "ContactRequest": ContactRequest.objects.filter(
                     tenant=tenant, created_at__lt=cutoff
                 ).count(),
-                "Conversation": Conversation.objects.filter(
-                    tenant=tenant, last_message_at__lt=cutoff
-                ).count(),
+                "Conversation": (
+                    Conversation.objects.filter(tenant=tenant, last_message_at__lt=cutoff)
+                    .exclude(messages__timestamp__gte=cutoff)
+                    .exclude(promptlog__created_at__gte=cutoff)
+                    .exclude(chatusagelog__created_at__gte=cutoff)
+                    .exclude(contact_requests__created_at__gte=cutoff)
+                    .count()
+                ),
             }
             summary = ", ".join(f"{k}={v}" for k, v in counts.items() if v)
             self.stdout.write(
