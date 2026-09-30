@@ -136,7 +136,8 @@ class ImportPromptLogsCSVView(APIView):
             # dwóch równoległych importach) blokowały wcześniej każdy kolejny
             # import błędem MultipleObjectsReturned.
             rozmowa = (
-                Conversation.objects.filter(tenant=tenant, user_identifier=ZRODLO_IMPORTU)
+                Conversation.objects.select_for_update()
+                .filter(tenant=tenant, user_identifier=ZRODLO_IMPORTU)
                 .order_by("id")
                 .first()
             ) or Conversation.objects.create(

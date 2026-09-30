@@ -12,6 +12,8 @@ do walidacji wejścia, aby dokumentacja i ograniczenia długości były zgodne.
 from django.conf import settings
 from rest_framework import serializers
 
+from accounts.retencja_rozmow import MAX_RETENTION_DAYS
+
 
 class RegistrationReceiptSerializer(serializers.Serializer):
     detail = serializers.CharField()
@@ -122,11 +124,22 @@ class KnowledgeSerializer(serializers.Serializer):
     regulamin = serializers.CharField(allow_blank=True)
 
 
+class DniRetencjiField(serializers.IntegerField):
+    def to_internal_value(self, data):
+        if type(data) is not int and not (
+            isinstance(data, str) and data.strip().isascii() and data.strip().isdigit()
+        ):
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
 class PrivacySettingsSerializer(serializers.Serializer):
-    data_retention_days = serializers.IntegerField(
-        min_value=0, help_text="Po ilu dniach usuwać rozmowy. 0 wyłącza usuwanie."
+    data_retention_days = DniRetencjiField(
+        min_value=0,
+        max_value=MAX_RETENTION_DAYS,
+        help_text="Po ilu dniach usuwać rozmowy (0–3650). 0 wyłącza usuwanie.",
     )
-    privacy_policy_url = serializers.CharField(allow_blank=True)
+    privacy_policy_url = serializers.URLField(allow_blank=True, max_length=200)
 
 
 class ErasureResultSerializer(serializers.Serializer):

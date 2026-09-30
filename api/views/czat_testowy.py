@@ -34,6 +34,7 @@ from api.schemas import (
 )
 from api.throttles import APIKeyRateThrottle
 from api.utils.chat_engine import stream_chat_message
+from chat.lifecycle import usun_rozmowe
 from chat.models import ChatMessage, Conversation
 from chat.zapytania import ZRODLO_TESTOWE
 
@@ -128,5 +129,6 @@ class CzatTestowyView(APIView):
         if tenant is None:
             raise PermissionDenied("Brak uprawnień.")
 
-        ChatMessage.objects.filter(conversation=rozmowa_testowa(tenant, request.user)).delete()
+        rozmowa = rozmowa_testowa(tenant, request.user)
+        usun_rozmowe(tenant, rozmowa.session_id)
         return Response({"ok": True})

@@ -9,7 +9,7 @@ from api.schemas import PublicChatResponseSerializer
 from api.serializers import ChatRequestSerializer
 from api.throttles import APIKeyRateThrottle
 from api.utils.chat_engine import process_chat_message, split_billing
-from chat.models import Conversation
+from chat.lifecycle import RozmowaUsunieta, otworz_rozmowe
 from chat.privacy import visitor_identifier
 
 
@@ -20,6 +20,7 @@ from chat.privacy import visitor_identifier
     request=ChatRequestSerializer,
     responses={
         200: PublicChatResponseSerializer,
+        410: OpenApiResponse(description="Sesja została usunięta."),
         429: OpenApiResponse(description="Limit planu wyczerpany."),
     },
 )
@@ -39,7 +40,7 @@ class ChatWithGPTView(APIView):
         if tenant is None:
             raise PermissionDenied("Brak uprawnień lub nieprawidłowy klucz API.")
 
-        conversation, _ = Conversation.objects.get_or_create(
+        conversation, _ = otworz_rozmowe(
             session_id=data["conversation_session_id"],
             tenant=tenant,
             defaults={"tenant": tenant, "user_identifier": visitor_identifier(request)},
@@ -54,6 +55,9 @@ class ChatWithGPTView(APIView):
             )
             payload, billable = split_billing(result)
             reservation.settle(billable)
+        except RozmowaUsunieta:
+            reservation.settle(False)
+            raise
         except BaseException:
             reservation.settle(None)
             raise
