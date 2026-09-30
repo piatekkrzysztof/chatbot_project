@@ -27,9 +27,18 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 6. Przygotowano migracje i instrukcję odbioru. Wyniki testów i CI są w PR;
    w tym etapie nie zmieniano produkcji.
 
+### Raport kontrolny po A04 — 2.19.5
+
+Przygotowano [raport plików bez odwołania](raport-plikow-bez-odwolania.md):
+odczyt metadanych bez kasowania, bez pobierania treści i bez tworzenia zleceń.
+Rozróżnia pliki używane, świeże uploady, stany A04 i kandydatów do sprawdzenia.
+Ograniczenia lub błędy oznaczają niepełny wynik, domyślnie bez nazw plików.
+Historia F18 i kontrola z 17.09 pozostają ważne; nowe narzędzie nie jest
+stwierdzeniem, że na produkcji znaleziono sieroty. Odbiór na produkcji otwarty.
+
 **Dalej:** odebrać PR i wdrożyć A04 według instrukcji → sprawdzić testowe
 pliki oraz alarm w rzeczywistym magazynie → potwierdzić odbiory A01/A02
-i A03/A05 → przygotować raport historycznych sierot bez kasowania →
+i A03/A05 → uruchomić przygotowany raport historycznych sierot bez kasowania →
 dokończyć pozostałe bramki operacyjne, wydajności i UX z rejestru F01–F25.
 Nie utożsamiamy zielonych testów kodu z ukończonym odbiorem komercyjnym.
 

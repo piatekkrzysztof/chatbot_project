@@ -164,6 +164,8 @@ próba utrzymania nowego workera przy starszym web wymaga kontroli zgodności.
 
 ## Granice poprawki i dalsze kroki
 
+- Narzędzie kontrolne 2.19.5: [raport plików bez odwołania](raport-plikow-bez-odwolania.md),
+  tylko metadane i klasyfikacja, bez kasowania; odbiór produkcyjny pozostaje otwarty.
 - A04 nie odszukuje historycznych sierot ani uploadów, których zapis do bazy
   nigdy się nie udał. Następny krok to raport obiektów bez odwołania,
   z uwzględnieniem oczekujących zleceń i trwających uploadów; bez kasowania.
