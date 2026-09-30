@@ -1,4 +1,7 @@
+import uuid
+
 from django.db import models
+from django.utils import timezone
 from pgvector.django import VectorField
 
 from accounts.models import Tenant
@@ -65,6 +68,14 @@ class Document(models.Model):
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
 
+    def save(self, *args, **kwargs):
+        from chatbot_project.pliki import zapis_z_plikami
+
+        with zapis_z_plikami(
+            self, update_fields=kwargs.get("update_fields"), using=kwargs.get("using")
+        ):
+            return super().save(*args, **kwargs)
+
 
 class DocumentChunk(models.Model):
     document = models.ForeignKey("Document", on_delete=models.CASCADE, related_name="chunks")
@@ -98,3 +109,26 @@ class WebsiteSource(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.url})"
+
+
+class UsunieciePliku(models.Model):
+    # Bez FK do firmy/dokumentu: zlecenie musi przeżyć kaskadę usunięcia właściciela.
+    firma_id = models.BigIntegerField(null=True, blank=True)
+    magazyn = models.CharField(max_length=32)
+    cel = models.CharField(max_length=64)
+    nazwa = models.CharField(max_length=512)
+    stan = models.CharField(max_length=16, default="oczekuje")
+    proby = models.PositiveIntegerField(default=0)
+    token = models.UUIDField(default=uuid.uuid4)
+    utworzono_at = models.DateTimeField(auto_now_add=True)
+    ponow_at = models.DateTimeField(default=timezone.now)
+    dzierzawa_do = models.DateTimeField(null=True, blank=True)
+    zakonczono_at = models.DateTimeField(null=True, blank=True)
+    blad = models.CharField(max_length=64, blank=True)
+    alarm_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["stan", "ponow_at"], name="plik_usun_due"),
+            models.Index(fields=["stan", "dzierzawa_do"], name="plik_usun_lease"),
+        ]

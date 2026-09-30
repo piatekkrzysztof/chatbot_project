@@ -24,7 +24,7 @@ from accounts.models import CustomUser, DrugiSkladnik, Tenant
 from accounts.security_notifications import PasswordNotification
 from accounts.tests.test_backup_monitoring import remote_backups
 from api.tests.factories import UserFactory
-from documents.models import Document, DocumentChunk
+from documents.models import Document, DocumentChunk, UsunieciePliku
 from documents.wymiar import WYMIAR_WEKTORA
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -118,7 +118,7 @@ def test_full_roundtrip_restores_bytes_relations_password_mfa_vectors_and_permis
         ]
     )
     assert verify_bundle(raw) == metadata
-    Tenant.objects.all().delete()
+    oproznij_baze_testu()
     group.delete()
     for item in metadata["files"]:
         alias = "private_documents" if item["storage"] == "private_documents" else "default"
@@ -336,7 +336,7 @@ def test_guarded_restore_command_works_on_empty_local_database(seed, tmp_path):
     pk = user.pk
     archive = tmp_path / "full.saas"
     call_command("backup_full", source_quiesced=True, output=str(archive))
-    Tenant.objects.all().delete()
+    oproznij_baze_testu()
     result = io.StringIO()
     call_command(
         "restore_full_backup", str(archive), output=str(tmp_path / "restored"), stdout=result
@@ -359,7 +359,7 @@ def test_restore_rejects_unsafe_or_incompatible_target(
 
     raw, _ = bundle()
     if reason != "nonempty":
-        Tenant.objects.all().delete()
+        oproznij_baze_testu()
     if reason == "render":
         monkeypatch.setenv("RENDER", "true")
     elif reason == "django_key":
@@ -388,7 +388,7 @@ def test_restore_rejects_unsafe_or_incompatible_target(
 def test_restore_rechecks_empty_database_after_unpack(seed, tmp_path):
     archive = tmp_path / "test.saas"
     call_command("backup_full", source_quiesced=True, output=str(archive))
-    Tenant.objects.all().delete()
+    oproznij_baze_testu()
 
     def race(*args, **kwargs):
         result = unpack_bundle(*args, **kwargs)
@@ -404,7 +404,7 @@ def test_restore_rechecks_empty_database_after_unpack(seed, tmp_path):
 def test_restore_database_failure_rolls_back_all_imported_rows(seed, tmp_path):
     archive = tmp_path / "test.saas"
     call_command("backup_full", source_quiesced=True, output=str(archive))
-    Tenant.objects.all().delete()
+    oproznij_baze_testu()
 
     def fail(*args, **kwargs):
         Tenant.objects.create(name="partial")
@@ -420,7 +420,7 @@ def test_restore_database_failure_rolls_back_all_imported_rows(seed, tmp_path):
 def test_restore_blocks_mail_network_and_dns(seed, tmp_path, settings):
     archive = tmp_path / "test.saas"
     call_command("backup_full", source_quiesced=True, output=str(archive))
-    Tenant.objects.all().delete()
+    oproznij_baze_testu()
 
     def load(*args, **kwargs):
         assert settings.EMAIL_BACKEND.endswith("dummy.EmailBackend")
@@ -451,7 +451,7 @@ def test_restore_checks_complete_file_set_not_only_present_references(seed, tmp_
     incomplete = rewrite(raw, remove)
     archive = tmp_path / "incomplete.saas"
     archive.write_bytes(incomplete.getvalue())
-    Tenant.objects.all().delete()
+    oproznij_baze_testu()
     with pytest.raises(CommandError, match="powiązania"):
         call_command("restore_full_backup", str(archive), output=str(tmp_path / "partial"))
     assert not Tenant.objects.exists()
@@ -467,7 +467,7 @@ def test_restore_checks_model_counts(seed, tmp_path):
     )
     archive = tmp_path / "count.saas"
     archive.write_bytes(modified.getvalue())
-    Tenant.objects.all().delete()
+    oproznij_baze_testu()
     with pytest.raises(CommandError, match="rekordów"):
         call_command("restore_full_backup", str(archive), output=str(tmp_path / "partial"))
     assert not Tenant.objects.exists()
@@ -507,3 +507,43 @@ def test_database_uses_one_snapshot_during_concurrent_update(seed, tmp_path):
     assert restored["fields"]["content"] == "PRIVATE_DATABASE_SENTINEL"
     doc.refresh_from_db()
     assert doc.content == "NEW_VERSION"
+
+
+def oproznij_baze_testu():
+    # The production outbox deliberately survives tenant deletion.
+    Tenant.objects.all().delete()
+    UsunieciePliku.objects.all().delete()
+
+
+def test_restore_keeps_nonempty_guard_for_outbox_only(seed, tmp_path, monkeypatch):
+    monkeypatch.setattr("chatbot_project.pliki._obudz", lambda *args: None)
+    archive = tmp_path / "full.saas"
+    call_command("backup_full", source_quiesced=True, output=str(archive))
+    Tenant.objects.all().delete()
+    assert UsunieciePliku.objects.exists()
+    with pytest.raises(CommandError, match="zawiera dane"):
+        call_command("restore_full_backup", str(archive), output=str(tmp_path / "restored"))
+    assert not (tmp_path / "restored").exists()
+
+
+def test_restore_suspends_pending_deletions_before_original_storage_returns(
+    seed, tmp_path, monkeypatch
+):
+    from documents.usuwanie_plikow import usun_oczekujace_pliki
+
+    monkeypatch.setattr("chatbot_project.pliki._obudz", lambda *args: None)
+    doc = seed[1]
+    name = doc.file.name
+    doc.delete()
+    job = UsunieciePliku.objects.get()
+    archive = tmp_path / "full.saas"
+    call_command("backup_full", source_quiesced=True, output=str(archive))
+    oproznij_baze_testu()
+    call_command("restore_full_backup", str(archive), output=str(tmp_path / "restored"))
+    job.refresh_from_db()
+    assert job.stan == "wstrzymane" and job.blad == "odtworzona_kopia"
+    assert job.dzierzawa_do is None
+    with patch.object(storages["private_documents"], "delete") as delete:
+        usun_oczekujace_pliki()
+    delete.assert_not_called()
+    assert storages["private_documents"].exists(name)

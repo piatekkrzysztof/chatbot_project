@@ -1,7 +1,7 @@
 from functools import partial
 
 from django.db import transaction
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from chatbot_project.pliki import usun_plik_po_zatwierdzeniu
@@ -49,7 +49,7 @@ def handle_new_document(sender, instance, created, raw=False, **kwargs):
 
 
 @receiver(post_delete, sender=Document)
-def usun_plik_dokumentu(sender, instance, **kwargs):
+def usun_plik_dokumentu(sender, instance, using="default", **kwargs):
     """
     Usuwa plik z prywatnego magazynu razem z dokumentem - każdą drogą.
 
@@ -63,4 +63,19 @@ def usun_plik_dokumentu(sender, instance, **kwargs):
     metody modelu dla żadnego wiersza, a kaskada przy usuwaniu firmy nie woła
     jej tym bardziej. `post_delete` dostaje każdy usunięty wiersz.
     """
-    usun_plik_po_zatwierdzeniu(instance.file.storage, instance.file.name)
+    usun_plik_po_zatwierdzeniu(
+        "documents", instance.file.name, using=using, tenant_id=instance.tenant_id
+    )
+
+
+@receiver(pre_save, sender=Document)
+def usun_zastapiony_dokument(
+    sender, instance, raw=False, update_fields=None, using="default", **kwargs
+):
+    if raw or not instance.pk or (update_fields is not None and "file" not in update_fields):
+        return
+    old = (
+        Document.objects.using(using).filter(pk=instance.pk).values_list("file", flat=True).first()
+    )
+    if old and (old != instance.file.name or not instance.file._committed):
+        usun_plik_po_zatwierdzeniu("documents", old, using=using, tenant_id=instance.tenant_id)
