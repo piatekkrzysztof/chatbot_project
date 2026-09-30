@@ -1,5 +1,20 @@
 # Roadmapa napraw po audycie SaaS
 
+## Ponowny audyt 30.09.2026 - bieżące naprawy
+
+Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
+
+| ID | Zakres | Stan |
+|---|---|---|
+| A01 | Dwie otwarte sesje zakupu jednego abonamentu | Poprawka 2.19.1: trwała próba, serializacja, wygaszenie przed zmianą planu, obsługa utraconej odpowiedzi i dawnych sesji. [Odbiór i kontrolowane wdrożenie](checkout-jedna-proba.md). Nie oznaczać jako wdrożone przed odbiorem |
+| A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Następny etap po A01: wspólna kolejność odczytu i zapisu oraz uzgadnianie rozbieżności |
+| A03 | Zapis promptu równoległy z usunięciem rozmowy | Do naprawy: wspólny protokół transakcji i blokowania zapisu/usunięcia |
+| A04 | Plik bez rekordu po awarii magazynu | Do naprawy: trwałe zlecenia usunięcia, retry i alarmy |
+| A05 | Niewykonalny okres retencji przyjmowany przez API | Do naprawy razem z A03: walidacja zakresu i typów |
+
+Końcowe odbiory operacyjne i wydajność pozostają osobnymi bramkami wydania.
+Poniższy rejestr F01-F25 zachowuje dotychczasowy zakres i historię.
+
 Data rozpoczęcia: 9.09.2026. **Ostatni przegląd: 30.09.2026.**
 Bieżący stan każdego ustalenia jest w rejestrze F01-F25 na dole tego pliku
 i to jedyne miejsce, które utrzymujemy na bieżąco. Akapit niżej zostaje jako

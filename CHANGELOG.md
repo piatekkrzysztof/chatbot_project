@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.1] - 2026-09-30
+
+### Fixed
+
+- **Starting checkout twice no longer creates two payable subscriptions.**
+  A durable purchase attempt survives time-window boundaries, concurrent tabs
+  and lost Stripe responses. Changing plans expires the previous session first;
+  completed payments block another purchase even before the webhook arrives.
+  Uncertain old attempts require verified reconciliation instead of a fresh charge.
+
+### Operations
+
+- Migration `accounts.0041_proba_zakupu` and a controlled checkout cutover are
+  required. Existing firms have their recent legacy sessions checked before a
+  new purchase. See `docs/checkout-jedna-proba.md` for deployment, test-mode
+  acceptance, rollback and the read-first `uzgodnij_checkout` command.
+
 ## [2.19.0] — 2026-09-30
 
 ### Added
