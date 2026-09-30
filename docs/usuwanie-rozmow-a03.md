@@ -86,8 +86,12 @@ osobnym elementem odbioru operacyjnego.
 
    ```python
    from accounts.models import Tenant
-   list(Tenant.objects.filter(data_retention_days__gt=3650)
-        .values_list("id", "data_retention_days")[:100])
+
+   list(
+       Tenant.objects.filter(data_retention_days__gt=3650).values_list("id", "data_retention_days")[
+           :100
+       ]
+   )
    ```
 
 4. Wynik musi być pusty. Jeśli nie jest, ustalić okres z administratorem danej
