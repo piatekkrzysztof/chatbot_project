@@ -251,14 +251,23 @@ def test_dwa_zdarzenia_zakupu_naraz_zakladaja_jeden_wiersz(ceny):
     with (
         patch(
             "stripe.Webhook.construct_event",
-            side_effect=[zdarzenia["checkout"], zdarzenia["invoice"]],
+            side_effect=[zdarzenia["checkout"], zdarzenia["invoice"], zdarzenia["invoice"]],
         ),
         patch("stripe.Subscription.retrieve", return_value=aktywna),
         ThreadPoolExecutor(max_workers=2) as pula,
     ):
         wyniki = list(pula.map(jedno, ["checkout", "invoice"]))
+        # Konflikt synchronizacji zwraca 500: Stripe ponowi świeży odczyt.
+        # Ponowienie po zwolnieniu blokady musi zakończyć się sukcesem.
+        assert (
+            APIClient()
+            .post(WEBHOOK, data="{}", content_type="application/json", HTTP_STRIPE_SIGNATURE="p")
+            .status_code
+            == 200
+        )
 
-    assert [kod for kod, _ in wyniki] == [200, 200]
+    assert 200 in [kod for kod, _ in wyniki]
+    assert all(kod in (200, 500) for kod, _ in wyniki)
     assert Subscription.objects.filter(tenant=tenant).count() == 1
 
 

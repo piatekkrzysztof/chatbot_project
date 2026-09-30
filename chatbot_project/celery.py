@@ -29,6 +29,11 @@ app.autodiscover_tasks()
 
 
 app.conf.beat_schedule = {
+    "uzgodnienie-stripe-co-5-minut": {
+        "task": "accounts.tasks_stripe.uzgodnij_platnosci",
+        "schedule": 300.0,
+        "options": {"expires": 300},
+    },
     "password-notifications-every-minute": {
         "task": "accounts.tasks.send_password_notifications",
         "schedule": 60.0,
