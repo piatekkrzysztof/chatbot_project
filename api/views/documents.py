@@ -81,7 +81,8 @@ class DocumentsViewSet(
         tags=["Panel — baza wiedzy"],
         summary="Usuń dokument razem z plikiem",
         description=(
-            "Usuwa dokument, jego fragmenty i plik z prywatnego magazynu. "
+            "Usuwa dokument i fragmenty oraz trwale zleca usunięcie pliku. "
+            "Przy awarii magazynu usunięcie pliku jest ponawiane w tle. "
             "Operacji nie da się cofnąć - kopii pliku nie przechowujemy."
         ),
         responses={204: None, 403: ErrorSerializer, 404: ErrorSerializer},

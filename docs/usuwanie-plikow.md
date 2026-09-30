@@ -1,5 +1,11 @@
 # Pliki znikają razem z danymi (F18, część 1)
 
+**Aktualizacja 30.09.2026:** poniżej historia rozwiązania 2.8.1.
+Od 2.19.4 callback został zastąpiony trwałymi zleceniami, ponowieniami
+i alarmami; log nie zawiera nazwy pliku. Aktualna procedura i ograniczenia
+są w [A04 — trwałe usuwanie plików](trwale-usuwanie-plikow-a04.md).
+Wdrożenie i odbiór A04 pozostają do potwierdzenia.
+
 Stan na 17.09.2026, wersja 2.8.1. Pierwsza część F18 z
 [roadmapy](roadmapa-po-audycie.md): spójne usuwanie pochodnych. Dotyczy
 plików w magazynie, nie okresów przechowywania: tamte opisują
