@@ -100,8 +100,31 @@ Od 2.16.0 codziennie o 4:00 robi to zadanie
 3. zapisuje obie liczby w logu **także przy zerach** - cisza w logu nie
    odróżnia przebiegu, który nic nie znalazł, od przebiegu, którego nie było.
 
-Potwierdzenie pierwszego przebiegu: w logu usługi `celery-worker` po 4:00 ma
-się pojawić linia `Rezerwacje: do rozliczenia 0, usuniętych rozliczonych 0`.
+Potwierdzenie przebiegu: **zakładka Stan w panelu**, karta „Rozliczanie pracy
+bota". Pokazuje liczbę wiadomości czekających na rozliczenie i liczbę biletów,
+które przekroczyły termin sprzątania. Od 2.19.0, bo do tego czasu wynik tego
+zadania dało się zobaczyć wyłącznie w logu usługi `celery-worker` - a log, do
+którego trzeba zejść, nie jest kontrolą. Tę samą lekcję zapisał już raport
+z incydentu 26.08.2026: „A step on a checklist a person walks through is not
+detection."
+
+W logu workera ta sama informacja wygląda tak i zostaje przydatna przy
+diagnozowaniu pojedynczego przebiegu:
+
+```text
+Rezerwacje: do rozliczenia 0, usuniętych rozliczonych 0
+```
+
+### Czego karta w panelu nie potwierdza
+
+Zadanie robi dwie rzeczy, a z bazy widać jedną. **Sprzątanie** zostawia ślad:
+bilet rozliczony dawniej niż 90 dni, który wciąż leży, dowodzi, że zadanie nie
+przebiegło. **Wysyłki alarmu nie widać wcale** - karta nie udaje, że wie, czy
+poczta wyszła.
+
+Przy pustej albo młodej tabeli karta mówi „nie da się potwierdzić", a nie
+„działa". Bilet, którego nie ma czego kasować, nie jest dowodem na nic - to ta
+sama zasada, która obowiązuje przy retencji rozmów.
 
 Czego zadanie NIE robi: nie rozlicza niczego samo. Stan `uncertain` znaczy
 dokładnie tyle, że nie wiemy, czy zapytanie doszło do OpenAI. Automat musiałby
