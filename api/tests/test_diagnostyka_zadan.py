@@ -16,12 +16,36 @@ import pytest
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounts.models import CustomUser, Tenant
+from accounts import rezerwacje
+from accounts.models import CustomUser, MessageReservation, Tenant
 from api.views import diagnostyka_zadan as dz
 from chat.models import Conversation
 from documents.models import WebsiteSource
 
 BROKER_OK = {"broker_osiagalny": True, "odpowiedzialo_workerow": 1, "nazwy": ["celery@render"]}
+
+
+def bilet_blisko_progu(tenant):
+    """
+    Rozliczony bilet w okolicy progu sprzątania, ale go nieprzekraczający.
+
+    Trzeci sygnał diagnostyki bez takiego biletu zwraca „brak danych" - i to
+    jest poprawne, bo przy pustej tabeli nie da się dowieść, że sprzątanie
+    działa. Testy, które sprawdzają werdykt „wszystko działa", muszą więc
+    dostarczyć dowód dla wszystkich trzech sygnałów, a nie dwóch.
+    """
+    bilet = MessageReservation.objects.create(
+        tenant=tenant,
+        state="charged",
+        finished=True,
+        expires_at=timezone.now() - timedelta(days=85),
+    )
+    MessageReservation.objects.filter(pk=bilet.pk).update(
+        created_at=timezone.now() - (rezerwacje.OKRES_ROZLICZONYCH - timedelta(days=5))
+    )
+    return bilet
+
+
 BROKER_BRAK_WORKERA = {"broker_osiagalny": True, "odpowiedzialo_workerow": 0, "nazwy": []}
 BROKER_PADL = {
     "broker_osiagalny": False,
@@ -70,6 +94,7 @@ class TestWerdyktu:
         Conversation.objects.filter(pk=blisko_progu.pk).update(
             started_at=timezone.now() - timedelta(days=27)
         )
+        bilet_blisko_progu(tenant)
         odp = odpytaj(zaloguj(tenant), BROKER_OK)
 
         assert odp.status_code == 200
@@ -305,6 +330,7 @@ class TestPoziomu:
         Conversation.objects.filter(pk=blisko.pk).update(
             started_at=timezone.now() - timedelta(days=27)
         )
+        bilet_blisko_progu(tenant)
         assert odpytaj(zaloguj(tenant), BROKER_OK).data["poziom"] == "ok"
 
 
@@ -378,3 +404,178 @@ class TestSpojnosciWerdyktuIPoziomu:
 
         assert odp.data["poziom"] == "awaria"
         assert odp.data["werdykt"].split(".")[0].isupper() or "NIE" in odp.data["werdykt"]
+
+
+class TestRozliczaniaRezerwacji:
+    """
+    Trzeci sygnał: nocne czuwanie nad rezerwacjami AI.
+
+    Dwa pytania, które łatwo pomieszać, a wymagają czegoś innego: czy zadanie
+    sprzątające przebiegło (zaległe bilety) i czy jest co rozliczyć (bilety
+    niepewne). Pierwsze to awaria zaplecza, drugie to sprawa dla człowieka
+    i pieniądze klienta - dlatego nie mogą dawać tego samego werdyktu.
+    """
+
+    def test_pusta_tabela_nie_dowodzi_ze_sprzatanie_dziala(self, tenant):
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        sygnal = odp.data["slady_w_danych"]["rozliczanie_rezerwacji"]
+        assert sygnal["wniosek"] == "brak-danych"
+        assert sygnal["do_rozliczenia"] == 0
+
+    def test_bilet_w_okolicy_progu_potwierdza_sprzatanie(self, tenant):
+        bilet_blisko_progu(tenant)
+
+        sygnal = odpytaj(zaloguj(tenant), BROKER_OK).data["slady_w_danych"][
+            "rozliczanie_rezerwacji"
+        ]
+
+        assert sygnal["wniosek"] == "dziala"
+        assert sygnal["zaleglych_biletow"] == 0
+
+    def test_zalegly_bilet_to_awaria_sprzatania(self, tenant):
+        bilet = MessageReservation.objects.create(
+            tenant=tenant,
+            state="released",
+            finished=True,
+            expires_at=timezone.now() - timedelta(days=100),
+        )
+        MessageReservation.objects.filter(pk=bilet.pk).update(
+            created_at=timezone.now() - (rezerwacje.OKRES_ROZLICZONYCH + timedelta(days=5))
+        )
+
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        assert odp.data["slady_w_danych"]["rozliczanie_rezerwacji"]["wniosek"] == "nie-dziala"
+        assert odp.data["poziom"] == "awaria"
+        assert "sprzątanie rezerwacji" in odp.data["werdykt"].lower()
+
+    def test_bilet_swiezo_po_progu_nie_jest_awaria(self, tenant):
+        """
+        Doba zapasu, bo zadanie chodzi o 4:00.
+
+        Bilet, który przekroczył próg trzy godziny temu, jeszcze nie miał
+        swojej okazji - uznanie tego za awarię zapalałoby czerwone codziennie
+        rano i nauczyłoby nas nie patrzeć.
+        """
+        bilet = MessageReservation.objects.create(
+            tenant=tenant,
+            state="charged",
+            finished=True,
+            expires_at=timezone.now() - timedelta(days=91),
+        )
+        MessageReservation.objects.filter(pk=bilet.pk).update(
+            created_at=timezone.now() - (rezerwacje.OKRES_ROZLICZONYCH + timedelta(hours=3))
+        )
+
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        assert odp.data["slady_w_danych"]["rozliczanie_rezerwacji"]["wniosek"] != "nie-dziala"
+
+    def test_niepewny_bilet_to_uwaga_a_nie_awaria(self, tenant):
+        """
+        Bilet do rozliczenia nie oznacza, że zadanie nie działa.
+
+        Zadanie mogło przebiec bezbłędnie i właśnie ten bilet zgłosić. Werdykt
+        musi kierować do komendy rozliczającej, a nie do Rendera.
+        """
+        bilet_blisko_progu(tenant)
+        MessageReservation.objects.create(
+            tenant=tenant,
+            state="uncertain",
+            finished=True,
+            expires_at=timezone.now() - timedelta(minutes=30),
+        )
+
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        assert odp.data["slady_w_danych"]["rozliczanie_rezerwacji"]["do_rozliczenia"] == 1
+        assert odp.data["slady_w_danych"]["rozliczanie_rezerwacji"]["wniosek"] == "dziala"
+        assert odp.data["poziom"] == "uwaga"
+        assert "check_message_reservations" in odp.data["werdykt"]
+        assert "Render" not in odp.data["werdykt"]
+
+    def test_czekajacy_bilet_nie_chowa_sie_pod_wszystko_dziala(self, tenant):
+        """Gałąź „wszystko działa" nie może przykryć zajętego limitu klienta."""
+        WebsiteSource.objects.create(
+            tenant=tenant,
+            name="Strona",
+            url="https://example.com",
+            is_active=True,
+            last_crawled_at=timezone.now() - timedelta(hours=2),
+        )
+        rozmowa = Conversation.objects.create(tenant=tenant, user_identifier="gosc")
+        # 80 dni, nie 27: fikstura `tenant` ma retencję 90 dni, więc rozmowa
+        # sprzed 27 dni nie dobija do progu i retencja zwraca „brak danych".
+        # Poziom byłby wtedy „uwaga" z tego powodu, a nie z powodu biletu -
+        # i mutacja usuwająca warunek z `_poziom` przeżyła właśnie na tym.
+        Conversation.objects.filter(pk=rozmowa.pk).update(
+            started_at=timezone.now() - timedelta(days=80)
+        )
+        bilet_blisko_progu(tenant)
+        MessageReservation.objects.create(
+            tenant=tenant,
+            state="uncertain",
+            finished=True,
+            expires_at=timezone.now() - timedelta(minutes=30),
+        )
+
+        odp = odpytaj(zaloguj(tenant), BROKER_OK)
+
+        assert "Wszystko działa" not in odp.data["werdykt"]
+        assert "CZEKA NA ROZLICZENIE" in odp.data["werdykt"]
+        # Wszystkie trzy sygnały są tu potwierdzone, więc „uwaga" może wziąć
+        # się wyłącznie z biletu czekającego na rozliczenie. W teście wyżej
+        # brakowało źródła WWW, więc poziom i tak byłby „uwaga" - i mutacja
+        # usuwająca ten warunek z `_poziom` przeżyła.
+        assert odp.data["poziom"] == "uwaga"
+
+    def test_bilety_innego_klienta_nie_wyciekaja(self, tenant):
+        """Endpoint widzi właściciel konta, więc liczby muszą być tylko jego."""
+        obca = Tenant.objects.create(name="Obca", owner_email="obca@example.com")
+        MessageReservation.objects.create(
+            tenant=obca,
+            state="uncertain",
+            finished=True,
+            expires_at=timezone.now() - timedelta(minutes=30),
+        )
+
+        stary = MessageReservation.objects.create(
+            tenant=obca,
+            state="charged",
+            finished=True,
+            expires_at=timezone.now() - timedelta(days=100),
+        )
+        MessageReservation.objects.filter(pk=stary.pk).update(
+            created_at=timezone.now() - (rezerwacje.OKRES_ROZLICZONYCH + timedelta(days=5))
+        )
+
+        sygnal = odpytaj(zaloguj(tenant), BROKER_OK).data["slady_w_danych"][
+            "rozliczanie_rezerwacji"
+        ]
+
+        assert sygnal["do_rozliczenia"] == 0
+        assert sygnal["zaleglych_biletow"] == 0
+
+    def test_stary_pending_nie_dowodzi_ze_sprzatanie_dziala(self, tenant):
+        """
+        Sprzątanie nie rusza biletów nierozliczonych, więc stary `pending`
+        niczego o nim nie mówi. Uznanie go za dowód pokazywałoby „działa"
+        w sytuacji, w której zadanie mogło nie ruszyć ani razu - a przy okazji
+        ten bilet to sprawa do rozliczenia, nie potwierdzenie porządku.
+        """
+        bilet = MessageReservation.objects.create(
+            tenant=tenant,
+            state="pending",
+            expires_at=timezone.now() - timedelta(days=80),
+        )
+        MessageReservation.objects.filter(pk=bilet.pk).update(
+            created_at=timezone.now() - (rezerwacje.OKRES_ROZLICZONYCH - timedelta(days=5))
+        )
+
+        sygnal = odpytaj(zaloguj(tenant), BROKER_OK).data["slady_w_danych"][
+            "rozliczanie_rezerwacji"
+        ]
+
+        assert sygnal["wniosek"] == "brak-danych"
+        assert sygnal["do_rozliczenia"] == 1
