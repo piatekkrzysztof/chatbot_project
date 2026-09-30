@@ -545,7 +545,7 @@ jobs:
       # czego potrzebuje dopiero Celery przy wczytywaniu zadań.
       - name: Worker wczytuje swoje zadania
         run: |
-          docker run --rm \
+          docker run --rm -i \
             -e DJANGO_ENV=prod \
             -e DJANGO_SECRET_KEY=ci-secret-key-not-used-outside-ci \
             -e DATABASE_URL=postgres://postgres:postgres@localhost:5432/nieuzywana \
@@ -562,6 +562,7 @@ jobs:
               if wpis["task"] not in app.tasks
           ]
           assert not brakujace, brakujace
+          assert "documents.usuwanie_plikow.usun_zlecony_plik" in app.tasks
           print(f"Worker zna wszystkie {len(app.conf.beat_schedule)} zadania")
           PY
 
