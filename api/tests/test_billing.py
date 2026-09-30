@@ -338,8 +338,11 @@ class TestCheckout:
         """Bez tego webhook nie ma po czym rozpoznać, kto zapłacił."""
         settings.STRIPE_PRICE_IDS = {"pro": "price_test", "start": "", "grow": ""}
 
-        class FakeSession:
-            url = "https://checkout.stripe.test/sesja"
+        class FakeSession(dict):
+            def __init__(self):
+                super().__init__(
+                    id="cs_test_first", status="open", url="https://checkout.stripe.test/sesja"
+                )
 
         # Kartoteka klienta jest osobna sprawa (test_stripe_klient.py). Bez
         # tego podstawienia wywolanie wychodzi na zewnatrz, konczy sie bledem,
@@ -348,6 +351,7 @@ class TestCheckout:
         with (
             patch("api.views.stripe.kartoteka_klienta", return_value="cus_test"),
             patch("stripe.checkout.Session.create", return_value=FakeSession()) as create,
+            patch("stripe.checkout.Session.retrieve", return_value=FakeSession()),
         ):
             response = owner_client(user, tenant).post(
                 self.URL, {"plan_type": "pro"}, format="json"
@@ -430,12 +434,16 @@ def test_adresy_powrotu_maja_odpowiedniki_w_panelu(user, tenant, subscribtion, s
     """
     settings.STRIPE_PRICE_IDS = {"pro": "price_test", "start": "", "grow": ""}
 
-    class FakeSession:
-        url = "https://checkout.stripe.test/s"
+    class FakeSession(dict):
+        def __init__(self):
+            super().__init__(
+                id="cs_test_first", status="open", url="https://checkout.stripe.test/s"
+            )
 
     with (
         patch("api.views.stripe.kartoteka_klienta", return_value="cus_test"),
         patch("stripe.checkout.Session.create", return_value=FakeSession()) as create,
+        patch("stripe.checkout.Session.retrieve", return_value=FakeSession()),
     ):
         owner_client(user, tenant).post(
             "/api/billing/create-checkout-session/", {"plan_type": "pro"}, format="json"

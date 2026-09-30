@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 
 import stripe
 from django.conf import settings
@@ -29,6 +28,7 @@ from api.schemas import (
     PortalResponseSerializer,
     PublicPricingSerializer,
 )
+from api.utils.checkout import pojedyncza_sesja
 from api.utils.stripe_klient import kartoteka_klienta
 from api.utils.stripe_portal import konfiguracja_portalu, zapomnij_konfiguracje
 from api.views.stripe_webhook import (
@@ -40,11 +40,6 @@ from api.views.stripe_webhook import (
 )
 
 logger = logging.getLogger(__name__)
-
-#: Okno, w którym ponowne wejście do płatności za ten sam plan zwraca TĘ SAMĄ
-#: sesję Stripe. Podwójne kliknięcie albo dwie karty z panelem dawały wcześniej
-#: dwie niezależne sesje - każdą dało się opłacić osobno.
-OKNO_IDEMPOTENCJI_SEKUND = 600
 
 #: Identyfikator sesji Checkout. Sprawdzany przed wywołaniem Stripe, żeby adres
 #: strony sukcesu nie był furtką do dowolnych zapytań w naszym imieniu.
@@ -145,40 +140,11 @@ def create_checkout_session(tenant, plan_code, email=None):
             "Nie udało się rozpocząć płatności. Spróbuj ponownie za chwilę, "
             "a jeśli problem się powtórzy — daj nam znać."
         ) from blad
-    return session.url
+    return session["url"]
 
 
 def _utworz_sesje(stripe, tenant, plan, price_id, email, frontend):
-    """Samo wywołanie Stripe, wydzielone, żeby obsługa błędu była czytelna."""
-    # Kartoteka klienta niesie nazwe, adres i NIP - czyli to, co musi znalezc
-    # sie na fakturze. Bez niej Stripe zaklada nowa, anonimowa przy kazdym
-    # zakupie, a polska firma dostaje dokument bez wlasnego NIP-u.
-    identyfikator = kartoteka_klienta(tenant, email)
-
-    # Droga awaryjna: gdy Stripe odmowil obslugi kartoteki, platnosc idzie
-    # dalej po samym adresie e-mail. Faktura bez pelnych danych jest klopotem,
-    # ale klient, ktory nie moze zaplacic, jest klopotem wiekszym i naszym.
-    rozpoznanie = (
-        {"customer": identyfikator}
-        if identyfikator
-        else {"customer_email": email or tenant.owner_email}
-    )
-
-    okno = int(time.time() // OKNO_IDEMPOTENCJI_SEKUND)
-    kto = rozpoznanie.get("customer") or rozpoznanie.get("customer_email") or ""
-
-    return stripe.checkout.Session.create(
-        idempotency_key=f"checkout-{tenant.id}-{plan.code}-{price_id}-{kto}-{okno}",
-        mode="subscription",
-        **rozpoznanie,
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{frontend}/platnosc/sukces?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{frontend}/platnosc/anulowano",
-        metadata={"tenant_id": str(tenant.id), "plan": plan.code},
-        # Metadane sesji nie przechodzą na subskrypcję, a zdarzenia odnowienia
-        # dotyczą właśnie subskrypcji — bez tego nie da się ich powiązać z firmą
-        subscription_data={"metadata": {"tenant_id": str(tenant.id), "plan": plan.code}},
-    )
+    return pojedyncza_sesja(stripe, tenant, plan, price_id, email, frontend, kartoteka_klienta)
 
 
 def otworz_portal(tenant, plan_code=None):
@@ -424,7 +390,12 @@ class BillingOverviewView(APIView):
     summary="Rozpocznij płatność za plan",
     description="Tylko właściciel firmy: zakup zakłada subskrypcję i obciąża kartę.",
     request=CheckoutRequestSerializer,
-    responses={200: CheckoutResponseSerializer, 400: ErrorSerializer},
+    responses={
+        200: CheckoutResponseSerializer,
+        400: ErrorSerializer,
+        409: ErrorSerializer,
+        503: ErrorSerializer,
+    },
 )
 class CreateCheckoutSessionView(APIView):
     # Wcześniej wystarczało zalogowanie, więc plan mógł kupić także pracownik
