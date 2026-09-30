@@ -251,8 +251,20 @@ class TestSesjiPlatnosci:
             patch("api.views.stripe.kartoteka_klienta", return_value="cus_test"),
             patch(
                 "stripe.checkout.Session.create",
-                return_value=MagicMock(url="https://checkout.stripe.com/x"),
+                return_value={
+                    "id": "cs_test_first",
+                    "status": "open",
+                    "url": "https://checkout.stripe.com/x",
+                },
             ) as sesja,
+            patch(
+                "stripe.checkout.Session.retrieve",
+                return_value={
+                    "id": "cs_test_first",
+                    "status": "open",
+                    "url": "https://checkout.stripe.com/x",
+                },
+            ),
         ):
             create_checkout_session(firma, "start", email="szef@rowerownia.pl")
 
@@ -273,8 +285,20 @@ class TestSesjiPlatnosci:
             patch("api.views.stripe.kartoteka_klienta", return_value=None),
             patch(
                 "stripe.checkout.Session.create",
-                return_value=MagicMock(url="https://checkout.stripe.com/x"),
+                return_value={
+                    "id": "cs_test_first",
+                    "status": "open",
+                    "url": "https://checkout.stripe.com/x",
+                },
             ) as sesja,
+            patch(
+                "stripe.checkout.Session.retrieve",
+                return_value={
+                    "id": "cs_test_first",
+                    "status": "open",
+                    "url": "https://checkout.stripe.com/x",
+                },
+            ),
         ):
             create_checkout_session(firma, "start", email="szef@rowerownia.pl")
 

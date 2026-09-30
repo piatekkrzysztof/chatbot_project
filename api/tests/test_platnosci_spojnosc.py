@@ -273,12 +273,14 @@ def wlasciciel(user, tenant):
 
 @pytest.fixture
 def stripe_checkout():
+    sesja = {"id": "cs_test_first", "status": "open", "url": "https://checkout.stripe.test/s"}
     with (
         patch("api.views.stripe.kartoteka_klienta", return_value="cus_1"),
         patch(
             "stripe.checkout.Session.create",
-            return_value=MagicMock(url="https://checkout.stripe.test/s"),
+            return_value=sesja,
         ) as utworz,
+        patch("stripe.checkout.Session.retrieve", return_value=sesja),
     ):
         yield utworz
 
@@ -314,10 +316,9 @@ class TestCheckoutu:
         # Klucz idempotencji: Stripe zwraca tę samą sesję zamiast drugiej,
         # którą dałoby się opłacić osobno.
         klient = wlasciciel(user, firma)
-        klient.post(CHECKOUT, {"plan_type": "pro"}, format="json")
-        klient.post(CHECKOUT, {"plan_type": "pro"}, format="json")
-        klucze = [
-            wywolanie.kwargs.get("idempotency_key") for wywolanie in stripe_checkout.call_args_list
-        ]
-        assert len(klucze) == 2 and klucze[0] and klucze[0] == klucze[1]
-        assert str(firma.id) in klucze[0] and "pro" in klucze[0]
+        pierwszy = klient.post(CHECKOUT, {"plan_type": "pro"}, format="json")
+        drugi = klient.post(CHECKOUT, {"plan_type": "pro"}, format="json")
+        assert pierwszy.status_code == drugi.status_code == 200
+        assert pierwszy.data == drugi.data
+        stripe_checkout.assert_called_once()
+        assert stripe_checkout.call_args.kwargs["idempotency_key"]
