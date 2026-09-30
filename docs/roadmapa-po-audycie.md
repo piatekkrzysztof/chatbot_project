@@ -8,9 +8,9 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 |---|---|---|
 | A01 | Dwie otwarte sesje zakupu jednego abonamentu | Poprawka 2.19.1: trwała próba, serializacja, wygaszenie przed zmianą planu, obsługa utraconej odpowiedzi i dawnych sesji. [Odbiór i kontrolowane wdrożenie](checkout-jedna-proba.md). Nie oznaczać jako wdrożone przed odbiorem |
 | A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Poprawka 2.19.2: wspólna blokada od odczytu do zapisu, okresowe uzgodnienie i alarm operatora. [Odbiór i wdrożenie](stripe-kolejnosc.md). Wdrożenie i odbiór Stripe test mode pozostają do potwierdzenia |
-| A03 | Zapis promptu równoległy z usunięciem rozmowy | Do naprawy: wspólny protokół transakcji i blokowania zapisu/usunięcia |
+| A03 | Zapis promptu równoległy z usunięciem rozmowy | Poprawka 2.19.3 przygotowana: atomowy zapis, blokady, CASCADE, znacznik usuniętej sesji i obsługa 410/error w panelu oraz widgecie. [Wdrożenie i odbiór](usuwanie-rozmow-a03.md) jeszcze niepotwierdzone |
 | A04 | Plik bez rekordu po awarii magazynu | Do naprawy: trwałe zlecenia usunięcia, retry i alarmy |
-| A05 | Niewykonalny okres retencji przyjmowany przez API | Do naprawy razem z A03: walidacja zakresu i typów |
+| A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka 2.19.3 razem z A03: ścisła walidacja 0–3650, constraint bazy i kontrola przed migracją; bez automatycznej zmiany istniejących okresów. Odbiór produkcyjny pozostaje otwarty |
 
 Końcowe odbiory operacyjne i wydajność pozostają osobnymi bramkami wydania.
 Poniższy rejestr F01-F25 zachowuje dotychczasowy zakres i historię.

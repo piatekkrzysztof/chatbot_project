@@ -3,12 +3,13 @@ from datetime import datetime, timedelta
 from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser, UserManager
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
 
 from accounts.mfa_crypto import EncryptedMFAField
 from accounts.plans import PROGI_ALERTOW, PROGI_KONCA_SUBSKRYPCJI
+from accounts.retencja_rozmow import MAX_RETENTION_DAYS
 
 
 class WidgetPosition(models.TextChoices):
@@ -129,6 +130,14 @@ class Tenant(models.Model):
     )
 
     MAX_SUGGESTED_QUESTIONS = 4
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(data_retention_days__lte=MAX_RETENTION_DAYS),
+                name="tenant_retencja_obslugiwany_zakres",
+            )
+        ]
 
     def suggested_questions(self):
         """Pytania startowe jako lista, bez pustych wierszy."""
@@ -277,6 +286,7 @@ class Tenant(models.Model):
     # w jej imieniu, więc okres przechowywania musi być jej decyzją, nie naszą.
     data_retention_days = models.PositiveIntegerField(
         default=90,
+        validators=[MaxValueValidator(MAX_RETENTION_DAYS)],
         help_text="Po ilu dniach automatycznie usuwać rozmowy i logi. 0 = nie usuwaj.",
     )
     # Skrót skrzynki, do której trafił okres próbny. Nie adres: do rozpoznania

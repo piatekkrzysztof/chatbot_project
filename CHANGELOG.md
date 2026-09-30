@@ -16,6 +16,24 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.3] - 2026-09-30
+
+### Fixed
+
+- Usuwanie rozmowy obejmuje równoległy zapis odpowiedzi, logów i kontaktów.
+  Spóźnione żądanie starej sesji nie odtwarza skasowanych danych. Czat zgłasza
+  HTTP 410 lub końcowy błąd SSE, który obsługuje powiązana poprawka widgetu/panelu.
+- Retencja przyjmuje wyłącznie całkowite dni 0–3650. Błędne typy i liczby
+  wywołujące przepełnienie nie trafiają do ustawień. Świeże kontakty i logi
+  chronią rozmowę przed usunięciem w przebiegu retencji.
+
+### Operations
+
+- Wymagane migracje accounts.0043 i chat.0008 oraz kontrola istniejących
+  okresów retencji. Nieprawidłowy okres zatrzymuje migrację bez zmiany danych.
+  Znaczniki usuniętych sesji pozostają do usunięcia firmy. Kolejność wdrożenia,
+  ograniczenia, odbiór i rollback: `docs/usuwanie-rozmow-a03.md`.
+
 ## [2.19.2] - 2026-09-30
 
 ### Fixed
