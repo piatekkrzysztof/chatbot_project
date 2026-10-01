@@ -915,3 +915,10 @@ from accounts.rozmiar_bazy import ZgloszonyRozmiar  # noqa: E402,F401
 from accounts.security_notifications import PasswordNotification  # noqa: E402,F401
 from accounts.sessions import LoginSession  # noqa: E402,F401
 from accounts.stripe_sync import KontrolaStripe  # noqa: E402,F401
+
+
+class PrzebiegMonitora(models.Model):
+    """Jeden wspólny ślad Beat → broker → worker; bez danych klientów."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    wyslano_at = models.DateTimeField()
