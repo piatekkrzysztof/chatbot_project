@@ -16,6 +16,15 @@ from unittest.mock import patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def swiezy_przebieg(db):
+    from django.utils import timezone
+
+    from accounts.models import PrzebiegMonitora
+
+    PrzebiegMonitora.objects.create(pk=1, wyslano_at=timezone.now())
+
+
 @pytest.mark.django_db
 class TestZdrowejUslugi:
     def test_wszystko_dziala_to_200(self, client):

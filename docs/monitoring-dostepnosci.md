@@ -1,7 +1,8 @@
 # Monitoring dostępności
 
-Stan na 17.09.2026, wersja 2.11.1. Czego dziś brakuje: **nikt z zewnątrz nie
-sprawdza, czy aplikacja żyje.**
+Monitor zewnętrzny odebrano 28.09.2026 (historia poniżej). Poprawka 2.19.8
+dodaje wykrywanie braku przebiegów Beat/workera; wymaga wdrożenia i odbioru
+według [procedury nadzoru zadań](monitoring-workera.md).
 
 ## Po co, skoro są już czuwania
 
@@ -14,10 +15,10 @@ To dokładnie ta sama pomyłka, którą 17.09.2026 złapaliśmy przy kopiach: mo
 był skonfigurowany, podpięty i niemy. Różnica jest taka, że tam wystarczył
 przebieg raz w tygodniu, a dostępność trzeba sprawdzać co kilka minut.
 
-`/health/` istnieje od 2.0.3 i zwraca wszystko, czego monitor potrzebuje.
-Sprawdzany jest jednak ręcznie, przy wdrożeniach. Między wdrożeniami nikt nie
-patrzy, więc o awarii dowiadujesz się od klienta - albo wcale, bo klient po
-prostu przestaje wracać.
+`/health/` jest sprawdzany przez monitor zewnętrzny od 28.09.2026. Do wersji
+2.19.7 sprawdzał bazę i broker, ale nie wykonanie zadań. Działający Redis
+przy zatrzymanym workerze dawał fałszywe `stan=ok`. W 2.19.8 dochodzi
+wspólny ślad próby Beat → broker → worker, odczytywany niezależnie przez web.
 
 ## Dlaczego nie GitHub Actions
 
@@ -60,7 +61,8 @@ w zupełności wystarczy.
 ### Dlaczego słowo kluczowe, a nie sam kod odpowiedzi
 
 `/health/` zwraca 503 tylko wtedy, gdy nie odpowiada **baza**. Gdy padnie Redis
-albo worker, odpowiedź ma kod 200 i `"stan": "ograniczony"` - czat i panel
+albo (od 2.19.8) zabraknie świeżej próby Beat/workera, odpowiedź ma kod 200
+i `"stan": "ograniczony"` - czat i panel
 działają, ale w tle nie dzieje się nic: embeddingi nie powstają, strony się nie
 odświeżają, powiadomienia o zmianie hasła nie wychodzą, retencja nie sprząta.
 
