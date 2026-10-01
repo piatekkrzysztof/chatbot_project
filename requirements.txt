@@ -27,7 +27,10 @@ djangorestframework_simplejwt==5.5.1
 # surowym tekscie (odwolujemy po jti). Zostaje jedna realna: RecursionError
 # w jwt.decode() na gleboko zagniezdzonym naglowku, czyli odmowa uslugi
 # mozliwa spreparowanym tokenem. 2.14.0 zamyka wszystkie dziesiec.
-PyJWT==2.14.0
+# 1.10.2026: CVE-2026-101918 (GHSA-42vr-xj54-vc7v) dotyczy parsera
+# zagniezdzonego payloadu. 2.15.0 zamienia RecursionError na DecodeError,
+# ktory SimpleJWT obsluguje jako blad tokenu. Nie wylaczamy weryfikacji.
+PyJWT==2.15.0
 django-cors-headers==4.7.0
 drf-spectacular==0.28.0
 
