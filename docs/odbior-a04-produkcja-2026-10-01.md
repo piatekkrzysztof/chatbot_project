@@ -101,3 +101,27 @@ Pozostaje, w kolejności:
 
 Lokalny scenariusz produkcyjnej próby przeszedł sześć testów zabezpieczeń.
 Nie jest to test końcówek HTTP ani zastępstwo dla końcowej macierzy dostępu.
+
+
+## Uzupełnienie po PR #115 — 1.10.2026, 13:56 CEST
+
+Commit `a515e4c`, wersja 2.19.7 wdrożona. Jawne EMAIL_ALERTOW z dwoma
+odbiorcami wskazanymi przez właściciela ustawiono i odczytano na web i workerze.
+Nadawca i SMTP pozostały bez zmian. Wdrożenia konfiguracji:
+worker `dep-dav4ge97lnhs73aqi580`, web `dep-dav4gtnlk1mc73eq2ra0`, oba Live.
+Worker gotowy 13:47:39, Beat działa, concurrency=1. Publiczny health:
+wersja 2.19.7, baza=true, broker=true, stan=ok.
+
+Osobny syntetyczny wpis nr 22, kod `test_odbioru_a04_pr115`, utworzono
+o 13:53:39. Sprawdzono, że wskazany unikalny cel nie istnieje w magazynie.
+Nie tworzono plików ani firm. Zwykły Beat/worker wysłał alarm:
+alarm_at 13:54:38.694943, zadanie zakończone sukcesem 13:54:39.989, wynik 1.
+Po ponownym sprawdzeniu nieistnienia celu wznowiono tylko ten wpis;
+worker zakończył go jako gotowe o 13:55:40.305020, próby=1.
+Końcowo: zero niezakończonych zleceń, ślad testu pozostawiony w rejestrze.
+
+**Doręczenie obu skrzynkom pozostaje do potwierdzenia przez właściciela.**
+Nie zastępujemy go znacznikiem ani sukcesem SMTP. Odbiorcy nie są zapisani
+w repozytorium; pozostają w konfiguracji i lokalnym protokole.
+Kolejna poprawka 2.19.8: [nadzór Beat i workera](monitoring-workera.md),
+przygotowany kod nie oznacza wdrożenia ani odbioru alarmu zewnętrznego.

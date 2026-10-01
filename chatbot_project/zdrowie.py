@@ -32,10 +32,14 @@ do logu.
 """
 
 import logging
+from datetime import timedelta
 
 from django.db import connection
 from django.http import JsonResponse
+from django.utils import timezone
+from django.views.decorators.cache import never_cache
 
+from chatbot_project.monitoring_zadan import PROG_SEKUND
 from chatbot_project.wersja import WERSJA
 
 logger = logging.getLogger(__name__)
@@ -73,13 +77,29 @@ def _broker_odpowiada() -> bool:
         return False
 
 
+def _zadania_dzialaja() -> bool:
+    from accounts.models import PrzebiegMonitora
+
+    try:
+        teraz = timezone.now()
+        return PrzebiegMonitora.objects.filter(
+            pk=1, wyslano_at__gte=teraz - timedelta(seconds=PROG_SEKUND), wyslano_at__lte=teraz
+        ).exists()
+    except Exception:
+        # Także brak tabeli podczas wdrażania: brak dowodu nie oznacza zdrowia.
+        logger.warning("Health check: brak potwierdzenia działania zadań")
+        return False
+
+
+@never_cache
 def health_check(request):
     baza = _baza_odpowiada()
     broker = _broker_odpowiada()
+    zadania = baza and _zadania_dzialaja()
 
     if not baza:
         stan = "awaria"
-    elif not broker:
+    elif not broker or not zadania:
         stan = "ograniczony"
     else:
         stan = "ok"
@@ -96,6 +116,7 @@ def health_check(request):
             "wersja": WERSJA,
             "baza": baza,
             "broker": broker,
+            "zadania": zadania,
         },
         status=200 if baza else 503,
     )

@@ -3,6 +3,7 @@ import os
 from celery import Celery
 from celery.schedules import crontab
 
+from chatbot_project import monitoring_zadan  # noqa: F401 — sygnał publikacji próby
 from chatbot_project.observability import init_sentry
 
 init_sentry()
@@ -29,6 +30,11 @@ app.autodiscover_tasks()
 
 
 app.conf.beat_schedule = {
+    "monitoring-workera-co-minute": {
+        "task": "accounts.tasks_monitoring.potwierdz_przebieg",
+        "schedule": 60.0,
+        "options": {"expires": 60},
+    },
     "usuwanie-plikow-co-minute": {
         "task": "documents.usuwanie_plikow.usun_oczekujace_pliki",
         "schedule": 60.0,

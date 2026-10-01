@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.8] - 2026-10-01
+
+### Fixed
+
+- `/health/` wykrywa brak świeżej próby Beat → broker → worker. Po trzech
+  minutach bez potwierdzenia zwraca `stan=ograniczony` i `zadania=false`,
+  zachowując HTTP 200 przy działającej bazie, aby nie restartować web.
+  Wiek próby liczy się od publikacji; stare wiadomości i wywołania eager
+  nie przywracają zielonego stanu. Monitor zewnętrzny musi sprawdzać `stan`.
+  Wymagana migracja 0045 i wdrożenie web oraz workera.
+
 ## [2.19.7] - 2026-10-01
 
 ### Fixed
