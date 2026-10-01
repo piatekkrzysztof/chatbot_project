@@ -23,7 +23,7 @@ from django.core.mail import send_mail
 from django.utils import timezone
 
 from accounts import rezerwacje
-from accounts.czuwanie import adres_operatora
+from accounts.czuwanie import adresy_operatora
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ def _wyslij_alert(bilety, ile):
         subject=f"Rezerwacje AI do rozliczenia: {ile}",
         message=_tresc_alertu(bilety, ile),
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[adres_operatora()],
+        recipient_list=adresy_operatora(),
         fail_silently=False,
     )
     if not wyslane:

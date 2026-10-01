@@ -3,8 +3,12 @@
 Wersja 2.19.4, 30.09.2026. Kod wdrożony wraz z 2.19.5; migracje,
 zgodność celów i raport plików potwierdzone 30.09. Automatyczny przebieg
 potwierdzony w logach 1.10.2026. [Protokół](odbior-operacyjny-2026-10-01.md).
-Odbiór testowego usuwania, alarmu, awarii i restore pozostaje otwarty.
-Testy lokalne i CI nie zastępują tych prób.
+Usuwanie i ochrona współdzielonych plików odebrane w R2 1.10.2026 na 9
+syntetycznych obiektach. Doręczenie alarmu niezaliczone: użyto adresu
+nadawcy bez skrzynki. Poprawka 2.19.7 i jawna lista odbiorców wymagają
+wdrożenia oraz nowej próby poczty. Próby awarii w izolacji, niezależny nadzór
+workera i restore zgodnej wersji pozostają otwarte.
+[Szczegółowy wynik i ograniczenia](odbior-a04-produkcja-2026-10-01.md).
 
 ## Problem i zakres
 
@@ -70,7 +74,9 @@ i nie jest wystawiony w API klienta.
 | wstrzymane | Zlecenie odtworzono z kopii; automatyczne wykonanie wyłączone |
 
 Stan blad albo niezakończone zlecenie starsze niż 15 minut kwalifikuje się
-do alarmu na istniejący EMAIL_ALERTOW (fallback DEFAULT_FROM_EMAIL).
+do alarmu na odbiorców EMAIL_ALERTOW (adresy oddzielone przecinkami).
+Od 2.19.7 wymagamy jawnego ustawienia; DEFAULT_FROM_EMAIL określa wyłącznie
+nadawcę. Brak lub błędna lista nie może zostać uznana za wysłany alarm.
 Partia obejmuje najwyżej 50 zleceń; każde może alarmować raz na godzinę.
 E-mail i log zawierają identyfikator oraz bezpieczny kod, bez nazw obiektów,
 sekretów i surowych odpowiedzi dostawcy. Błąd wysyłki umożliwia ponowienie.

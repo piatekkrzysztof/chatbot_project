@@ -229,8 +229,11 @@ def test_wymiana_dokumentu_zleca_usuniecie_poprzedniego(tenant):
 
 
 @pytest.mark.django_db
-def test_alarm_jest_ograniczony_i_nie_zawiera_sciezek(tenant, settings):
-    settings.EMAIL_ALERTOW = "operator@example.test"
+@pytest.mark.parametrize(
+    "recipients", ["operator@example.test", "operator@example.test, second@example.test"]
+)
+def test_alarm_jest_ograniczony_i_nie_zawiera_sciezek(tenant, settings, recipients):
+    settings.EMAIL_ALERTOW = recipients
     job = przygotuj(tenant)
     UsunieciePliku.objects.filter(pk=job.pk).update(
         utworzono_at=timezone.now() - timedelta(minutes=16)
@@ -238,7 +241,7 @@ def test_alarm_jest_ograniczony_i_nie_zawiera_sciezek(tenant, settings):
     assert alarmuj() == 1
     assert alarmuj() == 0
     assert len(mail.outbox) == 1
-    assert mail.outbox[0].to == ["operator@example.test"]
+    assert mail.outbox[0].to == [address.strip() for address in recipients.split(",")]
     assert job.nazwa not in mail.outbox[0].body
     assert f"Zlecenie {job.pk}" in mail.outbox[0].body
 
@@ -461,3 +464,19 @@ def test_porownanie_magazynow_pokazuje_tylko_aliasy_i_skroty():
     assert output.getvalue().splitlines() == [
         f"{alias} cel={cel_magazynu(alias)}" for alias in ("default", "private_documents")
     ]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("recipients", ["", "operator@example.test,invalid"])
+def test_bledni_odbiorcy_nie_wyciszaja_alarmu(tenant, settings, recipients):
+    settings.EMAIL_ALERTOW = recipients
+    settings.DEFAULT_FROM_EMAIL = "sender@example.test"
+    job = przygotuj(tenant)
+    UsunieciePliku.objects.filter(pk=job.pk).update(stan="blad")
+    assert alarmuj() == 0
+    job.refresh_from_db()
+    assert job.alarm_at is None
+    assert len(mail.outbox) == 0
+    settings.EMAIL_ALERTOW = "one@example.test,two@example.test"
+    assert alarmuj() == 1
+    assert mail.outbox[0].to == ["one@example.test", "two@example.test"]

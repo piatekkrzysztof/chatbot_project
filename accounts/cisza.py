@@ -246,7 +246,7 @@ def sprawdz_cisze(dzis=None) -> int:
     Uruchamiane raz na dobę - sygnał jest z natury dobowy, więc częstsze
     sprawdzanie powtarzałoby tę samą odpowiedź.
     """
-    from accounts.czuwanie import adres_operatora
+    from accounts.czuwanie import adresy_operatora
 
     dzis = dzis or timezone.localdate()
 
@@ -266,7 +266,7 @@ def sprawdz_cisze(dzis=None) -> int:
             subject=f"Chatbot zamilkł: {len(nowe)} {'firma' if len(nowe) == 1 else 'firmy'}",
             message=_tresc(nowe),
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[adres_operatora()],
+            recipient_list=adresy_operatora(),
             fail_silently=False,
         )
         if not wyslane:

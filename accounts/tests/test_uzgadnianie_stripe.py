@@ -97,7 +97,7 @@ def test_niewyslany_alarm_nie_jest_uznany_za_dostarczony(wynik):
     tenant = firma()
     k = KontrolaStripe.objects.create(tenant=tenant, probowano_at=timezone.now(), blad="awaria")
     with (
-        patch("accounts.czuwanie.adres_operatora", return_value="operator@example.test"),
+        patch("accounts.czuwanie.adresy_operatora", return_value=["operator@example.test"]),
         patch(
             "accounts.tasks_stripe.send_mail",
             side_effect=wynik if isinstance(wynik, Exception) else None,
