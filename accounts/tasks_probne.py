@@ -26,7 +26,7 @@ from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
 
-from accounts.czuwanie import adres_operatora
+from accounts.czuwanie import adresy_operatora
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def zglos_powtorny_okres_probny(numer_firmy, wczesniejsze):
         subject=f"Powtórny okres próbny: firma {numer_firmy}",
         message=_tresc(numer_firmy, wczesniejsze),
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[adres_operatora()],
+        recipient_list=adresy_operatora(),
         fail_silently=False,
     )
     if not wyslane:

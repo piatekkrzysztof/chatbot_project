@@ -16,6 +16,22 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.7] - 2026-10-01
+
+### Fixed
+
+- Alarmy operatora obsługują wielu odbiorców w `EMAIL_ALERTOW`, oddzielonych
+  przecinkami. Błędna lub pusta lista zatrzymuje wysyłkę zamiast pomijać
+  część adresów albo wysyłać do nadawcy. Przed wdrożeniem należy ustawić
+  `EMAIL_ALERTOW` na web i workerze; `DEFAULT_FROM_EMAIL` pozostaje nadawcą.
+
+### Operations
+
+- Zapisano wynik produkcyjnej próby A04 oraz korektę uprawnień R2.
+  Blueprint odzwierciedla wdrożone ograniczenie workera do jednego procesu
+  zadaniowego na istniejącej instancji 512 MB. Pełny odbiór A04 nadal wymaga
+  potwierdzenia poczty, niezależnego nadzoru, prób awarii i odtworzenia kopii.
+
 ## [2.19.6] - 2026-10-01
 
 ### Security

@@ -97,7 +97,7 @@ def _kontroluj(tenant):
 
 
 def _alarmuj():
-    from accounts.czuwanie import adres_operatora
+    from accounts.czuwanie import adresy_operatora
 
     prog = timezone.now() - timedelta(hours=1)
     oczekujace = list(
@@ -115,7 +115,7 @@ def _alarmuj():
             "Stripe: nieuzgodnione płatności",
             tresc,
             settings.DEFAULT_FROM_EMAIL,
-            [adres_operatora()],
+            adresy_operatora(),
             fail_silently=False,
         ):
             raise RuntimeError("Nie wysłano alarmu Stripe")
