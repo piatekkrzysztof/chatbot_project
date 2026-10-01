@@ -416,8 +416,8 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER
 # Dokad ida alerty o awariach u klientow.
 #
 # Osobno od DEFAULT_FROM_EMAIL, bo to dwie rozne role: z tamtego adresu piszemy
-# do klientow, a ten ktos musi czytac w niedziele. Puste = alerty wracaja na
-# adres nadawcy, co jest slabsze, ale wciaz lepsze niz alert donikad.
+# do klientow, a te skrzynki muszą być odbierane przez operatora.
+# Wymagana jawna lista odbiorców alarmów po przecinku; nadawca nie jest fallbackiem.
 EMAIL_ALERTOW = os.getenv("EMAIL_ALERTOW", "")
 
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))

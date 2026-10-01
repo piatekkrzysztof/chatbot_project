@@ -1,5 +1,10 @@
 # Odbiór operacyjny — 1.10.2026
 
+Aktualizacja po późniejszej próbie produkcyjnej: [odbiór A04, naprawa
+uprawnień i ograniczenie pamięci workera](odbior-a04-produkcja-2026-10-01.md).
+Poniższy raport zachowuje wyniki odczytu z godziny 10:15–10:19; jego
+lista otwartych prób opisuje stan przed późniejszym testem.
+
 ## Zakres i wynik
 
 Odczyt produkcji 1.10.2026 około 10:15–10:19 CEST (Europe/Warsaw).

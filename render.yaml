@@ -82,6 +82,9 @@ services:
       # zweryfikowany adres w domenie.
       - key: DEFAULT_FROM_EMAIL
         sync: false
+      # Odbiorcy alarmów po przecinku; oddzieleni od adresu nadawcy.
+      - key: EMAIL_ALERTOW
+        sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -107,7 +110,10 @@ services:
     name: celery-worker
     runtime: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "celery -A chatbot_project worker --beat --loglevel=info --concurrency=2"
+    # Starter 512 MB: od 1.10.2026 jeden proces zadaniowy po OOM przy concurrency=2.
+    # Ustawione także ręcznie w panelu; blueprint nie synchronizuje tej usługi.
+    # Pomiar po próbie A04 nie zastępuje testu pamięci dla uploadów i crawl.
+    startCommand: "celery -A chatbot_project worker --beat --loglevel=info --concurrency=1"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.1
@@ -149,6 +155,9 @@ services:
       # techniczny (w Resendzie dosłownie „resend"), a nadawcą musi być
       # zweryfikowany adres w domenie.
       - key: DEFAULT_FROM_EMAIL
+        sync: false
+      # Odbiorcy alarmów po przecinku; oddzieleni od adresu nadawcy.
+      - key: EMAIL_ALERTOW
         sync: false
 
   - type: redis

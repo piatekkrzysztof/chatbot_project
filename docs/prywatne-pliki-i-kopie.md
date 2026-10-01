@@ -25,7 +25,11 @@ brandingu. Samo scalenie tej poprawki nie usuwa już zapisanych kopii.
    `DOCUMENTS_SECRET_ACCESS_KEY`, `DOCUMENTS_S3_ENDPOINT_URL` oraz
    `DOCUMENTS_S3_REGION_NAME` na **web i workerze**. Dla R2 endpoint pochodzi z
    panelu Cloudflare, a region to `auto`. W AWS podaj rzeczywisty region.
-   Web zapisuje i odczytuje dokumenty; worker potrzebuje odczytu plików.
+   Web zapisuje i odczytuje dokumenty. Od A04 worker również usuwa pliki:
+   jego token musi umożliwiać odczyt i usuwanie obiektów w magazynie dokumentów
+   oraz obrazów. W R2 używamy Object Read & Write tylko dla tych dwóch
+   bucketów, bez administracji bucketami i bez dostępu do kopii. Sam odczyt
+   powoduje błędy trwałego usuwania. [Odbiór 1.10](odbior-a04-produkcja-2026-10-01.md).
 4. Na usłudze wykonującej backup i migrację ustaw analogiczne `BACKUPS_*` oraz
    `BACKUP_ENCRYPTION_KEY`. Zwykły worker nie potrzebuje dostępu do kopii.
    Klucz Fernet wygeneruj na zaufanej maszynie poleceniem poniżej i zachowaj
@@ -33,7 +37,9 @@ brandingu. Samo scalenie tej poprawki nie usuwa już zapisanych kopii.
 5. Do czasu migracji worker potrzebuje również dostępu do **starego** magazynu:
    ustaw tam `AWS_STORAGE_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
    `AWS_S3_ENDPOINT_URL`, `AWS_S3_REGION_NAME` zgodnie z magazynem web. Po migracji
-   można odebrać workerowi te uprawnienia. Logo na web zachowuje publiczną domenę.
+   można odebrać dostęp do nieużywanego magazynu legacy. Nie odbieraj dostępu
+   do aktualnego bucketa obrazów: od A04 worker usuwa z niego stare logo
+   i awatary. Logo na web zachowuje publiczną domenę.
 6. Dopiero po ustawieniu konfiguracji scal PR i sprawdź wdrożenie tego samego
    commita na obu usługach. Bez `DOCUMENTS_*` nowy upload zwróci 503; bez klucza
    szyfrowania komenda backupu odmówi pracy. Nie ma publicznego fallbacku.
