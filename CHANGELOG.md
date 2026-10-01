@@ -16,6 +16,24 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.6] - 2026-10-01
+
+### Security
+
+- PyJWT 2.15.0 usuwa CVE-2026-101918: nadmiernie zagnieżdżona treść
+  tokenu jest odrzucana jako obsługiwany błąd tokenu, bez surowego
+  RecursionError. Test regresyjny obejmuje granicę SimpleJWT z weryfikacją
+  podpisu i bez niej; konfiguracja weryfikacji aplikacji pozostaje bez zmian.
+  Bez migracji i nowych sekretów.
+  [Informacja autora](https://github.com/jpadilla/pyjwt/security/advisories/GHSA-42vr-xj54-vc7v).
+
+### Operations
+
+- Zapisano odbiór produkcyjnych harmonogramów z 1.10 i raportu plików
+  z 30.09 oraz aktualną kolejność pozostałych odbiorów. Potwierdzone wdrożenie
+  2.19.5 i zerowe przebiegi nie zastępują testowych płatności, usuwania plików
+  ani potwierdzenia odbioru alarmów.
+
 ## [2.19.5] - 2026-09-30
 
 ### Operations

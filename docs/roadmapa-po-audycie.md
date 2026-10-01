@@ -131,6 +131,12 @@ Stan 1.10.2026. [Protokół operacyjny](odbior-operacyjny-2026-10-01.md)
 potwierdza raport plików, migracje, nocne przebiegi i brak bieżących zaległości.
 Wcześniejsze opisy etapów zachowują historię, ale poniższa kolejność jest aktualna.
 
+**Najpierw poprawka bezpieczeństwa 2.19.6.** CI z 1.10 wykryło nową
+pozycję CVE-2026-101918 w PyJWT 2.14.0. W tym PR przypięto poprawione 2.15.0
+i dodano regresję granicy błędów SimpleJWT. Po scaleniu potwierdzić 2.19.6
+na web i workerze oraz logowanie/odświeżenie sesji; nie ogłaszać wdrożenia
+na podstawie samego wyniku skanera. [Opis wydania](../CHANGELOG.md#2196---2026-10-01).
+
 1. **Odbiór A04.** Na uzgodnionych syntetycznych plikach sprawdzić dokument,
    wymianę i współdzielenie obrazów oraz kaskadę firmy. Potem alarm,
    izolowana próba awarii i restore z wstrzymaniem zleceń. Produkcyjny raport
