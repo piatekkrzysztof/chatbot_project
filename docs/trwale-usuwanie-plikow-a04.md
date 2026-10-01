@@ -1,7 +1,10 @@
 # A04 — trwałe usuwanie plików
 
-Wersja 2.19.4, 30.09.2026. Poprawka przygotowana do przeglądu i wdrożenia.
-Testy lokalne i CI nie są potwierdzeniem konfiguracji ani odbioru produkcji.
+Wersja 2.19.4, 30.09.2026. Kod wdrożony wraz z 2.19.5; migracje,
+zgodność celów i raport plików potwierdzone 30.09. Automatyczny przebieg
+potwierdzony w logach 1.10.2026. [Protokół](odbior-operacyjny-2026-10-01.md).
+Odbiór testowego usuwania, alarmu, awarii i restore pozostaje otwarty.
+Testy lokalne i CI nie zastępują tych prób.
 
 ## Problem i zakres
 
@@ -165,10 +168,11 @@ próba utrzymania nowego workera przy starszym web wymaga kontroli zgodności.
 ## Granice poprawki i dalsze kroki
 
 - Narzędzie kontrolne 2.19.5: [raport plików bez odwołania](raport-plikow-bez-odwolania.md),
-  tylko metadane i klasyfikacja, bez kasowania; odbiór produkcyjny pozostaje otwarty.
+  tylko metadane i klasyfikacja, bez kasowania; raport produkcyjny wykonany 30.09.2026.
 - A04 nie odszukuje historycznych sierot ani uploadów, których zapis do bazy
-  nigdy się nie udał. Następny krok to raport obiektów bez odwołania,
-  z uwzględnieniem oczekujących zleceń i trwających uploadów; bez kasowania.
+  nigdy się nie udał. Raport obiektów bez odwołania dodany w 2.19.5
+  i wykonany 30.09 nie wykazał kandydatów w sprawdzonych prefiksach.
+  Nie zastępuje testu rzeczywistego wykonania zlecenia A04.
 - Raw SQL, QuerySet.update i bulk_update pól plikowych omijają sygnały.
   Zmiany plików należy wykonywać przez zapis modelu z tym protokołem.
   Nazw dawnych usuniętych obiektów nie wolno ponownie przypisywać.
