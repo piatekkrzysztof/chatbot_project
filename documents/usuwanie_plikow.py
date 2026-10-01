@@ -175,7 +175,7 @@ def zalegle(now=None):
 
 
 def alarmuj():
-    from accounts.czuwanie import adres_operatora
+    from accounts.czuwanie import adresy_operatora
 
     now = timezone.now()
     rows = list(
@@ -203,7 +203,7 @@ def alarmuj():
             "Pliki: zaległe usunięcia",
             body,
             settings.DEFAULT_FROM_EMAIL,
-            [adres_operatora()],
+            adresy_operatora(),
             fail_silently=False,
         ):
             raise RuntimeError("Brak potwierdzenia wysyłki")

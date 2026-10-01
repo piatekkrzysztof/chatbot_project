@@ -35,7 +35,9 @@ import logging
 
 from celery import shared_task
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.mail import send_mail
+from django.core.validators import validate_email
 from django.db.models import Q
 from django.utils import timezone
 
@@ -55,29 +57,30 @@ class BrakAdresuAlertow(RuntimeError):
     """Nie ma dokąd wysłać alertu."""
 
 
-def adres_operatora() -> str:
-    """
-    Dokąd idą alerty.
+def adresy_operatora() -> list[str]:
+    """Odbiorcy alarmów: jawna lista adresów po przecinku, osobna od nadawcy.
 
-    Osobna zmienna, a nie `DEFAULT_FROM_EMAIL`, bo to dwie różne role: z tamtego
-    adresu piszemy do klientów, a ten ktoś musi czytać w niedzielę. Gdy nie jest
-    ustawiona, wracamy do adresu nadawcy - alert wysłany do siebie jest wciąż
-    lepszy niż alert nigdzie.
-
-    Gdy nie ma ani jednego, rzucamy wyjątkiem zamiast wysyłać „donikąd".
-    `send_mail` z pustym odbiorcą NIE zgłasza błędu - zwraca zero i po cichu
-    nic nie robi. Pierwsza wersja tego modułu stawiała wtedy znacznik
-    „zgłoszone" i alert przepadał na zawsze, czyli przez brak jednej zmiennej
-    środowiskowej cały monitoring milczałby dokładnie tak, jak milczał chatbot
-    w sierpniu.
+    Błędnej listy nie skracamy do poprawnych elementów i nie zastępujemy
+    nadawcą: operator musi zauważyć błąd konfiguracji. Nie umieszczamy
+    wartości ustawienia w wyjątku, który może trafić do logów.
     """
-    adres = getattr(settings, "EMAIL_ALERTOW", "") or settings.DEFAULT_FROM_EMAIL
-    if not adres:
+    configured = getattr(settings, "EMAIL_ALERTOW", "") or ""
+    if not configured.strip():
         raise BrakAdresuAlertow(
-            "Ustaw EMAIL_ALERTOW albo DEFAULT_FROM_EMAIL - bez tego alerty "
-            "o niedzialajacych chatbotach nie maja dokad isc."
+            "Ustaw EMAIL_ALERTOW - adres nadawcy DEFAULT_FROM_EMAIL nie określa odbiorców alarmów."
         )
-    return adres
+
+    addresses = [address.strip() for address in configured.split(",")]
+    try:
+        if "\r" in configured or "\n" in configured:
+            raise ValidationError("Niedozwolony znak")
+        for address in addresses:
+            validate_email(address)
+    except ValidationError:
+        raise ImproperlyConfigured(
+            "EMAIL_ALERTOW musi zawierać poprawne adresy e-mail oddzielone przecinkami."
+        ) from None
+    return list(dict.fromkeys(addresses))
 
 
 def _opis_firmy(zliczenie: ZliczenieOdmow) -> str:
@@ -147,7 +150,7 @@ def sprawdz_odmowy_widgetu():
             subject=temat,
             message=_tresc_alertu(zliczenia),
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[adres_operatora()],
+            recipient_list=adresy_operatora(),
             fail_silently=False,
         )
         if not wyslane:

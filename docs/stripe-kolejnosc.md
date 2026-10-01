@@ -50,7 +50,7 @@ nie przełącza dostępu między nimi: wymaga wyjaśnienia przez operatora.
 - `KontrolaStripe` przechowuje ostatnią próbę, ostatnie udane uzgodnienie, kod
   problemu oraz czas alarmu. Nie przechowuje sekretów ani danych karty.
 - Nieudane uzgodnienie wysyła zbiorczy alarm na istniejący `EMAIL_ALERTOW`
-  (z dotychczasowym fallbackiem do `DEFAULT_FROM_EMAIL`). Ten sam problem wraca
+  (od 2.19.7 wymagana jawna lista odbiorców, bez fallbacku do nadawcy). Ten sam problem wraca
   w alarmie nie częściej niż co godzinę; brak dostarczenia nie ustawia znacznika.
   Jednoczesne kopie zadania mogą wysłać powtórzony alarm — nie obiecujemy exactly-once.
 - Raport jest włączony do istniejących kopii danych i usuwany wraz z firmą.

@@ -9,7 +9,7 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 | A01 | Dwie otwarte sesje zakupu jednego abonamentu | Backend 2.19.1 zawarty we wdrożonym 2.19.5; migracja 0041 potwierdzona 1.10. [Odbiór Stripe test mode](checkout-jedna-proba.md) pozostaje otwarty |
 | A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Backend 2.19.2 wdrożony; migracja 0042 i automatyczny przebieg potwierdzone 1.10. W bazie 0 firm kwalifikujących się do kontroli, więc [odbiór z płatnością testową i alarmem](stripe-kolejnosc.md) pozostaje otwarty |
 | A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. [Odbiór panelu/widgetu, 410/SSE i równoległego usuwania](usuwanie-rozmow-a03.md) pozostaje otwarty |
-| A04 | Plik bez rekordu po awarii magazynu | 2.19.4/2.19.5 wdrożone na web i workerze; migracje, zgodność magazynów i raport plików potwierdzone 30.09, harmonogram 1.10. [Odbiór usuwania testowych plików, alarmu i restore](trwale-usuwanie-plikow-a04.md) nadal otwarty |
+| A04 | Plik bez rekordu po awarii magazynu | 1.10 na 2.19.6 odebrano usuwanie 9 plików w R2 i obie ochrony współdzielenia; naprawiono zakres tokenu oraz wdrożono concurrency=1. Doręczenie alarmu niezaliczone: fallback skierował go na adres nadawcy bez skrzynki. Poprawka 2.19.7 i jawna lista odbiorców czekają na wdrożenie. Nadal: awarie w izolacji, niezależny nadzór i restore zgodnej wersji. [Protokół](odbior-a04-produkcja-2026-10-01.md) |
 | A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka wdrożona z A03; migracje i kontrola wszystkich istniejących okresów (0–3650) potwierdzone 1.10. Odbiór błędnych/granicznych wartości przez API pozostaje otwarty |
 
 ### A04: historia przygotowania kodu
@@ -39,7 +39,9 @@ stwierdzeniem, że na produkcji znaleziono sieroty. **Raport wykonany 30.09.2026
 prefiksach default, 0 kandydatów do wyjaśnienia i pełny zakres obu skanów.
 Nie kasowano plików. [Wyniki i granice odbioru](odbior-operacyjny-2026-10-01.md).
 
-**Dalej:** dokończyć odbiór A04 na testowych plikach i alarmie →
+**Dalej:** wdrożyć 2.19.7 i osobnych odbiorców alarmów, odebrać wiadomość
+na obu skrzynkach, wykonać awarie w izolacji,
+niezależny nadzór workera i restore zgodnej wersji →
 odebrać A01/A02 w Stripe test mode oraz A03/A05 w panelu/widgecie →
 pozostałe przepływy użytkownika i bramki wydania z rejestru F01–F25.
 Harmonogramy retencji, rezerwacji i A04 zostały potwierdzone w logach 1.10;
