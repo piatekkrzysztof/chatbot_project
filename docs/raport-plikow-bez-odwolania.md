@@ -120,7 +120,10 @@ ale to nie usuwa wrażliwych danych. Nie ma masowego eksportu wszystkich nazw.
 Skan działa na żywym magazynie i żywej bazie, bez wspólnej migawki. Równoległy
 zapis lub usunięcie może zmienić klasyfikację w trakcie przebiegu; narzędzie
 nie jest dowodem pełnej spójności ani braku aktywnego uploadu.
-W tym etapie nie uruchamiano inwentaryzacji produkcji.
+Przy przygotowaniu kodu nie uruchamiano inwentaryzacji produkcji.
+Odbiór wykonano 30.09.2026 na 2.19.5: oba zakresy pełne, 1 powiązany dokument
+(187 805 B), 0 obiektów default i 0 kandydatów do wyjaśnienia. Niczego nie
+kasowano. [Zapis wyników](odbior-operacyjny-2026-10-01.md).
 
 Rollback: wystarczy wrócić do kodu 2.19.4. Raport nie ma migracji, zadań
 w tle ani zapisanych zmian wymagających odwrócenia.
