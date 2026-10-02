@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.19.9] - 2026-10-02
+
+### Security
+
+- pypdf 6.19.0 usuwa osiem podatności zgłoszonych przez pip-audit i skan
+  obrazu: CVE-2026-102993–CVE-2026-103000. Dotyczą wyczerpania zasobów
+  przy przetwarzaniu spreparowanych PDF. Zachowano izolowany proces parsera
+  oraz limity czasu, pamięci, stron i tekstu. Wymaga przebudowy i wdrożenia
+  web oraz workera; bez migracji i zmian konfiguracji.
+
+### Operations
+
+- Dodano próby twardego przerwania procesu A04, błędów TCP/HTTP i pełnego
+  odtworzenia kopii z kwarantanną wszystkich niedokończonych zleceń.
+  Zapisano odbiór lokalnej awarii workera i Redis oraz aktualną roadmapę.
+
+
 ## [2.19.8] - 2026-10-01
 
 ### Fixed

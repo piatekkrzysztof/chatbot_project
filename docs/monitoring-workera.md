@@ -28,10 +28,12 @@ rosnąć; opóźniona próba nie nadpisuje nowszej. Zegary usług muszą być zg
 
 Istniejący monitor słowa kluczowego na `/health/` ma wymagać dokładnego
 `"stan": "ok"`. Sam HTTP 200, `"status": "ok"` ani pojedyncze `ok` nie
-wykryją częściowej awarii. Sprawdzenie co 5 minut, alarm po dwóch nieudanych
-sprawdzeniach daje w przybliżeniu do 13 minut od ostatniej udanej próby
-(3 minuty ważności + do 10 minut na monitor), plus dostarczenie powiadomienia.
-Jest to wynik przy takim ustawieniu monitoringu, nie gwarancja czasu reakcji.
+wykryją częściowej awarii. Odczyt konfiguracji 2.10.2026: sprawdzenie co
+5 minut, timeout 30 s, alarm przy braku frazy, „No delay, no repeat”, odbiorca
+Gmail właściciela. Wcześniejszy wariant dwóch nieudanych sprawdzeń nie jest
+ustawieniem potwierdzonym w panelu. Całkowity czas alarmu obejmuje ważność
+próby 180 s, cykl monitora, weryfikację dostawcy i doręczenie. Nie zmierzono
+go podczas rzeczywistej awarii celu.
 
 Alarm wysyła monitor spoza Rendera. `EMAIL_ALERTOW` i zadania Celery nie są
 mechanizmem alarmowania o własnym zatrzymaniu. Konfiguracja i doręczenie
@@ -71,3 +73,17 @@ niepoprawne czasy, zapis poza kolejnością, eager, błąd odczytu i zgodność
 rejestracji harmonogramu. Próba integracyjna uruchamia Scheduler, transport
 Kombu w pamięci i worker solo z prawdziwym zapisem do testowego PostgreSQL.
 Nie jest to test konfiguracji Redis/Render/UptimeRobot ani doręczenia alarmu.
+
+## Odbiór 1–2.10.2026
+
+Obie role wdrożone 1.10; migracja 0045, próby Beat i przejście health do ok
+potwierdzone. 2.10 właściciel potwierdził doręczenie obu wiadomości z Test
+Notification: down, następnie up. [Protokół](odbior-monitoringu-2026-10-02.md).
+
+W izolacji 2.10 zakończono osobny proces workera. Przy wieku publikacji
+181,588 s health poprawnie pokazał zadania=false i stan ograniczony,
+z zachowaniem HTTP 200. Nowy worker i świeża publikacja przywróciły ok.
+Również rzeczywisty restart lokalnego Redisa został wykryty, a worker
+odzyskał połączenie i zaległe usunięcie. [Dowody i granice](odbior-a04-awarie-2026-10-02.md).
+To nie jest odbiór rzeczywistego alarmu UptimeRobot ani osobnego zatrzymania
+demona Beat przy pracującym workerze.
