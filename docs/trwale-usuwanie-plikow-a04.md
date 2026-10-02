@@ -4,11 +4,14 @@ Wersja 2.19.4, 30.09.2026. Kod wdrożony wraz z 2.19.5; migracje,
 zgodność celów i raport plików potwierdzone 30.09. Automatyczny przebieg
 potwierdzony w logach 1.10.2026. [Protokół](odbior-operacyjny-2026-10-01.md).
 Usuwanie i ochrona współdzielonych plików odebrane w R2 1.10.2026 na 9
-syntetycznych obiektach. Doręczenie alarmu niezaliczone: użyto adresu
-nadawcy bez skrzynki. Poprawka 2.19.7 i jawna lista odbiorców wymagają
-wdrożenia oraz nowej próby poczty. Próby awarii w izolacji, niezależny nadzór
-workera i restore zgodnej wersji pozostają otwarte.
-[Szczegółowy wynik i ograniczenia](odbior-a04-produkcja-2026-10-01.md).
+syntetycznych obiektach. Poprawka odbiorców 2.19.7 i monitoring 2.19.8 wdrożone
+1.10. Alarm aplikacji nr 22 wysłano do jawnej listy odbiorców, ale doręczenie
+obu skrzynkom nadal wymaga potwierdzenia. 2.10 właściciel potwierdził oba
+powiadomienia testowe UptimeRobot. Zaliczono izolowane awarie procesów,
+magazynu i brokera, wykrycie braku workera po 180 s oraz syntetyczny restore
+zgodnej wersji ze wstrzymaniem wszystkich niedokończonych stanów.
+[Protokół produkcyjny](odbior-a04-produkcja-2026-10-01.md) oraz
+[wyniki awarii i granice odbioru](odbior-a04-awarie-2026-10-02.md).
 
 ## Problem i zakres
 

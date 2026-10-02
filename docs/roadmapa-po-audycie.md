@@ -9,7 +9,7 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 | A01 | Dwie otwarte sesje zakupu jednego abonamentu | Backend 2.19.1 zawarty we wdrożonym 2.19.5; migracja 0041 potwierdzona 1.10. [Odbiór Stripe test mode](checkout-jedna-proba.md) pozostaje otwarty |
 | A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Backend 2.19.2 wdrożony; migracja 0042 i automatyczny przebieg potwierdzone 1.10. W bazie 0 firm kwalifikujących się do kontroli, więc [odbiór z płatnością testową i alarmem](stripe-kolejnosc.md) pozostaje otwarty |
 | A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. [Odbiór panelu/widgetu, 410/SSE i równoległego usuwania](usuwanie-rozmow-a03.md) pozostaje otwarty |
-| A04 | Plik bez rekordu po awarii magazynu | 1.10 na 2.19.6 odebrano usuwanie 9 plików w R2 i obie ochrony współdzielenia; naprawiono zakres tokenu oraz wdrożono concurrency=1. Doręczenie alarmu niezaliczone: fallback skierował go na adres nadawcy bez skrzynki. 2.19.7 i jawna lista dwóch odbiorców wdrożone na web/workerze 1.10; test alarmu nr 22 przeszedł o 13:54, doręczenie obu skrzynkom oczekuje potwierdzenia. Nadzór Beat/workera przygotowany w 2.19.8, przed wdrożeniem i odbiorem. Nadal: awarie w izolacji, niezależny nadzór i restore zgodnej wersji. [Protokół](odbior-a04-produkcja-2026-10-01.md) |
+| A04 | Plik bez rekordu po awarii magazynu | R2: 9 plików i ochrona współdzielenia odebrane 1.10; 2.19.7 i 2.19.8 wdrożone. 2.10 potwierdzono powiadomienia UptimeRobot down/up. Zaliczono awarie procesów/TCP/HTTP, zatrzymanie lokalnego workera na ponad 180 s, restart Redis oraz syntetyczny restore z kwarantanną wszystkich niedokończonych zleceń. Nadal: odbiór alarmu aplikacji nr 22 na obu skrzynkach, zewnętrzny test wykrycia awarii i kontrola aktualnej kopii produkcji. [Protokół i granice](odbior-a04-awarie-2026-10-02.md) |
 | A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka wdrożona z A03; migracje i kontrola wszystkich istniejących okresów (0–3650) potwierdzone 1.10. Odbiór błędnych/granicznych wartości przez API pozostaje otwarty |
 
 ### A04: historia przygotowania kodu
@@ -39,11 +39,13 @@ stwierdzeniem, że na produkcji znaleziono sieroty. **Raport wykonany 30.09.2026
 prefiksach default, 0 kandydatów do wyjaśnienia i pełny zakres obu skanów.
 Nie kasowano plików. [Wyniki i granice odbioru](odbior-operacyjny-2026-10-01.md).
 
-**Dalej:** potwierdzić doręczenie próby nr 22 na obu skrzynkach → wdrożyć
-2.19.8 i odebrać [nadzór Beat/workera](monitoring-workera.md) → wykonać
-awarie w izolacji i restore zgodnej wersji →
-odebrać A01/A02 w Stripe test mode oraz A03/A05 w panelu/widgecie →
-pozostałe przepływy użytkownika i bramki wydania z rejestru F01–F25.
+**Dalej:** wdrożyć poprawkę pypdf 2.19.9 po zielonym CI → odbiór A01/A02 w Stripe test mode → A03/A05 w panelu/widgecie
+→ pozostałe przepływy użytkownika i bramki wydania z rejestru F01–F25.
+Równolegle domknąć dowody operacyjne A04: doręczenie alarmu aplikacji nr 22,
+zewnętrzny test wykrycia awarii i aktualność kopii produkcji. Wdrożenie 2.19.8,
+próby awarii w izolacji i syntetyczny restore zgodnej wersji są już sprawdzone.
+[Odbiór monitoringu](odbior-monitoringu-2026-10-02.md) oraz
+[próby awarii i odtwarzania](odbior-a04-awarie-2026-10-02.md).
 Harmonogramy retencji, rezerwacji i A04 zostały potwierdzone w logach 1.10;
 nie trzeba ponownie prosić właściciela o ich pierwszy odczyt.
 [Protokół operacyjny](odbior-operacyjny-2026-10-01.md) rozdziela wdrożenie,
@@ -53,7 +55,7 @@ Nie utożsamiamy zielonych testów kodu z ukończonym odbiorem komercyjnym.
 Końcowe odbiory operacyjne i wydajność pozostają osobnymi bramkami wydania.
 Poniższy rejestr F01-F25 zachowuje dotychczasowy zakres i historię.
 
-Data rozpoczęcia: 9.09.2026. **Ostatni przegląd: 1.10.2026.**
+Data rozpoczęcia: 9.09.2026. **Ostatni przegląd: 2.10.2026.**
 Bieżący stan ustaleń jest w rejestrze A01–A05 powyżej i F01–F25 niżej.
 Opisy historycznych etapów nie zastępują tych statusów. Akapit niżej zostaje jako
 zapis z 13.09.2026 i od tamtego dnia się nie zmienia.
@@ -129,20 +131,25 @@ automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audyt
 
 ## Najbliższa kolejność prac
 
-Stan 1.10.2026. [Protokół operacyjny](odbior-operacyjny-2026-10-01.md)
+Stan 2.10.2026. [Protokół operacyjny](odbior-operacyjny-2026-10-01.md)
 potwierdza raport plików, migracje, nocne przebiegi i brak bieżących zaległości.
 Wcześniejsze opisy etapów zachowują historię, ale poniższa kolejność jest aktualna.
 
-**Najpierw poprawka bezpieczeństwa 2.19.6.** CI z 1.10 wykryło nową
-pozycję CVE-2026-101918 w PyJWT 2.14.0. W tym PR przypięto poprawione 2.15.0
-i dodano regresję granicy błędów SimpleJWT. Po scaleniu potwierdzić 2.19.6
-na web i workerze oraz logowanie/odświeżenie sesji; nie ogłaszać wdrożenia
-na podstawie samego wyniku skanera. [Opis wydania](../CHANGELOG.md#2196---2026-10-01).
+**Bieżąca blokada bezpieczeństwa z CI 2.10:** pypdf 6.16.2 ma osiem zgłoszonych
+podatności. Przygotowano 2.19.9 z pypdf 6.19.0; po zielonym CI scalić,
+przebudować i potwierdzić wdrożenie web/workera. Bez migracji.
+[Szczegóły](odbior-a04-awarie-2026-10-02.md#6-poprawka-bezpieczeństwa-wykryta-przy-odbiorze-ci).
 
-1. **Odbiór A04.** Na uzgodnionych syntetycznych plikach sprawdzić dokument,
-   wymianę i współdzielenie obrazów oraz kaskadę firmy. Potem alarm,
-   izolowana próba awarii i restore z wstrzymaniem zleceń. Produkcyjny raport
-   bez kasowania już wykonany; nie zastępuje tych prób.
+**Wdrożone i potwierdzone:** poprawka PyJWT 2.19.6, jawni odbiorcy alarmów
+2.19.7 oraz nadzór Beat/workera 2.19.8. Nie planujemy ponownie ich wdrożenia.
+2.10 zaliczono [izolowane próby awarii i odtworzenia](odbior-a04-awarie-2026-10-02.md).
+
+1. **Pozostałe dowody A04 (równolegle).** Potwierdzić doręczenie alarmu aplikacji
+   nr 22 obu skrzynkom. Przeprowadzić wykrycie rzeczywistej zmiany health na celu
+   testowym przez UptimeRobot oraz osobną próbę zatrzymania Beat. Sprawdzić
+   aktualność zgodnej kopii produkcji; syntetyczny restore z 2.10 nie mierzy jej RTO.
+   Próby plików R2, awarii procesów i magazynu, lokalnego workera/Redis oraz
+   kwarantanny odtworzonych zleceń są zaliczone w opisanym zakresie.
 2. **Płatności A01/A02.** Kontrolowany Stripe test mode: podwójny zakup,
    utracona odpowiedź, kolejność zdarzeń, odnowienie/zmiana planu i alarm.
    Automatyczne uzgodnienie działa, lecz aktualnie nie ma powiązanych firm,
