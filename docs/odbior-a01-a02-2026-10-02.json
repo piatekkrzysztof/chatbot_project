@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-02",
+  "run": "A0102-20261002-61a9",
+  "version": "2.19.9",
+  "tested_commit": "afb9a7b0fdc221d70892ebaba07511f51296f462",
+  "environment": "Stripe test mode + isolated local PostgreSQL 16.15",
+  "production_mutations": false,
+  "external_emails_sent": 0,
+  "checkout_ui_completed": true,
+  "frontend_success_page_tested": false,
+  "webhook_transport": "Real Stripe event replayed locally with synthetic signing secret; no public delivery",
+  "reconciliation_execution": "Direct task invocation; no broker or Beat in this acceptance",
+  "regression": {
+    "passed": 76,
+    "seconds": 31.32
+  },
+  "results": [
+    {
+      "case": "A01_repeat_and_599_600_boundary",
+      "utc": "2026-10-02T12:42:56.128978+00:00",
+      "session_count": 1
+    },
+    {
+      "case": "A01_expire_response_loss_no_duplicate",
+      "utc": "2026-10-02T12:42:57.990747+00:00"
+    },
+    {
+      "case": "A01_create_response_loss_and_changed_email",
+      "utc": "2026-10-02T12:43:00.761493+00:00",
+      "session_count": 1
+    },
+    {
+      "case": "A01_failed_ID_commit_replays_same_session",
+      "utc": "2026-10-02T12:43:02.003815+00:00"
+    },
+    {
+      "case": "A01_unknown_after_23h_and_operator_recovery",
+      "utc": "2026-10-02T12:43:02.499356+00:00"
+    },
+    {
+      "case": "A01_two_concurrent_plans_one_session",
+      "utc": "2026-10-02T12:43:03.790016+00:00"
+    },
+    {
+      "case": "A01_paid_checkout_before_webhook_blocks_second_purchase",
+      "utc": "2026-10-02T12:55:01.299931+00:00",
+      "status": "complete",
+      "payment_status": "paid"
+    },
+    {
+      "case": "A01_other_tenant_cannot_read_checkout",
+      "utc": "2026-10-02T12:55:01.445961+00:00"
+    },
+    {
+      "case": "A02_missing_webhook_recovered_by_reconciliation",
+      "utc": "2026-10-02T12:55:02.754656+00:00",
+      "checked": 4,
+      "plan": "grow"
+    },
+    {
+      "case": "A02_concurrent_sync_blocks_then_retries_fresh_state",
+      "utc": "2026-10-02T12:55:03.844161+00:00",
+      "plan": "pro"
+    },
+    {
+      "case": "A02_real_old_event_duplicate_replay_uses_current_state",
+      "utc": "2026-10-02T12:55:04.688664+00:00",
+      "valid_http": 200,
+      "invalid_signature_http": 400
+    },
+    {
+      "case": "A02_api_failure_preserves_access_and_records_alarm",
+      "utc": "2026-10-02T12:55:06.105542+00:00",
+      "email_backend": "locmem",
+      "local_messages": 1
+    },
+    {
+      "case": "A02_recovery_clears_alarm",
+      "utc": "2026-10-02T12:55:06.537264+00:00"
+    },
+    {
+      "case": "A02_canceled_subscription_not_resurrected_by_old_event",
+      "utc": "2026-10-02T12:55:07.825904+00:00"
+    },
+    {
+      "case": "A02_real_test_clock_renewal",
+      "utc": "2026-10-02T13:02:55.345269+00:00",
+      "plan": "grow",
+      "invoice_paid": true
+    },
+    {
+      "case": "A02_real_test_clock_past_due_grace_period",
+      "utc": "2026-10-02T13:03:12.277508+00:00",
+      "stripe_status": "past_due",
+      "grace_days": 3
+    },
+    {
+      "case": "A02_real_failed_invoice_recovered",
+      "utc": "2026-10-02T13:03:15.244480+00:00",
+      "stripe_status": "active"
+    },
+    {
+      "case": "A01_new_checkout_after_cancellation",
+      "utc": "2026-10-02T13:04:41.929685+00:00"
+    },
+    {
+      "case": "cleanup_own_stripe_test_objects",
+      "utc": "2026-10-02T13:04:50.133671+00:00",
+      "customers": 5,
+      "sessions": 7,
+      "subscriptions": 2,
+      "clocks": 1,
+      "open_checkouts": 0,
+      "active_subscriptions": 0
+    }
+  ],
+  "harness_sha256": {
+    "stripe_audit.py": "a4454c4007e48f5a150771b0fc651baa9ea3c7cd23f159a62233f344f248c863",
+    "stripe_afterpay.py": "94146af97a587a0ec36f41075f44a6aca8adfd30b3212d8e5e8c6e46d85a9d8d",
+    "stripe_clock_audit.py": "525af5e89f23e79b0bf753d956487ffc851383052e249f9a3c3a34764d35b1e0",
+    "stripe_cleanup.py": "61d3cd51f6fcdef8901faf690faa4f8786c1e643437c079b26f4d62deeedc078"
+  },
+  "remaining": [
+    "Live webhook delivery and worker/Beat reconciliation with a test payment",
+    "Real operator alarm receipt",
+    "Frontend payment return UX",
+    "Additional A01 migration and race acceptance cases listed in protocol"
+  ]
+}

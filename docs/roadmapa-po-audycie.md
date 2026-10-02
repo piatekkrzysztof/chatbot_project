@@ -6,8 +6,8 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 
 | ID | Zakres | Stan |
 |---|---|---|
-| A01 | Dwie otwarte sesje zakupu jednego abonamentu | Backend 2.19.1 zawarty we wdrożonym 2.19.5; migracja 0041 potwierdzona 1.10. [Odbiór Stripe test mode](checkout-jedna-proba.md) pozostaje otwarty |
-| A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Backend 2.19.2 wdrożony; migracja 0042 i automatyczny przebieg potwierdzone 1.10. W bazie 0 firm kwalifikujących się do kontroli, więc [odbiór z płatnością testową i alarmem](stripe-kolejnosc.md) pozostaje otwarty |
+| A01 | Dwie otwarte sesje zakupu jednego abonamentu | Poprawka wdrożona, migracja 0041 potwierdzona 1.10. 2.10 zaliczono rzeczywisty Stripe test mode: powtórzenia, utrata odpowiedzi create/expire, błąd zapisu ID, operator, konkurencyjne plany i blokada po opłaceniu bez webhooka. Otwarte: dodatkowe wyścigi, dawne sesje po migracji i panel. [Protokół](odbior-a01-a02-2026-10-02.md) |
+| A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Poprawka wdrożona, migracja 0042 potwierdzona 1.10. 2.10 zaliczono Stripe test mode: odzyskanie bez webhooka, serializacja synchronizacji, replay starego zdarzenia, anulowanie, odnowienie, past_due i odzyskanie po zapłacie. Alarm sprawdzony tylko lokalnie; nadal transport webhooków, rzeczywisty worker/Beat, skrzynki i UI. [Protokół](odbior-a01-a02-2026-10-02.md) |
 | A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. [Odbiór panelu/widgetu, 410/SSE i równoległego usuwania](usuwanie-rozmow-a03.md) pozostaje otwarty |
 | A04 | Plik bez rekordu po awarii magazynu | R2: 9 plików i ochrona współdzielenia odebrane 1.10; 2.19.7 i 2.19.8 wdrożone. 2.10 potwierdzono powiadomienia UptimeRobot down/up. Zaliczono awarie procesów/TCP/HTTP, zatrzymanie lokalnego workera na ponad 180 s, restart Redis oraz syntetyczny restore z kwarantanną wszystkich niedokończonych zleceń. Nadal: odbiór alarmu aplikacji nr 22 na obu skrzynkach, zewnętrzny test wykrycia awarii i kontrola aktualnej kopii produkcji. [Protokół i granice](odbior-a04-awarie-2026-10-02.md) |
 | A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka wdrożona z A03; migracje i kontrola wszystkich istniejących okresów (0–3650) potwierdzone 1.10. Odbiór błędnych/granicznych wartości przez API pozostaje otwarty |
@@ -39,8 +39,8 @@ stwierdzeniem, że na produkcji znaleziono sieroty. **Raport wykonany 30.09.2026
 prefiksach default, 0 kandydatów do wyjaśnienia i pełny zakres obu skanów.
 Nie kasowano plików. [Wyniki i granice odbioru](odbior-operacyjny-2026-10-01.md).
 
-**Dalej:** wdrożyć poprawkę pypdf 2.19.9 po zielonym CI → odbiór A01/A02 w Stripe test mode → A03/A05 w panelu/widgecie
-→ pozostałe przepływy użytkownika i bramki wydania z rejestru F01–F25.
+**Dalej:** A03/A05 w panelu/widgecie; równolegle domknąć transport webhooków, harmonogram, alarmy i pozostałe próby A01/A02 opisane w [protokole Stripe](odbior-a01-a02-2026-10-02.md). Poprawka pypdf 2.19.9 jest scalona (#117), a publiczny `/health/` potwierdził wdrożenie 2.10.
+Następnie: pozostałe przepływy użytkownika i bramki wydania z rejestru F01–F25.
 Równolegle domknąć dowody operacyjne A04: doręczenie alarmu aplikacji nr 22,
 zewnętrzny test wykrycia awarii i aktualność kopii produkcji. Wdrożenie 2.19.8,
 próby awarii w izolacji i syntetyczny restore zgodnej wersji są już sprawdzone.
