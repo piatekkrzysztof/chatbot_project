@@ -5,7 +5,8 @@
 Próby opisane poniżej zakończyły się sukcesem na kodzie 2.19.8, po scaleniu
 PR #116 (`faaf384baaa691dcea249aa74a7c264105435f0a`). Nie znaleziono w tych
 scenariuszach nowego błędu kodu produkcyjnego. Dodano sześć powtarzalnych
-przypadków regresji; pozostałe zmiany dotyczą dowodów i roadmapy.
+przypadków regresji. CI dodatkowo wykryło podatności pypdf; poprawka
+zależności 2.19.9 opisana jest poniżej i wymaga wdrożenia.
 
 Środowisko: Windows, Python 3.12, PostgreSQL 16.15 z pgvector, syntetyczne
 bazy `test_saas_restore_*`, lokalne katalogi plików. Do dodatkowej próby
@@ -125,3 +126,24 @@ pytest -q documents/tests/test_awarie_procesu.py documents/tests/test_trwale_usu
 4. **Następny etap kodu i odbiorów: A01/A02 w Stripe test mode** — podwójny
    zakup, utracona odpowiedź, kolejność zdarzeń i uzgadnianie. Dalej A03/A05,
    przepływy użytkownika, wydajność i pozostałe bramki komercyjne z roadmapy.
+
+## 6. Poprawka bezpieczeństwa wykryta przy odbiorze CI
+
+Przebieg CI 36988226424 zatrzymały pip-audit i Trivy: pypdf 6.16.2,
+osiem znanych podatności, wszystkie HIGH w skanie obrazu. Numery CVE:
+CVE-2026-102993, CVE-2026-102994, CVE-2026-102995, CVE-2026-102996,
+CVE-2026-102997, CVE-2026-102998, CVE-2026-102999 i CVE-2026-103000.
+pip-audit użył identyfikatorów PYSEC-2026-4153–PYSEC-2026-4160.
+
+Przypięto pypdf 6.19.0, wersję wskazaną przez skanery jako poprawiającą
+cały ten zestaw. Nie dodano wyjątków skanera ani osłabienia progów.
+[Wydanie projektu](https://github.com/py-pdf/pypdf/releases/tag/6.19.0).
+Źródło wyniku skanów: [CI](https://github.com/piatekkrzysztof/chatbot_project/actions/runs/36988226424).
+
+Backend otrzymuje numer 2.19.9. Po scaleniu trzeba potwierdzić przebudowę
+i wdrożenie na web/workerze oraz import poprawnego i odrzucenie błędnego PDF.
+Dotychczasowe mechanizmy izolacji i limitów parsera pozostają aktywne.
+Wyniki odtworzenia i lokalnego monitoringu powyżej dotyczą 2.19.8 i zachowują
+tę wersję jako historyczny dowód; nie są dowodem wdrożenia 2.19.9.
+
+Po aktualizacji pypdf lokalnie zaliczono 74 testy parsera, izolacji, limitów i importu (27,87 s).

@@ -39,7 +39,7 @@ stwierdzeniem, że na produkcji znaleziono sieroty. **Raport wykonany 30.09.2026
 prefiksach default, 0 kandydatów do wyjaśnienia i pełny zakres obu skanów.
 Nie kasowano plików. [Wyniki i granice odbioru](odbior-operacyjny-2026-10-01.md).
 
-**Dalej:** odbiór A01/A02 w Stripe test mode → A03/A05 w panelu/widgecie
+**Dalej:** wdrożyć poprawkę pypdf 2.19.9 po zielonym CI → odbiór A01/A02 w Stripe test mode → A03/A05 w panelu/widgecie
 → pozostałe przepływy użytkownika i bramki wydania z rejestru F01–F25.
 Równolegle domknąć dowody operacyjne A04: doręczenie alarmu aplikacji nr 22,
 zewnętrzny test wykrycia awarii i aktualność kopii produkcji. Wdrożenie 2.19.8,
@@ -134,6 +134,11 @@ automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audyt
 Stan 2.10.2026. [Protokół operacyjny](odbior-operacyjny-2026-10-01.md)
 potwierdza raport plików, migracje, nocne przebiegi i brak bieżących zaległości.
 Wcześniejsze opisy etapów zachowują historię, ale poniższa kolejność jest aktualna.
+
+**Bieżąca blokada bezpieczeństwa z CI 2.10:** pypdf 6.16.2 ma osiem zgłoszonych
+podatności. Przygotowano 2.19.9 z pypdf 6.19.0; po zielonym CI scalić,
+przebudować i potwierdzić wdrożenie web/workera. Bez migracji.
+[Szczegóły](odbior-a04-awarie-2026-10-02.md#6-poprawka-bezpieczeństwa-wykryta-przy-odbiorze-ci).
 
 **Wdrożone i potwierdzone:** poprawka PyJWT 2.19.6, jawni odbiorcy alarmów
 2.19.7 oraz nadzór Beat/workera 2.19.8. Nie planujemy ponownie ich wdrożenia.
