@@ -1,0 +1,86 @@
+{
+  "events": [
+    {
+      "name": "healthy_before_kill",
+      "utc": "2026-10-02T08:53:58.099911+00:00",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "stan": "ok",
+        "wersja": "2.19.8",
+        "baza": true,
+        "broker": true,
+        "zadania": true
+      }
+    },
+    {
+      "name": "worker_killed",
+      "utc": "2026-10-02T08:53:58.102008+00:00",
+      "exitcode": 1
+    },
+    {
+      "name": "worker_failure_detected",
+      "utc": "2026-10-02T08:56:55.170317+00:00",
+      "age_seconds": 181.587609,
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "stan": "ograniczony",
+        "wersja": "2.19.8",
+        "baza": true,
+        "broker": true,
+        "zadania": false
+      }
+    },
+    {
+      "name": "worker_recovered",
+      "utc": "2026-10-02T08:56:59.256608+00:00",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "stan": "ok",
+        "wersja": "2.19.8",
+        "baza": true,
+        "broker": true,
+        "zadania": true
+      }
+    },
+    {
+      "name": "broker_failure_detected",
+      "utc": "2026-10-02T08:57:02.103549+00:00",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "stan": "ograniczony",
+        "wersja": "2.19.8",
+        "baza": true,
+        "broker": false,
+        "zadania": true
+      }
+    },
+    {
+      "name": "intent_survives_real_broker_outage",
+      "utc": "2026-10-02T08:57:14.331624+00:00",
+      "job": 1
+    },
+    {
+      "name": "broker_and_deletion_recovered",
+      "utc": "2026-10-02T08:57:15.582240+00:00",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "stan": "ok",
+        "wersja": "2.19.8",
+        "baza": true,
+        "broker": true,
+        "zadania": true
+      },
+      "attempts": 1
+    },
+    {
+      "name": "passed",
+      "utc": "2026-10-02T08:57:15.583282+00:00"
+    }
+  ],
+  "passed": true
+}
