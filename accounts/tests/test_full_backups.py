@@ -547,3 +547,62 @@ def test_restore_suspends_pending_deletions_before_original_storage_returns(
         usun_oczekujace_pliki()
     delete.assert_not_called()
     assert storages["private_documents"].exists(name)
+
+
+def test_full_restore_quarantines_every_unfinished_state_and_preserves_files(
+    seed, tmp_path, monkeypatch, record_property
+):
+    import time
+
+    from documents.usuwanie_plikow import cel_magazynu, usun_oczekujace_pliki
+
+    monkeypatch.setattr("chatbot_project.pliki._obudz", lambda *args: None)
+    storage = storages["private_documents"]
+    unfinished = ("oczekuje", "praca", "blad", "wstrzymane")
+    original = {}
+    for state in (*unfinished, "gotowe", "zachowany"):
+        name = storage.save(f"drill/{state}.txt", ContentFile(b"synthetic-unreferenced-file"))
+        job = UsunieciePliku.objects.create(
+            magazyn="private_documents",
+            cel=cel_magazynu("private_documents"),
+            nazwa=name,
+            stan=state,
+            proby=1,
+            dzierzawa_do=timezone.now() + timedelta(minutes=10) if state == "praca" else None,
+        )
+        original[job.pk] = (state, job.token, name)
+    archive = tmp_path / "quarantine.saas"
+    start = time.monotonic()
+    call_command("backup_full", source_quiesced=True, output=str(archive))
+    record_property("backup_seconds", round(time.monotonic() - start, 3))
+    with archive.open("rb") as stream:
+        manifest = verify_bundle(stream)
+    record_property("backup_bytes", archive.stat().st_size)
+    record_property("file_count", len(manifest["files"]))
+    record_property("application_version", manifest["version"])
+    record_property("postgres_version", manifest["postgres"])
+    assert manifest["model_counts"]["documents.usunieciepliku"] == 6
+    user_id, doc_id = seed[0].pk, seed[1].pk
+    # Wyłącznie baza utworzona przez pytest; polecenie restore ponownie sprawdza pusty cel.
+    call_command("flush", interactive=False, verbosity=0)
+    destination = tmp_path / "quarantined-restore"
+    start = time.monotonic()
+    call_command("restore_full_backup", str(archive), output=str(destination))
+    record_property("restore_seconds", round(time.monotonic() - start, 3))
+    assert CustomUser.objects.get(pk=user_id).check_password("testpass123")
+    assert Document.objects.get(pk=doc_id).tenant_id == seed[0].tenant_id
+    for file in manifest["files"]:
+        restored = destination / file["storage"] / file["name"]
+        assert hashlib.sha256(restored.read_bytes()).hexdigest() == file["sha256"]
+    for job in UsunieciePliku.objects.all():
+        state, token, name = original[job.pk]
+        if state in unfinished:
+            assert job.stan == "wstrzymane" and job.blad == "odtworzona_kopia"
+            assert job.token != token and job.dzierzawa_do is None and job.alarm_at is None
+        else:
+            assert job.stan == state and job.token == token
+        assert storage.exists(name)
+    # Powrót konfiguracji źródła nie ożywia intencji odzyskanych z kopii.
+    usun_oczekujace_pliki()
+    assert UsunieciePliku.objects.filter(stan="wstrzymane").count() == 4
+    assert all(storage.exists(name) for _, _, name in original.values())
