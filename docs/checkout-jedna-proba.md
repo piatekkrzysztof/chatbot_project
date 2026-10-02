@@ -109,3 +109,9 @@ także uzgodnić zakupy ze Stripe przed ponownym otwarciem sprzedaży.
 Źródła kontraktu API: [idempotencja](https://docs.stripe.com/api/idempotent_requests),
 [tworzenie sesji](https://docs.stripe.com/api/checkout/sessions/create),
 [wygaszanie](https://docs.stripe.com/api/checkout/sessions/expire).
+
+## Częściowy odbiór integracyjny — 2.10.2026
+
+Rzeczywiste Stripe test mode, zakres zaliczonych prób, 76 testów regresyjnych
+i nadal otwarte warunki operacyjne opisuje [protokół A01/A02](odbior-a01-a02-2026-10-02.md).
+Nie utożsamiamy lokalnego replay webhooka i outboxa z dostarczeniem HTTPS/SMTP.
