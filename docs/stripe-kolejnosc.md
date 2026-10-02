@@ -112,3 +112,9 @@ odbiorem płatności. Nie cofać A01 i jego tabeli prób zakupu.
 
 Źródła: [blokady transakcyjne PostgreSQL](https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS),
 [kolejność i ponowienia webhooków Stripe](https://docs.stripe.com/webhooks).
+
+## Częściowy odbiór integracyjny — 2.10.2026
+
+Rzeczywiste Stripe test mode, zakres zaliczonych prób, 76 testów regresyjnych
+i nadal otwarte warunki operacyjne opisuje [protokół A01/A02](odbior-a01-a02-2026-10-02.md).
+Nie utożsamiamy lokalnego replay webhooka i outboxa z dostarczeniem HTTPS/SMTP.
