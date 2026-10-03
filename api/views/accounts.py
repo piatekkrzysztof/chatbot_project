@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -479,15 +480,86 @@ class InvitationPreviewView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Bez adresu e-mail. Podgląd odpowiada każdemu, kto ma klucz, a do
+        # 2.20.0 podsuwał adres, który formularz przyjęcia sprawdzał jako
+        # „dowód tożsamości" - czyli podawał odpowiedź razem z pytaniem.
         return Response(
             {
                 "company": invitation.tenant.name,
-                "email": invitation.email,
                 "role": invitation.role,
                 "is_valid": invitation.is_valid(),
                 "expires_at": invitation.expires_at,
             }
         )
+
+
+@extend_schema(
+    tags=["Konto"],
+    summary="Wyślij zaproszenie na adres, na który je wystawiono",
+    description=(
+        "Dostępne bez uwierzytelnienia, kluczem wysyłki z panelu. Nie zakłada "
+        "konta i nie zdradza adresu: wysyła zaproszenie z kluczem przyjęcia "
+        "na skrzynkę zapisaną w zaproszeniu."
+    ),
+    request=None,
+    responses={202: MessageSerializer, 404: ErrorSerializer, 410: ErrorSerializer},
+)
+class InvitationResendView(APIView):
+    """
+    Link do przekazania z panelu.
+
+    Właściciel kopiuje go wtedy, gdy poczta zawiodła, i wysyła przez Slacka,
+    SMS-em albo wpisuje do wspólnych notatek. Dlatego ten link nie może być
+    kluczem do konta - może co najwyżej poprosić o wysyłkę na właściwy adres.
+    Kto nie ma dostępu do tej skrzynki, nie dostanie z niego niczego.
+    """
+
+    authentication_classes = ()
+    permission_classes = ()
+    throttle_classes = [InvitationAcceptThrottle]
+
+    #: Ile czasu musi minąć między dwiema wysyłkami tego samego zaproszenia.
+    #: Bez tego link krążący po wspólnym kanale zamieniałby się w narzędzie
+    #: do zasypywania czyjejś skrzynki.
+    ODSTEP_WYSYLKI_S = 60
+
+    def post(self, request, token_wysylki):
+        invitation = (
+            InvitationToken.objects.select_related("tenant")
+            .filter(token_wysylki=token_wysylki)
+            .first()
+        )
+        if invitation is None:
+            return Response(
+                {"detail": "Nieprawidłowy link zaproszenia."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if not invitation.is_valid():
+            return Response(
+                {"detail": "Zaproszenie wygasło albo zostało już wykorzystane."},
+                status=status.HTTP_410_GONE,
+            )
+
+        odpowiedz = {
+            "message": "Zaproszenie wysłane na adres, na który je wystawiono. Sprawdź skrzynkę."
+        }
+        # cache.add zwraca False, gdy klucz już jest - wtedy nie wysyłamy, ale
+        # odpowiadamy tak samo: drugi klik w ciągu minuty nie jest błędem
+        # osoby, która po prostu nie widzi jeszcze wiadomości.
+        if not cache.add(f"zaproszenie-wysylka:{invitation.pk}", 1, self.ODSTEP_WYSYLKI_S):
+            return Response(odpowiedz, status=status.HTTP_202_ACCEPTED)
+
+        try:
+            send_invitation_email(invitation)
+        except Exception:
+            cache.delete(f"zaproszenie-wysylka:{invitation.pk}")
+            # Numer, nie adres - tak samo jak przy pierwszej wysyłce.
+            logger.exception("Nie udało się ponownie wysłać zaproszenia %s", invitation.pk)
+            return Response(
+                {"detail": "Nie udało się wysłać wiadomości. Spróbuj za chwilę."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(odpowiedz, status=status.HTTP_202_ACCEPTED)
 
 
 @extend_schema(tags=["Panel — zespół"], summary="Lista zaproszeń")

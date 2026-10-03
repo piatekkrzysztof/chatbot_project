@@ -38,7 +38,13 @@ def test_wlasciciel_dostaje_gotowy_link_do_skopiowania(user, tenant, mocker):
     assert response.status_code == 201
     data = response.json()
     assert data["email_sent"] is True
-    assert data["accept_url"].endswith(f"/invite/accept/{data['token']}")
+    # Link do skopiowania jest linkiem WYSYŁKI, nie przyjęcia. Do 2.20.0 ten
+    # test sprawdzał coś odwrotnego - że panel dostaje link zakładający konto -
+    # czyli zapisywał dziurę jako oczekiwane zachowanie.
+    zaproszenie = InvitationToken.objects.get(email="pracownik@example.com")
+    assert data["accept_url"].endswith(f"/invite/wyslij/{zaproszenie.token_wysylki}")
+    assert str(zaproszenie.token) not in data["accept_url"]
+    assert "token" not in data
     assert data["is_valid"] is True
 
 
