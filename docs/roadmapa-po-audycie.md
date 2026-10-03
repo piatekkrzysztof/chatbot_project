@@ -135,9 +135,9 @@ Stan 2.10.2026. [Protokół operacyjny](odbior-operacyjny-2026-10-01.md)
 potwierdza raport plików, migracje, nocne przebiegi i brak bieżących zaległości.
 Wcześniejsze opisy etapów zachowują historię, ale poniższa kolejność jest aktualna.
 
-**Bieżąca blokada bezpieczeństwa z CI 2.10:** pypdf 6.16.2 ma osiem zgłoszonych
-podatności. Przygotowano 2.19.9 z pypdf 6.19.0; po zielonym CI scalić,
-przebudować i potwierdzić wdrożenie web/workera. Bez migracji.
+**Blokada bezpieczeństwa z CI 2.10 - zamknięta:** pypdf 6.16.2 miał osiem
+zgłoszonych podatności; 2.19.9 z pypdf 6.19.0 scalone (#117), a `/health/`
+odpowiada 2.19.9 (sprawdzone 2.10.2026).
 [Szczegóły](odbior-a04-awarie-2026-10-02.md#6-poprawka-bezpieczeństwa-wykryta-przy-odbiorze-ci).
 
 **Wdrożone i potwierdzone:** poprawka PyJWT 2.19.6, jawni odbiorcy alarmów
@@ -161,9 +161,14 @@ przebudować i potwierdzić wdrożenie web/workera. Bez migracji.
    (F19), pierwsze kroki i stan zakupu (F22), prawdziwy token Turnstile (F23).
    Produkcyjny web ma TRUSTED_PROXY_DEPTH=2; pozostaje test rzeczywistego IP
    i odporności na nagłówek klienta. Nie uznawać odczytu ustawienia za ten test.
-5. **Poprawki zaproszeń.** Usunąć niespójny wybór wielu użyć w panelu;
-   rozstrzygnąć i sprawdzić potwierdzenie tożsamości adresata. Stan backendu
-   opisuje [kontrakt](rejestracja-i-zaproszenia.md).
+5. **Zaproszenia - kod zrobiony w 2.20.0, czeka odbiór.** Link z panelu
+   nie zakłada już konta: klucz przyjęcia jedzie wyłącznie mailem, a panel
+   dostaje klucz, który umie tylko wysłać zaproszenie na właściwy adres.
+   Do tej pory kto miał link z panelu, zostawał pracownikiem - odtworzone
+   testem. Odbiór w czterech krokach w
+   [kontrakcie](rejestracja-i-zaproszenia.md#dwa-klucze-zaproszenia-2200).
+   Wyboru wielu użyć w panelu nie było już wcześniej - pozycja wisiała
+   jako otwarta przez pomyłkę.
 6. **Bramki wydania.** Macierz dostępu (F01), ponowne skany wszystkich repo
    i faktycznego środowiska produkcyjnego (F05/F12), dostępność,
    test obciążenia i pomiar SLO (F16), ocena potrzeby indeksu wektorowego
@@ -215,7 +220,7 @@ sprawdzeniem retencji.
 | F04 | Prywatne magazyny, szyfrowanie i klucze poza hostingiem; 2.0.14 dodaje pełne kopie z bajtami plików i zweryfikowaną próbę na danych syntetycznych | Wykonane 17.09.2026 razem z F21: rzeczywista kopia przy wstrzymanych zapisach, izolowany restore na PG16, monitor i sprawdzony alarm ([protokół](odbior-f21.md#wynik-odbioru---17092026)). Retencja archiwum kopii dodana w 2.15.0 ([opis](harmonogram-i-kontrola-kopii.md#retencja-archiwum-kopii-2150)) |
 | F05 | Bezpieczny kontekst/obraz, #39 | Skan podatności obrazu dodany do CI w 2.18.0 (Trivy, `CRITICAL,HIGH`, tylko podatności z dostępną poprawką, blokujący). Pierwszy przebieg wykrył cztery HIGH w narzędziach budowania - naprawione usunięciem pip, setuptools i wheel z obrazu produkcyjnego, bo podbicie wersji ich nie usuwało. Zostaje skan obrazu faktycznie stojącego na produkcji - CI sprawdza ten zbudowany z bieżącego commita |
 | F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
-| F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; wartość `TRUSTED_PROXY_DEPTH=2` na web odczytana 1.10.2026; pozostaje odbiór rzeczywistego IP i odporności na podrobiony nagłówek przez `/api/diagnostyka/adres/`; ocena nadużyć przez wiele skrzynek i aliasów **zrobiona w 2.17.0** (zgłoszenie, nie blokada - [opis](rejestracja-i-zaproszenia.md#powtórny-okres-próbny-na-tę-samą-skrzynkę-2170)). Retencja i alerty zgłoszeń **są zrobione**: zgłoszenia znikają razem z rozmowami, po `data_retention_days` firmy (`chat/retention.py`, codziennie 3:30), a o nowym zgłoszeniu powiadamia `powiadom_o_zapytaniu_task` |
+| F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; wartość `TRUSTED_PROXY_DEPTH=2` na web odczytana 1.10.2026; pozostaje odbiór rzeczywistego IP i odporności na podrobiony nagłówek przez `/api/diagnostyka/adres/`; przyjęcie zaproszenia wymaga dostępu do skrzynki adresata od 2.20.0 - link z panelu tylko wysyła zaproszenie ([opis](rejestracja-i-zaproszenia.md#dwa-klucze-zaproszenia-2200)), odbiór otwarty; ocena nadużyć przez wiele skrzynek i aliasów **zrobiona w 2.17.0** (zgłoszenie, nie blokada - [opis](rejestracja-i-zaproszenia.md#powtórny-okres-próbny-na-tę-samą-skrzynkę-2170)). Retencja i alerty zgłoszeń **są zrobione**: zgłoszenia znikają razem z rozmowami, po `data_retention_days` firmy (`chat/retention.py`, codziennie 3:30), a o nowym zgłoszeniu powiadamia `powiadom_o_zapytaniu_task` |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Pomiar kosztów zrobiony 28.09.2026 ([koszt klienta](koszt-klienta.md)). Alarm o biletach do rozliczenia i sprzątanie rozliczonych w 2.16.0: komenda istniała od #44, ale nie było jej w harmonogramie, więc nie wykonała się ani razu ([opis](rezerwacje-wiadomosci.md#kto-to-wszystko-uruchamia-2160)). Wynik zadania widać od 2.19.0 w zakładce Stan (karta „Rozliczanie pracy bota”), bez schodzenia do logu usługi ([opis](rezerwacje-wiadomosci.md#kto-to-wszystko-uruchamia-2160)). Potwierdzone 1.10.2026: automatyczny przebieg 04:00 zakończony sukcesem, nierozliczone=0 i usunięte=0; odczyt bieżący także bez zaległości. [Protokół](odbior-operacyjny-2026-10-01.md). Nie wywoływano alarmu z niezerową kolejką |
 | F09 | Backend #43 i panel #11 scalone | Produkcyjny odbiór uploadu na wydzielonej firmie |
 | F10 | Część 1: #58 scalony (2.0.17): typ treści przy pobieraniu stron, PDF/DOCX/TXT/MD podlinkowane na stronie przez izolowany parser, adres źródła zawsze pobierany, mapy stron stałych przed wpisami, jedna za duża odpowiedź nie przerywa pobierania. Część 2: #59 scalony (2.0.18): limit bazy wiedzy pod blokadą doradczą, zlecenia zadań po zatwierdzeniu transakcji, TXT w Windows-1250, ISO-8859-2 i UTF-16, tabele i pola tekstowe DOCX, przywrócone podłączenie sygnału dokumentów (usunięte w #21, 4.09.2026: dokumenty z panelu bez embeddingów) | Jednorazowe przeliczenie dokumentów bez fragmentów i kontrole z [kompletny-import.md](kompletny-import.md). Część 2 jest na `main` i wdrożona - `documents/file_limits.py`, `zablokuj_baze_wiedzy` w walidatorach i `on_commit` w sygnałach (sprawdzone 29.09.2026) |

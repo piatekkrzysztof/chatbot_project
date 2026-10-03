@@ -38,6 +38,7 @@ from .views.accounts import (
     CreateInvitationView,
     InvitationListView,
     InvitationPreviewView,
+    InvitationResendView,
     InvitationRevokeView,
     LoginView,
     LogowanieDrugiSkladnikView,
@@ -147,6 +148,11 @@ urlpatterns = [
         "accounts/invitations/<uuid:token>/preview/",
         InvitationPreviewView.as_view(),
         name="invitation-preview",
+    ),
+    path(
+        "accounts/invitations/wyslij/<uuid:token_wysylki>/",
+        InvitationResendView.as_view(),
+        name="invitation-resend",
     ),
     path(
         "accounts/invitations/<int:pk>/",

@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-10-03
+
+### Security
+
+- **A link copied from the Team screen no longer creates an account.** Until
+  now the panel offered the owner the very link that creates an account, for
+  passing on by chat or text message when the invitation email did not
+  arrive - and whoever held it became a team member with the role the owner
+  had chosen. The form did ask for the invited address, but the invitation
+  preview handed that address to anyone holding the link and the panel
+  filled it in for them, so the check compared the server's value with
+  itself. Invitations now carry two keys: the one that creates an account
+  travels only by email to the invited address, and the one shown in the
+  panel can do nothing except send that email again. The link still works as
+  a fallback; it just proves nothing on its own. Links copied before this
+  release keep working until their invitation expires, at most seven days.
+
 ## [2.19.9] - 2026-10-02
 
 ### Security
