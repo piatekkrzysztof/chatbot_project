@@ -1,4 +1,5 @@
 import logging
+import re
 
 from dateutil.relativedelta import relativedelta
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -13,6 +14,8 @@ from api.session_tokens import SessionJWTAuthentication
 
 from .models import Subscription
 from .odmowy import PowodOdmowy, zapisz_odmowe
+
+WYSYLKA_ZAPROSZENIA = re.compile(r"/api/accounts/invitations/wyslij/[0-9a-f-]{36}/")
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +73,14 @@ class TenantMiddleware:
         if request.path.startswith("/api/accounts/invitations/") and request.path.endswith(
             "/preview/"
         ):
+            return
+
+        # Wysyłka zaproszenia kluczem z panelu (2.20.0). Woła ją ktoś, komu
+        # właściciel przekazał link - z definicji bez konta i bez klucza API.
+        # Dopasowanie ścisłe, a nie po prefiksie: lista i cofanie zaproszeń
+        # leżą pod tym samym `/api/accounts/invitations/` i muszą zostać
+        # za uwierzytelnieniem.
+        if WYSYLKA_ZAPROSZENIA.fullmatch(request.path):
             return
 
         # Nieprawidłowy lub wygasły JWT kończy uwierzytelnianie. Nie wolno

@@ -406,7 +406,19 @@ class PendingRegistration(models.Model):
 class InvitationToken(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="invitations")
     email = models.EmailField()
+    # Klucz przyjęcia: zakłada konto. Jedzie WYŁĄCZNIE mailem na adres
+    # zaproszenia, więc jego posiadanie dowodzi dostępu do tej skrzynki.
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    # Klucz wysyłki: to jego panel podaje do skopiowania. Umie tylko jedno -
+    # wysłać zaproszenie na adres, na który je wystawiono. Konta nie zakłada.
+    #
+    # Do 2.20.0 panel podawał do skopiowania klucz przyjęcia, a link z panelu
+    # wędruje przez Slacka, SMS-y i wspólne notatki. Kto go miał, zostawał
+    # pracownikiem z rolą nadaną przez właściciela - podgląd zaproszenia
+    # podawał mu nawet adres do wpisania. Rozdzielenie kluczy zostawia wygodę
+    # (link nadal można przekazać, gdy poczta zawiedzie) i przenosi dowód
+    # tożsamości tam, gdzie powinien być: do skrzynki.
+    token_wysylki = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.EMPLOYEE)
     duration = models.CharField(
         max_length=10, choices=InvitationDuration.choices, default=InvitationDuration.ONE_DAY
