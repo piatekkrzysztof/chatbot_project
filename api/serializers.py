@@ -260,6 +260,13 @@ class InvitationReadSerializer(serializers.ModelSerializer):
 
     Sam e-mail nie wystarcza: wysyłka bywa zablokowana albo wiadomość ląduje
     w spamie, a wtedy właściciel nie ma jak przekazać zaproszenia inaczej.
+
+    Od 2.20.0 `accept_url` prowadzi do strony, która tylko wysyła zaproszenie
+    na adres, na który je wystawiono - nie do formularza zakładania konta.
+    Nazwa pola została po staremu, żeby panel sprzed tej wersji od razu
+    pokazywał bezpieczny link: dziura zamyka się w chwili wdrożenia backendu,
+    niezależnie od tego, kiedy wejdzie nowy panel. Z tego samego powodu z listy
+    zniknęło pole `token` - panel go nie używał, a był to klucz przyjęcia.
     """
 
     accept_url = serializers.SerializerMethodField()
@@ -277,7 +284,6 @@ class InvitationReadSerializer(serializers.ModelSerializer):
             "max_users",
             "users",
             "seats_left",
-            "token",
             "accept_url",
             "expires_at",
             "is_valid",
@@ -286,7 +292,7 @@ class InvitationReadSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.URLField())
     def get_accept_url(self, obj):
-        return f"{settings.FRONTEND_URL.rstrip('/')}/invite/accept/{obj.token}"
+        return f"{settings.FRONTEND_URL.rstrip('/')}/invite/wyslij/{obj.token_wysylki}"
 
     @extend_schema_field(serializers.IntegerField())
     def get_seats_left(self, obj):
@@ -294,13 +300,24 @@ class InvitationReadSerializer(serializers.ModelSerializer):
 
 
 class AcceptInvitationSerializer(serializers.Serializer):
+    """
+    Przyjęcie zaproszenia kluczem, który przyszedł mailem.
+
+    Adres e-mail konta bierzemy z zaproszenia, nie od osoby wypełniającej
+    formularz. Dawniej formularz go wymagał, ale panel i tak wypełniał pole
+    tym, co podał podgląd zaproszenia - „sprawdzenie adresu" porównywało więc
+    wartość serwera z nią samą. Dowodem tożsamości jest teraz klucz przyjęcia:
+    jedzie wyłącznie na adres zaproszenia, więc kto go ma, ma tę skrzynkę.
+
+    Pole `email` zostaje opcjonalne dla panelu sprzed 2.20.0. Pusty ciąg
+    traktujemy jak brak - stary panel wysyła pusty adres, bo nowy podgląd go
+    już nie zwraca - a podany musi się zgadzać, jak dotąd.
+    """
+
     token = serializers.UUIDField()
     username = serializers.CharField(max_length=150, validators=[CustomUser.username_validator])
-    email = serializers.EmailField(max_length=254)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=1024)
-
-    def validate_email(self, value):
-        return unique_email(value)
 
     def validate(self, attrs):
         try:
@@ -311,7 +328,11 @@ class AcceptInvitationSerializer(serializers.Serializer):
         if not invitation.is_valid():
             raise serializers.ValidationError("Token expired or used up.")
 
-        self.check_recipient(invitation, attrs["email"])
+        if attrs.get("email"):
+            self.check_recipient(invitation, normalized_email(attrs["email"]))
+        attrs["email"] = unique_email(invitation.email)
+        if not attrs["email"]:
+            raise serializers.ValidationError("Invalid token.")
         check_password(attrs["password"], username=attrs["username"], email=attrs["email"])
 
         # Ponownie, bo między wystawieniem zaproszenia a jego przyjęciem mogą
