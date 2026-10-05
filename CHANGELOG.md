@@ -16,6 +16,21 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-10-05
+
+### Fixed
+
+- **Busy chats and uploads leave room for the panel.** All four chat entry
+  points share two active slots per web process. Document, CSV and branding
+  uploads share one slot held from before reading the body through storage.
+  Excess requests receive 503 with Retry-After, before reserving a message
+  or saving data. Streaming slots are released on completion, errors and
+  disconnects, including responses that were never consumed.
+- **One measured server profile for 512 MiB:** one Gunicorn gthread worker
+  with four threads, shared by Docker and the Render blueprint. Manually
+  configured Render services require the documented Start Command change;
+  merging this release alone does not reconfigure those services.
+
 ## [2.22.0] - 2026-10-05
 
 ### Fixed

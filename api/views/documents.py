@@ -13,6 +13,7 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.capacity import CapacityMixin
 from api.pagination import StronicowaniePanelu
 from api.permissions import *
 from api.schemas import (
@@ -203,7 +204,8 @@ class DocumentsViewSet(
         503: ErrorSerializer,
     },
 )
-class UploadDocumentView(APIView):
+class UploadDocumentView(CapacityMixin, APIView):
+    capacity_group = "upload"
     parser_classes = [LimitedMultiPartParser]
     permission_classes = [IsOwnerOrEmployee]
 

@@ -70,4 +70,4 @@ USER aplikacja
 
 EXPOSE 8000
 
-CMD ["gunicorn", "chatbot_project.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "--config", "python:chatbot_project.gunicorn_config", "--bind", "0.0.0.0:8000"]

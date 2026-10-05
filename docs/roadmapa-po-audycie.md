@@ -1,5 +1,16 @@
 # Roadmapa napraw po audycie SaaS
 
+## Pojemność HTTP — przygotowane 5.10.2026, 2.23.0
+
+PR #123 jest scalony. Po pomiarach Gunicorna przygotowano wspólny limit dwóch
+rozmów i jednego uploadu na proces oraz profil 1 worker gthread / 4 threads.
+Powtórzony lokalny HTTP: panel przy 2 SSE i uploadzie 36 ms, nadmiarowe
+żądania 503 bez czekania, maksimum 364,25 MiB przy limicie 512 MiB, bez OOM.
+Produkcja nie została przełączona. Następny krok: CI i scalenie, odczyt
+rzeczywistych ustawień Rendera, kontrolowany deploy oraz odbiór panelu/503.
+[Zakres, wyniki, komenda i rollback](pojemnosc-http.md).
+
+
 ## Ponowny audyt 30.09.2026 - bieżące naprawy
 
 Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
