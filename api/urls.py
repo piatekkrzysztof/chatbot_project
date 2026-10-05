@@ -68,6 +68,7 @@ from .views.widget import (
     PublicChatView,
     PublicFAQView,
     TenantWidgetSettingsView,
+    WidgetConversationStatusView,
     WidgetSettingsAPIView,
 )
 
@@ -172,6 +173,11 @@ urlpatterns = [
     path("widget/chat/stream/", PublicChatStreamView.as_view(), name="widget-chat-stream"),
     path("widget/contact/", PublicContactRequestView.as_view(), name="widget-contact"),
     path("widget/feedback/", PublicFeedbackView.as_view(), name="widget-feedback"),
+    path(
+        "widget/rozmowa/<uuid:session_id>/",
+        WidgetConversationStatusView.as_view(),
+        name="widget-conversation-status",
+    ),
     path("widget-settings/mine/", TenantWidgetSettingsView.as_view(), name="widget-settings-mine"),
     path("diagnostyka/adres/", DiagnostykaAdresuView.as_view(), name="diagnostyka-adres"),
     path("diagnostyka/zadania/", DiagnostykaZadanView.as_view(), name="diagnostyka-zadania"),

@@ -16,6 +16,28 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-10-05
+
+### Fixed
+
+- **A deleted conversation no longer stays visible in the visitor's
+  browser.** The widget keeps a copy of the conversation in the visitor's
+  browser and used to show it without asking the server, clearing it only
+  when the visitor sent another message. So a visitor who asked a company to
+  delete their conversation could come back and find it all still there - and
+  reasonably conclude it had never been deleted. The widget now checks when it
+  opens and does not show a conversation the company has deleted. A
+  conversation that simply is not there for another reason, or a check that
+  fails, leaves the visitor's own copy alone.
+
+### Added
+
+- **A conversation can be deleted from the Conversations screen.** Until now
+  it meant copying the conversation's identifier and pasting it on the
+  Privacy screen. Each entry now has a delete button that asks for
+  confirmation first and says plainly that the whole conversation goes,
+  together with any contact details left in it.
+
 ## [2.20.0] - 2026-10-03
 
 ### Security
