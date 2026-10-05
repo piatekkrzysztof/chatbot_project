@@ -7,7 +7,7 @@ docs/kompletny-import.md.
 import io
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier, BrokenBarrierError, Event
+from threading import Barrier, BoundedSemaphore, BrokenBarrierError, Event
 from unittest.mock import patch
 
 import pytest
@@ -173,7 +173,16 @@ def plan_start(subskrypcja):
 class TestLimituPrzyRownoleglychDodaniach:
     """Plan Start: 5 MB. Każde dodanie 3 MB mieści się samo, dwa razem już nie."""
 
-    def test_dwa_uploady_naraz(self, user, tenant, subscribtion, jednoczesny_pomiar, mocker):
+    @pytest.mark.parametrize("slots, expected", [(1, [201, 503]), (2, [201, 400])])
+    def test_dwa_uploady_naraz(
+        self, user, tenant, subscribtion, jednoczesny_pomiar, mocker, monkeypatch, slots, expected
+    ):
+        from api import capacity
+
+        # Jeden slot to profil HTTP 512 MiB. Dwa wyłącznie w tej próbie
+        # przepuszczają wyścig do bazy: jej blokada nadal jest konieczna dla
+        # zapisów z różnych procesów (np. web i worker), poza wspólnym semaforem.
+        monkeypatch.setattr(capacity, "UPLOAD_SLOTS", BoundedSemaphore(slots))
         plan_start(subscribtion)
         user.tenant, user.role = tenant, "owner"
         user.save()
@@ -188,8 +197,12 @@ class TestLimituPrzyRownoleglychDodaniach:
 
         odpowiedzi = rownolegle(wgraj, ["a.pdf", "b.pdf"])
 
-        assert sorted(o.status_code for o in odpowiedzi) == [201, 400]
+        assert sorted(o.status_code for o in odpowiedzi) == expected
         assert jednoczesny_pomiar(tenant) <= 5 * MB
+        if slots == 1:
+            # Ponowienie po zwolnieniu slotu ma już dojść do limitu planu.
+            # Nie przyjmujemy drugiego pliku i nie blokujemy slotu po 503.
+            assert wgraj("ponowienie.pdf").status_code == 400
 
     def test_dwie_podstrony_naraz(self, tenant, subscribtion, jednoczesny_pomiar):
         from documents.website_import import import_website_as_document
