@@ -8,8 +8,8 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 |---|---|---|
 | A01 | Dwie otwarte sesje zakupu jednego abonamentu | Poprawka wdrożona, migracja 0041 potwierdzona 1.10. 2.10 zaliczono rzeczywisty Stripe test mode: powtórzenia, utrata odpowiedzi create/expire, błąd zapisu ID, operator, konkurencyjne plany i blokada po opłaceniu bez webhooka. Otwarte: dodatkowe wyścigi, dawne sesje po migracji i panel. [Protokół](odbior-a01-a02-2026-10-02.md) |
 | A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Poprawka wdrożona, migracja 0042 potwierdzona 1.10. 2.10 zaliczono Stripe test mode: odzyskanie bez webhooka, serializacja synchronizacji, replay starego zdarzenia, anulowanie, odnowienie, past_due i odzyskanie po zapłacie. Alarm sprawdzony tylko lokalnie; nadal transport webhooków, rzeczywisty worker/Beat, skrzynki i UI. [Protokół](odbior-a01-a02-2026-10-02.md) |
-| A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. [Odbiór panelu/widgetu, 410/SSE i równoległego usuwania](usuwanie-rozmow-a03.md) pozostaje otwarty |
-| A04 | Plik bez rekordu po awarii magazynu | R2: 9 plików i ochrona współdzielenia odebrane 1.10; 2.19.7 i 2.19.8 wdrożone. 2.10 potwierdzono powiadomienia UptimeRobot down/up. Zaliczono awarie procesów/TCP/HTTP, zatrzymanie lokalnego workera na ponad 180 s, restart Redis oraz syntetyczny restore z kwarantanną wszystkich niedokończonych zleceń. Nadal: odbiór alarmu aplikacji nr 22 na obu skrzynkach, zewnętrzny test wykrycia awarii i kontrola aktualnej kopii produkcji. [Protokół i granice](odbior-a04-awarie-2026-10-02.md) |
+| A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. Odbiór 5.10 wykrył, że **usunięta rozmowa zostawała w przeglądarce odwiedzającego**: widget pokazywał historię z localStorage bez pytania serwera. Poprawione w 2.21.0 - widget pyta przy otwarciu, a w Konwersacjach jest przycisk usuwania zamiast kopiowania identyfikatora ([opis](usuwanie-rozmow-a03.md#8-usunięcie-widać-także-w-przeglądarce-odwiedzającego-2210)). [Pozostały odbiór panelu/widgetu, 410/SSE i równoległego usuwania](usuwanie-rozmow-a03.md) |
+| A04 | Plik bez rekordu po awarii magazynu | R2: 9 plików i ochrona współdzielenia odebrane 1.10; 2.19.7 i 2.19.8 wdrożone. 2.10 potwierdzono powiadomienia UptimeRobot down/up. Zaliczono awarie procesów/TCP/HTTP, zatrzymanie lokalnego workera na ponad 180 s, restart Redis oraz syntetyczny restore z kwarantanną wszystkich niedokończonych zleceń. **5.10 właściciel potwierdził**: alarm aplikacji nr 22 doszedł na obie skrzynki, UptimeRobot wykrywa awarię i powrót na osobnym monitorze testowym, najnowsza kopia produkcji z 17.09 (kolejna miesięczna około 17.10). Nadal: osobna próba zatrzymania Beat - wymaga izolowanego środowiska. [Protokół i granice](odbior-a04-awarie-2026-10-02.md) |
 | A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka wdrożona z A03; migracje i kontrola wszystkich istniejących okresów (0–3650) potwierdzone 1.10. Odbiór błędnych/granicznych wartości przez API pozostaje otwarty |
 
 ### A04: historia przygotowania kodu
@@ -144,12 +144,11 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
 2.19.7 oraz nadzór Beat/workera 2.19.8. Nie planujemy ponownie ich wdrożenia.
 2.10 zaliczono [izolowane próby awarii i odtworzenia](odbior-a04-awarie-2026-10-02.md).
 
-1. **Pozostałe dowody A04 (równolegle).** Potwierdzić doręczenie alarmu aplikacji
-   nr 22 obu skrzynkom. Przeprowadzić wykrycie rzeczywistej zmiany health na celu
-   testowym przez UptimeRobot oraz osobną próbę zatrzymania Beat. Sprawdzić
-   aktualność zgodnej kopii produkcji; syntetyczny restore z 2.10 nie mierzy jej RTO.
-   Próby plików R2, awarii procesów i magazynu, lokalnego workera/Redis oraz
-   kwarantanny odtworzonych zleceń są zaliczone w opisanym zakresie.
+1. **Dowody A04 - zebrane 5.10, poza jednym.** Alarm nr 22 doszedł na obie
+   skrzynki; UptimeRobot wykrywa awarię i powrót na osobnym monitorze testowym;
+   najnowsza kopia produkcji z 17.09, kolejna miesięczna około 17.10. Zostaje
+   osobna próba zatrzymania Beat - protokół zabrania jej na produkcji, więc
+   czeka na decyzję o środowisku testowym.
 2. **Płatności A01/A02.** Kontrolowany Stripe test mode: podwójny zakup,
    utracona odpowiedź, kolejność zdarzeń, odnowienie/zmiana planu i alarm.
    Automatyczne uzgodnienie działa, lecz aktualnie nie ma powiązanych firm,
