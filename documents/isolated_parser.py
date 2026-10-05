@@ -27,8 +27,9 @@ PARSER_MEMORY_BYTES = 192 * 1024 * 1024
 PARSER_MINIMUM_BYTES = 96 * 1024 * 1024
 #: Ile pamięci kontenera zostawiamy procesowi web na samo obsłużenie żądania
 #: z plikiem: wczytany upload (do 10 MiB), wynik parsera (do 16 MiB JSON-u)
-#: i tekst z niego. Zakłada jedno żądanie naraz w procesie - tak działa
-#: produkcyjny gunicorn bez wątków. Po włączeniu wątków do przeliczenia.
+#: i tekst z niego. CapacityMixin dopuszcza jeden upload od odczytu do zapisu
+#: w procesie (profil Gunicorna: 1 worker/4 threads). Zmianę tego profilu lub
+#: limitów trzeba ponownie zmierzyć; parser_slot nadal chroni sam parser.
 REZERWA_USLUGI = 64 * 1024 * 1024
 PARSER_SECONDS = 20
 IMAGE_PARSER_SECONDS = 5

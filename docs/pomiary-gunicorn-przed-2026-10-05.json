@@ -1,0 +1,2118 @@
+[
+  {
+    "mode": "sync-1",
+    "cases": [
+      {
+        "case": "warmup-small-upload",
+        "start": 1791195870.5504682,
+        "end": 1791195870.7923102,
+        "result": {
+          "status": 201,
+          "seconds": 0.2418,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 168.84,
+        "anon_peak_mib": 161.98
+      },
+      {
+        "case": "baseline-warm",
+        "start": 1791195870.9434352,
+        "end": 1791195871.9816346,
+        "result": {
+          "privacy": 200
+        },
+        "memory_peak_mib": 158.25,
+        "anon_peak_mib": 151.57
+      },
+      {
+        "case": "1-sse-plus-panel",
+        "start": 1791195872.1323342,
+        "end": 1791195876.4194176,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 3.7627
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2619,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 54
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 158.51,
+        "anon_peak_mib": 151.8
+      },
+      {
+        "case": "2-sse-plus-panel",
+        "start": 1791195876.5703442,
+        "end": 1791195885.084549,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 8.0012
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2411,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 56
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 8.4884,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 58
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 158.79,
+        "anon_peak_mib": 151.9
+      },
+      {
+        "case": "3-sse-plus-panel",
+        "start": 1791195885.2352164,
+        "end": 1791195897.8885655,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 12.1432
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2002,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 60
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 8.432,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 62
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 12.6278,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 64
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 165.98,
+        "anon_peak_mib": 158.39
+      },
+      {
+        "case": "4-sse-plus-panel",
+        "start": 1791195898.0391693,
+        "end": 1791195915.0049741,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 16.4593
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2249,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 66
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 8.4825,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 68
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 12.696,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 70
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 16.9381,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 72
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 159.15,
+        "anon_peak_mib": 152.05
+      },
+      {
+        "case": "delete-during-sse",
+        "start": 1791195915.1556025,
+        "end": 1791195919.467474,
+        "result": {
+          "delete_status": 200,
+          "delete_seconds": 4.1682,
+          "stream": {
+            "status": 200,
+            "seconds": 4.2593,
+            "types": [
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "delta",
+              "done"
+            ],
+            "last": {
+              "type": "done",
+              "source": "document",
+              "tokens": 42,
+              "sources": [
+                {
+                  "name": "Synthetic RAG fixture",
+                  "url": ""
+                }
+              ],
+              "message_id": 74
+            }
+          }
+        },
+        "memory_peak_mib": 159.32,
+        "anon_peak_mib": 152.07
+      },
+      {
+        "case": "client-disconnect",
+        "start": 1791195919.618305,
+        "end": 1791195919.7560802,
+        "result": {
+          "status": 200,
+          "seconds": 0.1378,
+          "types": [
+            "delta"
+          ],
+          "last": {
+            "type": "delta",
+            "content": "Pomiar. "
+          }
+        },
+        "memory_peak_mib": 159.13,
+        "anon_peak_mib": 152.07
+      },
+      {
+        "case": "upload-small.txt",
+        "start": 1791195919.9071686,
+        "end": 1791195921.2928793,
+        "result": {
+          "status": 201,
+          "seconds": 1.3857,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 170.07,
+        "anon_peak_mib": 162.78
+      },
+      {
+        "case": "upload-small.pdf",
+        "start": 1791195921.443333,
+        "end": 1791195921.9003694,
+        "result": {
+          "status": 201,
+          "seconds": 0.457,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 183.83,
+        "anon_peak_mib": 176.24
+      },
+      {
+        "case": "upload-text-limit.txt",
+        "start": 1791195922.0513759,
+        "end": 1791195922.3805668,
+        "result": {
+          "status": 201,
+          "seconds": 0.3292,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 180.04,
+        "anon_peak_mib": 171.48
+      },
+      {
+        "case": "upload-too-much-text.txt",
+        "start": 1791195922.5311427,
+        "end": 1791195922.8819373,
+        "result": {
+          "status": 413,
+          "seconds": 0.3503,
+          "body": "{\"error\":\"Wyodrębniony tekst przekracza limit 2 097 152 znaków na dokument.\"}"
+        },
+        "memory_peak_mib": 214.4,
+        "anon_peak_mib": 194.66
+      },
+      {
+        "case": "upload-near-file-limit.pdf",
+        "start": 1791195923.032883,
+        "end": 1791195923.675171,
+        "result": {
+          "status": 201,
+          "seconds": 0.6417,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 218.37,
+        "anon_peak_mib": 198.18
+      },
+      {
+        "case": "upload-complex-200-pages.pdf",
+        "start": 1791195923.8258002,
+        "end": 1791195926.388878,
+        "result": {
+          "status": 201,
+          "seconds": 2.5631,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 210.0,
+        "anon_peak_mib": 188.5
+      },
+      {
+        "case": "2-parallel-uploads",
+        "start": 1791195926.5398045,
+        "end": 1791195931.760009,
+        "result": [
+          {
+            "status": 201,
+            "seconds": 2.7188,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          },
+          {
+            "status": 201,
+            "seconds": 5.2186,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          }
+        ],
+        "memory_peak_mib": 213.53,
+        "anon_peak_mib": 192.0
+      },
+      {
+        "case": "4-parallel-uploads",
+        "start": 1791195931.9107647,
+        "end": 1791195941.918366,
+        "result": [
+          {
+            "status": 201,
+            "seconds": 9.9951,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          },
+          {
+            "status": 201,
+            "seconds": 4.9926,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          },
+          {
+            "status": 201,
+            "seconds": 7.4879,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          },
+          {
+            "status": 201,
+            "seconds": 2.5421,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          }
+        ],
+        "memory_peak_mib": 218.23,
+        "anon_peak_mib": 190.85
+      },
+      {
+        "case": "pressure-330-small",
+        "start": 1791195942.8044913,
+        "end": 1791195943.0551007,
+        "result": {
+          "status": 201,
+          "seconds": 0.2506,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 340.69,
+        "anon_peak_mib": 311.45
+      },
+      {
+        "case": "pressure-330-near-limit",
+        "start": 1791195943.2059991,
+        "end": 1791195943.787779,
+        "result": {
+          "status": 201,
+          "seconds": 0.5812,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 374.54,
+        "anon_peak_mib": 335.45
+      },
+      {
+        "case": "pressure-330-four-large-uploads",
+        "start": 1791195943.938307,
+        "end": 1791195944.8822188,
+        "result": [
+          {
+            "status": 201,
+            "seconds": 0.6712,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.7592,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.9313,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.8499,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          }
+        ],
+        "memory_peak_mib": 384.66,
+        "anon_peak_mib": 335.45
+      },
+      {
+        "case": "pressure-330-panel",
+        "start": 1791195945.0331094,
+        "end": 1791195945.0602152,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 350.17,
+        "anon_peak_mib": 301.3
+      },
+      {
+        "case": "pressure-370-small",
+        "start": 1791195946.5019984,
+        "end": 1791195946.5476468,
+        "result": {
+          "status": 503,
+          "seconds": 0.0456,
+          "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+        },
+        "memory_peak_mib": 370.16,
+        "anon_peak_mib": 320.71
+      },
+      {
+        "case": "pressure-370-panel",
+        "start": 1791195946.698599,
+        "end": 1791195946.728721,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 369.99,
+        "anon_peak_mib": 320.71
+      },
+      {
+        "case": "final-panel",
+        "start": 1791195947.4939187,
+        "end": 1791195947.5273592,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 210.57,
+        "anon_peak_mib": 162.04
+      }
+    ],
+    "oom_killed": false,
+    "kernel_peak_mib": 384.66,
+    "failcnt": "0",
+    "final_memory_events": "oom_kill_disable 0\nunder_oom 0\noom_kill 0\n"
+  },
+  {
+    "mode": "gthread-2",
+    "cases": [
+      {
+        "case": "warmup-small-upload",
+        "start": 1791195953.6135092,
+        "end": 1791195953.8901427,
+        "result": {
+          "status": 201,
+          "seconds": 0.2761,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 171.04,
+        "anon_peak_mib": 164.22
+      },
+      {
+        "case": "baseline-warm",
+        "start": 1791195954.040762,
+        "end": 1791195955.08959,
+        "result": {
+          "privacy": 200
+        },
+        "memory_peak_mib": 160.97,
+        "anon_peak_mib": 154.14
+      },
+      {
+        "case": "1-sse-plus-panel",
+        "start": 1791195955.2402065,
+        "end": 1791195959.4370759,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 0.0313
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.1963,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 78
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 161.34,
+        "anon_peak_mib": 154.49
+      },
+      {
+        "case": "2-sse-plus-panel",
+        "start": 1791195959.5875816,
+        "end": 1791195963.816242,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 3.7066
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2012,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 81
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2276,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 82
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 161.7,
+        "anon_peak_mib": 154.75
+      },
+      {
+        "case": "3-sse-plus-panel",
+        "start": 1791195963.9670353,
+        "end": 1791195972.4714558,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 3.7756
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2625,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 85
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2531,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 86
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 8.5017,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 88
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 162.02,
+        "anon_peak_mib": 154.95
+      },
+      {
+        "case": "4-sse-plus-panel",
+        "start": 1791195972.6219285,
+        "end": 1791195981.1060133,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 7.9647
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2441,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 92
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2342,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 91
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 8.4603,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 96
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 8.4486,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 95
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 162.14,
+        "anon_peak_mib": 155.0
+      },
+      {
+        "case": "delete-during-sse",
+        "start": 1791195981.2564728,
+        "end": 1791195981.627403,
+        "result": {
+          "delete_status": 200,
+          "delete_seconds": 0.0514,
+          "stream": {
+            "status": 200,
+            "seconds": 0.3704,
+            "types": [
+              "delta",
+              "error"
+            ],
+            "last": {
+              "type": "error",
+              "code": "conversation_deleted",
+              "message": "Rozmowa została usunięta. Rozpocznij nową rozmowę."
+            }
+          }
+        },
+        "memory_peak_mib": 162.09,
+        "anon_peak_mib": 155.0
+      },
+      {
+        "case": "client-disconnect",
+        "start": 1791195981.7781146,
+        "end": 1791195981.8988936,
+        "result": {
+          "status": 200,
+          "seconds": 0.1208,
+          "types": [
+            "delta"
+          ],
+          "last": {
+            "type": "delta",
+            "content": "Pomiar. "
+          }
+        },
+        "memory_peak_mib": 162.08,
+        "anon_peak_mib": 155.03
+      },
+      {
+        "case": "upload-small.txt",
+        "start": 1791195982.0491724,
+        "end": 1791195982.299296,
+        "result": {
+          "status": 201,
+          "seconds": 0.2496,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 173.4,
+        "anon_peak_mib": 166.01
+      },
+      {
+        "case": "upload-small.pdf",
+        "start": 1791195982.4499943,
+        "end": 1791195982.9643848,
+        "result": {
+          "status": 201,
+          "seconds": 0.5144,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 188.89,
+        "anon_peak_mib": 179.19
+      },
+      {
+        "case": "upload-text-limit.txt",
+        "start": 1791195983.1147704,
+        "end": 1791195983.4849916,
+        "result": {
+          "status": 201,
+          "seconds": 0.3702,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 181.88,
+        "anon_peak_mib": 173.75
+      },
+      {
+        "case": "upload-too-much-text.txt",
+        "start": 1791195983.6357713,
+        "end": 1791195983.9863825,
+        "result": {
+          "status": 413,
+          "seconds": 0.3501,
+          "body": "{\"error\":\"Wyodrębniony tekst przekracza limit 2 097 152 znaków na dokument.\"}"
+        },
+        "memory_peak_mib": 217.36,
+        "anon_peak_mib": 197.75
+      },
+      {
+        "case": "upload-near-file-limit.pdf",
+        "start": 1791195984.137048,
+        "end": 1791195984.7478416,
+        "result": {
+          "status": 201,
+          "seconds": 0.6103,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 221.16,
+        "anon_peak_mib": 201.21
+      },
+      {
+        "case": "upload-complex-200-pages.pdf",
+        "start": 1791195984.8987098,
+        "end": 1791195987.483427,
+        "result": {
+          "status": 201,
+          "seconds": 2.5842,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 214.91,
+        "anon_peak_mib": 195.21
+      },
+      {
+        "case": "2-parallel-uploads",
+        "start": 1791195987.6335626,
+        "end": 1791195990.2140644,
+        "result": [
+          {
+            "status": 201,
+            "seconds": 2.578,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.0614,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          }
+        ],
+        "memory_peak_mib": 215.95,
+        "anon_peak_mib": 194.66
+      },
+      {
+        "case": "4-parallel-uploads",
+        "start": 1791195990.3647342,
+        "end": 1791195992.9160218,
+        "result": [
+          {
+            "status": 503,
+            "seconds": 0.1337,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.0908,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.0588,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          },
+          {
+            "status": 201,
+            "seconds": 2.5508,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          }
+        ],
+        "memory_peak_mib": 217.84,
+        "anon_peak_mib": 194.71
+      },
+      {
+        "case": "pressure-330-small",
+        "start": 1791195993.798271,
+        "end": 1791195994.0643497,
+        "result": {
+          "status": 201,
+          "seconds": 0.2661,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 340.46,
+        "anon_peak_mib": 316.43
+      },
+      {
+        "case": "pressure-330-near-limit",
+        "start": 1791195994.2151208,
+        "end": 1791195994.8189166,
+        "result": {
+          "status": 201,
+          "seconds": 0.6033,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 378.31,
+        "anon_peak_mib": 344.19
+      },
+      {
+        "case": "pressure-330-four-large-uploads",
+        "start": 1791195994.969718,
+        "end": 1791195995.412908,
+        "result": [
+          {
+            "status": 503,
+            "seconds": 0.436,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.4341,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.2248,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.2404,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          }
+        ],
+        "memory_peak_mib": 371.12,
+        "anon_peak_mib": 316.86
+      },
+      {
+        "case": "pressure-330-panel",
+        "start": 1791195995.5637364,
+        "end": 1791195995.6079714,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 351.0,
+        "anon_peak_mib": 316.86
+      },
+      {
+        "case": "pressure-370-small",
+        "start": 1791195997.0254936,
+        "end": 1791195997.0574589,
+        "result": {
+          "status": 503,
+          "seconds": 0.032,
+          "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+        },
+        "memory_peak_mib": 370.53,
+        "anon_peak_mib": 336.26
+      },
+      {
+        "case": "pressure-370-panel",
+        "start": 1791195997.2080064,
+        "end": 1791195997.2409961,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 370.43,
+        "anon_peak_mib": 336.27
+      },
+      {
+        "case": "final-panel",
+        "start": 1791195997.9821277,
+        "end": 1791195998.012626,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 212.91,
+        "anon_peak_mib": 179.09
+      }
+    ],
+    "oom_killed": false,
+    "kernel_peak_mib": 378.79,
+    "failcnt": "0",
+    "final_memory_events": "oom_kill_disable 0\nunder_oom 0\noom_kill 0\n"
+  },
+  {
+    "mode": "gthread-4",
+    "cases": [
+      {
+        "case": "warmup-small-upload",
+        "start": 1791196004.6271484,
+        "end": 1791196004.898463,
+        "result": {
+          "status": 201,
+          "seconds": 0.2708,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 170.03,
+        "anon_peak_mib": 162.79
+      },
+      {
+        "case": "baseline-warm",
+        "start": 1791196005.0490062,
+        "end": 1791196006.0817535,
+        "result": {
+          "privacy": 200
+        },
+        "memory_peak_mib": 159.41,
+        "anon_peak_mib": 152.36
+      },
+      {
+        "case": "1-sse-plus-panel",
+        "start": 1791196006.232709,
+        "end": 1791196010.5034974,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 0.0266
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2703,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 101
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 159.76,
+        "anon_peak_mib": 152.71
+      },
+      {
+        "case": "2-sse-plus-panel",
+        "start": 1791196010.654061,
+        "end": 1791196014.8989522,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 0.0294
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2433,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 105
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2334,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 104
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 160.19,
+        "anon_peak_mib": 153.1
+      },
+      {
+        "case": "3-sse-plus-panel",
+        "start": 1791196015.049426,
+        "end": 1791196019.3571491,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 0.039
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.3072,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 109
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2967,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 111
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2859,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 110
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 162.48,
+        "anon_peak_mib": 155.5
+      },
+      {
+        "case": "4-sse-plus-panel",
+        "start": 1791196019.5080218,
+        "end": 1791196023.8068085,
+        "result": {
+          "panel": {
+            "status": 200,
+            "seconds": 3.7471
+          },
+          "streams": [
+            {
+              "status": 200,
+              "seconds": 4.2727,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 116
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2803,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 118
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2946,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 117
+              }
+            },
+            {
+              "status": 200,
+              "seconds": 4.2858,
+              "types": [
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "delta",
+                "done"
+              ],
+              "last": {
+                "type": "done",
+                "source": "document",
+                "tokens": 42,
+                "sources": [
+                  {
+                    "name": "Synthetic RAG fixture",
+                    "url": ""
+                  }
+                ],
+                "message_id": 119
+              }
+            }
+          ]
+        },
+        "memory_peak_mib": 162.86,
+        "anon_peak_mib": 155.81
+      },
+      {
+        "case": "delete-during-sse",
+        "start": 1791196023.957037,
+        "end": 1791196024.3355756,
+        "result": {
+          "delete_status": 200,
+          "delete_seconds": 0.0513,
+          "stream": {
+            "status": 200,
+            "seconds": 0.3774,
+            "types": [
+              "delta",
+              "error"
+            ],
+            "last": {
+              "type": "error",
+              "code": "conversation_deleted",
+              "message": "Rozmowa została usunięta. Rozpocznij nową rozmowę."
+            }
+          }
+        },
+        "memory_peak_mib": 163.02,
+        "anon_peak_mib": 155.82
+      },
+      {
+        "case": "client-disconnect",
+        "start": 1791196024.4862823,
+        "end": 1791196024.59525,
+        "result": {
+          "status": 200,
+          "seconds": 0.109,
+          "types": [
+            "delta"
+          ],
+          "last": {
+            "type": "delta",
+            "content": "Pomiar. "
+          }
+        },
+        "memory_peak_mib": 163.02,
+        "anon_peak_mib": 155.88
+      },
+      {
+        "case": "upload-small.txt",
+        "start": 1791196024.7456403,
+        "end": 1791196025.020673,
+        "result": {
+          "status": 201,
+          "seconds": 0.275,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 173.13,
+        "anon_peak_mib": 166.04
+      },
+      {
+        "case": "upload-small.pdf",
+        "start": 1791196025.1715484,
+        "end": 1791196025.6966152,
+        "result": {
+          "status": 201,
+          "seconds": 0.5251,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 187.48,
+        "anon_peak_mib": 180.04
+      },
+      {
+        "case": "upload-text-limit.txt",
+        "start": 1791196025.8470857,
+        "end": 1791196026.2111697,
+        "result": {
+          "status": 201,
+          "seconds": 0.3636,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 183.19,
+        "anon_peak_mib": 174.47
+      },
+      {
+        "case": "upload-too-much-text.txt",
+        "start": 1791196026.361873,
+        "end": 1791196026.7253075,
+        "result": {
+          "status": 413,
+          "seconds": 0.3629,
+          "body": "{\"error\":\"Wyodrębniony tekst przekracza limit 2 097 152 znaków na dokument.\"}"
+        },
+        "memory_peak_mib": 218.23,
+        "anon_peak_mib": 198.64
+      },
+      {
+        "case": "upload-near-file-limit.pdf",
+        "start": 1791196026.8759634,
+        "end": 1791196027.4825118,
+        "result": {
+          "status": 201,
+          "seconds": 0.606,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 222.22,
+        "anon_peak_mib": 202.16
+      },
+      {
+        "case": "upload-complex-200-pages.pdf",
+        "start": 1791196027.633297,
+        "end": 1791196030.2237518,
+        "result": {
+          "status": 201,
+          "seconds": 2.5905,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 219.21,
+        "anon_peak_mib": 197.41
+      },
+      {
+        "case": "2-parallel-uploads",
+        "start": 1791196030.3746383,
+        "end": 1791196033.0853002,
+        "result": [
+          {
+            "status": 503,
+            "seconds": 0.0626,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          },
+          {
+            "status": 201,
+            "seconds": 2.7101,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          }
+        ],
+        "memory_peak_mib": 220.52,
+        "anon_peak_mib": 197.81
+      },
+      {
+        "case": "4-parallel-uploads",
+        "start": 1791196033.236235,
+        "end": 1791196035.8355963,
+        "result": [
+          {
+            "status": 503,
+            "seconds": 0.1018,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.0883,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.0902,
+            "body": "{\"error\":\"Trwa przetwarzanie innego pliku. Spróbuj ponownie za chwilę.\"}"
+          },
+          {
+            "status": 201,
+            "seconds": 2.5958,
+            "body": "{\"message\":\"Uploaded successfully.\"}"
+          }
+        ],
+        "memory_peak_mib": 229.0,
+        "anon_peak_mib": 206.75
+      },
+      {
+        "case": "pressure-330-small",
+        "start": 1791196036.7174397,
+        "end": 1791196036.9884112,
+        "result": {
+          "status": 201,
+          "seconds": 0.271,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 341.01,
+        "anon_peak_mib": 317.28
+      },
+      {
+        "case": "pressure-330-near-limit",
+        "start": 1791196037.1393425,
+        "end": 1791196037.7912416,
+        "result": {
+          "status": 201,
+          "seconds": 0.6513,
+          "body": "{\"message\":\"Uploaded successfully.\"}"
+        },
+        "memory_peak_mib": 382.84,
+        "anon_peak_mib": 348.8
+      },
+      {
+        "case": "pressure-330-four-large-uploads",
+        "start": 1791196037.9419284,
+        "end": 1791196038.45207,
+        "result": [
+          {
+            "status": 503,
+            "seconds": 0.5005,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.3875,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.4632,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          },
+          {
+            "status": 503,
+            "seconds": 0.4943,
+            "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+          }
+        ],
+        "memory_peak_mib": 392.3,
+        "anon_peak_mib": 328.73
+      },
+      {
+        "case": "pressure-330-panel",
+        "start": 1791196038.6031644,
+        "end": 1791196038.6336293,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 362.97,
+        "anon_peak_mib": 328.73
+      },
+      {
+        "case": "pressure-370-small",
+        "start": 1791196040.0520205,
+        "end": 1791196040.1024437,
+        "result": {
+          "status": 503,
+          "seconds": 0.0499,
+          "body": "{\"error\":\"Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później.\"}"
+        },
+        "memory_peak_mib": 369.97,
+        "anon_peak_mib": 335.95
+      },
+      {
+        "case": "pressure-370-panel",
+        "start": 1791196040.2527661,
+        "end": 1791196040.300867,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 369.98,
+        "anon_peak_mib": 335.98
+      },
+      {
+        "case": "final-panel",
+        "start": 1791196041.0373075,
+        "end": 1791196041.0761704,
+        "result": {
+          "status": 200
+        },
+        "memory_peak_mib": 234.94,
+        "anon_peak_mib": 201.24
+      }
+    ],
+    "oom_killed": false,
+    "kernel_peak_mib": 392.62,
+    "failcnt": "0",
+    "final_memory_events": "oom_kill_disable 0\nunder_oom 0\noom_kill 0\n"
+  }
+]

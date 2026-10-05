@@ -27,6 +27,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.message_quota import ReservedStream, reserve_message
+from api.capacity import CapacityMixin
 from api.permissions import IsTenantMember
 from api.schemas import (
     CzatTestowyHistoriaSerializer,
@@ -67,7 +68,10 @@ def rozmowa_testowa(tenant, user):
             "Nie zużywa limitu wiadomości i nie wchodzi do statystyk."
         ),
         request=CzatTestowyZadanieSerializer,
-        responses={200: OpenApiResponse(description="Strumień text/event-stream")},
+        responses={
+            200: OpenApiResponse(description="Strumień text/event-stream"),
+            503: OpenApiResponse(description="Serwer zajęty. Ponów po Retry-After."),
+        },
     ),
     get=extend_schema(
         tags=["Panel — czat"],
@@ -80,7 +84,7 @@ def rozmowa_testowa(tenant, user):
         responses={200: OpenApiResponse(description="Rozmowa wyczyszczona")},
     ),
 )
-class CzatTestowyView(APIView):
+class CzatTestowyView(CapacityMixin, APIView):
     permission_classes = [IsTenantMember]
     throttle_classes = [APIKeyRateThrottle]
 
