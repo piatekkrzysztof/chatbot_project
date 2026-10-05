@@ -8,9 +8,9 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 |---|---|---|
 | A01 | Dwie otwarte sesje zakupu jednego abonamentu | Poprawka wdrożona, migracja 0041 potwierdzona 1.10. 2.10 zaliczono rzeczywisty Stripe test mode: powtórzenia, utrata odpowiedzi create/expire, błąd zapisu ID, operator, konkurencyjne plany i blokada po opłaceniu bez webhooka. Otwarte: dodatkowe wyścigi, dawne sesje po migracji i panel. [Protokół](odbior-a01-a02-2026-10-02.md) |
 | A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Poprawka wdrożona, migracja 0042 potwierdzona 1.10. 2.10 zaliczono Stripe test mode: odzyskanie bez webhooka, serializacja synchronizacji, replay starego zdarzenia, anulowanie, odnowienie, past_due i odzyskanie po zapłacie. Alarm sprawdzony tylko lokalnie; nadal transport webhooków, rzeczywisty worker/Beat, skrzynki i UI. [Protokół](odbior-a01-a02-2026-10-02.md) |
-| A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. Odbiór 5.10 wykrył, że **usunięta rozmowa zostawała w przeglądarce odwiedzającego**: widget pokazywał historię z localStorage bez pytania serwera. Poprawione w 2.21.0 - widget pyta przy otwarciu, a w Konwersacjach jest przycisk usuwania zamiast kopiowania identyfikatora ([opis](usuwanie-rozmow-a03.md#8-usunięcie-widać-także-w-przeglądarce-odwiedzającego-2210)). [Pozostały odbiór panelu/widgetu, 410/SSE i równoległego usuwania](usuwanie-rozmow-a03.md) |
+| A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. Odbiór 5.10 wykrył, że **usunięta rozmowa zostawała w przeglądarce odwiedzającego**: widget pokazywał historię z localStorage bez pytania serwera. Poprawione w 2.21.0 - widget pyta przy otwarciu, a w Konwersacjach jest przycisk usuwania zamiast kopiowania identyfikatora ([opis](usuwanie-rozmow-a03.md#8-usunięcie-widać-także-w-przeglądarce-odwiedzającego-2210)). 5.10 zaliczono izolowany odbiór HTTP: kaskada, izolacja, 410 po ręcznym usunięciu i retencji, DELETE podczas SSE oraz nowy UUID. Poprawiono mylący test retencji z #121. Nadal odbiór produkcyjnego panelu/widgetu i współbieżności Gunicorna. [Protokół](odbior-a03-a05-2026-10-05.md) |
 | A04 | Plik bez rekordu po awarii magazynu | R2: 9 plików i ochrona współdzielenia odebrane 1.10; 2.19.7 i 2.19.8 wdrożone. 2.10 potwierdzono powiadomienia UptimeRobot down/up. Zaliczono awarie procesów/TCP/HTTP, zatrzymanie lokalnego workera na ponad 180 s, restart Redis oraz syntetyczny restore z kwarantanną wszystkich niedokończonych zleceń. **5.10 właściciel potwierdził**: alarm aplikacji nr 22 doszedł na obie skrzynki, UptimeRobot wykrywa awarię i powrót na osobnym monitorze testowym, najnowsza kopia produkcji z 17.09 (kolejna miesięczna około 17.10). Nadal: osobna próba zatrzymania Beat - wymaga izolowanego środowiska. [Protokół i granice](odbior-a04-awarie-2026-10-02.md) |
-| A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka wdrożona z A03; migracje i kontrola wszystkich istniejących okresów (0–3650) potwierdzone 1.10. Odbiór błędnych/granicznych wartości przez API pozostaje otwarty |
+| A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka wdrożona z A03; migracje i kontrola wszystkich istniejących okresów (0–3650) potwierdzone 1.10. 5.10 zaliczono lokalny odbiór HTTP/JWT: granice 0/3650, 12 błędnych wartości, brak częściowego zapisu, role i izolacja firm. Nadal odbiór produkcyjnego formularza/API. [Protokół](odbior-a03-a05-2026-10-05.md) |
 
 ### A04: historia przygotowania kodu
 
@@ -41,8 +41,8 @@ Nie kasowano plików. [Wyniki i granice odbioru](odbior-operacyjny-2026-10-01.md
 
 **Dalej:** A03/A05 w panelu/widgecie; równolegle domknąć transport webhooków, harmonogram, alarmy i pozostałe próby A01/A02 opisane w [protokole Stripe](odbior-a01-a02-2026-10-02.md). Poprawka pypdf 2.19.9 jest scalona (#117), a publiczny `/health/` potwierdził wdrożenie 2.10.
 Następnie: pozostałe przepływy użytkownika i bramki wydania z rejestru F01–F25.
-Równolegle domknąć dowody operacyjne A04: doręczenie alarmu aplikacji nr 22,
-zewnętrzny test wykrycia awarii i aktualność kopii produkcji. Wdrożenie 2.19.8,
+Dowody A04 potwierdzone przez właściciela 5.10 są zapisane powyżej.
+Nie ponawiać pytań o alarm nr 22 i monitor; została izolowana próba zatrzymania Beat. Wdrożenie 2.19.8,
 próby awarii w izolacji i syntetyczny restore zgodnej wersji są już sprawdzone.
 [Odbiór monitoringu](odbior-monitoringu-2026-10-02.md) oraz
 [próby awarii i odtwarzania](odbior-a04-awarie-2026-10-02.md).
@@ -55,7 +55,7 @@ Nie utożsamiamy zielonych testów kodu z ukończonym odbiorem komercyjnym.
 Końcowe odbiory operacyjne i wydajność pozostają osobnymi bramkami wydania.
 Poniższy rejestr F01-F25 zachowuje dotychczasowy zakres i historię.
 
-Data rozpoczęcia: 9.09.2026. **Ostatni przegląd: 2.10.2026.**
+Data rozpoczęcia: 9.09.2026. **Ostatni przegląd: 5.10.2026.**
 Bieżący stan ustaleń jest w rejestrze A01–A05 powyżej i F01–F25 niżej.
 Opisy historycznych etapów nie zastępują tych statusów. Akapit niżej zostaje jako
 zapis z 13.09.2026 i od tamtego dnia się nie zmienia.
@@ -131,7 +131,7 @@ automatycznego usuwania. Rejestr F01–F25 poniżej zachowuje cały zakres audyt
 
 ## Najbliższa kolejność prac
 
-Stan 2.10.2026. [Protokół operacyjny](odbior-operacyjny-2026-10-01.md)
+Stan 5.10.2026. [Protokół operacyjny](odbior-operacyjny-2026-10-01.md)
 potwierdza raport plików, migracje, nocne przebiegi i brak bieżących zaległości.
 Wcześniejsze opisy etapów zachowują historię, ale poniższa kolejność jest aktualna.
 
@@ -149,12 +149,15 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
    najnowsza kopia produkcji z 17.09, kolejna miesięczna około 17.10. Zostaje
    osobna próba zatrzymania Beat - protokół zabrania jej na produkcji, więc
    czeka na decyzję o środowisku testowym.
-2. **Płatności A01/A02.** Kontrolowany Stripe test mode: podwójny zakup,
-   utracona odpowiedź, kolejność zdarzeń, odnowienie/zmiana planu i alarm.
-   Automatyczne uzgodnienie działa, lecz aktualnie nie ma powiązanych firm,
-   na których można byłoby potwierdzić jego skuteczność.
-3. **Rozmowy A03/A05.** Panel i widget: 410/error w SSE, usunięcie w trakcie
-   odpowiedzi, nowa rozmowa po usunięciu, retencja 0/3650 i odmowa złych wartości.
+2. **Płatności A01/A02.** Próby Stripe test mode z #118 pozostają zaliczone.
+   Do wykonania tylko otwarte punkty [protokołu](odbior-a01-a02-2026-10-02.md):
+   transport webhooków, rzeczywisty worker/Beat, alarm Stripe, panel oraz
+   pozostałe wyścigi i stare sesje Checkout. Nie traktować zerowego przebiegu
+   produkcji z 1.10 jako pełnego odbioru harmonogramu.
+3. **Rozmowy A03/A05.** Backend HTTP/JWT odebrany w izolacji 5.10
+   ([wyniki](odbior-a03-a05-2026-10-05.md)). Nadal produkcyjny panel/widget,
+   formularz retencji i współbieżność podczas SSE. Najpierw pomiar konfiguracji
+   Gunicorna z pkt 7: serwer synchroniczny nie obsłuży równoległego DELETE.
 4. **Konta i obsługa użytkownika.** Aktywacja i zaproszenia (F07), pełny upload
    i import (F06/F09/F10/F17), ustawienia, MFA i poczta (F14/F15), CSV/oceny
    (F19), pierwsze kroki i stan zakupu (F22), prawdziwy token Turnstile (F23).
