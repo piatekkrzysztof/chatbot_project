@@ -62,6 +62,7 @@ KONTRAKT = {
     ("widget-chat-stream", "POST"): PUBLICZNA,
     ("widget-contact", "POST"): PUBLICZNA,
     ("widget-feedback", "POST"): PUBLICZNA,
+    ("widget-conversation-status", "GET"): PUBLICZNA,
     # Własne konto
     ("me", "GET"): KONTO,
     ("2fa-stan", "GET"): KONTO,
@@ -238,6 +239,7 @@ def adres(swiat, nazwa):
         "invitation-resend": {"token_wysylki": o.zaproszenie.token_wysylki},
         "revoke-account-session": {"session_uuid": uuid.uuid4()},
         "conversation-erase": {"session_id": o.rozmowa.session_id},
+        "widget-conversation-status": {"session_id": o.rozmowa.session_id},
         "billing-checkout-status": {"session_id": "cs_test_a1B2c3D4e5F6g7H8"},
     }.get(nazwa, {})
     if nazwa.startswith("api/"):

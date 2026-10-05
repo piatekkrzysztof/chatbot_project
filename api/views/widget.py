@@ -24,8 +24,8 @@ from api.schemas import (
 from api.serializers import ChatRequestSerializer, PublicFAQSerializer, WidgetDomainSerializer
 from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle, VisitorRateThrottle
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
-from chat.lifecycle import RozmowaUsunieta, otworz_rozmowe
-from chat.models import FAQ
+from chat.lifecycle import RozmowaUsunieta, otworz_rozmowe, skrot_sesji
+from chat.models import FAQ, UsunietaRozmowa
 from chat.privacy import visitor_identifier
 from documents.file_limits import InvalidUpload, UploadTooLarge, bounded_read
 from documents.isolated_parser import ParserUnavailable, parse_bytes
@@ -94,6 +94,54 @@ def serialize_widget_branding(tenant, request):
         # Panel potrzebuje kompletu, żeby dało się edytować wszystkie wersje
         "widget_proactive_texts": tenant.proactive_texts(),
     }
+
+
+@extend_schema(
+    tags=["Widget"],
+    summary="Czy rozmowa została usunięta",
+    description=(
+        "Widget pyta o to przy otwarciu, zanim pokaże historię zapisaną w przeglądarce. "
+        "204, gdy rozmowa nie została usunięta; 410, gdy firma ją usunęła."
+    ),
+    responses={
+        204: OpenApiResponse(description="Rozmowa nie została usunięta."),
+        410: OpenApiResponse(response=ErrorSerializer, description="Rozmowa została usunięta."),
+    },
+)
+class WidgetConversationStatusView(APIView):
+    """
+    Czy firma usunęła rozmowę, którą widget ma zapisaną u odwiedzającego.
+
+    Widget trzyma historię w localStorage przeglądarki i do 2.21.0 pokazywał
+    ją przy otwarciu bez pytania serwera. Czyścił ją dopiero wtedy, gdy
+    odwiedzający wysłał kolejną wiadomość i dostał 410. Skutek z odbioru
+    5.10.2026: firma usuwa rozmowę na prośbę odwiedzającego, a ten wraca na
+    stronę i widzi ją w całości - i ma pełne prawo uznać, że usunięcia nie było.
+
+    Odpowiadamy wyłącznie na podstawie znacznika `UsunietaRozmowa`, czyli
+    jawnego usunięcia przez firmę. Rozmowa, której nie ma z innego powodu -
+    nigdy nie powstała albo zniknęła po okresie retencji - nie jest tu
+    „usunięta": retencja to nie prośba o zapomnienie, a odwiedzający, którego
+    pierwsza wiadomość nie doszła, nie powinien tracić tego, co napisał.
+
+    Nic nie zapisuje i niczego nie tworzy. Identyfikator sesji to losowy UUID
+    znany tylko przeglądarce odwiedzającego, więc odpowiedź nie zdradza nic
+    komuś, kto go nie ma.
+    """
+
+    authentication_classes = ()
+    permission_classes = ()
+    throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
+
+    def get(self, request, session_id):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            raise PermissionDenied("Nieprawidłowy klucz API")
+        if UsunietaRozmowa.objects.filter(
+            tenant=tenant, skrot_sesji=skrot_sesji(tenant.pk, session_id)
+        ).exists():
+            raise RozmowaUsunieta()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema(

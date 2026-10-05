@@ -141,3 +141,61 @@ Odtworzenie kopii to osobna kontrolowana procedura, nie rutynowy rollback.
 A04: trwałe zlecenia usuwania plików, ponowienia po awarii magazynu i alarmy.
 Nadal do odbioru: wdrożenia A01/A02, infrastruktura, kopie/restore z obsługą
 usunięć, scenariusze dostępu, obciążenie i rzeczywiste przepływy użytkownika.
+
+## 8. Usunięcie widać także w przeglądarce odwiedzającego (2.21.0)
+
+### Co wyszło przy odbiorze 5.10.2026
+
+Właściciel usunął rozmowę w panelu. **Z bazy zniknęła, a w przeglądarce
+odwiedzającego została w całości.** Widget trzyma historię w `localStorage`
+i przy otwarciu pokazywał ją bez pytania serwera. Czyścił ją dopiero wtedy,
+gdy odwiedzający wysłał kolejną wiadomość i dostał 410 - czyli zachowanie było
+zgodne z kodem i z sekcją 5, ale nie z tym, czego oczekuje ktoś, kto poprosił
+o usunięcie swoich danych. Wraca na stronę, widzi wszystko na miejscu i ma
+pełne prawo uznać, że usunięcia nie było.
+
+### Co zmienia 2.21.0
+
+**`GET /api/widget/rozmowa/<session_id>/`** - publiczne, kluczem widgetu,
+limitowane. 204, gdy firma rozmowy nie usunęła; 410 (ten sam wyjątek
+`RozmowaUsunieta` co przy próbie pisania), gdy usunęła. Niczego nie zapisuje
+i niczego nie tworzy.
+
+Odpowiedź „usunięta" pada **wyłącznie** na podstawie znacznika
+`UsunietaRozmowa`, czyli jawnego usunięcia przez firmę. Rozmowa, której nie ma
+z innego powodu, nie jest „usunięta":
+
+- nigdy nie powstała - odwiedzający, którego pierwsza wiadomość nie doszła,
+  nie może przez to stracić tego, co napisał,
+- zniknęła po okresie retencji - retencja to nie prośba o zapomnienie.
+
+**Widget** przy otwarciu, gdy ma zapisaną historię, najpierw pyta tę trasę,
+a historię pokazuje dopiero po odpowiedzi. Pokazana od razu mignęłaby na
+ekranie, zanim zniknie. Przy 410 czyści sesję i historię i mówi, że rozmowa
+została usunięta. Każdy inny wynik - brak sieci, błąd serwera, przekroczone
+3 s, a także 404 ze starszego backendu - zostawia historię: nieudane
+sprawdzenie nie może kasować odwiedzającemu jego własnej kopii.
+
+**Konwersacje** mają przycisk „Usuń rozmowę" przy każdym wpisie, dla
+właściciela i pracownika. Pierwsze kliknięcie uzbraja, drugie usuwa - tym samym
+wywołaniem co zakładka Prywatność, więc z tymi samymi blokadami z sekcji 2.
+Lista pokazuje pojedyncze wymiany, a usuwana jest cała rozmowa, dlatego
+potwierdzenie mówi wprost, co zniknie. Do 2.21.0 trzeba było skopiować
+identyfikator i wkleić go w innej zakładce. Prywatność zostaje jako druga
+droga, gdy odwiedzający poda identyfikator sam.
+
+### Kolejność wdrożenia: dowolna
+
+Starszy backend odpowiada na nową trasę 404, a widget traktuje to jak „nie
+usunięta" i zachowuje się dokładnie jak dotąd - pilnuje tego test. Przycisk
+w Konwersacjach używa istniejącego `DELETE /api/privacy/conversations/<id>/`.
+
+### Sprawdzone
+
+Lokalnie 5.10.2026 w przeglądarce, z backendem z tej gałęzi i syntetyczną
+firmą: widget z zapisaną historią istniejącej rozmowy pokazał ją (204),
+przycisk w Konwersacjach usunął rozmowę po drugim kliknięciu (DELETE 200),
+po odświeżeniu widget nie pokazał starej treści, tylko komunikat o usunięciu
+(410), a w `localStorage` nie została ani sesja, ani historia. Nie zastępuje
+to ponownego odbioru na produkcji: punkt 4 listy kontrolnej z przyciskiem
+zamiast kopiowania identyfikatora.
