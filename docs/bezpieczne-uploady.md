@@ -115,3 +115,61 @@ Komunikat odmowy rozróżnia te dwa stany. „Baza przekroczyłaby limit" mówi
 klientowi mieszczącemu się w planie, że ta operacja go z niego wyrzuci.
 Klientowi, który jest już ponad, mówi wprost, że jest ponad, i co mu wolno -
 szukanie „co ja takiego dodaję" przy 100-bajtowym dopisku prowadziło donikąd.
+
+## Odbiór na produkcji: budżet pamięci parsera (2.22.0)
+
+### Co wyszło 5.10.2026
+
+Na produkcji **każde** wgranie dokumentu kończyło się odmową „Serwer nie ma
+teraz zasobów na przetworzenie pliku", także dla kilkubajtowego `test.txt`.
+Punkt 5 listy wyżej - „dopiero wynik na rzeczywistym rozmiarze instancji
+potwierdza odbiór" - okazał się dokładnie tym miejscem, które nie działało.
+
+Odczyt cgroup na usłudze web (Render Starter):
+
+| | MiB |
+|---|---|
+| limit (`memory.max`) | 512 |
+| zajęte (`memory.current`) | 312 |
+| w tym pamięć aplikacji (`anon`) | 268 |
+| w tym pamięć podręczna plików | 14 |
+
+Budżet liczony jako połowa wolnej pamięci: 99,8 MiB przy progu 96 MiB.
+Samo żądanie z plikiem dokładało więcej niż te cztery megabajty, więc odmowa
+padała zawsze. Pamięć podręczna nie była przyczyną - to tylko 14 MiB.
+
+### Dlaczego połowa była zła
+
+Parser dostaje budżet jako `RLIMIT_AS`, twardy limit całej przestrzeni
+adresowej - fizycznie nie zajmie więcej. Kontener może więc mieć łącznie
+najwyżej: to, co zajęte teraz, plus budżet parsera, plus wzrost samego procesu
+web w trakcie żądania. Połowa wolnej pamięci pilnowała procesu web podwójnie:
+raz przez twardy limit parsera, drugi raz oddając mu tyle samo, ile parserowi.
+
+### Co zmienia 2.22.0
+
+`budżet = min(192 MiB, wolna pamięć − 64 MiB)`, minimum 96 MiB bez zmian.
+Rezerwa 64 MiB to wzrost procesu web przy jednym żądaniu z plikiem: upload
+do 10 MiB, wynik parsera do 16 MiB JSON-u i tekst z niego. Przy odczycie
+z 5.10 budżet wynosi ~136 MiB, przy wahaniach z wykresu Rendera (53-60%)
+136-166 MiB - zawsze nad progiem.
+
+Test pilnuje obietnicy wprost: dla kilku poziomów zajętości suma zajętej
+pamięci, budżetu i rezerwy nie przekracza limitu. Za mało pamięci nadal daje
+odmowę, zanim parser wystartuje.
+
+**Rezerwa zakłada jedno żądanie naraz w procesie.** Tak działa dziś produkcja
+(patrz niżej). Po włączeniu wątków w gunicornie trzeba ją przeliczyć.
+
+### Przy okazji: produkcja nie ma wątków
+
+Start Command produkcyjnej usługi to `gunicorn chatbot_project.wsgi:application`
+- jeden proces synchroniczny, bez wątków, z domyślnym limitem czasu 30 s.
+Usługa nazywa się `chatbot_project`, a `render.yaml` opisuje `chatbot-backend`
+z `--worker-class gthread --threads 8 --timeout 300` - produkcja nie powstała
+z tego pliku, więc jego ustawienia jej nie dotyczą.
+
+Skutek: gdy odpowiedź czatu leci strumieniem do jednego odwiedzającego,
+wszystkie inne żądania - inni odwiedzający i panel - czekają. Przy obecnym
+ruchu tego nie widać. Zmiana to decyzja operacyjna (Start Command w Renderze)
+i wpływa na pamięć, więc jest w roadmapie jako osobna pozycja.
