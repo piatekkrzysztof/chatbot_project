@@ -119,10 +119,10 @@ class WidgetConversationStatusView(APIView):
     stronę i widzi ją w całości - i ma pełne prawo uznać, że usunięcia nie było.
 
     Odpowiadamy wyłącznie na podstawie znacznika `UsunietaRozmowa`, czyli
-    jawnego usunięcia przez firmę. Rozmowa, której nie ma z innego powodu -
-    nigdy nie powstała albo zniknęła po okresie retencji - nie jest tu
-    „usunięta": retencja to nie prośba o zapomnienie, a odwiedzający, którego
-    pierwsza wiadomość nie doszła, nie powinien tracić tego, co napisał.
+    usunięcia przez wspólny protokół: ręcznie lub po okresie retencji.
+    Rozmowa bez znacznika (np. nigdy nie powstała) nie jest tu „usunięta”.
+    Odwiedzający, którego pierwsza wiadomość nie doszła, nie powinien
+    tracić tego, co napisał. Sam brak wiersza nie zastępuje znacznika.
 
     Nic nie zapisuje i niczego nie tworzy. Identyfikator sesji to losowy UUID
     znany tylko przeglądarce odwiedzającego, więc odpowiedź nie zdradza nic

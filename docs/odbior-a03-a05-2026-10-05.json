@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-05",
+  "base_commit": "b6ae137",
+  "version": "2.22.0",
+  "production_changed": false,
+  "transport": "local HTTP + threaded WSGI + JWT + PostgreSQL",
+  "provider": "synthetic; external connections blocked",
+  "frontend_tested": false,
+  "results": [
+    {
+      "case": "A05_valid_boundaries_and_integer_string",
+      "utc": "2026-10-05T09:38:43.718198+00:00",
+      "values": [
+        0,
+        1,
+        30,
+        3650,
+        "30"
+      ]
+    },
+    {
+      "case": "A05_invalid_payload_does_not_partially_save",
+      "utc": "2026-10-05T09:38:44.389469+00:00",
+      "count": 12,
+      "status": 400
+    },
+    {
+      "case": "A05_access_roles_and_tenant_isolation",
+      "utc": "2026-10-05T09:38:44.486825+00:00"
+    },
+    {
+      "case": "A05_mismatched_jwt_and_widget_key_rejected",
+      "utc": "2026-10-05T09:38:44.559858+00:00",
+      "status": 403
+    },
+    {
+      "case": "A03_delete_cascade_status_and_late_requests",
+      "utc": "2026-10-05T09:38:44.833105+00:00",
+      "deleted": {
+        "ChatUsageLog": 1,
+        "PromptLog": 1,
+        "ContactRequest": 1,
+        "ChatMessage": 1,
+        "Conversation": 1
+      }
+    },
+    {
+      "case": "A03_real_retention_marks_session_deleted",
+      "utc": "2026-10-05T09:38:44.886602+00:00",
+      "status": 410
+    },
+    {
+      "case": "A03_delete_during_real_http_sse",
+      "utc": "2026-10-05T09:38:45.304889+00:00",
+      "events": [
+        "delta",
+        "error"
+      ],
+      "provider": "synthetic",
+      "provider_closed": true
+    },
+    {
+      "case": "A03_new_uuid_can_start_after_erasure",
+      "utc": "2026-10-05T09:38:45.390426+00:00"
+    },
+    {
+      "case": "cleanup_local_synthetic_tenants",
+      "utc": "2026-10-05T09:38:45.893100+00:00",
+      "remaining_tenants": 0
+    }
+  ],
+  "script_sha256": "f50ed27120144b31ea35584da9c411bafd4debb212a489ad5a1a851702f7b841",
+  "regression": [
+    {
+      "passed": 377,
+      "seconds": 32.13
+    },
+    {
+      "passed": 16,
+      "seconds": 5.15
+    }
+  ]
+}
