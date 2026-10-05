@@ -16,6 +16,21 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-10-05
+
+### Fixed
+
+- **Uploading a document works again on the smallest server.** Every upload
+  on production was refused with "the server has no resources to process the
+  file", even for a few-byte text file. The file reader runs in a separate,
+  hard-capped process, and the rule for how much memory it may use gave it
+  only half of what was free - on a 512 MB server that came out four
+  megabytes above the minimum, and the upload request itself used more than
+  that. Since the reader can never exceed its cap anyway, the rule now keeps a
+  fixed reserve for the rest of the service instead of half of everything.
+  The server still refuses before starting the reader when memory is really
+  short, so a busy moment cannot take the whole service down.
+
 ## [2.21.0] - 2026-10-05
 
 ### Fixed
