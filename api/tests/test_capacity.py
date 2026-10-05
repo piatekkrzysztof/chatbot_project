@@ -21,9 +21,9 @@ def pools(monkeypatch):
 
 
 class View(capacity.CapacityMixin, APIView):
-    authentication_classes = []
-    permission_classes = []
-    throttle_classes = []
+    authentication_classes = ()
+    permission_classes = ()
+    throttle_classes = ()
 
     def get(self, request):
         return Response({"ok": True})
