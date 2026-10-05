@@ -213,15 +213,18 @@ Odbiór na produkcji, na wydzielonej firmie z syntetycznym adresem:
 
 Sprawdzone lokalnie 2.10.2026 w przeglądarce, z prawdziwym backendem
 i middleware: kroki 1-3, mail na właściwy adres z kluczem przyjęcia
-(a nie wysyłki), konto w dobrej firmie i z dobrą rolą. Lokalne sprawdzenie
-nie zastępuje odbioru na produkcji.
+(a nie wysyłki), konto w dobrej firmie i z dobrą rolą.
+
+**Odebrane na produkcji 5.10.2026** przez właściciela, wszystkie cztery
+kroki, po wdrożeniu backendu 2.20.0 (#119) i panelu #36 - w tej kolejności,
+zgodnie z wymaganiem wyżej.
 
 ## Zakres nadal otwarty
 
 To nie jest pełne zamknięcie F07. Zostaje rzeczywisty odbiór poczty
-aktywacyjnej, odbiór rzeczywistego IP i odporności na podrobiony nagłówek
-oraz odbiór dwóch kluczy zaproszenia opisany wyżej. MFA, reset hasła i zmiany
-cookie/CSRF pozostają etapami F14/F15/F22.
+aktywacyjnej oraz odbiór rzeczywistego IP i odporności na podrobiony nagłówek.
+Dwa klucze zaproszenia odebrane na produkcji 5.10.2026. MFA, reset hasła
+i zmiany cookie/CSRF pozostają etapami F14/F15/F22.
 
 Wyboru wielokrotnych użyć zaproszenia w panelu nie ma: formularz zawsze
 wysyła `max_users: 1`, a backend odrzuca każdą inną wartość. Ta pozycja
