@@ -1,6 +1,8 @@
 # A03/A05 — usuwanie rozmów i wykonalna retencja (2.19.3)
 
-Stan: przygotowana poprawka i testy, **bez wdrożenia oraz odbioru produkcji**.
+Stan historyczny przy przygotowaniu 2.19.3: poprawka i testy, bez odbioru.
+Migracje potwierdzono 1.10; 5.10 publiczny `/health/` potwierdził 2.22.0.
+Aktualny zakres odbioru opisuje [roadmapa](roadmapa-po-audycie.md).
 Wymagane są powiązane zmiany backendu i frontend_chatbot. Wyniki pełnego CI
 i numery PR są w opisach PR. Poprawka nie wymaga nowej płatnej usługi.
 
@@ -162,12 +164,15 @@ limitowane. 204, gdy firma rozmowy nie usunęła; 410 (ten sam wyjątek
 i niczego nie tworzy.
 
 Odpowiedź „usunięta" pada **wyłącznie** na podstawie znacznika
-`UsunietaRozmowa`, czyli jawnego usunięcia przez firmę. Rozmowa, której nie ma
-z innego powodu, nie jest „usunięta":
+`UsunietaRozmowa`, który powstaje przy ręcznym usunięciu **oraz przez retencję**
+(`purge_tenant` korzysta z `usun_rozmowe`). W obu przypadkach odpowiedź to 410.
+Sam brak rozmowy bez znacznika daje 204: np. gdy pierwsza wiadomość nigdy
+nie doszła do serwera. Nie może przez to zniknąć tekst odwiedzającego.
 
-- nigdy nie powstała - odwiedzający, którego pierwsza wiadomość nie doszła,
-  nie może przez to stracić tego, co napisał,
-- zniknęła po okresie retencji - retencja to nie prośba o zapomnienie.
+Korekta z 5.10: wcześniejszy opis i nazwa testu myliły retencję z surowym
+`Conversation.delete()`. Dodano sprawdzenie prawdziwego `purge_tenant`,
+410 w trasie statusu i odmowy ponownego otwarcia starego UUID.
+Nie zmieniono zachowania serwera ani zasad retencji.
 
 **Widget** przy otwarciu, gdy ma zapisaną historię, najpierw pyta tę trasę,
 a historię pokazuje dopiero po odpowiedzi. Pokazana od razu mignęłaby na
