@@ -23,6 +23,13 @@ from documents.file_limits import (
 )
 
 PARSER_MEMORY_BYTES = 192 * 1024 * 1024
+#: Najmniejszy budżet, z którym parser w ogóle startuje.
+PARSER_MINIMUM_BYTES = 96 * 1024 * 1024
+#: Ile pamięci kontenera zostawiamy procesowi web na samo obsłużenie żądania
+#: z plikiem: wczytany upload (do 10 MiB), wynik parsera (do 16 MiB JSON-u)
+#: i tekst z niego. Zakłada jedno żądanie naraz w procesie - tak działa
+#: produkcyjny gunicorn bez wątków. Po włączeniu wątków do przeliczenia.
+REZERWA_USLUGI = 64 * 1024 * 1024
 PARSER_SECONDS = 20
 IMAGE_PARSER_SECONDS = 5
 MAX_RESULT_BYTES = 16 * 1024 * 1024
@@ -35,9 +42,24 @@ class ParserUnavailable(InvalidUpload):
 
 
 def memory_budget():
+    """
+    Ile pamięci może dostać proces parsera, żeby kontener nie przekroczył limitu.
+
+    Parser dostaje ten budżet jako `RLIMIT_AS` (`parser_limits.py`), czyli
+    twardy limit całej przestrzeni adresowej - fizycznie nie zajmie więcej.
+    Łącznie w kontenerze może więc być najwyżej: to, co zajęte teraz, plus
+    budżet parsera, plus to, o ile urośnie sam proces web w trakcie tego
+    żądania. Na ten ostatni składnik jest stała rezerwa.
+
+    Do 2.22.0 budżet wynosił połowę wolnej pamięci. To oddawało procesowi web
+    tyle samo, ile parserowi, choć parsera i tak pilnuje twardy limit. Na
+    produkcji (Render Starter, 512 MiB) odczyt z 5.10.2026 dał 312 MiB zajęte,
+    200 MiB wolne i budżet 99,8 MiB przy progu 96 MiB - cztery megabajty
+    zapasu. Samo żądanie z plikiem zjadało więcej, więc **każde** wgranie
+    dokumentu kończyło się odmową „Serwer nie ma teraz zasobów", niezależnie
+    od wielkości pliku. Z rezerwą budżet wynosi ~136 MiB.
+    """
     budget = PARSER_MEMORY_BYTES
-    # Leave room for the existing service, rather than assuming the container has
-    # 192 MiB free. This also makes low-memory hosts fail before starting a child.
     for maximum, usage in [
         ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.current"),
         (
@@ -49,9 +71,9 @@ def memory_budget():
             headroom = int(Path(maximum).read_text()) - int(Path(usage).read_text())
         except (OSError, ValueError):
             continue
-        budget = min(budget, headroom // 2)
+        budget = min(budget, headroom - REZERWA_USLUGI)
         break
-    if budget < 96 * 1024 * 1024:
+    if budget < PARSER_MINIMUM_BYTES:
         raise ParserUnavailable(
             "Serwer nie ma teraz zasobów na przetworzenie pliku. Spróbuj później."
         )
