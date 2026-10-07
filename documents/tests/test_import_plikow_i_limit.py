@@ -7,7 +7,7 @@ docs/kompletny-import.md.
 import io
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier, BoundedSemaphore, BrokenBarrierError, Event
+from threading import Barrier, BrokenBarrierError, Event
 from unittest.mock import patch
 
 import pytest
@@ -182,7 +182,7 @@ class TestLimituPrzyRownoleglychDodaniach:
         # Jeden slot to profil HTTP 512 MiB. Dwa wyłącznie w tej próbie
         # przepuszczają wyścig do bazy: jej blokada nadal jest konieczna dla
         # zapisów z różnych procesów (np. web i worker), poza wspólnym semaforem.
-        monkeypatch.setattr(capacity, "UPLOAD_SLOTS", BoundedSemaphore(slots))
+        monkeypatch.setattr(capacity, "UPLOAD_SLOTS", capacity.Pula(slots, slots))
         plan_start(subscribtion)
         user.tenant, user.role = tenant, "owner"
         user.save()

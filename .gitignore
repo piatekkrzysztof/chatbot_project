@@ -34,3 +34,8 @@ backups/
 # Plik stanu harmonogramu Celery beat — tworzy sie przy kazdym uruchomieniu
 celerybeat-schedule
 .coverage
+
+# Pomiar pojemnosci: lokalna konfiguracja i wyniki przebiegow
+narzedzia/pomiar_pojemnosci/env.list
+narzedzia/pomiar_pojemnosci/dane.json
+narzedzia/pomiar_pojemnosci/wyniki.jsonl

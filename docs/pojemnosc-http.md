@@ -1,4 +1,9 @@
-# Pojemność HTTP na 512 MiB — 2.23.0
+# Pojemność HTTP na 512 MiB — 2.23.0 i 2.24.0
+
+> **Stan od 2.24.0:** 10 wątków, **6 rozmów naraz, najwyżej 3 na jedną firmę**,
+> 1 upload. Odmowy z braku miejsca są liczone i od progu alarmują.
+> Pomiar i uzasadnienie: [sekcja 2.24.0](#224-trzy-razy-więcej-rozmów-i-podział-między-firmy-pomiar-7102026).
+> Opis niżej dotyczy 2.23.0 i nadal opisuje sam mechanizm.
 
 ## Problem i wynik
 
@@ -102,9 +107,120 @@ ale hosting może narzucić krótszy termin zabicia procesu. Limity aplikacji
 (SSE 90 s, klient OpenAI 60 s) pozostają bez zmian; sprawdzenie deadline jest
 wykonywane pomiędzy zdarzeniami dostawcy, a nie przez niezależny zegar.
 
+## Odbiór na produkcji 7.10.2026
+
+Właściciel wdrożył 2.23.0 i zmienił Start Command na
+`gunicorn --config python:chatbot_project.gunicorn_config`. Bez
+`WEB_CONCURRENCY` i `GUNICORN_CMD_ARGS` w środowisku, więc obowiązuje sam plik
+profilu. W logu `Using worker: gthread` i jeden `Booting worker`, `/health/`
+z wersją 2.23.0. Na koncie test1: panel odświeżony w trakcie odpowiedzi
+widgetu załadował się od razu, wgranie pliku `.txt` przeszło (to odbiór
+poprawki 2.22.0), usunięta w Konwersacjach rozmowa nie wróciła w widgecie.
+Trzy równoczesne rozmowy: trzecia dostała 503, a widget pokazał ogólne
+„Wystąpił błąd. Spróbuj ponownie." - to jest powód zmian z 2.24.0 i ponawiania
+w widgecie.
+
+## 2.24: trzy razy więcej rozmów i podział między firmy (pomiar 7.10.2026)
+
+### Dlaczego 2.23.0 nie wystarczało komercyjnie
+
+Dwa miejsca na rozmowy były wspólne dla wszystkich firm. Przy pełnej
+odpowiedzi trwającej kilka sekund cała platforma obsługiwała kilkanaście
+odpowiedzi na minutę, a plany pozwalają jednej firmie na 60-500 żądań na
+minutę. Jedna firma z ruchem - albo ktoś, kto przez publiczny klucz widgetu
+trzymał dwie długie rozmowy - wyłączała widgety wszystkich pozostałych.
+Odmów nikt nie liczył, więc pierwszym sygnałem byłaby skarga klienta.
+Liczba 2 była ostrożnością, nie zmierzoną granicą: #124 mierzył na atrapie
+zamiast klienta OpenAI.
+
+### Jak mierzono
+
+Obraz produkcyjny z tej gałęzi, kontener **512 MiB bez swapu i 0,5 CPU** jak
+Render Starter, PostgreSQL 16 z pgvector, Redis jako broker i cache. Cztery
+syntetyczne firmy na planie Pro, po 501 fragmentów wiedzy. Aplikacja używa
+**prawdziwego klienta `openai`** skierowanego zmienną `OPENAI_BASE_URL` na
+lokalną atrapę API: embeddingi po 0,15 s, pierwszy token po 0,8 s, potem
+250 tokenów po 0,03 s - odpowiedź trwa około 8,5 s, czyli dłużej niż typowa
+odpowiedź gpt-4o-mini, więc miejsca są zajęte dłużej niż w praktyce. Upload to
+PDF 200 stron, wysłany sekundę po starcie rozmów. Panel w tle: `GET
+/api/accounts/me/` co pół sekundy, pojedynczo albo po 5 naraz (jak pulpit,
+który ładuje kilka list). Skrypty: [`narzedzia/pomiar_pojemnosci`](../narzedzia/pomiar_pojemnosci/),
+surowe wyniki: [pomiary-pojemnosci-http-2026-10-07.json](pomiary-pojemnosci-http-2026-10-07.json).
+
+### Wyniki
+
+Panel po 5 żądań naraz, rozmowy rozłożone na 4 firmy:
+
+| Profil | Rozmowy | Przyjęte / 503 | Pierwszy fragment (mediana / max) | Panel (mediana / max) | Upload | Szczyt pamięci |
+|---|---:|---:|---:|---:|---:|---:|
+| 2.23.0: 4 wątki, 2 rozmowy | 2 + upload | 2 / 0 | 1,09 / 1,09 s | 172 / 781 ms | 201, 10,0 s | +30 MiB |
+| 2.23.0 | 6 + upload | 2 / 4 | 1,28 / 1,28 s | 265 / 1078 ms | 201, 12,0 s | +28 MiB |
+| **2.24.0: 10 wątków, 6 rozmów, 3 na firmę** | 6 + upload | **6 / 0** | 1,88 / 2,19 s | 375 / 1359 ms | 201, 13,5 s | +35 MiB |
+| **2.24.0** | 10 + upload | **6 / 4** | 2,30 / 2,52 s | 375 / 1281 ms | 201, 14,0 s | +28 MiB |
+| **2.24.0**, jedna firma | 6 | **3 / 3** (limit firmy) | 1,53 / 1,53 s | 78 / 266 ms | - | +9 MiB |
+
+Wariant odrzucony (panel pojedynczo, czyli lżej): 12 wątków i 10 rozmów
+z uploadem - pierwszy fragment 2,05 / 2,59 s, przy nadmiarze 2,37 / 2,78 s.
+
+We wszystkich przebiegach: zero błędów panelu, wszystkie przyjęte rozmowy
+dostały zdarzenie `done`, `oom_kill=0`, `failcnt=0`.
+
+### Wnioski
+
+- **Pamięć nie jest ograniczeniem.** Rozmowa dokłada około 1 MiB, upload
+  chwilowo około 30 MiB. Najwyższy szczyt to 65 MiB ponad spoczynek kontenera.
+  Produkcja w spoczynku zajmuje 312 MiB (odczyt z 5.10), więc prognoza szczytu
+  to około 380 MiB z 512. Budżet parsera i tak liczy się z bieżącej wolnej pamięci.
+- **Ogranicza procesor (0,5 CPU).** Każda rozmowa to zdarzenia SSE, a co
+  0,25 s także zapytanie, czy rozmowy nie usunięto. Przy 10 naraz pierwszy
+  fragment zbliżał się do 3 s, czyli do celu z [SLO](slo-i-czasy-odpowiedzi.md),
+  a atrapa ma stały czas pierwszego tokenu, którego prawdziwe OpenAI nie ma.
+- **6 rozmów** to trzy razy więcej niż w 2.23.0, a pierwszy fragment mieści się
+  w 2,5 s także z uploadem i obciążonym panelem.
+- **Koszt:** przy 6 rozmowach, 200-stronicowym PDF-ie i panelu bombardowanym
+  10 żądaniami na sekundę panel spowalnia do 0,4 s w medianie i 1,3 s
+  w najgorszym razie. Bez uploadu - 0,08 s. To świadomy wybór: rozmowa
+  odwiedzającego klienta jest ważniejsza niż sekunda w panelu podczas wgrywania.
+- **3 na firmę** - połowa miejsc. Firma z ruchem nie zajmie wszystkich, a jedna
+  rozmowa naraz byłaby za mało dla firmy, która ma dwóch odwiedzających.
+
+### Co zmienia 2.24.0
+
+- Limity w jednym miejscu, `chatbot_project/pojemnosc.py`: 6 rozmów, 3 na
+  firmę, 1 upload. Wątki Gunicorna liczą się z nich (rozmowy + upload + 3 na
+  panel = 10), więc podniesienie limitu nie zje wątków panelu. Zmienne
+  `POJEMNOSC_ROZMOW`, `POJEMNOSC_ROZMOW_FIRMY`, `POJEMNOSC_UPLOADOW` pozwalają
+  zmienić liczby bez wydania, ale każda zmiana wymaga nowego pomiaru.
+- Firma to firma z klucza widgetu albo z konta panelu, ustalona przez
+  uwierzytelnienie. Odmowa ma ten sam kod 503 `server_busy` co dotąd.
+- Odmowy rozmów są liczone w istniejących `ZliczenieOdmow` z dwoma nowymi
+  powodami: `serwer_zajety` (pełny serwer - czas na większą instancję)
+  i `limit_rozmow_firmy` (jedna firma ma ruch - sprawa dla rozmowy z klientem).
+  Od 10 odmów dziennie idzie godzinny alarm mailowy na `EMAIL_ALERTOW`, ten sam
+  co dla wygasłych subskrypcji. Awaria licznika nie zamienia 503 w 500.
+- Zapis samych kolorów i tekstów brandingu nie zajmuje miejsca uploadu.
+  Miejsce zajmuje tylko zapis z plikiem.
+
+### Wdrożenie
+
+Bez zmian w Renderze: Start Command z 2.23.0 czyta profil z repozytorium,
+więc po wdrożeniu proces ma 10 wątków sam. Migracja `accounts.0047` zmienia
+tylko listę powodów (bez zmian w tabelach). Kolejność dowolna względem panelu.
+Po wdrożeniu: trzy równoczesne rozmowy na test1 przechodzą, czwarta w tej samej
+firmie dostaje 503.
+
+### Granice pomiaru
+
+Docker Desktop (cgroup v1) na laptopie, nie Render: procesor Rendera może być
+wolniejszy albo szybszy. Atrapa ma stałe tempo, prawdziwe OpenAI ma rozrzut.
+Magazyn plików lokalny zamiast R2, pojedyncze przebiegi zamiast percentyli.
+To pomiar decyzji, nie test obciążeniowy z [planu](test-obciazeniowy.md).
+
 ## Co pozostaje
 
-- Odbiór rzeczywistej konfiguracji Rendera i zachowania panelu/widgetu przy 503.
+- ~~Odbiór rzeczywistej konfiguracji Rendera i zachowania panelu/widgetu przy 503.~~
+  Zrobione 7.10.2026 (wyżej). Widget pokazuje przy 503 ogólny błąd - poprawka
+  ponawiania w panelu, osobny PR.
 - Dłuższy test stabilności, reprezentatywne pliki i wolny/awaryjny R2.
 - Próby zawieszonego dostawcy, przekroczenia 90 s i restartu długiego SSE,
   z kontrolą naliczeń i czasu narzuconego przez hosting.
