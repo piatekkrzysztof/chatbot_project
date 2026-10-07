@@ -15,6 +15,7 @@ from accounts.domains import limit_domen, zarejestruj_domene
 from accounts.message_quota import ReservedStream, reserve_message
 from accounts.models import BrandingMode, WidgetDomain
 from accounts.plans import allows_hiding_branding, allows_white_label, get_plan
+from api.capacity import CapacityMixin
 from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.schemas import (
     ErrorSerializer,
@@ -219,9 +220,10 @@ class PublicFAQView(APIView):
         403: OpenApiResponse(response=ErrorSerializer, description="Nieprawidłowy klucz API."),
         410: OpenApiResponse(response=ErrorSerializer, description="Sesja została usunięta."),
         429: OpenApiResponse(description="Wyczerpany limit wiadomości w planie."),
+        503: OpenApiResponse(description="Serwer zajęty. Ponów po Retry-After."),
     },
 )
-class PublicChatView(APIView):
+class PublicChatView(CapacityMixin, APIView):
     """
     Publiczny endpoint czatu dla osadzalnego widgetu — autoryzacja przez
     X-API-Key (request.tenant/request.subscription ustawiane przez middleware),
@@ -291,9 +293,10 @@ class PublicChatView(APIView):
         403: OpenApiResponse(response=ErrorSerializer, description="Nieprawidłowy klucz API."),
         410: OpenApiResponse(response=ErrorSerializer, description="Sesja została usunięta."),
         429: OpenApiResponse(description="Wyczerpany limit wiadomości w planie."),
+        503: OpenApiResponse(description="Serwer zajęty. Ponów po Retry-After."),
     },
 )
-class PublicChatStreamView(APIView):
+class PublicChatStreamView(CapacityMixin, APIView):
     """
     Strumieniowa wersja PublicChatView — odpowiedź leci token po tokenie (SSE),
     dzięki czemu użytkownik widzi ją od razu zamiast czekać na całość.
@@ -346,15 +349,19 @@ class PublicChatStreamView(APIView):
     tags=["Panel — widget"],
     summary="Branding widgetu (odczyt i zapis)",
     request=WidgetBrandingSerializer,
-    responses={200: WidgetBrandingSerializer},
+    responses={
+        200: WidgetBrandingSerializer,
+        503: OpenApiResponse(description="Serwer zajęty. Ponów po Retry-After."),
+    },
 )
-class TenantWidgetSettingsView(APIView):
+class TenantWidgetSettingsView(CapacityMixin, APIView):
     """
     Uwierzytelniony (JWT) branding widgetu dla panelu klienta —
     odpowiednik WidgetSettingsAPIView, ale do odczytu/zapisu przez właściciela,
     nie do publicznego odczytu przez sam widget.
     """
 
+    capacity_group = "upload"
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
     parser_classes = [LimitedMultiPartParser, FormParser, JSONParser]
 

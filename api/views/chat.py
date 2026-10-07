@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.message_quota import reserve_message
+from api.capacity import CapacityMixin
 from api.permissions import IsOwnerOrEmployee
 from api.schemas import PublicChatResponseSerializer
 from api.serializers import ChatRequestSerializer
@@ -21,10 +22,11 @@ from chat.privacy import visitor_identifier
     responses={
         200: PublicChatResponseSerializer,
         410: OpenApiResponse(description="Sesja została usunięta."),
+        503: OpenApiResponse(description="Serwer zajęty. Ponów po Retry-After."),
         429: OpenApiResponse(description="Limit planu wyczerpany."),
     },
 )
-class ChatWithGPTView(APIView):
+class ChatWithGPTView(CapacityMixin, APIView):
     throttle_classes = [APIKeyRateThrottle]
     # Nie IsTenantMember: każda odpowiedź rezerwuje wiadomość z płatnego limitu
     # planu i trafia do statystyk jak rozmowa odwiedzającego. Rola `viewer` jest

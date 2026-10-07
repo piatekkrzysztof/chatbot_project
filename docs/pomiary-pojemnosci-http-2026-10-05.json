@@ -1,0 +1,125 @@
+[
+  {
+    "case": "chat-overload",
+    "pressure": null,
+    "path": "/api/widget/chat/stream/",
+    "status": 503,
+    "seconds": 0.03195476531982422
+  },
+  {
+    "case": "chat-overload",
+    "pressure": null,
+    "path": "/api/widget/chat/",
+    "status": 503,
+    "seconds": 0.03270554542541504
+  },
+  {
+    "case": "chat-overload",
+    "pressure": null,
+    "path": "/api/chat/",
+    "status": 503,
+    "seconds": 0.04022669792175293
+  },
+  {
+    "case": "chat-overload",
+    "pressure": null,
+    "path": "/api/chat/test/",
+    "status": 503,
+    "seconds": 0.03620600700378418
+  },
+  {
+    "case": "panel-with-two-sse-and-upload",
+    "pressure": null,
+    "status": 200,
+    "seconds": 0.035956382751464844
+  },
+  {
+    "case": "parallel-large-upload-rejected",
+    "pressure": null,
+    "status": 503,
+    "seconds": 0.0735,
+    "body": "{\"detail\":\"Serwer obs\u0142uguje teraz inne zadania. Spr\u00f3buj ponownie za chwil\u0119.\",\"code\":\"server_busy\"}"
+  },
+  {
+    "case": "admitted-upload",
+    "pressure": null,
+    "status": 201,
+    "seconds": 2.8988,
+    "body": "{\"message\":\"Uploaded successfully.\"}"
+  },
+  {
+    "case": "admitted-streams-done",
+    "pressure": null,
+    "count": 2
+  },
+  {
+    "case": "slots-reused-after-failure-and-completion",
+    "pressure": null
+  },
+  {
+    "case": "chat-overload",
+    "pressure": 330,
+    "path": "/api/widget/chat/stream/",
+    "status": 503,
+    "seconds": 0.03008747100830078
+  },
+  {
+    "case": "chat-overload",
+    "pressure": 330,
+    "path": "/api/widget/chat/",
+    "status": 503,
+    "seconds": 0.02748394012451172
+  },
+  {
+    "case": "chat-overload",
+    "pressure": 330,
+    "path": "/api/chat/",
+    "status": 503,
+    "seconds": 0.04070019721984863
+  },
+  {
+    "case": "chat-overload",
+    "pressure": 330,
+    "path": "/api/chat/test/",
+    "status": 503,
+    "seconds": 0.03647971153259277
+  },
+  {
+    "case": "panel-with-two-sse-and-upload",
+    "pressure": 330,
+    "status": 200,
+    "seconds": 0.03568267822265625
+  },
+  {
+    "case": "parallel-large-upload-rejected",
+    "pressure": 330,
+    "status": 503,
+    "seconds": 0.0522,
+    "body": "{\"detail\":\"Serwer obs\u0142uguje teraz inne zadania. Spr\u00f3buj ponownie za chwil\u0119.\",\"code\":\"server_busy\"}"
+  },
+  {
+    "case": "admitted-upload",
+    "pressure": 330,
+    "status": 201,
+    "seconds": 3.0628,
+    "body": "{\"message\":\"Uploaded successfully.\"}"
+  },
+  {
+    "case": "admitted-streams-done",
+    "pressure": 330,
+    "count": 2
+  },
+  {
+    "case": "slots-reused-after-failure-and-completion",
+    "pressure": 330
+  },
+  {
+    "case": "slots-reused-after-three-disconnects"
+  },
+  {
+    "case": "container-memory",
+    "peak_mib": 364.25,
+    "failcnt": 0,
+    "oom_kills": 0
+  }
+]
