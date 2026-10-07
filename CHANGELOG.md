@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.24.1] - 2026-10-07
+
+### Fixed
+
+- **The chat window can tell a visitor how long to wait.** When a visitor
+  sends too many messages in a short time, the server answers "wait N
+  seconds", but the browser hid that number from the chat window, which runs
+  on a different address than the server. The visitor saw a generic error.
+  The server now lets the chat window read it, so the visitor sees for
+  example "try again in 12 min" (with the matching panel update).
+
 ## [2.24.0] - 2026-10-07
 
 ### Changed
