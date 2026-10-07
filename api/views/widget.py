@@ -363,6 +363,13 @@ class TenantWidgetSettingsView(CapacityMixin, APIView):
 
     capacity_group = "upload"
     permission_classes = [IsOwnerOrEmployeeOrTenantReadOnly]
+
+    def wymaga_miejsca(self, request):
+        # Miejsce na upload zajmuje tylko zapis z plikiem (logo, awatar).
+        # Zapis samych kolorów i tekstów dostawał 503, gdy ktoś inny
+        # akurat wgrywał PDF.
+        return request.content_type.startswith("multipart/")
+
     parser_classes = [LimitedMultiPartParser, FormParser, JSONParser]
 
     def get(self, request):

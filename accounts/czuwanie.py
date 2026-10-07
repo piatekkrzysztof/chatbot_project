@@ -41,7 +41,7 @@ from django.core.validators import validate_email
 from django.db.models import Q
 from django.utils import timezone
 
-from accounts.odmowy import POWODY_ALARMUJACE, PowodOdmowy, ZliczenieOdmow
+from accounts.odmowy import POWODY_ALARMUJACE, POWODY_POJEMNOSCI, PowodOdmowy, ZliczenieOdmow
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,13 @@ logger = logging.getLogger(__name__)
 #: skaner, czyjś test. Dopiero seria mówi o czymś realnym - najczęściej o tym,
 #: że klient wkleił widget z literówką i jego czat w ogóle nie ruszył.
 PROG_ZLYCH_KLUCZY = 50
+
+#: Ile odmów z braku miejsca na rozmowę w ciągu doby zaczyna coś znaczyć.
+#:
+#: Widget ponawia odmowę sam, więc pojedyncze nie docierają do odwiedzających.
+#: Dziesięć dziennie to już wzór: serwer albo jedna firma regularnie trafia
+#: w limit, a część odwiedzających w końcu zobaczy błąd.
+PROG_ODMOW_POJEMNOSCI = 10
 
 
 class BrakAdresuAlertow(RuntimeError):
@@ -131,7 +138,8 @@ def sprawdz_odmowy_widgetu():
     do_zgloszenia = ZliczenieOdmow.objects.filter(
         Q(powod__in=POWODY_ALARMUJACE)
         | Q(powod=PowodOdmowy.ZLY_KLUCZ, liczba__gte=PROG_ZLYCH_KLUCZY)
-        | Q(powod=PowodOdmowy.BRAK_KLUCZA, liczba__gte=PROG_ZLYCH_KLUCZY),
+        | Q(powod=PowodOdmowy.BRAK_KLUCZA, liczba__gte=PROG_ZLYCH_KLUCZY)
+        | Q(powod__in=POWODY_POJEMNOSCI, liczba__gte=PROG_ODMOW_POJEMNOSCI),
         dzien=dzis,
         zgloszone=False,
     ).select_related("tenant")

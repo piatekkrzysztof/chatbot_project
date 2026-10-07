@@ -1,14 +1,21 @@
 # Roadmapa napraw po audycie SaaS
 
-## Pojemność HTTP — przygotowane 5.10.2026, 2.23.0
+## Pojemność HTTP — 2.23.0 odebrane 7.10.2026, 2.24.0 przygotowane
 
-PR #123 jest scalony. Po pomiarach Gunicorna przygotowano wspólny limit dwóch
-rozmów i jednego uploadu na proces oraz profil 1 worker gthread / 4 threads.
-Powtórzony lokalny HTTP: panel przy 2 SSE i uploadzie 36 ms, nadmiarowe
-żądania 503 bez czekania, maksimum 364,25 MiB przy limicie 512 MiB, bez OOM.
-Produkcja nie została przełączona. Następny krok: CI i scalenie, odczyt
-rzeczywistych ustawień Rendera, kontrolowany deploy oraz odbiór panelu/503.
-[Zakres, wyniki, komenda i rollback](pojemnosc-http.md).
+**2.23.0 na produkcji od 7.10.2026.** Właściciel zmienił Start Command na
+profil z repozytorium (jeden worker gthread; bez `WEB_CONCURRENCY`
+i `GUNICORN_CMD_ARGS`) i odebrał na test1: panel w trakcie odpowiedzi widgetu
+ładuje się od razu, wgranie pliku przechodzi, usunięta rozmowa nie wraca
+w widgecie, trzecia równoczesna rozmowa dostaje 503 - a widget pokazuje wtedy
+ogólny błąd. [Odbiór](pojemnosc-http.md#odbiór-na-produkcji-7102026).
+
+**2.24.0** po pomiarze 7.10 na kontenerze jak produkcja (512 MiB, 0,5 CPU,
+prawdziwy klient OpenAI na atrapie API): 6 rozmów naraz zamiast 2, najwyżej
+3 na firmę, 10 wątków liczonych z limitów, odmowy liczone i alarmujące od 10
+dziennie, zapis brandingu bez pliku poza limitem uploadu. Ogranicza procesor,
+nie pamięć (prognoza szczytu około 380 MiB z 512). Bez zmian w Renderze.
+[Pomiar i decyzja](pojemnosc-http.md#224-trzy-razy-więcej-rozmów-i-podział-między-firmy-pomiar-7102026).
+Następny krok: ponawianie przy 503 w widgecie (panel), potem wdrożenie 2.24.0.
 
 
 ## Ponowny audyt 30.09.2026 - bieżące naprawy
@@ -19,7 +26,7 @@ Nie powtarzamy już odebranych etapów. Nowe przypadki awarii mają osobne ID:
 |---|---|---|
 | A01 | Dwie otwarte sesje zakupu jednego abonamentu | Poprawka wdrożona, migracja 0041 potwierdzona 1.10. 2.10 zaliczono rzeczywisty Stripe test mode: powtórzenia, utrata odpowiedzi create/expire, błąd zapisu ID, operator, konkurencyjne plany i blokada po opłaceniu bez webhooka. Otwarte: dodatkowe wyścigi, dawne sesje po migracji i panel. [Protokół](odbior-a01-a02-2026-10-02.md) |
 | A02 | Starsza synchronizacja Stripe nadpisuje nowszą | Poprawka wdrożona, migracja 0042 potwierdzona 1.10. 2.10 zaliczono Stripe test mode: odzyskanie bez webhooka, serializacja synchronizacji, replay starego zdarzenia, anulowanie, odnowienie, past_due i odzyskanie po zapłacie. Alarm sprawdzony tylko lokalnie; nadal transport webhooków, rzeczywisty worker/Beat, skrzynki i UI. [Protokół](odbior-a01-a02-2026-10-02.md) |
-| A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. Odbiór 5.10 wykrył, że **usunięta rozmowa zostawała w przeglądarce odwiedzającego**: widget pokazywał historię z localStorage bez pytania serwera. Poprawione w 2.21.0 - widget pyta przy otwarciu, a w Konwersacjach jest przycisk usuwania zamiast kopiowania identyfikatora ([opis](usuwanie-rozmow-a03.md#8-usunięcie-widać-także-w-przeglądarce-odwiedzającego-2210)). 5.10 zaliczono izolowany odbiór HTTP: kaskada, izolacja, 410 po ręcznym usunięciu i retencji, DELETE podczas SSE oraz nowy UUID. Poprawiono mylący test retencji z #121. Nadal odbiór produkcyjnego panelu/widgetu i współbieżności Gunicorna. [Protokół](odbior-a03-a05-2026-10-05.md) |
+| A03 | Zapis promptu równoległy z usunięciem rozmowy | Backend 2.19.3 wdrożony; accounts.0043 i chat.0008 potwierdzone 1.10. Odbiór 5.10 wykrył, że **usunięta rozmowa zostawała w przeglądarce odwiedzającego**: widget pokazywał historię z localStorage bez pytania serwera. Poprawione w 2.21.0 - widget pyta przy otwarciu, a w Konwersacjach jest przycisk usuwania zamiast kopiowania identyfikatora ([opis](usuwanie-rozmow-a03.md#8-usunięcie-widać-także-w-przeglądarce-odwiedzającego-2210)). 5.10 zaliczono izolowany odbiór HTTP: kaskada, izolacja, 410 po ręcznym usunięciu i retencji, DELETE podczas SSE oraz nowy UUID. Poprawiono mylący test retencji z #121. 7.10 na produkcji: rozmowa usunięta przyciskiem w Konwersacjach nie wraca w widgecie, a Gunicorn ma już wątki (2.23.0). Nadal formularz retencji i DELETE podczas trwającej odpowiedzi na produkcji. [Protokół](odbior-a03-a05-2026-10-05.md) |
 | A04 | Plik bez rekordu po awarii magazynu | R2: 9 plików i ochrona współdzielenia odebrane 1.10; 2.19.7 i 2.19.8 wdrożone. 2.10 potwierdzono powiadomienia UptimeRobot down/up. Zaliczono awarie procesów/TCP/HTTP, zatrzymanie lokalnego workera na ponad 180 s, restart Redis oraz syntetyczny restore z kwarantanną wszystkich niedokończonych zleceń. **5.10 właściciel potwierdził**: alarm aplikacji nr 22 doszedł na obie skrzynki, UptimeRobot wykrywa awarię i powrót na osobnym monitorze testowym, najnowsza kopia produkcji z 17.09 (kolejna miesięczna około 17.10). Nadal: osobna próba zatrzymania Beat - wymaga izolowanego środowiska. [Protokół i granice](odbior-a04-awarie-2026-10-02.md) |
 | A05 | Niewykonalny okres retencji przyjmowany przez API | Poprawka wdrożona z A03; migracje i kontrola wszystkich istniejących okresów (0–3650) potwierdzone 1.10. 5.10 zaliczono lokalny odbiór HTTP/JWT: granice 0/3650, 12 błędnych wartości, brak częściowego zapisu, role i izolacja firm. Nadal odbiór produkcyjnego formularza/API. [Protokół](odbior-a03-a05-2026-10-05.md) |
 
@@ -166,9 +173,9 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
    pozostałe wyścigi i stare sesje Checkout. Nie traktować zerowego przebiegu
    produkcji z 1.10 jako pełnego odbioru harmonogramu.
 3. **Rozmowy A03/A05.** Backend HTTP/JWT odebrany w izolacji 5.10
-   ([wyniki](odbior-a03-a05-2026-10-05.md)). Nadal produkcyjny panel/widget,
-   formularz retencji i współbieżność podczas SSE. Najpierw pomiar konfiguracji
-   Gunicorna z pkt 7: serwer synchroniczny nie obsłuży równoległego DELETE.
+   ([wyniki](odbior-a03-a05-2026-10-05.md)). 7.10 na produkcji: usunięta
+   rozmowa nie wraca w widgecie. Nadal formularz retencji i DELETE podczas
+   trwającej odpowiedzi - możliwe od 7.10, bo produkcja ma już wątki.
 4. **Konta i obsługa użytkownika.** Aktywacja i zaproszenia (F07), pełny upload
    i import (F06/F09/F10/F17), ustawienia, MFA i poczta (F14/F15), CSV/oceny
    (F19), pierwsze kroki i stan zakupu (F22), prawdziwy token Turnstile (F23).
@@ -183,12 +190,10 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
    i faktycznego środowiska produkcyjnego (F05/F12), dostępność,
    test obciążenia i pomiar SLO (F16), ocena potrzeby indeksu wektorowego
    na podstawie pomiaru, RTO odbudowy usług (F21).
-7. **Decyzje właściciela.** Gunicorn na produkcji bez wątków (Start Command
-   `gunicorn chatbot_project.wsgi:application`): jedna odpowiedź czatu
-   strumieniem blokuje wszystkie inne żądania. `render.yaml` zakładał wątki,
-   ale produkcja nie powstała z tego pliku. Zmiana wpływa na pamięć przy
-   512 MiB i na rezerwę parsera z 2.22.0, więc wymaga przeliczenia razem.
-   Cele SLO/SLA, zakres i budżet testu obciążenia
+7. **Decyzje właściciela.** ~~Gunicorn na produkcji bez wątków~~ - rozstrzygnięte
+   7.10.2026: profil gthread z 2.23.0 wdrożony, 2.24.0 podnosi limit po
+   pomiarze. Większa instancja dopiero wtedy, gdy alarm odmów z braku miejsca
+   zacznie przychodzić regularnie. Cele SLO/SLA, zakres i budżet testu obciążenia
    oraz środowisko testowe. Kopia miesięczna ręczna i obecne zasoby pozostają
    przyjętym wariantem; płatny cron nie jest obowiązkową nową decyzją.
    [Wzór umowy powierzenia](umowa-powierzenia.md) nadal wymaga przeglądu prawnego
@@ -237,7 +242,7 @@ sprawdzeniem retencji.
 | F06 | SSRF, DNS i limity crawlera naprawione, #42 | Odbiór integracji w pełnym przepływie importu |
 | F07 | Backend #46/#47 i panel #12 scalone; ich kod zawarty we wdrożonych #52 i panelu #14 | Rzeczywisty odbiór SMTP aktywacji; wartość `TRUSTED_PROXY_DEPTH=2` na web odczytana 1.10.2026; pozostaje odbiór rzeczywistego IP i odporności na podrobiony nagłówek przez `/api/diagnostyka/adres/`; przyjęcie zaproszenia wymaga dostępu do skrzynki adresata od 2.20.0 - link z panelu tylko wysyła zaproszenie ([opis](rejestracja-i-zaproszenia.md#dwa-klucze-zaproszenia-2200)), **odebrane na produkcji 5.10.2026**; ocena nadużyć przez wiele skrzynek i aliasów **zrobiona w 2.17.0** (zgłoszenie, nie blokada - [opis](rejestracja-i-zaproszenia.md#powtórny-okres-próbny-na-tę-samą-skrzynkę-2170)). Retencja i alerty zgłoszeń **są zrobione**: zgłoszenia znikają razem z rozmowami, po `data_retention_days` firmy (`chat/retention.py`, codziennie 3:30), a o nowym zgłoszeniu powiadamia `powiadom_o_zapytaniu_task` |
 | F08 | Rezerwacje i rozliczenie SSE, #44; web live `e5259ce` | Pomiar kosztów zrobiony 28.09.2026 ([koszt klienta](koszt-klienta.md)). Alarm o biletach do rozliczenia i sprzątanie rozliczonych w 2.16.0: komenda istniała od #44, ale nie było jej w harmonogramie, więc nie wykonała się ani razu ([opis](rezerwacje-wiadomosci.md#kto-to-wszystko-uruchamia-2160)). Wynik zadania widać od 2.19.0 w zakładce Stan (karta „Rozliczanie pracy bota”), bez schodzenia do logu usługi ([opis](rezerwacje-wiadomosci.md#kto-to-wszystko-uruchamia-2160)). Potwierdzone 1.10.2026: automatyczny przebieg 04:00 zakończony sukcesem, nierozliczone=0 i usunięte=0; odczyt bieżący także bez zaległości. [Protokół](odbior-operacyjny-2026-10-01.md). Nie wywoływano alarmu z niezerową kolejką |
-| F09 | Backend #43 i panel #11 scalone | Odbiór 5.10.2026 wykrył, że na produkcji (Render Starter, 512 MiB) **każde** wgranie dokumentu kończyło się odmową „Serwer nie ma teraz zasobów”: budżet parsera liczony jako połowa wolnej pamięci wynosił 99,8 MiB przy progu 96. Poprawione w 2.22.0 - wolna pamięć minus stała rezerwa ([opis](bezpieczne-uploady.md#odbiór-na-produkcji-budżet-pamięci-parsera-2220)). Zostaje powtórzenie odbioru uploadu po wdrożeniu |
+| F09 | Backend #43 i panel #11 scalone | Odbiór 5.10.2026 wykrył, że na produkcji (Render Starter, 512 MiB) **każde** wgranie dokumentu kończyło się odmową „Serwer nie ma teraz zasobów”: budżet parsera liczony jako połowa wolnej pamięci wynosił 99,8 MiB przy progu 96. Poprawione w 2.22.0 - wolna pamięć minus stała rezerwa ([opis](bezpieczne-uploady.md#odbiór-na-produkcji-budżet-pamięci-parsera-2220)). 7.10.2026 odebrane na produkcji: wgranie pliku na test1 przechodzi. PDF i DOCX na produkcji zostają w odbiorze kont (kolejność, pkt 4) |
 | F10 | Część 1: #58 scalony (2.0.17): typ treści przy pobieraniu stron, PDF/DOCX/TXT/MD podlinkowane na stronie przez izolowany parser, adres źródła zawsze pobierany, mapy stron stałych przed wpisami, jedna za duża odpowiedź nie przerywa pobierania. Część 2: #59 scalony (2.0.18): limit bazy wiedzy pod blokadą doradczą, zlecenia zadań po zatwierdzeniu transakcji, TXT w Windows-1250, ISO-8859-2 i UTF-16, tabele i pola tekstowe DOCX, przywrócone podłączenie sygnału dokumentów (usunięte w #21, 4.09.2026: dokumenty z panelu bez embeddingów) | Jednorazowe przeliczenie dokumentów bez fragmentów i kontrole z [kompletny-import.md](kompletny-import.md). Część 2 jest na `main` i wdrożona - `documents/file_limits.py`, `zablokuj_baze_wiedzy` w walidatorach i `on_commit` w sygnałach (sprawdzone 29.09.2026) |
 | F11 | Część 1: #64 wdrożony (2.0.22), migracja 0038 na produkcji; stan subskrypcji pobierany ze Stripe, dostęp do końca opłaconego okresu + 3 dni przy nieudanym odnowieniu, blokada drugiego zakupu, klucz idempotencji. Odbiór w trybie testowym 14.09.2026: zakup, odmowa drugiego zakupu, powtórka zakupu po anulowaniu i nieudane odnowienie zaliczone ([wynik](platnosci-spojnosc.md#wynik-odbioru---14092026)). Część 2 przygotowana do przeglądu (2.1.0): portal Stripe do zmiany planu (wyższy od razu z dopłatą, niższy od następnego okresu), karty, faktur i anulowania; potwierdzenie konkretnej sesji Checkout z uzgodnieniem stanu; zakup i portal tylko dla właściciela; e-mail przy wejściu w `past_due` | Część 2 scalona (#65, frontend_chatbot#17), odbiór w trybie testowym 14.09.2026: zakup bez webhooka, podwyżka z dopłatą, obniżka od następnego okresu, portal, uprawnienia, zmyślona sesja i nieudana płatność zaliczone ([wynik](platnosci-portal.md#wynik-odbioru---14092026)). Uwagi z odbioru (anulowanie i zaplanowana obniżka niewidoczne w panelu, anulowany plan jako obecny, 429 na ekranie płatności) naprawia 2.2.0 - przegląd, CI, migracja 0039 i wdrożenie. Po wdrożeniu produkcyjnym: pierwszy prawdziwy zakup obserwowany w logach |
 | F12 | DRF i strona poprawione; panel #13 aktualizuje Next.js do 16.3.5, sharp do 0.35.4 i zależności pośrednie; npm audit: 4 zgłoszenia → 0 | Panel #13: CI zielone, produkcja wdrożona. Skany powtórzone 30.09.2026 i obie strony wymagały poprawki: PyJWT 2.13.0 miał 10 CVE (→ 2.14.0, #107), a `npm audit` dwa zgłoszenia o wysokiej wadze w zależnościach pośrednich - `undici` z obejściem weryfikacji certyfikatu TLS i wyciekiem cudzych ciasteczek oraz `brace-expansion` (→ 0, panel #34). Obie bramki zatrzymały PR-y, których te podatności nie dotyczyły, i o to w nich chodzi. Skan przed samym wydaniem trzeba i tak powtórzyć - lista zmienia się co tydzień |

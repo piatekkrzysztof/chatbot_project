@@ -16,8 +16,8 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 @pytest.fixture(autouse=True)
 def pools(monkeypatch):
-    monkeypatch.setattr(capacity, "CHAT_SLOTS", threading.BoundedSemaphore(2))
-    monkeypatch.setattr(capacity, "UPLOAD_SLOTS", threading.BoundedSemaphore(1))
+    monkeypatch.setattr(capacity, "CHAT_SLOTS", capacity.Pula(2, 2))
+    monkeypatch.setattr(capacity, "UPLOAD_SLOTS", capacity.Pula(1, 1))
 
 
 class View(capacity.CapacityMixin, APIView):
@@ -94,8 +94,8 @@ def test_generator_failure_releases_slot(failure):
 
 
 def test_raising_stream_close_still_releases():
-    semaphore = threading.BoundedSemaphore(1)
-    assert semaphore.acquire(False)
+    semaphore = capacity.Pula(1, 1)
+    assert semaphore.zajmij(None) is None
 
     class BrokenCloser:
         def __iter__(self):
@@ -108,12 +108,12 @@ def test_raising_stream_close_still_releases():
             raise RuntimeError("close failed")
 
     stream = BrokenCloser()
-    wrapped = capacity.CapacityStream(stream, capacity.Lease(semaphore))
+    wrapped = capacity.CapacityStream(stream, capacity.Lease(semaphore, None))
     with pytest.raises(RuntimeError):
         wrapped.close()
-    assert semaphore.acquire(False)
+    assert semaphore.zajmij(None) is None
     wrapped.close()
-    assert not semaphore.acquire(False)
+    assert semaphore.zajmij(None) is not None
 
 
 def test_view_exception_releases_slot():
@@ -145,7 +145,7 @@ def test_upload_is_rejected_before_body_parser_and_chat_remains_available():
         def post(self, request):
             return Response(request.data)
 
-    assert capacity.UPLOAD_SLOTS.acquire(False)
+    assert capacity.UPLOAD_SLOTS.zajmij(None) is None
     try:
         assert call(Upload).status_code == 503
         parsed.assert_not_called()
@@ -153,7 +153,7 @@ def test_upload_is_rejected_before_body_parser_and_chat_remains_available():
         assert chat.status_code == 200
         chat.close()
     finally:
-        capacity.UPLOAD_SLOTS.release()
+        capacity.UPLOAD_SLOTS.zwolnij(None)
 
 
 def test_upload_slot_is_held_through_slow_storage_write():
@@ -222,8 +222,8 @@ def test_busy_widget_does_not_create_conversation_or_charge(tenant, subscribtion
     reserve = Mock(side_effect=AssertionError("Must not reserve"))
     monkeypatch.setattr(widget, "reserve_message", reserve)
     before = (Conversation.objects.count(), MessageReservation.objects.count())
-    assert capacity.CHAT_SLOTS.acquire(False)
-    assert capacity.CHAT_SLOTS.acquire(False)
+    assert capacity.CHAT_SLOTS.zajmij(None) is None
+    assert capacity.CHAT_SLOTS.zajmij(None) is None
     try:
         response = APIClient().post(
             "/api/widget/chat/stream/",
@@ -236,5 +236,5 @@ def test_busy_widget_does_not_create_conversation_or_charge(tenant, subscribtion
         reserve.assert_not_called()
         assert (Conversation.objects.count(), MessageReservation.objects.count()) == before
     finally:
-        capacity.CHAT_SLOTS.release()
-        capacity.CHAT_SLOTS.release()
+        capacity.CHAT_SLOTS.zwolnij(None)
+        capacity.CHAT_SLOTS.zwolnij(None)
