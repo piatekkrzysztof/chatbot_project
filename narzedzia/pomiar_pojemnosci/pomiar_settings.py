@@ -17,7 +17,9 @@ STORAGES = {
     **STORAGES,
     "private_documents": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
-        "OPTIONS": {"location": "/tmp/prywatne"},
+        # Katalog /tmp w kontenerze pomiaru to tmpfs tylko dla użytkownika aplikacji
+        # (uid 10001, `--tmpfs` w uruchom.sh); pliki znikają razem z kontenerem.
+        "OPTIONS": {"location": "/tmp/prywatne"},  # nosec B108
     },
 }
 CHAT_MAX_CONCURRENT = 1000
