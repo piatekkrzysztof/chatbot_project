@@ -209,6 +209,13 @@ tylko listę powodów (bez zmian w tabelach). Kolejność dowolna względem pane
 Po wdrożeniu: trzy równoczesne rozmowy na test1 przechodzą, czwarta w tej samej
 firmie dostaje 503.
 
+**Odebrane na produkcji 7.10.2026.** Backend 2.24.0 (#126) i panel #41
+wdrożone, `/health/` z wersją 2.24.0, Start Command bez zmian. Właściciel
+otworzył widget test1 w czterech kartach naraz: trzy rozmowy dostały
+odpowiedź od razu, czwarta pokazała „Chwileczkę, odpowiadamy teraz innym
+osobom…", a po zwolnieniu miejsca - odpowiedź. Odwiedzający nie zobaczył
+błędu. Do 2.24.0 trzecia rozmowa kończyła się „Wystąpił błąd".
+
 ### Granice pomiaru
 
 Docker Desktop (cgroup v1) na laptopie, nie Render: procesor Rendera może być
@@ -219,8 +226,10 @@ To pomiar decyzji, nie test obciążeniowy z [planu](test-obciazeniowy.md).
 ## Co pozostaje
 
 - ~~Odbiór rzeczywistej konfiguracji Rendera i zachowania panelu/widgetu przy 503.~~
-  Zrobione 7.10.2026 (wyżej). Widget pokazuje przy 503 ogólny błąd - poprawka
-  ponawiania w panelu, osobny PR.
+  Zrobione 7.10.2026 (wyżej). Ponawianie w widgecie (panel #41) odebrane
+  na produkcji razem z 2.24.0.
+- Obserwacja pamięci po wdrożeniu 2.24.0 (prognoza ~380 MiB z 512) i pierwszy
+  alarm odmów z braku miejsca, jeśli przyjdzie - to sygnał do większej instancji.
 - Dłuższy test stabilności, reprezentatywne pliki i wolny/awaryjny R2.
 - Próby zawieszonego dostawcy, przekroczenia 90 s i restartu długiego SSE,
   z kontrolą naliczeń i czasu narzuconego przez hosting.

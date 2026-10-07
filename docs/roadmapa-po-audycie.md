@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-## Pojemność HTTP — 2.23.0 odebrane 7.10.2026, 2.24.0 przygotowane
+## Pojemność HTTP — 2.23.0 i 2.24.0 odebrane 7.10.2026
 
 **2.23.0 na produkcji od 7.10.2026.** Właściciel zmienił Start Command na
 profil z repozytorium (jeden worker gthread; bez `WEB_CONCURRENCY`
@@ -15,7 +15,10 @@ prawdziwy klient OpenAI na atrapie API): 6 rozmów naraz zamiast 2, najwyżej
 dziennie, zapis brandingu bez pliku poza limitem uploadu. Ogranicza procesor,
 nie pamięć (prognoza szczytu około 380 MiB z 512). Bez zmian w Renderze.
 [Pomiar i decyzja](pojemnosc-http.md#224-trzy-razy-więcej-rozmów-i-podział-między-firmy-pomiar-7102026).
-Następny krok: ponawianie przy 503 w widgecie (panel), potem wdrożenie 2.24.0.
+**2.24.0 i panel #41 odebrane na produkcji 7.10.2026:** cztery równoczesne
+rozmowy na test1 - trzy odpowiedziały od razu, czwarta pokazała „Chwileczkę,
+odpowiadamy teraz innym osobom…" i po chwili dostała odpowiedź, bez błędu.
+Zostaje obserwacja pamięci po wdrożeniu i reakcja na alarm odmów, gdy przyjdzie.
 
 
 ## Ponowny audyt 30.09.2026 - bieżące naprawy
