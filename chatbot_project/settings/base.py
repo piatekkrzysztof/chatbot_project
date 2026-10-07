@@ -428,6 +428,14 @@ CHAT_TEST_DAILY_LIMIT = 100  # Per tenant, UTC day; independent of the paid pack
 CHAT_RESERVATION_SECONDS = 600
 CHAT_OPENAI_TIMEOUT_SECONDS = 60
 CHAT_STREAM_SECONDS = 90
+# Ciężkie żądania jednego procesu web (api/capacity.py). Te same liczby
+# wyznaczają wątki Gunicorna - patrz chatbot_project/pojemnosc.py. Import
+# dopiero tutaj, po load_dotenv: moduł czyta zmienne środowiskowe.
+from chatbot_project import pojemnosc  # noqa: E402
+
+POJEMNOSC_ROZMOW = pojemnosc.ROZMOWY
+POJEMNOSC_ROZMOW_FIRMY = pojemnosc.ROZMOWY_FIRMY
+POJEMNOSC_UPLOADOW = pojemnosc.UPLOADY
 
 # Hard upload caps (the memory upload threshold alone only spills files to disk).
 DOCUMENT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024

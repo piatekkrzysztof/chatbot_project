@@ -16,6 +16,30 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-10-07
+
+### Changed
+
+- **Three times as many conversations at once, shared fairly between
+  companies.** The server handled two chat conversations at a time for all
+  customers together, so one busy website - or one person holding two long
+  conversations open through a public widget - made every other customer's
+  chat answer "busy". It now takes six at once, and one company can use at
+  most three of them. The numbers come from a measurement on a server of the
+  same size: memory has plenty of room, the processor is the limit, and with
+  six conversations the first words of an answer still appear within about
+  two and a half seconds.
+- **Saving widget colours and texts no longer waits for someone else's
+  upload.** Only a save that includes a file (logo or avatar) now takes the
+  upload slot.
+
+### Added
+
+- **We find out when the server runs out of room for conversations.** Every
+  "busy" answer is counted, separately for "the whole server is full" and
+  "this one company is at its limit". Ten in a day sends the same hourly
+  operator alert as an expired subscription does.
+
 ## [2.23.0] - 2026-10-05
 
 ### Fixed

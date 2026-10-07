@@ -43,6 +43,8 @@ class PowodOdmowy(models.TextChoices):
     BRAK_AKTYWNEJ = "brak_aktywnej", "Żadna subskrypcja nie jest aktywna"
     SUBSKRYPCJA_WYGASLA = "subskrypcja_wygasla", "Subskrypcja poza datami ważności"
     LIMIT_WIADOMOSCI = "limit_wiadomosci", "Wyczerpany limit wiadomości"
+    SERWER_ZAJETY = "serwer_zajety", "Serwer zajęty: wszystkie miejsca na rozmowy w użyciu"
+    LIMIT_ROZMOW_FIRMY = "limit_rozmow_firmy", "Firma ma naraz najwięcej rozmów, ile może"
 
 
 #: Powody, o których ma się dowiedzieć operator, a nie właściciel.
@@ -58,6 +60,13 @@ POWODY_ALARMUJACE = frozenset(
         PowodOdmowy.SUBSKRYPCJA_WYGASLA,
     }
 )
+
+#: Odmowy z braku miejsca w procesie web (api/capacity.py).
+#:
+#: Pojedyncza nie jest awarią: widget ponawia sam i odwiedzający zwykle jej
+#: nie zauważa. Seria mówi, że serwer regularnie trafia w sufit - albo cały,
+#: albo dla jednej firmy - i czas na większą instancję albo wyższy limit.
+POWODY_POJEMNOSCI = frozenset({PowodOdmowy.SERWER_ZAJETY, PowodOdmowy.LIMIT_ROZMOW_FIRMY})
 
 
 class ZliczenieOdmow(models.Model):
