@@ -108,4 +108,6 @@ class Atrapa(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("0.0.0.0", 9000), Atrapa).serve_forever()
+    # Atrapa działa w kontenerze w izolowanej sieci pomiaru; aplikacja
+    # łączy się z nią po nazwie kontenera, więc musi nasłuchiwać na jego interfejsie.
+    ThreadingHTTPServer(("0.0.0.0", 9000), Atrapa).serve_forever()  # nosec B104
