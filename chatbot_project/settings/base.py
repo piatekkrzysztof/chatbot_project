@@ -21,6 +21,10 @@ SECRET_KEY_FALLBACKS = config("DJANGO_SECRET_KEY_FALLBACKS", default="", cast=Cs
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_HEADERS = list(default_headers) + ["x-api-key"]
+# Widget działa w ramce z domeny panelu, więc odpowiedzi API są dla niego
+# obce. Bez tego przeglądarka ukrywała Retry-After i widget przy limicie nie
+# wiedział, ile kazać odwiedzającemu czekać.
+CORS_EXPOSE_HEADERS = ["Retry-After"]
 
 INSTALLED_APPS = [
     "accounts.admin_apps.MFAAdminConfig",
