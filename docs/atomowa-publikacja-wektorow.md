@@ -134,7 +134,8 @@ blokuje). Równoległość jest odtwarzana deterministycznie: udawany model w tr
 
 ## Związek z pozostałymi ustaleniami etapu 5
 
-- **F18** (usuwanie plików i pochodnych): skasowanie dokumentu nadal nie usuwa
-  pliku z magazynu. To automatyczne usuwanie danych, a roadmapa odkłada
-  włączanie takich operacji do odbioru pełnego odtworzenia z kopii.
+- **F18** (usuwanie plików i pochodnych): zamknięte 29.09.2026. Od 2.8.1
+  plik znika z magazynu razem z dokumentem, każdą drogą usunięcia
+  ([opis](usuwanie-plikow.md)). W chwili pisania tego dokumentu (2.0.16)
+  skasowanie dokumentu jeszcze nie usuwało pliku.
 - **F10** (import): kompletność importu stron - [kompletny-import.md](kompletny-import.md).
