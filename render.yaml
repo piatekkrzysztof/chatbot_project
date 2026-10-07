@@ -19,12 +19,12 @@ services:
     # Workery wątkowe, nie synchroniczne: odpowiedzi czatu lecą strumieniem (SSE)
     # i trzymają połączenie przez cały czas generowania. Przy domyślnym workerze
     # synchronicznym kilka równoczesnych rozmów zablokowałoby cały serwer.
-    startCommand: "gunicorn chatbot_project.wsgi:application --worker-class gthread --threads 8 --timeout 300"
+    startCommand: "gunicorn --config python:chatbot_project.gunicorn_config"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.1
       - key: WEB_CONCURRENCY
-        value: 4
+        value: 1
       - key: REDIS_URL
         fromService:
           name: chatbot-redis

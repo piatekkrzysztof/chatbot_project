@@ -8,6 +8,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.capacity import CapacityMixin
 from api.permissions import IsOwnerOrEmployee
 from api.schemas import ErrorSerializer, MessageSerializer
 from api.utils.mixins import TenantQuerysetMixin
@@ -109,9 +110,15 @@ def _wczytaj_wiersze(plik):
             "properties": {"file": {"type": "string", "format": "binary"}},
         }
     },
-    responses={201: MessageSerializer, 400: ErrorSerializer, 413: ErrorSerializer},
+    responses={
+        201: MessageSerializer,
+        400: ErrorSerializer,
+        413: ErrorSerializer,
+        503: ErrorSerializer,
+    },
 )
-class ImportPromptLogsCSVView(APIView):
+class ImportPromptLogsCSVView(CapacityMixin, APIView):
+    capacity_group = "upload"
     # Ten sam parser co upload dokumentów: limit bajtów liczony w trakcie odbioru.
     parser_classes = [LimitedMultiPartParser]
     permission_classes = [IsOwnerOrEmployee]
