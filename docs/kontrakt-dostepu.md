@@ -60,8 +60,8 @@ Trzy testy czatu i trzy logów promptów tworzyły konto z domyślną rolą
 |---|---|---|
 | Negatywny test dostępu | ten dokument | - |
 | Staging zgodny z produkcją | nie istnieje | decyzji właściciela (nowa instancja poza obecnym budżetem) |
-| Test obciążeniowy | brak narzędzia | decyzji o narzędziu i środowisku; bez stagingu tylko pomiar lokalny |
-| Odtworzenie kopii | czeka | odbioru F21 przez właściciela |
+| Test obciążeniowy | [plan](test-obciazeniowy.md) gotowy, bez przebiegu | decyzji o narzędziu i środowisku; bez stagingu tylko pomiar lokalny |
+| Odtworzenie kopii | odebrane 17.09.2026 ([protokół](odbior-f21.md#wynik-odbioru---17092026)) | nadal pomiar RTO odbudowy usług, wymaga środowiska testowego |
 | Płatności testowe | odebrane w F11 (tryb testowy Stripe) | - |
 | Onboarding i dostępność | lista pierwszych kroków i stany panelu gotowe | odbioru na nowym koncie; automatyczny przegląd dostępności wymaga nowej zależności w panelu |
 | Przegląd infrastruktury | odbiór z 11.09.2026 w roadmapie | ponowienia po wdrożeniu 2.6.1 |
