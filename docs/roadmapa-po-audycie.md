@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-## Model czatu — 2.27.0 przygotowane 8.10.2026
+## Model czatu — 2.27.0 odebrane 8.10.2026, produkcja na gpt-6-luna
 
 Po 2.26.0 wyszukiwanie znalazło fragment o anulowaniu, ale gpt-4o-mini
 odpowiadał „cała zaliczka” zamiast „połowa” (0 na 5). Pomiar 9 modeli na
@@ -9,9 +9,11 @@ z `reasoning_effort=medium`** - zero błędów wnioskowania (gpt-4o-mini 3 z 12)
 fakty i odmowy bez różnic, koszt wiadomości ~1/5 niższy, pierwsze słowa
 p95 ~2,6 s zamiast 0,9 s. 2.27.0 dodaje `OPENAI_REASONING_EFFORT` i rozszerza
 `sprawdz_model`; przełączenie to trzy zmienne w Renderze.
-[Pomiar, decyzja i kroki](wybor-modelu.md).
+[Pomiar, decyzja i kroki](wybor-modelu.md). **8.10: wdrożone i przełączone** -
+`sprawdz_model` „DZIALA”, Test bota odpowiada na pytania z dokumentów.
+Do obserwacji: czas pierwszych słów (cel p95 poniżej 3 s).
 
-## Sekcje w PDF i DOCX — 2.26.0 przygotowane 8.10.2026
+## Sekcje w PDF i DOCX — 2.26.0 odebrane 8.10.2026
 
 Test bota na ofercie z PDF-a: odmowa przy pytaniu o anulowanie, bo cały PDF
 dał trzy fragmenty - po jednym na stronę, z kilkoma sekcjami w każdym.
@@ -19,7 +21,9 @@ Podział szukał granic po pustych liniach, których w tekście z PDF-a i DOCX-a
 nie ma. 2.26.0 rozpoznaje nagłówki bez pustych linii, z warunkami, które
 odsiewają komórki tabel i łamanie wierszy. Pomiar na pięciu dokumentach:
 22 z 22 pytań zamiast 17, cisza i wzorzec `ocen_rag` bez zmian. Po
-wdrożeniu `przelicz_fragmenty` (najpierw na sucho).
+wdrożeniu `przelicz_fragmenty` (najpierw na sucho). **8.10: przeliczone na
+produkcji** - 709 → 750 fragmentów, strony WWW bez skoków, oferta cateringu
+z PDF-a 3 → 8 sekcji; bot znajduje fragment o anulowaniu.
 [Opis i pomiar](cenniki-w-wyszukiwaniu.md#2260-sekcje-w-pdf-i-docx).
 
 ## Wyszukiwanie cenników — 2.25.0 odebrane 8.10.2026
