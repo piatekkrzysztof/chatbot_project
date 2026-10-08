@@ -176,6 +176,10 @@ def parametry_modelu(temperatura=...):
     komunikat awaryjny - czyli bot odpowiadałby „coś poszło nie tak" wszystkim
     klientom naraz i ŻADEN alert by tego nie zgłosił. Wpis w PromptLog szedłby
     ze źródłem „document", bo fragmenty przecież wróciły.
+
+    `reasoning_effort` (8.10.2026, gpt-6-luna) działa tak samo jak temperatura,
+    tylko w drugą stronę: modele bez rozumowania, w tym gpt-4o-mini, odrzucają
+    go błędem 400. Dlatego leci wyłącznie wtedy, gdy jest ustawiony.
     """
     if temperatura is ...:
         temperatura = settings.OPENAI_TEMPERATURE
@@ -183,6 +187,8 @@ def parametry_modelu(temperatura=...):
     parametry = {"max_completion_tokens": settings.OPENAI_MAX_OUTPUT_TOKENS}
     if temperatura is not None:
         parametry["temperature"] = temperatura
+    if settings.OPENAI_REASONING_EFFORT:
+        parametry["reasoning_effort"] = settings.OPENAI_REASONING_EFFORT
     return parametry
 
 

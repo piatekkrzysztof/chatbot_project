@@ -18,8 +18,15 @@ Ta komenda zamienia tę awarię w jedno zdanie w konsoli, za jedno wywołanie AP
     python manage.py sprawdz_model
     python manage.py sprawdz_model --model gpt-5.6-luna
 
+Dwa wywołania: zwykłe i strumieniowe (tak idzie widget), oba z parametrami
+produkcji - także `reasoning_effort` (8.10.2026). Pusta odpowiedź też jest
+porażką: model z rozumowaniem potrafi zużyć cały limit tokenów na myślenie.
+Przy niepowodzeniu kod wyjścia 1, więc da się tego użyć w skrypcie wdrożenia.
+
 Czego NIE sprawdza: jakości odpowiedzi. Od tego jest `ocen_generowanie`.
 """
+
+import time
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -47,16 +54,49 @@ class Command(BaseCommand):
             odpowiedz = get_client().chat.completions.create(
                 model=model, messages=PROBA, **parametry
             )
+            # Widget idzie strumieniem, z licznikiem tokenów na końcu - to osobna
+            # ścieżka w API i osobny zestaw parametrów, które model może odrzucić.
+            start = time.perf_counter()
+            strumien = get_client().chat.completions.create(
+                model=model,
+                messages=PROBA,
+                stream=True,
+                stream_options={"include_usage": True},
+                **parametry,
+            )
+            pierwsze_slowa, tresc_strumienia = None, ""
+            for zdarzenie in strumien:
+                if zdarzenie.choices and zdarzenie.choices[0].delta.content:
+                    if pierwsze_slowa is None:
+                        pierwsze_slowa = time.perf_counter() - start
+                    tresc_strumienia += zdarzenie.choices[0].delta.content
         except Exception as blad:
             self._wyjasnij(model, blad)
-            return
+            raise SystemExit(1) from None
 
+        tresc = (odpowiedz.choices[0].message.content or "").strip()
+        if not tresc or not tresc_strumienia.strip():
+            # Puste odpowiedzi przy modelach z rozumowaniem: całe
+            # max_completion_tokens poszło na myślenie (gpt-5-nano, 8.10.2026).
+            # Odwiedzający dostałby pusty dymek, a wywołanie i tak „przechodzi".
+            self.stdout.write(self.style.ERROR("NIE DZIALA. Model odpowiedzial pusta trescia."))
+            self.stdout.write(
+                self.style.WARNING(
+                    "  Najpewniej cale OPENAI_MAX_OUTPUT_TOKENS zuzyl na rozumowanie.\n"
+                    "  Obniz OPENAI_REASONING_EFFORT albo wybierz inny model."
+                )
+            )
+            raise SystemExit(1)
+
+        szczegoly = getattr(odpowiedz.usage, "completion_tokens_details", None)
+        rozumowanie = getattr(szczegoly, "reasoning_tokens", None) or 0
         self.stdout.write(
             self.style.SUCCESS(
                 f"DZIALA. Model przyjal ustawienia i odpowiedzial "
-                f"({odpowiedz.usage.total_tokens} tokenow)."
+                f"({odpowiedz.usage.total_tokens} tokenow, w tym rozumowanie: {rozumowanie})."
             )
         )
+        self.stdout.write(f"Strumien:   pierwsze slowa po {pierwsze_slowa:.1f} s")
         self.stdout.write("")
         self.stdout.write(
             "To znaczy tylko, ze wywolanie przechodzi. Czy model dobrze stawia\n"
@@ -80,6 +120,15 @@ class Command(BaseCommand):
                     "  Wyczysc OPENAI_TEMPERATURE (pusta wartosc = nie wysylamy parametru).\n"
                     "  UWAGA: przy domyslnej temperaturze model chetniej uzupelnia luki\n"
                     "  wlasnymi domyslami. Przemierz `ocen_generowanie` przed wdrozeniem."
+                )
+            )
+        elif "reasoning_effort" in tresc:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Ten model nie przyjmuje tej wartosci OPENAI_REASONING_EFFORT.\n"
+                    "  Model bez rozumowania (np. gpt-4o-mini): wyczysc te zmienna.\n"
+                    "  Model z rozumowaniem: sprobuj low albo medium\n"
+                    "  (gpt-6-luna nie zna 'minimal')."
                 )
             )
         elif "max_tokens" in tresc:
