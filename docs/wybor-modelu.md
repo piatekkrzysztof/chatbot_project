@@ -118,6 +118,12 @@ do decyzji, nie dowód na każdą bazę wiedzy.
 **Powrót:** `OPENAI_CHAT_MODEL=gpt-4o-mini`, `OPENAI_TEMPERATURE=0.2`,
 `OPENAI_REASONING_EFFORT` pusta. Bez wdrożenia kodu.
 
+## Przełączenie na produkcji - 8.10.2026
+
+2.27.0 wdrożone, zmienne ustawione (`OPENAI_TEMPERATURE` puste,
+`OPENAI_REASONING_EFFORT=medium`, `OPENAI_CHAT_MODEL=gpt-6-luna`),
+`sprawdz_model` - „DZIALA”. Właściciel potwierdził działanie w Test bota.
+
 ## Ryzyka do obserwacji
 
 - **Pusta odpowiedź:** limit 600 tokenów obejmuje rozumowanie. Przy `medium`
