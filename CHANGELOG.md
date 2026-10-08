@@ -16,6 +16,21 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.27.0] - 2026-10-08
+
+### Added
+
+- **Ready for a smarter, cheaper chat model.** Measured against the current
+  one on our test documents, gpt-6-luna answers questions that need a small
+  calculation correctly (a refund that depends on how many days before the
+  event you cancel, "the cheapest of three is free"), where the current model
+  got 3 of 12 wrong - while costing about a fifth less per message. It starts
+  answering about half a second later. The switch itself is a change of three
+  settings on the server, described step by step, and can be undone the same
+  way. A check command now also tests the streaming path the chat window uses
+  and treats an empty answer as a failure, so a wrong setting is caught
+  before visitors see an error.
+
 ## [2.26.0] - 2026-10-08
 
 ### Fixed
