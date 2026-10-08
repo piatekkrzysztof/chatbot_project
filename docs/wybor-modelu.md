@@ -128,7 +128,12 @@ do decyzji, nie dowód na każdą bazę wiedzy.
 
 - **Pusta odpowiedź:** limit 600 tokenów obejmuje rozumowanie. Przy `medium`
   model zużywał średnio ~50 tokenów, ale bardzo trudne pytanie może zjeść
-  limit - odwiedzający dostałby pusty dymek. `sprawdz_model` łapie to na
-  jednym pytaniu, nie na wszystkich.
+  limit. **Od 2.28.0** pusta odpowiedź (także same białe znaki) idzie drogą
+  awarii: odwiedzający dostaje komunikat zamiast pustego dymka, wiadomość nie
+  jest naliczana, a w logu (i w Sentry) jest błąd „Pusta odpowiedź modelu”.
+  Do 2.28.0 widget pokazywał pusty dymek bez śladu, a ścieżka bez strumienia
+  najpierw naliczała wiadomość, potem padała na pustej treści. Kilka takich
+  wpisów dziennie - podnieść `OPENAI_MAX_OUTPUT_TOKENS` albo obniżyć
+  `OPENAI_REASONING_EFFORT`.
 - **Model wycofany albo zmieniony przez OpenAI** - `sprawdz_model` po każdej
   zmianie zmiennych i przy niepokojących zgłoszeniach.
