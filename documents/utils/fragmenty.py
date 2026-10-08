@@ -88,8 +88,81 @@ def _czy_naglowek(blok, nastepny=""):
     return len(nastepny) >= MIN_TRESCI_POD_NAGLOWKIEM
 
 
+# Znaki sterujące z ekstrakcji PDF-a (np. wypunktowanie odczytane jako \x7f).
+# Trafiały do treści fragmentu i do podglądu w panelu.
+_ZNAKI_STERUJACE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_NUMER_SEKCJI = re.compile(r"^\d+[.)]?\s+\S")
+_WYPUNKTOWANIE = ("•", "-", "–", "*", "·")
+
+
+def _zaczyna_tresc(linia):
+    """Czy linia może być początkiem nowej treści, a nie dalszym ciągiem zdania."""
+    return linia[0].isupper() or linia[0].isdigit() or linia.startswith(_WYPUNKTOWANIE)
+
+
+def _moze_byc_naglowkiem(linia):
+    """
+    Wstępne sito. Kropkę na końcu i minimalną treść pod spodem sprawdza
+    potem `_czy_naglowek` - tu tylko to, czego on nie wie: wiersz tabeli
+    (nagłówek tabeli zostaje w sekcji, pod którą stoi) i początek linii.
+    """
+    if not 3 <= len(linia) <= MAKS_DLUGOSC_NAGLOWKA or " | " in linia:
+        return False
+    return linia[0].isupper() or bool(_NUMER_SEKCJI.match(linia))
+
+
+def _wydziel_naglowki(tresc):
+    """
+    Otacza pustymi liniami nagłówki sekcji, przed którymi ich nie ma.
+
+    Podział szuka granic po pustych liniach. Tekst z PDF-a i DOCX-a ich nie ma:
+    akapity są oddzielone pojedynczym znakiem nowej linii. Odbiór 8.10.2026:
+    trzystronicowa oferta z PDF-a dała trzy fragmenty - po jednym na stronę,
+    z dwiema albo trzema sekcjami w każdym. Pytanie o anulowanie leżało od
+    fragmentu „anulowanie + płatność + kontakt" o 1,02 przy progu 0,96.
+
+    Nagłówek to tu linia, która spełnia naraz cztery warunki: krótka, bez
+    kropki na końcu i bez kresek tabeli; zaczyna się wielką literą albo
+    numerem; POPRZEDNIA linia kończy zdanie; NASTĘPNA zaczyna się wielką
+    literą, cyfrą albo wypunktowaniem. Dwa ostatnie odsiewają komórki tabel
+    z PDF-a („Bufet Premium" po „przekąski" bez kropki) i linie łamane
+    w połowie zdania. Czy linia faktycznie zostanie nagłówkiem, rozstrzyga
+    dalej `_czy_naglowek` - tu tylko dostaje szansę.
+    """
+    linie = [linia.strip() for linia in tresc.splitlines()]
+    # Następna niepusta linia dla każdej pozycji - jeden przebieg od końca,
+    # bo dokument ma do 2 mln znaków, czyli dziesiątki tysięcy linii.
+    nastepne = [""] * len(linie)
+    kolejna = ""
+    for numer in range(len(linie) - 1, -1, -1):
+        nastepne[numer] = kolejna
+        if linie[numer]:
+            kolejna = linie[numer]
+
+    wynik = []
+    poprzednia = ""
+    for numer, linia in enumerate(linie):
+        nastepna = nastepne[numer]
+        naglowek = (
+            bool(linia)
+            and _moze_byc_naglowkiem(linia)
+            and (not poprzednia or poprzednia.endswith((".", "!", "?", ":")))
+            and bool(nastepna)
+            and _zaczyna_tresc(nastepna)
+        )
+        if naglowek and wynik and wynik[-1]:
+            wynik.append("")
+        wynik.append(linia)
+        if naglowek:
+            wynik.append("")
+        if linia:
+            poprzednia = linia
+    return "\n".join(wynik)
+
+
 def _bloki(tresc):
     """Akapity dokumentu — puste wiersze są granicą, którą autor już postawił."""
+    tresc = _wydziel_naglowki(_ZNAKI_STERUJACE.sub("", tresc))
     for surowy in re.split(r"\n\s*\n", tresc):
         blok = "\n".join(w.strip() for w in surowy.splitlines() if w.strip())
         if blok:
