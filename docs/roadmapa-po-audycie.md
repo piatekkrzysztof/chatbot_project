@@ -1,5 +1,16 @@
 # Roadmapa napraw po audycie SaaS
 
+## Sekcje w PDF i DOCX — 2.26.0 przygotowane 8.10.2026
+
+Test bota na ofercie z PDF-a: odmowa przy pytaniu o anulowanie, bo cały PDF
+dał trzy fragmenty - po jednym na stronę, z kilkoma sekcjami w każdym.
+Podział szukał granic po pustych liniach, których w tekście z PDF-a i DOCX-a
+nie ma. 2.26.0 rozpoznaje nagłówki bez pustych linii, z warunkami, które
+odsiewają komórki tabel i łamanie wierszy. Pomiar na pięciu dokumentach:
+22 z 22 pytań zamiast 17, cisza i wzorzec `ocen_rag` bez zmian. Po
+wdrożeniu `przelicz_fragmenty` (najpierw na sucho).
+[Opis i pomiar](cenniki-w-wyszukiwaniu.md#2260-sekcje-w-pdf-i-docx).
+
 ## Wyszukiwanie cenników — 2.25.0 odebrane 8.10.2026
 
 Odbiór 7.10 na Sm-art: bot nie znał ceny z cennika w DOCX, choć wiersz był
