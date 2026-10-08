@@ -59,6 +59,13 @@ MIN_DLUGOSC_FRAGMENTU = 40
 
 _KONIEC_ZDANIA = re.compile(r"(?<=[.!?])\s+")
 
+# Linia oddzielająca nagłówek tabeli Markdown od treści: |---|:---:|
+_SEPARATOR_MARKDOWN = re.compile(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$")
+
+# Tabela, której wiersze dostają własne fragmenty: nagłówek i co najmniej dwa
+# wiersze danych. Przy jednym wierszu fragment tabeli jest już o nim.
+MIN_WIERSZY_TABELI = 2
+
 
 def _czy_naglowek(blok, nastepny=""):
     """
@@ -184,7 +191,8 @@ def podziel_na_fragmenty(tresc, maks_znakow=MAKS_ZNAKOW, zakladka=ZAKLADKA):
 
     # Fragment złożony z samego nagłówka nic nie wnosi, a zaśmieca wyniki
     fragmenty = [f for f in fragmenty if f and f != naglowek or "\n" in f]
-    return _sklej_krotkie(fragmenty, maks_znakow)
+    fragmenty = _sklej_krotkie(fragmenty, maks_znakow)
+    return fragmenty + [w for w in fragmenty_wierszy_tabel(tresc) if w not in fragmenty]
 
 
 def _sklej_krotkie(fragmenty, maks_znakow):
@@ -204,6 +212,60 @@ def _sklej_krotkie(fragmenty, maks_znakow):
         else:
             wynik.append(fragment)
     return wynik
+
+
+def _komorki(linia):
+    """Komórki wiersza tabeli albo None, gdy linia nie jest wierszem tabeli."""
+    linia = linia.strip()
+    if " | " not in linia and not (linia.startswith("|") and linia.endswith("|")):
+        return None
+    komorki = [k.strip() for k in linia.strip("|").split("|")]
+    return komorki if len(komorki) >= 2 and any(komorki) else None
+
+
+def fragmenty_wierszy_tabel(tresc):
+    """
+    Każdy wiersz danych tabeli jako osobny fragment, z nagłówkiem tabeli.
+
+    Odbiór 7.10.2026: cennik z DOCX (osiem pozycji w tabeli) trafiał do jednego
+    fragmentu. Pytanie o jedną pozycję leżało od niego o 0,98 przy progu 0,96,
+    a bot odpowiadał „nie posiadam informacji", choć cena była w dokumencie.
+    Wektor fragmentu o ośmiu usługach jest uśrednieniem ośmiu tematów - ten sam
+    problem, przed którym chroni cięcie po sekcjach, tylko wewnątrz tabeli.
+    Pomiar na sześciu pytaniach o pozycje: cały cennik 2 z 6 pod progiem,
+    nagłówek z wierszem 4 z 6. Resztę łapie dopasowanie po słowach
+    (rag/engine.py).
+
+    Fragment tabeli zostaje obok, więc pytanie o cały cennik działa jak dotąd.
+    Nagłówek wchodzi do fragmentu, bo bez niego „Pakiet S | 99 zł | 199 zł"
+    nie mówi modelowi, która cena jest netto, a która brutto.
+    """
+    if not tresc:
+        return []
+    wynik = []
+
+    def zamknij(tabela):
+        if len(tabela) < 1 + MIN_WIERSZY_TABELI:
+            return
+        naglowek, *wiersze = tabela
+        wynik.extend(f"{naglowek}\n{wiersz}" for wiersz in wiersze)
+
+    tabela = []
+    liczba_kolumn = None
+    for surowa in tresc.splitlines():
+        linia = surowa.strip()
+        if tabela and _SEPARATOR_MARKDOWN.match(linia):
+            continue
+        komorki = _komorki(linia)
+        if komorki is None or (tabela and len(komorki) != liczba_kolumn):
+            zamknij(tabela)
+            tabela, liczba_kolumn = [], None
+            if komorki is None:
+                continue
+        tabela.append(" | ".join(komorki))
+        liczba_kolumn = len(komorki)
+    zamknij(tabela)
+    return list(dict.fromkeys(wynik))
 
 
 def tekst_do_wektora(fragment, nazwa_dokumentu):
