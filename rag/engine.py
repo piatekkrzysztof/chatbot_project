@@ -64,7 +64,9 @@ def query_similar_chunks_pgvector(
 
 #: Słowa, które są w pytaniu, ale nie mówią, O CZYM ono jest. Bez nich
 #: „Ile kosztuje figurka?" wymagałoby od fragmentu słowa „kosztuje".
-#: Tylko słowa od pięciu liter - krótsze i tak są pomijane.
+#: Tylko słowa od pięciu liter - krótsze i tak są pomijane. Spójniki i słowa
+#: czasu („jeśli", „wcześniej") dopisane 8.10.2026: „Co jeśli odwołam
+#: przyjęcie 10 dni wcześniej?" wymagało ich od fragmentu o anulowaniu.
 SLOWA_PYTAJACE = frozenset(
     """
     kosztuje kosztują kosztuja kosztować kosztowac koszty kosztów kosztow
@@ -75,6 +77,9 @@ SLOWA_PYTAJACE = frozenset(
     jestescie oferujecie oferta ofercie państwo panstwo pytanie informacje
     informacji trzeba bardzo takie także takze również rowniez wiecie
     powiedzieć powiedziec
+    jeśli jesli jeżeli jezeli wcześniej wczesniej później pozniej przed
+    dostanę dostane będzie bedzie będą beda potrzebuję potrzebuje właśnie
+    wlasnie około okolo zawsze teraz
     """.split()
 )
 

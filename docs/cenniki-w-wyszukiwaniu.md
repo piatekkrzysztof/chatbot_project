@@ -1,4 +1,4 @@
-# Cenniki i tabele w wyszukiwaniu - 2.25.0
+# Cenniki, tabele i sekcje w wyszukiwaniu - 2.25.0 i 2.26.0
 
 ## Co wyszło przy odbiorze 7.10.2026
 
@@ -98,3 +98,74 @@ W Test bota wszystkie trzy pytania dostały odpowiedź z cennika, każda ze
 45 zł”, złocenia płatkowym złotem za 60 zł, kwiaty jadalne - bratki, róże
 i chabry. Do 2.25.0 na pierwsze pytanie bot odpowiadał „nie posiadam
 informacji”. Dokumenty testowe cukierni właściciel potem usunął z Sm-art.
+
+## 2.26.0: sekcje w PDF i DOCX
+
+### Co wyszło 8.10.2026
+
+Test bota na trzystronicowej ofercie cateringu z PDF-a: 5 z 6 pytań dobrze,
+ale „Co jeśli odwołam przyjęcie 10 dni wcześniej?” - odmowa. Przyczyna nie
+w modelu ani w progu, tylko w podziale: **cały PDF dał trzy fragmenty, po
+jednym na stronę**. Podział szukał granic sekcji po pustych liniach, a tekst
+z PDF-a i DOCX-a ich nie ma - akapity są oddzielone pojedynczym znakiem nowej
+linii. Fragment trzeciej strony mieszał anulowanie, płatność i kontakt
+i leżał od pytania o 1,02 przy progu 0,96.
+
+Ten sam błąd dotyczył każdego pliku, w którym treść zaczyna się w linii zaraz
+pod nagłówkiem - także TXT. Dokument demo „Zakres serwisu i naprawy” dawał
+jeden fragment zamiast pięciu sekcji.
+
+Przy okazji: dopasowanie po słowach wymagało od fragmentu słów „jeśli”
+i „wcześniej” - teraz są na liście słów pomocniczych.
+
+### Co zmienia 2.26.0
+
+Przed podziałem linia, która wygląda na nagłówek, dostaje puste linie wokół
+siebie. Warunki, wszystkie naraz:
+
+- krótka (do 80 znaków), bez kresek tabeli, wielka litera albo numer
+  („3. Dowóz”);
+- **poprzednia** linia kończy zdanie - odsiewa komórki tabel z PDF-a
+  („Bufet Premium” po „przekąski”) i wiersze łamane w połowie zdania;
+- **następna** zaczyna się wielką literą, cyfrą albo wypunktowaniem.
+
+O tym, czy linia naprawdę zostanie nagłówkiem, nadal decyduje dotychczasowa
+reguła (bez kropki, co najmniej 60 znaków treści pod spodem). Znaki sterujące
+z ekstrakcji PDF-a (wypunktowanie odczytane jako ``) są usuwane - trafiały
+do treści fragmentu i do podglądu w panelu.
+
+### Pomiar
+
+Pięć dokumentów (DOCX z tabelą, dwa TXT, dwa PDF), prawdziwy podział,
+embeddingi i wyszukiwanie, 22 pytania o treść i 8 spoza niej:
+
+| | Fragmentów | Trafione | Cisza |
+|---|---:|---:|---:|
+| 2.25.0 | 19 | 17 z 22 | 7 z 8 |
+| **2.26.0** | 30 | **22 z 22** | **7 z 8** |
+
+Naprawione: minimalna kwota z dowozem, zmiana smaku, reklamacja (regulamin
+PDF), odwołanie i anulowanie przyjęcia (oferta PDF). Wzorzec `ocen_rag` bez
+zmian (90,9% / 75,0%). Podział dokumentu o 2 mln znaków: 0,09 s.
+
+### Uwaga o treści dokumentów
+
+Z właściwym fragmentem w prompcie model 3 razy na 3 odpowiedział na pytanie
+o odwołanie na 10 dni przed „zwrócimy całą zaliczkę”, a poprawnie jest
+połowa. Winny był tekst testowy: „Anulowanie **do** 14 dni przed przyjęciem”
+da się czytać na dwa sposoby. Bot czyta dokument dosłownie - niejednoznaczny
+regulamin klienta da niejednoznaczną odpowiedź. Warto o tym mówić klientom
+przy wdrożeniu.
+
+### Wdrożenie
+
+Bez migracji. Po wdrożeniu znowu przeliczenie, **najpierw na sucho**:
+
+```sh
+python manage.py przelicz_fragmenty
+```
+
+Dokumenty z PDF-a i DOCX-a dostaną więcej fragmentów. Jeśli przy jakiejś
+firmie liczba skoczy nienaturalnie (np. kilkukrotnie przy stronach WWW),
+zatrzymaj się i wklej wynik - to sygnał, że strona sprzedażowa ma linie,
+które heurystyka bierze za nagłówki. Potem `--wykonaj`.

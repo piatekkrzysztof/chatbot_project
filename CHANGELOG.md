@@ -16,6 +16,22 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.26.0] - 2026-10-08
+
+### Fixed
+
+- **The bot finds answers in PDF and Word documents section by section.**
+  Text taken from PDF and Word files has no empty lines between paragraphs,
+  and the bot used empty lines to tell where one topic ends and the next
+  begins. A three-page PDF offer became three pieces, one per page, each
+  mixing two or three topics - and a question about cancelling an order
+  missed the page that answered it. Section headings are now recognised
+  without empty lines, carefully enough that cells of a PDF table are not
+  mistaken for them. Measured on five documents: 22 of 22 questions answered
+  from the documents instead of 17, with questions outside them still
+  refused as before. Existing documents need one recalculation after
+  deployment.
+
 ## [2.25.0] - 2026-10-08
 
 ### Fixed
