@@ -1,6 +1,6 @@
 # Roadmapa napraw po audycie SaaS
 
-## Wyszukiwanie cenników — 2.25.0 przygotowane 8.10.2026
+## Wyszukiwanie cenników — 2.25.0 odebrane 8.10.2026
 
 Odbiór 7.10 na Sm-art: bot nie znał ceny z cennika w DOCX, choć wiersz był
 w podglądzie fragmentów. Cała tabela była jednym fragmentem, o 0,98 od pytania
@@ -8,6 +8,8 @@ przy progu 0,96. 2.25.0: wiersze tabel jako osobne fragmenty i dopasowanie po
 słowach tematu pytania. Pomiar: 8 z 8 pytań o pozycje zamiast 4, cisza bez
 zmian, wzorzec `ocen_rag` bez zmian. Po wdrożeniu: `przelicz_fragmenty
 --wykonaj`. [Opis i pomiar](cenniki-w-wyszukiwaniu.md).
+**Odebrane na produkcji 8.10:** figurka 45 zł, złocenia 60 zł, kwiaty
+jadalne z cennika - wszystkie ze źródłem w DOCX.
 
 ## Pojemność HTTP — 2.23.0 i 2.24.0 odebrane 7.10.2026
 

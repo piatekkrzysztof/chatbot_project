@@ -91,3 +91,10 @@ Dopasowanie po słowach działa od razu po wdrożeniu, bez przeliczania.
 Odbiór: na Sm-art pytania „Ile kosztuje figurka z masy cukrowej?”, „Macie
 złocenia?”, „Jakie kwiaty jadalne macie?” - odpowiedzi z ceną albo treścią
 z cennika.
+
+**Odebrane na produkcji 8.10.2026.** 2.25.0 wdrożone, fragmenty przeliczone.
+W Test bota wszystkie trzy pytania dostały odpowiedź z cennika, każda ze
+źródłem `cennik-dekoracji-test1.docx`: „Figurka z masy cukrowej kosztuje
+45 zł”, złocenia płatkowym złotem za 60 zł, kwiaty jadalne - bratki, róże
+i chabry. Do 2.25.0 na pierwsze pytanie bot odpowiadał „nie posiadam
+informacji”. Dokumenty testowe cukierni właściciel potem usunął z Sm-art.
