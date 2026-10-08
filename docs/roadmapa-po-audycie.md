@@ -1,5 +1,16 @@
 # Roadmapa napraw po audycie SaaS
 
+## Model czatu — 2.27.0 przygotowane 8.10.2026
+
+Po 2.26.0 wyszukiwanie znalazło fragment o anulowaniu, ale gpt-4o-mini
+odpowiadał „cała zaliczka” zamiast „połowa” (0 na 5). Pomiar 9 modeli na
+dokumentach testowych i bramce `ocen_generowanie`: **gpt-6-luna
+z `reasoning_effort=medium`** - zero błędów wnioskowania (gpt-4o-mini 3 z 12),
+fakty i odmowy bez różnic, koszt wiadomości ~1/5 niższy, pierwsze słowa
+p95 ~2,6 s zamiast 0,9 s. 2.27.0 dodaje `OPENAI_REASONING_EFFORT` i rozszerza
+`sprawdz_model`; przełączenie to trzy zmienne w Renderze.
+[Pomiar, decyzja i kroki](wybor-modelu.md).
+
 ## Sekcje w PDF i DOCX — 2.26.0 przygotowane 8.10.2026
 
 Test bota na ofercie z PDF-a: odmowa przy pytaniu o anulowanie, bo cały PDF
