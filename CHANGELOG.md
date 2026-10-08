@@ -16,6 +16,21 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-10-08
+
+### Fixed
+
+- **The bot finds a single item in a price list.** A price list in a table
+  went into the search as one piece, and a question about one item ("how much
+  is the sugar figurine?") was too far from a piece about eight items at
+  once - the bot said it had no information, although the price was in the
+  document. Each table row now also becomes its own searchable piece, with the
+  table header, and a piece that contains all the topic words of the question
+  is found even when the similarity search alone would miss it. Measured on a
+  price list: 8 of 8 item questions answered instead of 4, with questions
+  outside the knowledge base still refused as before. Existing documents need
+  one recalculation after deployment.
+
 ## [2.24.1] - 2026-10-07
 
 ### Fixed
