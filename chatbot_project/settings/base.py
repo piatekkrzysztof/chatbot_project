@@ -279,6 +279,14 @@ OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 # naraz. Sprawdź `manage.py sprawdz_model` przed podmianą.
 _temperatura = os.getenv("OPENAI_TEMPERATURE", "0.2").strip()
 OPENAI_TEMPERATURE = float(_temperatura) if _temperatura else None
+
+# Ile model ma „myśleć" przed odpowiedzią (none / low / medium / high) - tylko
+# modele z rozumowaniem. Pusta wartość: parametr nie jest wysyłany, bo
+# gpt-4o-mini odrzuca go błędem 400 tak samo, jak gpt-6-luna temperaturę.
+# Pomiar 8.10.2026 na gpt-6-luna (docs/wybor-modelu.md): medium i high bez
+# błędów wnioskowania, low raz na trzy próby źle policzył rabat, a pierwsze
+# słowa odpowiedzi przy medium w p95 2,6 s.
+OPENAI_REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", "").strip() or None
 OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
 # Ile ostatnich wiadomości konwersacji trafia do modelu jako kontekst
