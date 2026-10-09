@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.30.0] - 2026-10-09
+
+### Added
+
+- **A safe way to switch off two-step login for someone who lost their
+  phone and their backup codes.** Until now the only way was a manual change
+  in the database: it left the person's other sessions logged in, left no
+  trace, and did not tell the account owner. The new operator command does all
+  of it in one step - removes the second step and backup codes, logs out every
+  session, records who did it and on what basis, and emails the person a
+  warning to act if they did not ask for it. The written procedure, with the
+  identity checks to do first, is ready for the owner's approval.
+
 ## [2.29.0] - 2026-10-09
 
 ### Added
