@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-10-08
+
+### Fixed
+
+- **An empty answer from the model is handled as a failure, not shown as an
+  empty bubble.** The newer model thinks before it answers, and that thinking
+  counts toward the answer length limit. When a hard question used it all up,
+  the answer came back empty: the chat window showed an empty bubble and
+  nothing was logged, and the non-streaming path counted the message against
+  the customer's plan before failing on the empty text. The visitor now sees
+  the usual "try again later" message, the message is not counted, and the
+  event is logged as an error so we can see how often it happens.
+
 ## [2.27.0] - 2026-10-08
 
 ### Added

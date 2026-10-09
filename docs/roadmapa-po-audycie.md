@@ -1,5 +1,13 @@
 # Roadmapa napraw po audycie SaaS
 
+## Pusta odpowiedź modelu — 2.28.0 przygotowane 8.10.2026
+
+Po przejściu na gpt-6-luna: rozumowanie liczy się do limitu tokenów, więc
+trudne pytanie może dać pustą odpowiedź. Do 2.28.0 widget pokazywał pusty
+dymek bez śladu w logu, a ścieżka bez strumienia naliczała wiadomość i padała
+na pustej treści. Teraz: komunikat awaryjny, bez naliczenia, błąd „Pusta
+odpowiedź modelu” w logu i Sentry. [Opis](wybor-modelu.md#ryzyka-do-obserwacji).
+
 ## Model czatu — 2.27.0 odebrane 8.10.2026, produkcja na gpt-6-luna
 
 Po 2.26.0 wyszukiwanie znalazło fragment o anulowaniu, ale gpt-4o-mini
