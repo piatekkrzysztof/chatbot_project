@@ -32,6 +32,29 @@ logger = logging.getLogger(__name__)
 FALLBACK_MESSAGE = "Wystąpił błąd po stronie modelu. Spróbuj ponownie później."
 
 
+class PustaOdpowiedzModelu(Exception):
+    """Model zakończył odpowiedź bez ani jednego znaku treści."""
+
+
+def zglos_pusta_odpowiedz(model, tokeny_wyjscia):
+    """
+    Pusta odpowiedź to awaria, nie odpowiedź - i ma zostawić ślad.
+
+    Modele z rozumowaniem (produkcja od 8.10.2026: gpt-6-luna) liczą myślenie
+    do limitu OPENAI_MAX_OUTPUT_TOKENS. Gdy myślenie go zje, odpowiedź przychodzi
+    bez treści i z poprawnym kodem HTTP. Do 2.28.0 widget pokazywał wtedy pusty
+    dymek, a ścieżka bez strumienia najpierw naliczała wiadomość, potem padała
+    na pustej treści. Poziom ERROR, żeby Sentry zrobił z tego zdarzenie: częste
+    puste odpowiedzi znaczą, że limit albo reasoning_effort trzeba zmienić.
+    """
+    logger.error(
+        "Pusta odpowiedź modelu %s (tokeny wyjścia: %s) - rozumowanie mogło zużyć "
+        "limit OPENAI_MAX_OUTPUT_TOKENS",
+        model,
+        tokeny_wyjscia,
+    )
+
+
 def get_client(tenant=None):
     api_key = tenant.openai_api_key if tenant and tenant.openai_api_key else settings.OPENAI_API_KEY
     return OpenAI(api_key=api_key, timeout=settings.CHAT_OPENAI_TIMEOUT_SECONDS, max_retries=0)
@@ -334,6 +357,9 @@ def process_chat_message(tenant, conversation, message_text, on_billable=None):
         tokens = gpt_response["tokens"]
         tokeny_wejscia = gpt_response.get("tokeny_wejscia")
         tokeny_wyjscia = gpt_response.get("tokeny_wyjscia")
+        if not (response_text or "").strip():
+            zglos_pusta_odpowiedz(model, tokeny_wyjscia)
+            raise PustaOdpowiedzModelu()
     except Exception:
         response_text = FALLBACK_MESSAGE
         tokens = 0
@@ -465,9 +491,19 @@ def _stream_chat_message(tenant, conversation, message_text, on_billable=None):
 
         reszta = "" if awaria or usunieta else obcinacz.zakoncz()
         if reszta:
-            charge()
+            # Bufor znacznika trzyma wszystko do pierwszej treści, więc same
+            # białe znaki wychodzą dopiero tutaj - i nie są odpowiedzią do
+            # naliczenia. W pętli wyżej taki kawałek nie występuje.
+            if reszta.strip():
+                charge()
             pieces.append(reszta)
             yield _sse({"type": "delta", "content": reszta})
+        # Dopiero po zakoncz(): krótka odpowiedź („OK") siedzi w buforze
+        # znacznika aż do końca i nie jest pusta.
+        if not "".join(pieces).strip() and not usunieta:
+            zglos_pusta_odpowiedz(model, tokeny_wyjscia)
+            pieces.append(FALLBACK_MESSAGE)
+            yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
     finally:
         if stream is not None:
             close = getattr(stream, "close", None)
