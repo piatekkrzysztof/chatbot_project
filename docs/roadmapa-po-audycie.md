@@ -229,6 +229,11 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
    (F19), pierwsze kroki i stan zakupu (F22), prawdziwy token Turnstile (F23).
    Produkcyjny web ma TRUSTED_PROXY_DEPTH=2; pozostaje test rzeczywistego IP
    i odporności na nagłówek klienta. Nie uznawać odczytu ustawienia za ten test.
+   **Narzędzie gotowe 9.10:** `python narzedzia/test_adresu_ip.py ADRES-BACKENDU
+   ADRES-PANELU` - loguje się na konto testowe, sprawdza trzy podrobione
+   nagłówki X-Forwarded-For i porównuje rozpoznany adres. Sprawdzone lokalnie
+   w obie strony: przy poprawnej głębokości „podrabianie nie działa”, przy
+   celowo za dużej (1 bez proxy) - „NIE ZALICZONE”, kod wyjścia 1.
 5. ~~**Zaproszenia.**~~ **Zamknięte 5.10.2026.** Backend 2.20.0 (#119)
    i panel #36 wdrożone, właściciel odebrał na produkcji wszystkie cztery
    kroki z [kontraktu](rejestracja-i-zaproszenia.md#dwa-klucze-zaproszenia-2200):
