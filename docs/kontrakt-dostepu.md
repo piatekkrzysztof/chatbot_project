@@ -8,7 +8,8 @@ Stan na 15.09.2026, wersja 2.6.1. Pierwsza część odbioru komercyjnego z
 Dotychczasowe testy granic (`api/tests/test_access_boundaries.py`) sprawdzały
 wybrane końcówki. Luka w końcówce spoza tej listy przechodziła przez zielony
 zestaw testów. Teraz każda trasa `/api/` i każda jej metoda ma zapisaną politykę
-w `api/tests/test_kontrakt_dostepu.py`, a nowa końcówka bez wpisu zatrzymuje CI.
+w `api/kontrakt_dostepu.py`, test `api/tests/test_kontrakt_dostepu.py` sprawdza
+ją prawdziwymi żądaniami, a nowa końcówka bez wpisu zatrzymuje CI.
 
 ## Polityki
 
@@ -20,7 +21,9 @@ w `api/tests/test_kontrakt_dostepu.py`, a nowa końcówka bez wpisu zatrzymuje C
 | pracownik | właściciel i pracownik | zmiany wiedzy i ustawień, eksport i import CSV, czat panelu, usunięcie rozmowy na żądanie, lista zespołu |
 | właściciel | tylko właściciel | zmiany zespołu i zaproszenia, dane firmy i do faktury, dziennik, płatności |
 
-Pełna lista tras jest w słowniku `KONTRAKT` w teście.
+Pełna lista tras jest w słowniku `KONTRAKT` w `api/kontrakt_dostepu.py`
+(do 2.29.0 w pliku testu). Czytelna tabela „kto co może”, generowana z tego
+słownika: [macierz-dostepu.md](macierz-dostepu.md).
 
 ## Co sprawdza test
 
