@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.29.0] - 2026-10-09
+
+### Added
+
+- **A readable table of who can do what in the API.** Every one of the 97
+  operations, with five kinds of caller side by side: anonymous, the public
+  widget key alone, and the three team roles. It is generated from the same
+  access contract that the test suite checks with real requests, and a test
+  fails if the table is out of date - so it cannot drift from what the server
+  actually allows. Useful for customer security questionnaires and audits.
+
 ## [2.28.0] - 2026-10-08
 
 ### Fixed
