@@ -107,7 +107,9 @@ class TestEksportu:
         odpowiedz = klient(tenant, wlasciciel).get("/api/chat/export/")
         pierwszy = next(iter(odpowiedz.streaming_content))
         reszta = b"".join(odpowiedz.streaming_content)
-        wiersze = list(csv.reader(io.StringIO((pierwszy + reszta).decode("utf-8").lstrip("﻿"))))
+        wiersze = list(
+            csv.reader(io.StringIO((pierwszy + reszta).decode("utf-8").lstrip("﻿")), delimiter=";")
+        )
 
         assert pierwszy.startswith(b"\xef\xbb\xbf")
         assert wiersze[0][:3] == ["conversation_id", "prompt", "response"]

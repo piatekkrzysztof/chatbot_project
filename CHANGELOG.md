@@ -16,6 +16,25 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.31.0] - 2026-10-10
+
+### Changed
+
+- **The conversation export opens in Excel as a proper table.** The file now
+  separates columns with a semicolon, which is what Excel expects on Polish
+  Windows. Before, double-clicking the file put every row into the first
+  column. Polish letters and the protection against formulas stay as they
+  were. A script that reads the export itself needs to switch to the
+  semicolon.
+
+### Fixed
+
+- **History saved from Excel can be uploaded.** Excel on Polish Windows saves
+  "CSV UTF-8" with semicolons, and the upload rejected such a file as missing
+  the prompt and response columns. The upload now accepts both semicolons and
+  commas, so a file from Excel, from Google Sheets and our own export all go
+  in.
+
 ## [2.30.0] - 2026-10-09
 
 ### Added
