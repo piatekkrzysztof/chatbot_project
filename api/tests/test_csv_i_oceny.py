@@ -42,7 +42,7 @@ def tresc(odpowiedz):
 
 
 def komorki(odpowiedz):
-    return list(csv.reader(io.StringIO(tresc(odpowiedz).decode("utf-8").lstrip("﻿"))))
+    return list(csv.reader(io.StringIO(tresc(odpowiedz).decode("utf-8").lstrip("﻿")), delimiter=";"))
 
 
 def log(tenant, prompt="Pytanie", response="Odpowiedź", **pola):
@@ -82,6 +82,14 @@ class TestEksportu:
     def test_bom_dla_excela(self, wlasciciel, tenant):
         log(tenant, prompt="Zażółć gęślą jaźń")
         assert tresc(wlasciciel.get(EKSPORT)).startswith(b"\xef\xbb\xbf")
+
+    def test_srednik_dla_polskiego_excela(self, wlasciciel, tenant):
+        # Excel otwarty dwuklikiem dzieli kolumny separatorem listy z ustawień
+        # regionalnych - w Polsce średnikiem. Z przecinkami cały wiersz trafiał
+        # do kolumny A.
+        log(tenant)
+        pierwsza = tresc(wlasciciel.get(EKSPORT)).decode("utf-8").split("\r\n")[0]
+        assert pierwsza == "﻿conversation_id;prompt;response;tokens;source;model;created_at"
 
     def test_wpis_po_retencji_rozmowy_nie_psuje_eksportu(self, wlasciciel, tenant):
         # Rozmowa skasowana w ramach retencji zostawia wpis z conversation=None.
@@ -168,6 +176,41 @@ class TestImportu:
         assert odpowiedz.status_code == 201
         assert odpowiedz.data["imported"] == 2
         assert set(PromptLog.objects.values_list("source", flat=True)) == {"imported"}
+
+    def test_plik_z_polskiego_excela_ze_srednikami(self, wlasciciel, tenant):
+        # Polski Excel zapisuje „CSV UTF-8” ze średnikiem (separator listy
+        # z ustawień regionalnych) i bierze w cudzysłów pole ze średnikiem.
+        # Na starym kodzie: 400 „musi mieć kolumny prompt i response”.
+        tresc = (
+            "﻿prompt;response\r\n"
+            'Ile kosztuje strona, a ile sklep?;"Strona od 2000 zł; sklep wyceniamy osobno."\r\n'
+            "Czy robicie logo?;Tak\r\n"
+        )
+        odpowiedz = wlasciciel.post(IMPORT, {"file": plik(tresc)}, format="multipart")
+        assert odpowiedz.status_code == 201
+        assert odpowiedz.data["imported"] == 2
+        assert set(PromptLog.objects.values_list("prompt", "response")) == {
+            ("Ile kosztuje strona, a ile sklep?", "Strona od 2000 zł; sklep wyceniamy osobno."),
+            ("Czy robicie logo?", "Tak"),
+        }
+
+    def test_plik_z_przecinkami_nadal_dziala(self, wlasciciel, tenant):
+        # Arkusze Google i eksporty sprzed 2.31.0. Średnik w treści nie myli
+        # rozpoznania - liczy się nagłówek.
+        tresc = 'prompt,response\nCzy jest parking?,"Tak; od ulicy; za sklepem; bezpłatny"\n'
+        odpowiedz = wlasciciel.post(IMPORT, {"file": plik(tresc)}, format="multipart")
+        assert odpowiedz.status_code == 201
+        assert PromptLog.objects.get().response == "Tak; od ulicy; za sklepem; bezpłatny"
+
+    def test_eksport_wraca_importem(self, wlasciciel, tenant):
+        # Para eksport-import: nowy separator nie może zepsuć wgrania
+        # własnego eksportu.
+        log(tenant, prompt="Cena, termin; dostawa?", response="Do 3 dni; gratis, od 200 zł")
+        eksport = tresc(wlasciciel.get(EKSPORT))
+        PromptLog.objects.all().delete()
+        odpowiedz = wlasciciel.post(IMPORT, {"file": plik(eksport)}, format="multipart")
+        assert odpowiedz.status_code == 201
+        assert PromptLog.objects.get().response == "Do 3 dni; gratis, od 200 zł"
 
     def test_zaimportowana_historia_nie_jest_ruchem_klientow(self, wlasciciel, tenant):
         # Na starym kodzie import zawyżał pulpit i trafiał do eksportu jak

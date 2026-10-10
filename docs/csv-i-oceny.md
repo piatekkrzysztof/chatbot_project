@@ -119,11 +119,36 @@ uploady, retencja, role): 167 passed. Frontend: `tsc`, `eslint`, `vitest`
 Zmienione oczekiwania istniejących testów: testy oceny z panelu używają rozmów
 testowych, testy oceny z widgetu wysyłają sesję rozmowy.
 
+## Separator: średnik w eksporcie, oba w imporcie (2.31.0)
+
+Przygotowanie odbioru 2D (10.10.2026) pokazało dwie rzeczy, których nie
+łapały testy - sprawdzały plik programem, nie Excelem:
+
+- **Eksport** z przecinkami: Excel otwarty dwuklikiem dzieli kolumny
+  separatorem listy z ustawień regionalnych, a w Polsce jest nim średnik
+  (przecinek jest separatorem dziesiętnym). Cały wiersz lądował w kolumnie A.
+  BOM naprawiał litery, nie kolumny. Linia `sep=,` na początku pliku nie
+  pomaga - przy niej Excel pomija BOM i wracają krzaczki.
+- **Import** znał tylko przecinek, a polski Excel zapisuje „CSV UTF-8”
+  ze średnikiem: plik z Excela odpadał z „brak kolumn prompt i response”.
+
+Teraz eksport (API i panel administracyjny, wspólny `chat/eksport_csv.py`)
+pisze średnik, a import rozpoznaje separator po nagłówku (`_separator`
+w `api/views/chat_csv.py`): więcej średników niż przecinków - średnik.
+Tylko nagłówek, bo treść rozmów jest pełna obu znaków; `csv.Sniffer`
+zgadywałby też z niej.
+
+Testy: nagłówek eksportu ze średnikiem, plik z polskiego Excela (BOM, CRLF,
+średnik w cudzysłowie), plik z przecinkami ze średnikami w treści, eksport
+wgrany z powrotem importem. Dwa pierwsze czerwienieją na kodzie sprzed
+zmiany. Mutacje: zawsze średnik, zawsze przecinek, liczenie w całym pliku
+zamiast w nagłówku - każda czerwieni test.
+
 ## Co sprawdzić po wdrożeniu
 
 1. Widget: kciuk przy odpowiedzi zapisuje ocenę (panel, logi rozmów, filtr
    „pomocne").
-2. Eksport CSV otwarty w Excelu: polskie litery poprawne; wiadomość
-   zaczynająca się od `=` widoczna jako tekst.
+2. Eksport CSV otwarty w Excelu dwuklikiem: kolumny rozdzielone, polskie
+   litery poprawne; wiadomość zaczynająca się od `=` widoczna jako tekst.
 3. Import próbnego pliku z Excela („CSV UTF-8"): liczba zaimportowanych
    wierszy zgodna z plikiem; pulpit bez zmian w liczbie rozmów.
