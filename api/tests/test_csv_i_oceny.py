@@ -183,7 +183,7 @@ class TestImportu:
         # Na starym kodzie: 400 „musi mieć kolumny prompt i response”.
         tresc = (
             "﻿prompt;response\r\n"
-            "Ile kosztuje strona, a ile sklep?;\"Strona od 2000 zł; sklep wyceniamy osobno.\"\r\n"
+            'Ile kosztuje strona, a ile sklep?;"Strona od 2000 zł; sklep wyceniamy osobno."\r\n'
             "Czy robicie logo?;Tak\r\n"
         )
         odpowiedz = wlasciciel.post(IMPORT, {"file": plik(tresc)}, format="multipart")
