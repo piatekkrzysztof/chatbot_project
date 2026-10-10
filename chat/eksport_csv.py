@@ -14,6 +14,12 @@ apostrof. Arkusz pokazuje ją jako tekst, a treść zostaje czytelna.
 BOM na początku pliku: Excel na polskim Windowsie otwiera CSV bez BOM jako
 Windows-1250 i zamienia polskie litery w krzaczki.
 
+Średnik, nie przecinek (2.31.0): Excel otwarty dwuklikiem dzieli kolumny
+separatorem listy z ustawień regionalnych, a w Polsce jest nim średnik
+(przecinek to separator dziesiętny). Plik z przecinkami lądował cały
+w kolumnie A. Linia `sep=,` nie jest wyjściem - przy niej Excel pomija BOM
+i wracają krzaczki. Import przyjmuje oba separatory (api/views/chat_csv.py).
+
 Strumień (F16): eksport wysyła plik wiersz po wierszu. Wcześniej `HttpResponse`
 zbierał całą historię rozmów firmy w pamięci procesu, zanim wysłał pierwszy
 bajt - przy dużej historii to setki megabajtów na jedno żądanie.
@@ -25,6 +31,7 @@ from django.http import StreamingHttpResponse
 
 ZNAKI_FORMUL = ("=", "+", "-", "@", "\t", "\r")
 BOM = "﻿"
+SEPARATOR = ";"
 
 
 def bezpieczna_komorka(wartosc):
@@ -42,7 +49,7 @@ class _Wiersz:
 
 
 def _linie(naglowek, wiersze):
-    pisarz = csv.writer(_Wiersz())
+    pisarz = csv.writer(_Wiersz(), delimiter=SEPARATOR)
     yield BOM + pisarz.writerow(naglowek)
     for wiersz in wiersze:
         yield pisarz.writerow([bezpieczna_komorka(wartosc) for wartosc in wiersz])

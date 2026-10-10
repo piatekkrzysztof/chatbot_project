@@ -71,6 +71,21 @@ class BladImportu(Exception):
     pass
 
 
+def _separator(tekst):
+    """
+    Średnik albo przecinek - według pierwszego wiersza (nagłówka).
+
+    Polski Excel zapisuje „CSV UTF-8” ze średnikiem (separator listy
+    z ustawień regionalnych), a nasz eksport od 2.31.0 też go używa. Arkusze
+    Google i starsze eksporty piszą przecinek. Wcześniej import znał tylko
+    przecinek: plik z Excela odpadał z „brak kolumn prompt i response”.
+    Nagłówek to nazwy kolumn, więc liczenie znaków wystarcza - `csv.Sniffer`
+    zgaduje też z treści rozmów, pełnej przecinków i średników.
+    """
+    naglowek = tekst.split("\n", 1)[0]
+    return ";" if naglowek.count(";") > naglowek.count(",") else ","
+
+
 def _wczytaj_wiersze(plik):
     """Całość pliku albo BladImportu - nigdy część."""
     try:
@@ -78,7 +93,7 @@ def _wczytaj_wiersze(plik):
     except UnicodeDecodeError:
         raise BladImportu("Plik CSV musi być zapisany w kodowaniu UTF-8.") from None
 
-    czytnik = csv.DictReader(io.StringIO(tekst, newline=""))
+    czytnik = csv.DictReader(io.StringIO(tekst, newline=""), delimiter=_separator(tekst))
     try:
         kolumny = set(czytnik.fieldnames or [])
         if not WYMAGANE_KOLUMNY <= kolumny:
@@ -101,7 +116,8 @@ def _wczytaj_wiersze(plik):
     tags=["Panel — czat"],
     summary="Wgraj historię rozmów z pliku CSV",
     description=(
-        "Plik w UTF-8 z kolumnami `prompt` i `response`. Zapisuje wszystkie wiersze albo "
+        "Plik w UTF-8 z kolumnami `prompt` i `response`, rozdzielany średnikiem albo "
+        "przecinkiem (rozpoznawane po nagłówku). Zapisuje wszystkie wiersze albo "
         "żaden. Zaimportowane wpisy nie wchodzą do statystyk ruchu klientów."
     ),
     request={
