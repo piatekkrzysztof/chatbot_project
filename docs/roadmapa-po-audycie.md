@@ -212,9 +212,12 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
 
 1. **Dowody A04 - zebrane 5.10, poza jednym.** Alarm nr 22 doszedł na obie
    skrzynki; UptimeRobot wykrywa awarię i powrót na osobnym monitorze testowym;
-   najnowsza kopia produkcji z 17.09, kolejna miesięczna około 17.10. Zostaje
-   osobna próba zatrzymania Beat - protokół zabrania jej na produkcji, więc
-   czeka na decyzję o środowisku testowym.
+   najnowsza kopia produkcji z 17.09, kolejna miesięczna około 17.10.
+   **11.10.2026: próba zatrzymania Beat i workera zaliczona** w izolowanym
+   środowisku lokalnym ([wyniki](odbior-a04-beat-2026-10-11.md)): wykrycie po
+   ok. 180 s przy HTTP 200, zaległe wiadomości nie odnawiają zdrowia. Zostaje
+   wykrycie rzeczywistego braku frazy przez UptimeRobot na celu testowym
+   (właściciel, razem ze stroną statusu).
 2. ~~**Płatności A01/A02.**~~ **Zamknięte 11.10.2026** (2.31.1, #143, [wyniki](odbior-a01-a02-2026-10-11.md)): wyścigi A01 na prawdziwym Stripe, prawdziwy transport webhooków przez Stripe CLI z osobnym web, workerem i Beatem, pominięty webhook i utracone anulowanie naprawione przez harmonogram, ekran powrotu w panelu. Dwie usterki z odbioru poprawione (komunikat przy zapłacie w trakcie zmiany planu; 409 zamiast 500 dla konkurujących webhooków - fałszywe alarmy Sentry). Alarm doręczony z produkcji na obie skrzynki właściciela (11.10.2026, 16:43). Wcześniej: próby Stripe test mode z #118 pozostają zaliczone.
    Do wykonania tylko otwarte punkty [protokołu](odbior-a01-a02-2026-10-02.md):
    transport webhooków, rzeczywisty worker/Beat, alarm Stripe, panel oraz
@@ -265,8 +268,17 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
 7. **Decyzje właściciela.** ~~Gunicorn na produkcji bez wątków~~ - rozstrzygnięte
    7.10.2026: profil gthread z 2.23.0 wdrożony, 2.24.0 podnosi limit po
    pomiarze. Większa instancja dopiero wtedy, gdy alarm odmów z braku miejsca
-   zacznie przychodzić regularnie. Cele SLO/SLA, zakres i budżet testu obciążenia
-   oraz środowisko testowe. Kopia miesięczna ręczna i obecne zasoby pozostają
+   zacznie przychodzić regularnie. **11.10.2026 rozstrzygnięte wszystkie
+   pozostałe decyzje** (21 pozycji, w każdej wariant rekomendowany):
+   cele SLO przyjęte jako wewnętrzne, bez liczbowego SLA dla klientów i ze
+   stroną statusu ([informowanie o awariach](informowanie-o-awariach.md));
+   środowisko testowe lokalne i izolowane jak przy odbiorze płatności, tam
+   też ostatnia próba A04; test obciążenia na produkcji małym profilem poza
+   godzinami, na koncie testowym, z limitem 20 zł na model; indeks wektorowy
+   HNSW przed sprzedażą; terminy, forma (PDF) i przegląd prawny umowy
+   powierzenia przed pierwszą sprzedażą; procedura utraty MFA obowiązuje
+   ([utrata-mfa.md](utrata-mfa.md)), reset MFA przez właściciela w panelu
+   i doba oczekiwania w poleceniu - do zrobienia. Kopia miesięczna ręczna i obecne zasoby pozostają
    przyjętym wariantem; płatny cron nie jest obowiązkową nową decyzją.
    [Wzór umowy powierzenia](umowa-powierzenia.md) nadal wymaga przeglądu prawnego
    i uzupełnienia decyzji wskazanych w dokumencie, w tym podstaw przekazywania

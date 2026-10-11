@@ -1,7 +1,8 @@
 # Utrata drugiego składnika (MFA) - procedura
 
-**Szkic z 9.10.2026, do akceptacji właściciela.** Miejsca oznaczone
-**DO DECYZJI** wymagają rozstrzygnięcia, zanim procedura zacznie obowiązywać.
+**Obowiązuje od 11.10.2026.** Szkic z 9.10.2026, decyzje właściciela
+z 11.10.2026 wpisane w miejsca dawnych pytań. Dwa elementy wymagają kodu
+i są oznaczone „od 2.32.0” - do tego czasu obowiązuje zasada podana obok.
 
 ## Dlaczego to ważne
 
@@ -31,11 +32,12 @@ ani żadnego kodu zapasowego**.
 Jeśli konto należy do zespołu, w którym jest **inny właściciel z działającym
 dostępem**, najprostsza i najbezpieczniejsza droga nie wymaga nas:
 
-**DO DECYZJI:** czy dajemy właścicielowi firmy możliwość zresetowania MFA
-osobie z jego zespołu w panelu? Dziś panel tego nie ma - zmiana roli
-i usunięcie osoby tak. Do tego czasu: właściciel może usunąć osobę z zespołu
-i zaprosić ją ponownie (nowe konto, bez MFA). Historia działań tej osoby
-zostaje w dzienniku pod starym kontem.
+**Decyzja 11.10.2026: właściciel resetuje MFA osobie ze swojego zespołu
+w panelu (od 2.32.0)**, w Zespole, potwierdzając to własnym hasłem i kodem.
+Osoba dostaje mail ostrzegawczy, jej sesje się kończą, a reset trafia do
+dziennika firmy. Do czasu wdrożenia: właściciel usuwa osobę z zespołu
+i zaprasza ją ponownie (nowe konto, bez MFA); historia działań zostaje
+w dzienniku pod starym kontem.
 
 ## Krok 2 - weryfikacja tożsamości przez obsługę
 
@@ -50,12 +52,16 @@ Gdy osoba jest jedynym właścicielem albo krok 1 nie wchodzi w grę.
    - potwierdzenie danych, których nie ma w samym koncie: kwota i data
      ostatniej płatności w Stripe, NIP z danych do faktury, nazwa domeny,
      na której działa widget.
-   **DO DECYZJI:** który z tych kanałów jest wymagany, a który wystarczający.
-3. **Czas oczekiwania.** **DO DECYZJI:** czy wyłączamy od razu po weryfikacji,
-   czy po np. 24 godzinach od zgłoszenia, z mailem „otrzymaliśmy prośbę
-   o wyłączenie MFA - jeśli to nie Ty, odpowiedz”. Opóźnienie daje
-   prawdziwemu właścicielowi czas na reakcję, gdy prosi ktoś inny, ale
-   wydłuża przestój dla prawdziwej osoby.
+   **Decyzja 11.10.2026: wymagane oddzwonienie** na numer z danych do
+   faktury. Tylko gdy firma nie ma numeru w danych do faktury - **kwota
+   i data ostatniej płatności w Stripe oraz NIP**, oba zgodne.
+3. **Czas oczekiwania - decyzja 11.10.2026: 24 godziny.** Po weryfikacji
+   wysyłamy na adres konta mail „otrzymaliśmy prośbę o wyłączenie
+   drugiego składnika - jeśli to nie Ty, odpowiedz” i wyłączamy dopiero
+   po upływie doby od tej wiadomości, jeśli nikt nie zaprotestował.
+   Od 2.32.0 pilnuje tego polecenie (`--zapowiedz`, potem `--wykonaj`
+   najwcześniej po 24 h); do tego czasu operator wysyła tę wiadomość sam
+   i odlicza dobę.
 4. **Odmowa**, gdy: zgłoszenie z innego adresu niż konta; dane z kroku 2 się
    nie zgadzają; zgłaszający naciska na pośpiech albo prosi o zmianę adresu
    e-mail konta przy okazji. Odmowę zapisujemy tak samo jak zgodę.
@@ -88,11 +94,14 @@ wtedy powiadom osobę innym kanałem.
    „Nie pamiętam hasła”) i od razu włącza MFA ponownie, z nowymi kodami.
 2. Sprawdzamy w dzienniku firmy, czy między zgłoszeniem a wyłączeniem nie
    było nietypowych działań na koncie.
-3. **DO DECYZJI:** gdzie trzymamy rejestr zgłoszeń (zgody i odmowy) poza
-   dziennikiem firmy - np. osobny arkusz z datą, kanałem i decyzją.
+3. **Rejestr zgłoszeń - decyzja 11.10.2026: prywatny arkusz właściciela**
+   (poza repozytorium): data zgłoszenia, adres konta, kanał weryfikacji,
+   decyzja (zgoda albo odmowa) i powód odmowy. Także odmowy, których nie ma
+   w dzienniku firmy.
 
 ## Czego ta procedura nie obejmuje
 
 - Utraty dostępu do **skrzynki e-mail** konta - to zmiana adresu konta,
-  osobny i trudniejszy przypadek (**DO DECYZJI**).
+  osobny i trudniejszy przypadek. **Decyzja 11.10.2026: na razie poza
+  procedurą**, rozpatrywane indywidualnie przez właściciela.
 - Konta **administratora platformy** (Django admin wymaga MFA osobno).
