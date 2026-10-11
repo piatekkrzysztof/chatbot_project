@@ -130,7 +130,7 @@ def test_webhook_i_powrot_z_checkout_maja_wspolna_blokade():
             with transaction.atomic():
                 Tenant.objects.select_for_update(nowait=True).get(pk=tenant.pk)
             assert synchronizuj_subskrypcje(inna, "sub_inna").is_active
-            assert webhook() == 500
+            assert webhook() == 409  # zajęta synchronizacja: ponowienie bez alarmu ERROR
             with pytest.raises(PlatnosciNiedostepne):
                 stan_zakupu(tenant, "cs_test_12345678")
             _kontroluj(tenant)

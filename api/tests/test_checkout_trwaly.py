@@ -168,12 +168,30 @@ def test_zaplata_w_trakcie_zmiany_planu_nie_tworzy_drugiej_sesji(tenant, provide
         provider.sesje[sid].update(status="complete", subscription="sub_paid")
         return provider.expire(sid)
 
+    # Odbiór A01 (11.10.2026, prawdziwy Stripe): wygaszenie opłaconej sesji
+    # odmawia z InvalidRequestError. Wcześniej klient dostawał ogólne „spróbuj
+    # ponownie” (400) i dopiero ponowienie mówiło, że płatność już przeszła.
     with (
         patch("stripe.checkout.Session.expire", side_effect=wyscig),
+        patch("stripe.Subscription.retrieve", return_value={"status": "active"}),
+        pytest.raises(CheckoutZakonczony),
+    ):
+        create_checkout_session(tenant, "grow")
+    assert len(provider.sesje) == 1
+
+
+@pytest.mark.django_db
+def test_odmowa_wygaszenia_otwartej_sesji_nie_jest_pomijana(tenant, provider):
+    """Straż: odczyt po odmowie nie może zamaskować innego problemu z wygaszeniem."""
+    create_checkout_session(tenant, "pro")
+    odmowa = stripe.InvalidRequestError("Inny powód odmowy", param="id")
+    with (
+        patch("stripe.checkout.Session.expire", side_effect=odmowa),
         pytest.raises(ValidationError),
     ):
         create_checkout_session(tenant, "grow")
     assert len(provider.sesje) == 1
+    assert next(iter(provider.sesje.values()))["status"] == "open"
 
 
 @pytest.mark.django_db
