@@ -265,8 +265,17 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
 7. **Decyzje właściciela.** ~~Gunicorn na produkcji bez wątków~~ - rozstrzygnięte
    7.10.2026: profil gthread z 2.23.0 wdrożony, 2.24.0 podnosi limit po
    pomiarze. Większa instancja dopiero wtedy, gdy alarm odmów z braku miejsca
-   zacznie przychodzić regularnie. Cele SLO/SLA, zakres i budżet testu obciążenia
-   oraz środowisko testowe. Kopia miesięczna ręczna i obecne zasoby pozostają
+   zacznie przychodzić regularnie. **11.10.2026 rozstrzygnięte wszystkie
+   pozostałe decyzje** (21 pozycji, w każdej wariant rekomendowany):
+   cele SLO przyjęte jako wewnętrzne, bez liczbowego SLA dla klientów i ze
+   stroną statusu ([informowanie o awariach](informowanie-o-awariach.md));
+   środowisko testowe lokalne i izolowane jak przy odbiorze płatności, tam
+   też ostatnia próba A04; test obciążenia na produkcji małym profilem poza
+   godzinami, na koncie testowym, z limitem 20 zł na model; indeks wektorowy
+   HNSW przed sprzedażą; terminy, forma (PDF) i przegląd prawny umowy
+   powierzenia przed pierwszą sprzedażą; procedura utraty MFA obowiązuje
+   ([utrata-mfa.md](utrata-mfa.md)), reset MFA przez właściciela w panelu
+   i doba oczekiwania w poleceniu - do zrobienia. Kopia miesięczna ręczna i obecne zasoby pozostają
    przyjętym wariantem; płatny cron nie jest obowiązkową nową decyzją.
    [Wzór umowy powierzenia](umowa-powierzenia.md) nadal wymaga przeglądu prawnego
    i uzupełnienia decyzji wskazanych w dokumencie, w tym podstaw przekazywania
