@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.31.2] - 2026-10-11
+
+### Security
+
+- **The server runs on a current Python release.** Production was set to
+  Python 3.11.1 from December 2022 and missed almost four years of security
+  fixes in the language itself, among them fixes in the URL parsing that
+  protects website imports from reaching internal addresses. Tests were
+  already running on the current release, so the change is covered. Nothing
+  changes for customers.
+
 ## [2.31.1] - 2026-10-11
 
 ### Fixed
