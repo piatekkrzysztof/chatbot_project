@@ -21,8 +21,13 @@ services:
     # synchronicznym kilka równoczesnych rozmów zablokowałoby cały serwer.
     startCommand: "gunicorn --config python:chatbot_project.gunicorn_config"
     envVars:
+      # Do 11.10.2026 było 3.11.1 (grudzień 2022): bez kilku lat poprawek
+      # bezpieczeństwa CPythona, m.in. urllib.parse (ochrona SSRF importu stron),
+      # ssl i email - podczas gdy CI testował na najnowszej 3.11. Wersję na
+      # produkcji ustawia PYTHON_VERSION w panelu Rendera (usługi nie są
+      # synchronizowane z tym plikiem). Zgodność pilnuje test_wersja_pythona.
       - key: PYTHON_VERSION
-        value: 3.11.1
+        value: 3.11.17
       - key: WEB_CONCURRENCY
         value: 1
       - key: REDIS_URL
@@ -116,7 +121,7 @@ services:
     startCommand: "celery -A chatbot_project worker --beat --loglevel=info --concurrency=1"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.1
+        value: 3.11.17
       - key: REDIS_URL
         fromService:
           name: chatbot-redis
