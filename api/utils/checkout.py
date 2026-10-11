@@ -11,6 +11,7 @@ from datetime import timedelta
 from django.db import OperationalError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
+from stripe import InvalidRequestError
 
 from accounts.checkout import ProbaZakupu
 from accounts.models import Subscription, Tenant
@@ -183,7 +184,18 @@ def _uzgodnij(stripe, tenant, plan, price_id):
             and proba.parametry["line_items"][0]["price"] == price_id
         )
         if not ten_sam_plan:
-            wynik = stripe.checkout.Session.expire(proba.sesja_id)
+            try:
+                wynik = stripe.checkout.Session.expire(proba.sesja_id)
+            except InvalidRequestError:
+                # Sesja przestała być otwarta między odczytem a wygaszeniem -
+                # najczęściej klient właśnie zapłacił. Odbiór A01 (11.10.2026):
+                # Stripe odpowiada wtedy „Only Checkout Sessions with a status
+                # in ["open"] can be expired”, a klient dostawał ogólne „spróbuj
+                # ponownie”. Kolejny przebieg odczyta aktualny stan i powie
+                # właściwie. Odmowa przy wciąż otwartej sesji to inny problem.
+                if stripe.checkout.Session.retrieve(proba.sesja_id).get("status") == "open":
+                    raise
+                return None
             if wynik.get("status") != "expired":
                 raise CheckoutDoWyjasnienia()
             _zamknij(proba)
