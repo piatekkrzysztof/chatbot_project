@@ -398,6 +398,15 @@ def stripe_webhook(request):
     try:
         # Pierwszy odczyt ustala tylko firmę. Jego migawki NIE zapisujemy.
         stan = synchronizuj_subskrypcje(tenant, identyfikator)
+    except SynchronizacjaZajeta:
+        # Równoległe zdarzenie tej samej firmy właśnie synchronizuje stan.
+        # Odbiór A02 (11.10.2026, prawdziwy transport): jeden zakup to kilkanaście
+        # zdarzeń w tej samej sekundzie i 2-3 z nich trafiały tu. Przy 500 Django
+        # logował każde jako „Internal Server Error” na poziomie ERROR, czyli
+        # fałszywy alarm w Sentry przy każdej płatności. Stripe ponawia każdą
+        # odpowiedź spoza 2xx, więc 409 zachowuje ponowienie bez alarmu.
+        logger.info("Synchronizacja Stripe zajęta, czekam na ponowienie: tenant=%s", tenant.pk)
+        return HttpResponse(status=409)
     except ZdarzenieDoPonowienia:
         logger.warning("Synchronizacja Stripe odłożona: tenant=%s", tenant.pk)
         return HttpResponse(status=500)

@@ -257,7 +257,8 @@ def test_dwa_zdarzenia_zakupu_naraz_zakladaja_jeden_wiersz(ceny):
         ThreadPoolExecutor(max_workers=2) as pula,
     ):
         wyniki = list(pula.map(jedno, ["checkout", "invoice"]))
-        # Konflikt synchronizacji zwraca 500: Stripe ponowi świeży odczyt.
+        # Konflikt synchronizacji zwraca 409 (do 2.31.1: 500, czyli fałszywy
+        # ERROR w Sentry przy każdym zakupie): Stripe ponowi świeży odczyt.
         # Ponowienie po zwolnieniu blokady musi zakończyć się sukcesem.
         assert (
             APIClient()
@@ -267,7 +268,7 @@ def test_dwa_zdarzenia_zakupu_naraz_zakladaja_jeden_wiersz(ceny):
         )
 
     assert 200 in [kod for kod, _ in wyniki]
-    assert all(kod in (200, 500) for kod, _ in wyniki)
+    assert all(kod in (200, 409) for kod, _ in wyniki)
     assert Subscription.objects.filter(tenant=tenant).count() == 1
 
 
