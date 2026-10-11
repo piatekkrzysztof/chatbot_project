@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.31.1] - 2026-10-11
+
+### Fixed
+
+- **A customer who pays while switching plans gets the right answer at once.**
+  If the payment went through at the same moment the customer picked another
+  plan, Stripe refused to cancel the paid checkout and the panel said only
+  "try again". The retry then explained that the payment had already gone
+  through. Now the first answer says so. No second charge was possible before
+  or after.
+- **No false error alarms on every purchase.** One purchase sends a dozen
+  Stripe notifications within the same second. Those that arrived while
+  another one was already updating the account were answered in a way that
+  logged a server error, which showed up as 2-3 false alarms per payment.
+  They are now answered as "busy, send again", Stripe still retries them, and
+  the account ends up in the same state.
+
 ## [2.31.0] - 2026-10-10
 
 ### Changed
