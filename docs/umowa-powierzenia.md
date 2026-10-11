@@ -292,10 +292,11 @@ przegląd i komplet blokujących kontroli CI; gałąź główna jest chroniona.
 
 ---
 
-## Do decyzji właściciela przed podpisaniem
+## Decyzje właściciela (11.10.2026)
 
-Wartości poniżej są w tekście wpisane jako propozycje. Każda jest zobowiązaniem
-handlowym, nie faktem technicznym, więc potwierdza je właściciel.
+Wartości poniżej były w tekście wpisane jako propozycje. Każda jest
+zobowiązaniem handlowym, nie faktem technicznym - **właściciel potwierdził
+wszystkie 11.10.2026** bez zmian.
 
 | § | Co | Propozycja | Dlaczego taka |
 |---|---|---|---|
@@ -305,7 +306,13 @@ handlowym, nie faktem technicznym, więc potwierdza je właściciel.
 | 9 | Czas na wybór zwrot/usunięcie | 30 dni | krócej byłoby nieuczciwe wobec klienta, który właśnie odszedł |
 | 10 | Częstotliwość audytu | raz w roku | bez ograniczenia przy naruszeniu i na żądanie organu |
 
-Poza tym: **forma dokumentu**. Ten plik jest źródłem treści. To, czy klient
-podpisuje PDF, czy akceptuje umowę w panelu przy zakładaniu konta, jest osobną
-decyzją - druga droga wymaga zapisywania, kto i kiedy zaakceptował którą
-wersję, czego dziś nie robimy.
+**Forma dokumentu - decyzja 11.10.2026: PDF podpisywany przy sprzedaży.**
+Ten plik jest źródłem treści. Akceptacja w panelu wymagałaby zapisywania, kto
+i kiedy zaakceptował którą wersję, czego dziś nie robimy - wracamy do niej,
+gdy klientów będzie tylu, że podpisywanie PDF zacznie przeszkadzać.
+
+**Przegląd prawny - decyzja 11.10.2026: przed pierwszą sprzedażą.** Do
+sprawdzenia przez prawnika w szczególności: podstawy przekazywania danych
+poza EOG (OpenAI, Render, Stripe - standardowe klauzule umowne lub inne
+mechanizmy), zgodność z regulaminem i polityką prywatności oraz terminy
+z tabeli wyżej. Do czasu przeglądu wzoru nie podpisujemy z klientami.

@@ -41,7 +41,13 @@ widgetu (`api/views/widget.py`, `contact.py`, `feedback.py`), `api/views/stripe.
    Trasa jako wzorzec - bez identyfikatorów, parametrów zapytania i treści
    żądania. Liczba zapytań SQL od razu mówi, czy szukać w bazie, czy w kodzie.
 
-## SLO - cele (propozycja do akceptacji właściciela)
+## SLO - cele (przyjęte przez właściciela 11.10.2026)
+
+Cele poniżej obowiązują od 11.10.2026 jako **wewnętrzne** - mówią, kiedy
+reagujemy, a nie co obiecujemy klientowi. Klient nie dostaje liczbowego SLA:
+decyzja z 11.10.2026 to „dokładamy starań” w regulaminie i publiczna strona
+statusu ([informowanie o awariach](informowanie-o-awariach.md)). Przy jednej
+instancji web liczbowa obietnica dostępności byłaby nieuczciwa.
 
 Na obecnych zasobach (jedna instancja web na Renderze, PostgreSQL z pgvector),
 bez nowych płatnych narzędzi.

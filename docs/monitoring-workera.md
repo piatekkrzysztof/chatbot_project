@@ -87,3 +87,6 @@ Również rzeczywisty restart lokalnego Redisa został wykryty, a worker
 odzyskał połączenie i zaległe usunięcie. [Dowody i granice](odbior-a04-awarie-2026-10-02.md).
 To nie jest odbiór rzeczywistego alarmu UptimeRobot ani osobnego zatrzymania
 demona Beat przy pracującym workerze.
+
+**11.10.2026: kroki 4 i 5 zaliczone** z osobnym demonem Beat w izolacji -
+[wyniki](odbior-a04-beat-2026-10-11.md).
