@@ -215,7 +215,7 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
    najnowsza kopia produkcji z 17.09, kolejna miesięczna około 17.10. Zostaje
    osobna próba zatrzymania Beat - protokół zabrania jej na produkcji, więc
    czeka na decyzję o środowisku testowym.
-2. **Płatności A01/A02.** Próby Stripe test mode z #118 pozostają zaliczone.
+2. ~~**Płatności A01/A02.**~~ **Zamknięte 11.10.2026** (2.31.1, #143, [wyniki](odbior-a01-a02-2026-10-11.md)): wyścigi A01 na prawdziwym Stripe, prawdziwy transport webhooków przez Stripe CLI z osobnym web, workerem i Beatem, pominięty webhook i utracone anulowanie naprawione przez harmonogram, ekran powrotu w panelu. Dwie usterki z odbioru poprawione (komunikat przy zapłacie w trakcie zmiany planu; 409 zamiast 500 dla konkurujących webhooków - fałszywe alarmy Sentry). Alarm zaliczony na konsoli; wysyłka na rzeczywiste skrzynki czeka na decyzję właściciela. Wcześniej: próby Stripe test mode z #118 pozostają zaliczone.
    Do wykonania tylko otwarte punkty [protokołu](odbior-a01-a02-2026-10-02.md):
    transport webhooków, rzeczywisty worker/Beat, alarm Stripe, panel oraz
    pozostałe wyścigi i stare sesje Checkout. Nie traktować zerowego przebiegu
