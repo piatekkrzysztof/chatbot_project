@@ -2,7 +2,7 @@
 
 **Obowiązuje od 11.10.2026.** Szkic z 9.10.2026, decyzje właściciela
 z 11.10.2026 wpisane w miejsca dawnych pytań. Dwa elementy wymagają kodu
-i są oznaczone „od 2.32.0” - do tego czasu obowiązuje zasada podana obok.
+i od wersji 2.32.0 są wdrożone (wcześniej obowiązywała zasada ręczna).
 
 ## Dlaczego to ważne
 
@@ -33,11 +33,11 @@ Jeśli konto należy do zespołu, w którym jest **inny właściciel z działaj�
 dostępem**, najprostsza i najbezpieczniejsza droga nie wymaga nas:
 
 **Decyzja 11.10.2026: właściciel resetuje MFA osobie ze swojego zespołu
-w panelu (od 2.32.0)**, w Zespole, potwierdzając to własnym hasłem i kodem.
+w panelu (od 2.32.0)**: Zespół → przy osobie „Resetuj logowanie dwuetapowe”,
+potwierdzenie własnym hasłem i - jeśli właściciel sam ma MFA - własnym kodem.
 Osoba dostaje mail ostrzegawczy, jej sesje się kończą, a reset trafia do
-dziennika firmy. Do czasu wdrożenia: właściciel usuwa osobę z zespołu
-i zaprasza ją ponownie (nowe konto, bez MFA); historia działań zostaje
-w dzienniku pod starym kontem.
+dziennika firmy. Swojego MFA właściciel tak nie zresetuje - to droga przez
+kody zapasowe albo obsługę. Właściciel jedyny w firmie idzie do kroku 2.
 
 ## Krok 2 - weryfikacja tożsamości przez obsługę
 
@@ -59,9 +59,9 @@ Gdy osoba jest jedynym właścicielem albo krok 1 nie wchodzi w grę.
    wysyłamy na adres konta mail „otrzymaliśmy prośbę o wyłączenie
    drugiego składnika - jeśli to nie Ty, odpowiedz” i wyłączamy dopiero
    po upływie doby od tej wiadomości, jeśli nikt nie zaprotestował.
-   Od 2.32.0 pilnuje tego polecenie (`--zapowiedz`, potem `--wykonaj`
-   najwcześniej po 24 h); do tego czasu operator wysyła tę wiadomość sam
-   i odlicza dobę.
+   Od 2.32.0 pilnuje tego polecenie: `--zapowiedz` wysyła tę wiadomość
+   i zapisuje wpis w dzienniku (tylko gdy mail wyszedł), a `--wykonaj`
+   odmawia bez zapowiedzi sprzed co najmniej 24 h i nie starszej niż 7 dni.
 4. **Odmowa**, gdy: zgłoszenie z innego adresu niż konta; dane z kroku 2 się
    nie zgadzają; zgłaszający naciska na pośpiech albo prosi o zmianę adresu
    e-mail konta przy okazji. Odmowę zapisujemy tak samo jak zgodę.
@@ -74,7 +74,15 @@ Najpierw na sucho - pokazuje konto, firmę, stan MFA i liczbę sesji:
 python manage.py wylacz_mfa --email OSOBA@FIRMA.PL --zgloszenie "OPIS WERYFIKACJI"
 ```
 
-Potem to samo z `--wykonaj`. Polecenie, w jednej transakcji:
+Potem `--zapowiedz` - mail na adres konta, że wyłączenie nastąpi najwcześniej
+za dobę:
+
+```sh
+python manage.py wylacz_mfa --email OSOBA@FIRMA.PL --zgloszenie "OPIS WERYFIKACJI" --zapowiedz
+```
+
+Po co najmniej 24 h, jeśli nikt nie odpowiedział na zapowiedź - to samo
+z `--wykonaj`. Polecenie, w jednej transakcji:
 
 - usuwa drugi składnik i wszystkie kody zapasowe;
 - **kończy wszystkie sesje** tej osoby - ktoś, kto przejął telefon razem
