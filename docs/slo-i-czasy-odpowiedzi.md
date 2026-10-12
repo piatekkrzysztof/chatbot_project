@@ -56,7 +56,7 @@ bez nowych płatnych narzędzi.
 |---|---|---|
 | Ekrany i listy panelu | p95 poniżej 800 ms, żadne żądanie powyżej 3 s | linie „Wolne żądanie" w logu web, Sentry Performance |
 | Widget: ustawienia, FAQ, kontakt | p95 poniżej 500 ms | jw. |
-| Widget: pierwszy fragment odpowiedzi czatu | p95 poniżej 3 s | Sentry (transakcja strumienia); czas modelu OpenAI to większość |
+| Widget: pierwszy fragment odpowiedzi czatu | p95 poniżej 3 s | Sentry (transakcja strumienia); czas modelu OpenAI to większość. 12.10.2026: p95 ok. 3,3 s - znane odstępstwo przyjęte przez właściciela ([test obciążenia](test-obciazeniowy.md#rozkład-czasu-czatu---pomiar-etapów-produkcja-12102026-2322)) |
 | Webhook Stripe | p95 poniżej 2 s | linie w logu, lista zdarzeń w panelu Stripe |
 | Błędy 5xx | poniżej 0,5% żądań w tygodniu | Sentry |
 | Dostępność `/health/` | 99,5% w miesiącu | monitor Rendera |
