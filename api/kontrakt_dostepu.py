@@ -112,6 +112,7 @@ KONTRAKT = {
     ("users-detail", "PUT"): WLASCICIEL,
     ("users-detail", "PATCH"): WLASCICIEL,
     ("users-detail", "DELETE"): WLASCICIEL,
+    ("users-reset-mfa", "POST"): WLASCICIEL,
     ("invite-user", "POST"): WLASCICIEL,
     ("list-invitations", "GET"): WLASCICIEL,
     ("invitation-revoke", "DELETE"): WLASCICIEL,

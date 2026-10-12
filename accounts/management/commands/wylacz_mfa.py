@@ -5,12 +5,19 @@ Procedura i weryfikacja tożsamości: docs/utrata-mfa.md. To polecenie jest
 jej ostatnim krokiem - uruchamia je operator (Render -> Shell) dopiero PO
 potwierdzeniu, że prosi właściciel konta.
 
+Dwa kroki z dobą przerwy (decyzja właściciela z 11.10.2026):
+
     python manage.py wylacz_mfa --email osoba@firma.pl --zgloszenie "opis weryfikacji"
+    python manage.py wylacz_mfa --email osoba@firma.pl --zgloszenie "..." --zapowiedz
+    # najwcześniej 24 h później:
     python manage.py wylacz_mfa --email osoba@firma.pl --zgloszenie "..." --wykonaj
 
-Bez --wykonaj tylko pokazuje, czego dotyczy. Z --wykonaj, w jednej transakcji:
-usuwa składnik i kody zapasowe, kończy wszystkie sesje tej osoby, zapisuje
-wpis w dzienniku firmy; potem wysyła tej osobie ostrzeżenie mailem.
+Bez opcji tylko pokazuje, czego dotyczy. `--zapowiedz` wysyła na adres konta
+„otrzymaliśmy prośbę o wyłączenie - jeśli to nie Ty, odpowiedz” i zapisuje
+wpis w dzienniku firmy. Prawdziwy właściciel konta ma dobę, żeby zareagować,
+gdy prosi ktoś, kto ukradł mu hasło. `--wykonaj` odmawia bez zapowiedzi
+sprzed co najmniej 24 h (i nie starszej niż 7 dni); wtedy w jednej transakcji
+usuwa składnik i kody, kończy sesje i zapisuje wpis, a potem wysyła ostrzeżenie.
 
 Dlaczego polecenie, a nie Django shell: ręczne `DrugiSkladnik.objects...delete()`
 nie kończy sesji (ktoś, kto przejął telefon i sesję, zostaje zalogowany),
@@ -18,28 +25,45 @@ nie zostawia śladu w dzienniku i nie ostrzega właściciela konta - a to on
 pierwszy zauważy, że wyłączenia nie zlecał.
 """
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.mail import send_mail
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.models import CustomUser, DrugiSkladnik, KodZapasowy, WpisDziennika
+from accounts.mfa_reset import wylacz_drugi_skladnik, wyslij_ostrzezenie
+from accounts.models import CustomUser, DrugiSkladnik, WpisDziennika
 from accounts.sessions import LoginSession
 
-TEMAT = "Drugi składnik logowania na Twoim koncie został wyłączony"
+OBSLUGA = "obsługa Sm-art"
+ZNACZNIK_ZAPOWIEDZI = "wylacz_mfa zapowiedz: "
+ZNACZNIK_WYKONANIA = "wylacz_mfa: "
+OCZEKIWANIE = timedelta(hours=24)
+WAZNOSC_ZAPOWIEDZI = timedelta(days=7)
+TEMAT_ZAPOWIEDZI = "Prośba o wyłączenie drugiego składnika logowania na Twoim koncie"
 
 
-def tresc_ostrzezenia(uzytkownik, kiedy):
+def tresc_zapowiedzi(uzytkownik, najwczesniej):
     return (
         f"Dzień dobry,\n\n"
-        f"{timezone.localtime(kiedy):%d.%m.%Y o %H:%M} obsługa Sm-art wyłączyła drugi składnik "
-        f"logowania (kod z aplikacji) na koncie {uzytkownik.email}, na Twoją prośbę po utracie "
-        f"telefonu. Wszystkie sesje logowania na tym koncie zostały zakończone.\n\n"
-        f"Po zalogowaniu włącz drugi składnik ponownie (Ustawienia konta -> bezpieczeństwo) "
-        f"i zapisz nowe kody zapasowe w bezpiecznym miejscu.\n\n"
-        f"JEŚLI TO NIE TY prosiłeś o wyłączenie: od razu zmień hasło przez „Nie pamiętam hasła” "
-        f"i odpowiedz na tę wiadomość. Ktoś mógł podszyć się pod Ciebie.\n"
+        f"otrzymaliśmy prośbę o wyłączenie drugiego składnika logowania (kod z aplikacji) "
+        f"na koncie {uzytkownik.email}, po utracie telefonu.\n\n"
+        f"Wyłączymy go najwcześniej {timezone.localtime(najwczesniej):%d.%m.%Y o %H:%M}.\n\n"
+        f"JEŚLI TO NIE TY prosiłeś o wyłączenie: odpowiedz na tę wiadomość przed tym terminem "
+        f"i od razu zmień hasło przez „Nie pamiętam hasła”. Ktoś mógł podszyć się pod Ciebie.\n"
+    )
+
+
+def _wpis(uzytkownik, sciezka):
+    WpisDziennika.objects.create(
+        tenant=uzytkownik.tenant,
+        uzytkownik=uzytkownik,
+        nazwa_uzytkownika=OBSLUGA,
+        metoda="CLI",
+        sciezka=sciezka[:255],
+        status=200,
     )
 
 
@@ -53,7 +77,13 @@ class Command(BaseCommand):
             required=True,
             help="Jak potwierdzono tożsamość (kanał, data, kto) - trafia do dziennika.",
         )
-        parser.add_argument("--wykonaj", action="store_true", help="Bez tego nic nie zmienia.")
+        krok = parser.add_mutually_exclusive_group()
+        krok.add_argument(
+            "--zapowiedz",
+            action="store_true",
+            help="Wysyła mail ostrzegawczy; wyłączenie najwcześniej 24 h później.",
+        )
+        krok.add_argument("--wykonaj", action="store_true", help="Wyłącza (po zapowiedzi).")
 
     def handle(self, *args, **opcje):
         zgloszenie = opcje["zgloszenie"].strip()
@@ -84,40 +114,55 @@ class Command(BaseCommand):
                 self.style.WARNING("To konto nie ma drugiego składnika - nic do zrobienia.")
             )
             return
+
+        teraz = timezone.now()
+        zapowiedz = (
+            WpisDziennika.objects.filter(
+                uzytkownik=uzytkownik,
+                metoda="CLI",
+                sciezka__startswith=ZNACZNIK_ZAPOWIEDZI,
+                czas__gte=teraz - WAZNOSC_ZAPOWIEDZI,
+            )
+            .order_by("czas")
+            .first()
+        )
+
+        if opcje["zapowiedz"]:
+            self._zapowiedz(uzytkownik, zgloszenie, teraz)
+            return
         if not opcje["wykonaj"]:
+            if zapowiedz:
+                self.stdout.write(
+                    f"Zapowiedź: {timezone.localtime(zapowiedz.czas):%d.%m.%Y %H:%M}, "
+                    f"wyłączenie możliwe od "
+                    f"{timezone.localtime(zapowiedz.czas + OCZEKIWANIE):%d.%m.%Y %H:%M}."
+                )
             self.stdout.write(
-                self.style.WARNING("\nPRÓBA NA SUCHO - nic nie zmieniono. Dopisz --wykonaj.")
+                self.style.WARNING(
+                    "\nPRÓBA NA SUCHO - nic nie zmieniono. Najpierw --zapowiedz, po 24 h --wykonaj."
+                )
             )
             return
 
-        teraz = timezone.now()
+        if zapowiedz is None:
+            raise CommandError(
+                "Brak zapowiedzi z ostatnich 7 dni. Najpierw uruchom z --zapowiedz - osoba "
+                "dostanie mail ostrzegawczy, a wyłączenie będzie możliwe po 24 h."
+            )
+        if teraz - zapowiedz.czas < OCZEKIWANIE:
+            raise CommandError(
+                "Od zapowiedzi nie minęła doba. Wyłączenie możliwe od "
+                f"{timezone.localtime(zapowiedz.czas + OCZEKIWANIE):%d.%m.%Y %H:%M}."
+            )
+
         with transaction.atomic():
             uzytkownik = CustomUser.objects.select_for_update().get(pk=uzytkownik.pk)
-            KodZapasowy.objects.filter(uzytkownik=uzytkownik).delete()
-            DrugiSkladnik.objects.filter(uzytkownik=uzytkownik).delete()
-            zakonczone = LoginSession.objects.filter(
-                user=uzytkownik, revoked_at__isnull=True
-            ).update(revoked_at=teraz)
-            WpisDziennika.objects.create(
-                tenant=uzytkownik.tenant,
-                uzytkownik=uzytkownik,
-                nazwa_uzytkownika="obsługa Sm-art",
-                metoda="CLI",
-                sciezka=f"wylacz_mfa: {zgloszenie}"[:255],
-                status=200,
-            )
+            zakonczone = wylacz_drugi_skladnik(uzytkownik, teraz)
+            _wpis(uzytkownik, ZNACZNIK_WYKONANIA + zgloszenie)
 
         self.stdout.write(self.style.SUCCESS(f"\nWyłączone. Zakończono sesji: {zakonczone}."))
         try:
-            wyslane = send_mail(
-                subject=TEMAT,
-                message=tresc_ostrzezenia(uzytkownik, teraz),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[uzytkownik.email],
-                fail_silently=False,
-            )
-            if not wyslane:
-                raise RuntimeError("send_mail zwrócił 0")
+            wyslij_ostrzezenie(uzytkownik, teraz, OBSLUGA)
         except Exception as blad:
             # MFA już wyłączone - cofanie nic nie da, a osoba czeka na dostęp.
             # Operator musi jednak wiedzieć, że ostrzeżenie nie poszło.
@@ -129,3 +174,33 @@ class Command(BaseCommand):
             )
             raise SystemExit(1) from None
         self.stdout.write(f"Ostrzeżenie wysłane na {uzytkownik.email}.")
+
+    def _zapowiedz(self, uzytkownik, zgloszenie, teraz):
+        najwczesniej = teraz + OCZEKIWANIE
+        try:
+            if not send_mail(
+                subject=TEMAT_ZAPOWIEDZI,
+                message=tresc_zapowiedzi(uzytkownik, najwczesniej),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[uzytkownik.email],
+                fail_silently=False,
+            ):
+                raise RuntimeError("send_mail zwrócił 0")
+        except Exception as blad:
+            # Bez maila doba oczekiwania nie chroni nikogo: prawdziwy właściciel
+            # nie wie, że ma na co reagować. Dlatego wpis zapowiedzi powstaje
+            # dopiero po wysłaniu - inaczej po dobie odblokowałby --wykonaj.
+            self.stdout.write(
+                self.style.ERROR(
+                    f"Mail z zapowiedzią NIE wyszedł ({type(blad).__name__}). Zapowiedź "
+                    "nie została zapisana - powtórz --zapowiedz po naprawie poczty."
+                )
+            )
+            raise SystemExit(1) from None
+        _wpis(uzytkownik, ZNACZNIK_ZAPOWIEDZI + zgloszenie)
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Zapowiedź wysłana na {uzytkownik.email}. Wyłączenie możliwe od "
+                f"{timezone.localtime(najwczesniej):%d.%m.%Y %H:%M} (--wykonaj)."
+            )
+        )
