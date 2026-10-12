@@ -296,8 +296,11 @@ diagnostyka bieżąca bez zaległości. Nie wysyłano testowych wiadomości,
 nie wykonywano płatności ani testowego kasowania w produkcji.
 
 **Stan na 12.10.2026:** scenariusze A01-A05 i punkty 1-5 planu są odebrane.
-Przed deklaracją gotowości komercyjnej zostają: wynik testu obciążenia
-na produkcji (narzędzie gotowe), zapisanie sekretów Rendera w menedżerze
+Test obciążenia na produkcji wykonany 12.10.2026: po poprawce 2.32.1 panel
+i widget w progach (p95 205 i 165 ms), zero błędów; pierwsze słowa czatu p95
+3,3 s przy celu 3 s ([wynik](test-obciazeniowy.md#wynik-produkcji-12102026-1725-1735-2321---po-poprawce)).
+Przed deklaracją gotowości komercyjnej zostają: decyzja o czasie pierwszych
+słów czatu, zapisanie sekretów Rendera w menedżerze
 haseł ([odbudowa usług](odbudowa-uslug.md#najważniejsze-ryzyko---sekrety-tylko-w-renderze))
 oraz przegląd prawny umowy powierzenia przed pierwszą sprzedażą.
 
