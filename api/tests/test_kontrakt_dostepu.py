@@ -94,6 +94,7 @@ def adres(swiat, nazwa):
         "contact-requests-detail": {"pk": o.zapytanie.pk},
         "widget-domain-detail": {"pk": o.domena.pk},
         "users-detail": {"pk": swiat.osoby["employee"].pk},
+        "users-reset-mfa": {"pk": swiat.osoby["employee"].pk},
         "invitation-revoke": {"pk": o.zaproszenie.pk},
         "invitation-preview": {"token": o.zaproszenie.token},
         "invitation-resend": {"token_wysylki": o.zaproszenie.token_wysylki},
@@ -198,6 +199,7 @@ def test_obcy_klucz_przy_wlasnym_tokenie_jest_odrzucany(swiat, nazwa, metoda):
             "contact-requests-detail",
             "widget-domain-detail",
             "users-detail",
+            "users-reset-mfa",
             "invitation-revoke",
             "conversation-erase",
         }

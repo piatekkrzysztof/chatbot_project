@@ -21,7 +21,7 @@ Każdy wiersz jest sprawdzany prawdziwymi żądaniami w
   na każdej operacji z identyfikatorem obiektu firmy A, a token firmy A z kluczem
   firmy B - 403 wszędzie poza operacjami publicznymi i własnym kontem.
 
-Operacji: 97.
+Operacji: 98.
 
 ## Logowanie, rejestracja i hasło
 
@@ -145,6 +145,7 @@ Operacji: 97.
 | `PUT /api/users/{pk}/` | Zmiana roli osoby | - | - | - | - | tak |
 | `PATCH /api/users/{pk}/` | Zmiana roli osoby | - | - | - | - | tak |
 | `DELETE /api/users/{pk}/` | Usunięcie osoby z zespołu | - | - | - | - | tak |
+| `POST /api/users/{pk}/reset-mfa/` | Zresetuj logowanie dwuetapowe osoby z zespołu | - | - | - | - | tak |
 
 ## Pulpit i diagnostyka
 

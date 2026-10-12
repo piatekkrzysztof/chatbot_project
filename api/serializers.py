@@ -7,7 +7,14 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenObtainSerializer
 
 from accounts import nip as nip_pl
-from accounts.models import CustomUser, DaneRozliczeniowe, InvitationToken, Tenant, WidgetDomain
+from accounts.models import (
+    CustomUser,
+    DaneRozliczeniowe,
+    DrugiSkladnik,
+    InvitationToken,
+    Tenant,
+    WidgetDomain,
+)
 from accounts.plans import PLANS, PRO
 from accounts.registration import (
     account_conflict,
@@ -25,6 +32,19 @@ from documents.safe_http import FetchError, validate_url
 
 
 class UserSerializer(serializers.ModelSerializer):
+    # Tylko dla właściciela: lista Zespołu pokazuje, komu może zresetować MFA
+    # (2.32.0). Pracownikowi nie zdradzamy, które konta są bez drugiego
+    # składnika - to gotowa lista celów dla kogoś z przejętym kontem pracownika.
+    mfa_wlaczone = serializers.SerializerMethodField()
+
+    def get_mfa_wlaczone(self, obj) -> bool | None:
+        zadanie = self.context.get("request")
+        if not zadanie or getattr(zadanie.user, "role", None) != "owner":
+            return None
+        if hasattr(obj, "mfa_wlaczone"):
+            return bool(obj.mfa_wlaczone)
+        return DrugiSkladnik.objects.filter(uzytkownik=obj, potwierdzony_od__isnull=False).exists()
+
     def validate_email(self, value):
         return unique_email(value, self.instance)
 
@@ -54,8 +74,9 @@ class UserSerializer(serializers.ModelSerializer):
             "tenant",
             "is_active",
             "last_login",
+            "mfa_wlaczone",
         ]
-        read_only_fields = ["id", "tenant", "last_login"]
+        read_only_fields = ["id", "tenant", "last_login", "mfa_wlaczone"]
 
 
 class ChatRequestSerializer(serializers.Serializer):
