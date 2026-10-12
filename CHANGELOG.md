@@ -16,6 +16,16 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.2] - 2026-10-12
+
+### Added
+
+- **A command that shows where the chat spends time before the first words.**
+  `zmierz_czat` asks the model the same questions as the load test and splits
+  the wait into steps: turning the question into a vector, searching the
+  knowledge, building the prompt, and the model itself. It saves nothing and
+  does not use up the company's monthly messages.
+
 ## [2.32.1] - 2026-10-12
 
 ### Fixed
