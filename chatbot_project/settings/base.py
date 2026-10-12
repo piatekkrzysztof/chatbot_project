@@ -189,7 +189,20 @@ NAZWA_CIASTECZKA_SESJI = "sesja_panelu"
 WSGI_APPLICATION = "chatbot_project.wsgi.application"
 ASGI_APPLICATION = "chatbot_project.asgi.application"
 
-DATABASES = {"default": dj_database_url.config(default="sqlite:///db.sqlite3")}
+# Połączenia z bazą utrzymywane między żądaniami. Do 12.10.2026 obowiązywało
+# CONN_MAX_AGE=0, czyli nowe połączenie (z TLS) przy każdym żądaniu - pomiar
+# na produkcji: 330-740 ms na samo nawiązanie, przy 2 ms na zapytanie. Test
+# obciążenia pokazał przez to p50 ~750 ms nawet dla najprostszych odczytów.
+# Health checks: zerwane połączenie (restart bazy, zmiana DATABASE_URL) jest
+# wykrywane przed użyciem, zamiast kończyć się błędem żądania. Każdy wątek
+# gunicorna trzyma najwyżej jedno połączenie (WATKI w pojemnosc.py).
+DATABASES = {
+    "default": dj_database_url.config(
+        default="sqlite:///db.sqlite3",
+        conn_max_age=int(os.getenv("DB_CONN_MAX_AGE", "60")),
+        conn_health_checks=True,
+    )
+}
 
 AUTH_USER_MODEL = "accounts.CustomUser"
 

@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.1] - 2026-10-12
+
+### Fixed
+
+- **The panel and the chat window respond several times faster.** Every
+  request opened a brand-new connection to the database, which on production
+  took a third of a second or more before any work began. Connections are now
+  kept open and checked before reuse. The load test measured simple screens
+  at around 0.75 s in the middle and over 2 s at the slow end; the fix
+  removes most of that wait.
+
 ## [2.32.0] - 2026-10-12
 
 ### Added
