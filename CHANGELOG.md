@@ -16,6 +16,24 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.0] - 2026-10-12
+
+### Added
+
+- **The owner can reset two-step login for someone on their team.** A person
+  who lost their phone and their backup codes no longer has to be removed and
+  invited again as a new account. The owner confirms with their own password
+  and, if they use two-step login, their own code. The person's other
+  sessions end, they get a warning email, and the reset is recorded in the
+  company log.
+
+### Changed
+
+- **Switching off two-step login through support now waits a day.** After
+  the identity check, the account first gets an email saying the request was
+  received, and the switch-off happens no sooner than 24 hours later. If
+  someone else asked, the real owner has a day to reply.
+
 ## [2.31.2] - 2026-10-11
 
 ### Security
