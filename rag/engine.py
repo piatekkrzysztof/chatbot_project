@@ -38,9 +38,17 @@ def query_similar_chunks_pgvector(
     nawet gdy nie mają nic wspólnego z pytaniem — dlatego odcinamy te powyżej
     `max_distance`, żeby dało się odróżnić trafienie od jego braku.
     """
-    if max_distance is None:
-        max_distance = settings.RAG_MAX_DISTANCE
+    query_embedding = wektor_pytania(query)
+    results = szukaj_po_wektorze(tenant_id, query_embedding, top_k, max_distance)
+    return dolacz_trafienia_slowne(tenant_id, query, query_embedding, results, top_k)
 
+
+# Kroki wyszukiwania osobno, żeby `zmierz_czat` mierzył dokładnie te funkcje,
+# którymi idzie czat, a nie ich kopię.
+
+
+def wektor_pytania(query: str):
+    """Wektor pytania z API OpenAI - jedno wywołanie sieciowe przed modelem."""
     embedding_response = client.embeddings.create(
         input=query,
         model=settings.OPENAI_EMBEDDING_MODEL,
@@ -50,16 +58,19 @@ def query_similar_chunks_pgvector(
         # na wszystko naraz.
         dimensions=WYMIAR_WEKTORA,
     )
-    query_embedding = embedding_response.data[0].embedding
+    return embedding_response.data[0].embedding
 
-    results = list(
+
+def szukaj_po_wektorze(tenant_id: int, wektor, top_k: int = 5, max_distance: float | None = None):
+    """Najbliższe fragmenty firmy, odcięte progiem odległości."""
+    if max_distance is None:
+        max_distance = settings.RAG_MAX_DISTANCE
+    return list(
         fragmenty_do_przeszukania(tenant_id)
-        .annotate(distance=L2Distance("embedding", query_embedding))
+        .annotate(distance=L2Distance("embedding", wektor))
         .filter(distance__lte=max_distance)
         .order_by("distance")[:top_k]
     )
-
-    return dolacz_trafienia_slowne(tenant_id, query, query_embedding, results, top_k)
 
 
 #: Słowa, które są w pytaniu, ale nie mówią, O CZYM ono jest. Bez nich
