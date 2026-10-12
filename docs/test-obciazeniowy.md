@@ -4,6 +4,29 @@ Stan na 16.09.2026, wersja 2.8.0. Ostatni punkt [odbioru komercyjnego](roadmapa-
 którego nie da się zrobić samym kodem: wymaga decyzji właściciela o środowisku,
 narzędziu i koszcie. **Ten dokument niczego nie uruchamia.**
 
+## Wykonanie - decyzja z 11.10.2026
+
+Właściciel wybrał **mały profil na produkcji**: poza godzinami pracy, na koncie
+testowym, z limitem 20 zł na model. Narzędzie:
+[`narzedzia/test_obciazenia/test_obciazenia.py`](../narzedzia/test_obciazenia/test_obciazenia.py)
+zamiast k6 - Python i `httpx` z istniejącego środowiska backendu, bez pobierania
+nowych programów; progi te same co niżej.
+
+Domyślny profil (10 minut) mieści się w limitach planu próbnego, więc każde 429
+jest wynikiem do wyjaśnienia: odczyty widgetu 0,8/s (limit 60/min na firmę),
+panel 2/s, eksport CSV raz na ok. pół minuty, 15 rozmów strumieniem (limit
+odwiedzającego 20 na godzinę z jednego adresu). Kontakt (scenariusz 3) pominięty -
+wysyłałby maile i ma limit 5 na adres. Koszt modelu: ok. 0,0005 zł na wiadomość
+([wybór modelu](wybor-modelu.md)), czyli grosze - limit 20 zł nie jest bliski.
+
+```sh
+python narzedzia/test_obciazenia/test_obciazenia.py --backend https://api.agencjasm-art.pl \
+    --panel https://panel.agencjasm-art.pl --klucz KLUCZ_WIDGETU --strona https://cdpn.io
+```
+
+Sprawdzone lokalnie 12.10.2026 na krótkim przebiegu (widget, panel, eksport,
+rozmowy strumieniem). Wynik produkcyjny - poniżej, po wykonaniu.
+
 ## Po co
 
 [SLO](slo-i-czasy-odpowiedzi.md) mówi, jak szybko ma odpowiadać system, ale nie
