@@ -46,7 +46,35 @@ produkcji: `CONN_MAX_AGE=0` i baza podłączona **adresem zewnętrznym** - nowe
 połączenie z bazą 330-740 ms przy każdym żądaniu, zapytanie na otwartym
 połączeniu 2 ms, Redis 5 ms. Poprawka: utrzymywanie połączeń (2.32.1)
 i wewnętrzny adres bazy w `DATABASE_URL` (właściciel, w Renderze).
-Powtórzenie testu po poprawce - poniżej.
+
+### Wynik produkcji 12.10.2026, 17:25-17:35 (2.32.1) - po poprawce
+
+Ten sam profil i to samo konto testowe. W powłoce produkcji przed testem:
+`CONN_MAX_AGE=60`, baza adresem wewnętrznym, nowe połączenie 105-200 ms
+(płacone raz na proces co najwyżej co 60 s, a nie przy każdym żądaniu).
+
+| Ruch | Żądań | p50 | p95 | maks | Próg p95 | Przed (p95) |
+|---|---|---|---|---|---|---|
+| Widget | 481 | 69 ms | 165 ms | 385 ms | 500 ms - OK | 2200 ms |
+| Panel | 1181 | 73 ms | 205 ms | 1045 ms | 800 ms - OK | 2202 ms |
+| Czat: pierwsze słowa | 15 | 2,0 s | 3,3 s | 4,8 s | 3 s - **przekroczony** | 5,2 s |
+| Czat: cała odpowiedź | 15 | 2,4 s | 3,6 s | 5,0 s | - | 5,6 s |
+| Eksport CSV | 20 | 87 ms | 156 ms | 160 ms | - | 1350 ms |
+
+Zero błędów 5xx i zero odmów 429 przy 1697 żądaniach. Zapis:
+[test-obciazenia-2026-10-12-po.json](test-obciazenia-2026-10-12-po.json).
+
+**Panel i widget mieszczą się w progach z dużym zapasem** - p95 ok. 10 razy
+niżej niż przed poprawką. Brak żądań panelu > 3 s.
+
+**Czat przekracza próg nieznacznie** (p95 3,3 s przy celu 3 s). Przy 15
+rozmowach p95 wyznacza praktycznie jedna-dwie najwolniejsze odpowiedzi
+(maks 4,8 s), więc to wynik orientacyjny. Mediana 2,0 s. Lokalnie sam model
+(gpt-6-luna, `medium`) dawał 1,1 / 2,6 s ([wybór modelu](wybor-modelu.md));
+reszta to wyszukiwanie wiedzy (wektor pytania z API OpenAI, zapytania do bazy)
+i sieć. Dalsze kroki - decyzja właściciela: `OPENAI_REASONING_EFFORT=low`
+(lokalnie 0,8 / 1,5 s, ale 1 błąd rachunkowy na 18 prób) albo najpierw pomiar
+etapów przed pierwszym słowem i poprawka bez zmiany jakości.
 
 ## Po co
 
