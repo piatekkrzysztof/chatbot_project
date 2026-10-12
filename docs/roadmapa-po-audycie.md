@@ -210,19 +210,18 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
 2.19.7 oraz nadzór Beat/workera 2.19.8. Nie planujemy ponownie ich wdrożenia.
 2.10 zaliczono [izolowane próby awarii i odtworzenia](odbior-a04-awarie-2026-10-02.md).
 
-1. **Dowody A04 - zebrane 5.10, poza jednym.** Alarm nr 22 doszedł na obie
+1. ~~**Dowody A04.**~~ **Zamknięte 11.10.2026.** Alarm nr 22 doszedł na obie
    skrzynki; UptimeRobot wykrywa awarię i powrót na osobnym monitorze testowym;
    najnowsza kopia produkcji z 17.09, kolejna miesięczna około 17.10.
    **11.10.2026: próba zatrzymania Beat i workera zaliczona** w izolowanym
    środowisku lokalnym ([wyniki](odbior-a04-beat-2026-10-11.md)): wykrycie po
-   ok. 180 s przy HTTP 200, zaległe wiadomości nie odnawiają zdrowia. Zostaje
-   wykrycie rzeczywistego braku frazy przez UptimeRobot na celu testowym
-   (właściciel, razem ze stroną statusu).
+   ok. 180 s przy HTTP 200, zaległe wiadomości nie odnawiają zdrowia.
+   **11.10.2026, 19:46: UptimeRobot sam wykrył brak frazy** na monitorze
+   testowym (fraza, której nie ma w `/health/`) i alarm „down” doszedł do
+   właściciela. Powiadomienie o powrocie potwierdzone 2.10 (Test Notification);
+   powrotu po prawdziwej awarii nie obserwowano - monitor testowy usunięty
+   przed zmianą frazy. Publiczna strona statusu działa od 11.10.
 2. ~~**Płatności A01/A02.**~~ **Zamknięte 11.10.2026** (2.31.1, #143, [wyniki](odbior-a01-a02-2026-10-11.md)): wyścigi A01 na prawdziwym Stripe, prawdziwy transport webhooków przez Stripe CLI z osobnym web, workerem i Beatem, pominięty webhook i utracone anulowanie naprawione przez harmonogram, ekran powrotu w panelu. Dwie usterki z odbioru poprawione (komunikat przy zapłacie w trakcie zmiany planu; 409 zamiast 500 dla konkurujących webhooków - fałszywe alarmy Sentry). Alarm doręczony z produkcji na obie skrzynki właściciela (11.10.2026, 16:43). Wcześniej: próby Stripe test mode z #118 pozostają zaliczone.
-   Do wykonania tylko otwarte punkty [protokołu](odbior-a01-a02-2026-10-02.md):
-   transport webhooków, rzeczywisty worker/Beat, alarm Stripe, panel oraz
-   pozostałe wyścigi i stare sesje Checkout. Nie traktować zerowego przebiegu
-   produkcji z 1.10 jako pełnego odbioru harmonogramu.
 3. **Rozmowy A03/A05.** Backend HTTP/JWT odebrany w izolacji 5.10
    ([wyniki](odbior-a03-a05-2026-10-05.md)). 7.10 na produkcji: usunięta
    rozmowa nie wraca w widgecie. **8.10: formularz retencji i usunięcie
@@ -293,8 +292,10 @@ F13 (03:30), F20 (03:45), A04 (co minutę), A02 (co 5 minut) i kolejki F15;
 diagnostyka bieżąca bez zaległości. Nie wysyłano testowych wiadomości,
 nie wykonywano płatności ani testowego kasowania w produkcji.
 
-P1 dotyczące kont, administracji i płatności oraz nieodebrane scenariusze
-A01–A05 nadal blokują deklarację gotowości komercyjnej.
+**Stan na 12.10.2026:** scenariusze A01-A05 i punkty 1-5 planu są odebrane.
+Przed deklaracją gotowości komercyjnej zostają: wynik testu obciążenia
+na produkcji (narzędzie gotowe), pomiar RTO odbudowy usług (F21) oraz
+przegląd prawny umowy powierzenia przed pierwszą sprzedażą.
 
 ## Rejestr wszystkich ustaleń
 
