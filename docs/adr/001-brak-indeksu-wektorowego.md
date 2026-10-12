@@ -136,6 +136,31 @@ for it.
 
 Numbers in [docs/skala-i-wydajnosc.md](../skala-i-wydajnosc.md).
 
+## What changed on 12 October 2026
+
+The owner decided on 11 October to add an HNSW index before the first sale.
+A read-only check on production the next day reversed that, with the owner's
+agreement:
+
+- **Production runs pgvector 0.7.2.** Iterative index scans
+  (`hnsw.iterative_scan`) arrived in 0.8.0. Without them an HNSW scan returns
+  `ef_search` nearest candidates (40 by default) from *all* tenants and only
+  then applies `WHERE tenant = ...`. A small tenant whose chunks are not among
+  those candidates gets fewer than `top_k` results, or none - the bot says "I
+  don't know" about something its knowledge base covers. Raising `ef_search`
+  narrows the gap but does not close it. That is a silent loss of answer
+  quality traded for speed nobody is waiting for.
+- **The whole database holds 763 chunks.** An exact scan of that is a few
+  milliseconds; the 0.7-2 s figures belong to a single synthetic tenant at the
+  full Grow or Pro limit.
+
+So the index waits for both conditions: a tenant actually approaching the
+measured thresholds (the daily alert in `accounts/rozmiar_bazy.py` already
+reports 15 000 and 25 000 chunks to the operator), **and** pgvector 0.8 or
+later, with `SET hnsw.iterative_scan = strict_order` on the search query.
+Before building it, also measure recall for a small tenant next to a large one
+on the evaluation set, not only the speed.
+
 ## How to add the index, when it comes to that
 
 Run `rag/test_ocena.py` before and after and put both sets of numbers in the
