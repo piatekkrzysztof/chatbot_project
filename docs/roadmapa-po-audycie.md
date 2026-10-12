@@ -275,7 +275,11 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
    środowisko testowe lokalne i izolowane jak przy odbiorze płatności, tam
    też ostatnia próba A04; test obciążenia na produkcji małym profilem poza
    godzinami, na koncie testowym, z limitem 20 zł na model; indeks wektorowy
-   HNSW przed sprzedażą; terminy, forma (PDF) i przegląd prawny umowy
+   ~~HNSW przed sprzedażą~~ **odłożony 12.10.2026 za zgodą właściciela**:
+   produkcja ma pgvector 0.7.2 bez skanów iteracyjnych (indeks wspólny dla
+   wszystkich firm odcinałby trafienia małym firmom), a cała baza to 763
+   fragmenty; budujemy przy pierwszym alarmie rozmiaru bazy i na pgvector 0.8+
+   ([ADR 001](adr/001-brak-indeksu-wektorowego.md)); terminy, forma (PDF) i przegląd prawny umowy
    powierzenia przed pierwszą sprzedażą; procedura utraty MFA obowiązuje
    ([utrata-mfa.md](utrata-mfa.md)), reset MFA przez właściciela w panelu
    i doba oczekiwania w poleceniu - do zrobienia. Kopia miesięczna ręczna i obecne zasoby pozostają

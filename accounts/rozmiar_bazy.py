@@ -186,7 +186,9 @@ def _tresc(znalezione: list[dict]) -> str:
 
     akapity.append(
         "Co z tym zrobic: docs/adr/001-brak-indeksu-wektorowego.md opisuje opcje "
-        "(indeks HNSW, zmiana limitow planow) razem z tym, co kazda kosztuje."
+        "(indeks HNSW, zmiana limitow planow) razem z tym, co kazda kosztuje. "
+        "Indeks HNSW dopiero na pgvector 0.8 lub nowszym (produkcja 12.10.2026: "
+        "0.7.2) - bez skanow iteracyjnych male firmy traca trafienia."
     )
     akapity.append("")
     akapity.append("O tym samym progu u tej samej firmy piszemy raz.")
