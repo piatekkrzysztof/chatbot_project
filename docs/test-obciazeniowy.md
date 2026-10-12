@@ -76,6 +76,43 @@ i sieć. Dalsze kroki - decyzja właściciela: `OPENAI_REASONING_EFFORT=low`
 (lokalnie 0,8 / 1,5 s, ale 1 błąd rachunkowy na 18 prób) albo najpierw pomiar
 etapów przed pierwszym słowem i poprawka bez zmiany jakości.
 
+### Rozkład czasu czatu - pomiar etapów, produkcja 12.10.2026 (2.32.2)
+
+Właściciel wybrał pomiar etapów - polecenie `zmierz_czat`. 8 pytań z testu obciążenia, konto testowe,
+gpt-6-luna z `reasoning_effort=medium`:
+
+| Krok | Mediana | Maks |
+|---|---|---|
+| Wektor pytania (API OpenAI) | 156 ms | 899 ms |
+| Wyszukiwanie wektorowe (baza) | 5 ms | 36 ms |
+| Trafienia po słowach (baza) | 6 ms | 81 ms |
+| FAQ (baza) | 3 ms | 106 ms |
+| **Razem przed wysłaniem do modelu** | **172 ms** | 948 ms |
+| **Model: do pierwszego tokenu** | **1843 ms** | 2585 ms |
+| Pierwszy fragment dla widgetu (od startu) | 2205 ms | 2787 ms |
+
+Nowe połączenie z OpenAI kosztuje ok. 40 ms więcej niż otwarte (649 wobec
+611 ms przy odczycie opisu modelu). Prompt ok. 710 tokenów, rozumowanie
+mediana 14 tokenów (maks 106).
+
+**Wniosek:** ok. 85% czasu do pierwszego słowa to czas modelu po stronie
+OpenAI, także przy odpowiedziach bez rozumowania (0 tokenów: 1,2 i 1,7 s).
+Nasza część to ok. 170 ms w medianie, z czego wektor pytania ok. 150 ms;
+baza poniżej 20 ms. Poprawki w kodzie bez zmiany modelu (stały klient
+OpenAI, równoległe kroki) dają najwyżej kilkadziesiąt milisekund. Wynik
+zgadza się z testem obciążenia (pierwsze słowa p50 2,0 s). Dalsze skrócenie
+wymaga decyzji właściciela o modelu, jego ustawieniach albo celu SLO.
+
+**Decyzja właściciela 12.10.2026: obecny stan przyjęty.** Model i ustawienia
+bez zmian (gpt-6-luna, `medium`), bo wybrano go dla jakości wnioskowania.
+Cel p95 poniżej 3 s zostaje; wynik (mediana ok. 2 s, p95 ok. 3,3 s z 15 rozmów)
+to znane odstępstwo zależne od czasu modelu u dostawcy. Sprawdzane przy
+kolejnych pomiarach (`zmierz_czat`, test obciążenia). `reasoning_effort=low`
+odrzucone: rozumowanie to mediana 14 tokenów, a odpowiedzi bez rozumowania
+też czekały 1,2-1,7 s - zysk niepewny, ryzyko dla jakości realne. Szybszy
+model (gorsze wnioskowanie) i płatny szybszy tryb OpenAI - niewybrane.
+Test obciążenia zamknięty.
+
 ## Po co
 
 [SLO](slo-i-czasy-odpowiedzi.md) mówi, jak szybko ma odpowiadać system, ale nie
