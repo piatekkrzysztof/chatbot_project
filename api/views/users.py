@@ -111,11 +111,14 @@ class UserViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
         właściciela, bo przejęta sesja właściciela nie może wystarczyć do zdjęcia
         ochrony z cudzego konta.
         """
-        dane = ResetMfaSerializer(data=request.data)
-        dane.is_valid(raise_exception=True)
         with transaction.atomic():
+            # Najpierw dostęp, potem treść żądania: osoba z innej firmy ma dać
+            # 404, a nie „brak hasła” - kontrakt dostępu wymaga, żeby odmowa
+            # zapadała przed walidacją (test_kontrakt_dostepu).
             self._lock_team()
             osoba = self.get_object()
+            dane = ResetMfaSerializer(data=request.data)
+            dane.is_valid(raise_exception=True)
             if osoba.pk == request.user.pk:
                 raise ValidationError(
                     {"detail": "Swoje logowanie dwuetapowe wyłączysz w Ustawieniach konta."}
