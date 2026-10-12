@@ -25,7 +25,28 @@ python narzedzia/test_obciazenia/test_obciazenia.py --backend https://api.agencj
 ```
 
 Sprawdzone lokalnie 12.10.2026 na krótkim przebiegu (widget, panel, eksport,
-rozmowy strumieniem). Wynik produkcyjny - poniżej, po wykonaniu.
+rozmowy strumieniem).
+
+### Wynik produkcji 12.10.2026, 11:03-11:13 (2.32.0) - przed poprawką
+
+| Ruch | Żądań | p50 | p95 | maks | Próg p95 |
+|---|---|---|---|---|---|
+| Widget | 481 | 756 ms | 2200 ms | 3402 ms | 500 ms - **przekroczony** |
+| Panel | 1181 | 798 ms | 2202 ms | 4109 ms | 800 ms - **przekroczony** |
+| Czat: pierwsze słowa | 15 | 3,6 s | 5,2 s | 5,9 s | 3 s - **przekroczony** |
+| Czat: cała odpowiedź | 15 | 3,9 s | 5,6 s | 6,3 s | - |
+| Eksport CSV | 20 | 435 ms | 1350 ms | 1516 ms | - |
+
+Zero błędów 5xx i zero odmów 429 przy 1697 żądaniach. Zapis:
+[test-obciazenia-2026-10-12-przed.json](test-obciazenia-2026-10-12-przed.json).
+
+**Przyczyna:** pojedyncze `/health/` bez obciążenia trwało 0,4-2,4 s, a odrzucone
+od razu żądanie ~90 ms (sieć i Cloudflare w porządku). Pomiar w powłoce
+produkcji: `CONN_MAX_AGE=0` i baza podłączona **adresem zewnętrznym** - nowe
+połączenie z bazą 330-740 ms przy każdym żądaniu, zapytanie na otwartym
+połączeniu 2 ms, Redis 5 ms. Poprawka: utrzymywanie połączeń (2.32.1)
+i wewnętrzny adres bazy w `DATABASE_URL` (właściciel, w Renderze).
+Powtórzenie testu po poprawce - poniżej.
 
 ## Po co
 
