@@ -1,0 +1,50 @@
+{
+ "czas": "2026-10-12T09:13:26.044840+00:00",
+ "sekund": 601,
+ "podsumowanie": {
+  "widget": {
+   "zadan": 481,
+   "p50_ms": 755.6486000539735,
+   "p95_ms": 2199.5323000010103,
+   "maks_ms": 3402.4373999563977,
+   "statusy": {
+    "200": 481
+   },
+   "werdykt": "PRZEKROCZONE"
+  },
+  "panel": {
+   "zadan": 1181,
+   "p50_ms": 797.6318999426439,
+   "p95_ms": 2201.8260000040755,
+   "maks_ms": 4109.2910000588745,
+   "statusy": {
+    "200": 1181
+   },
+   "werdykt": "PRZEKROCZONE"
+  },
+  "czat_pierwsze_slowa": {
+   "zadan": 15,
+   "p50_ms": 3572.721799951978,
+   "p95_ms": 5239.554479985964,
+   "maks_ms": 5917.569300043397,
+   "statusy": {
+    "200": 15
+   },
+   "werdykt": "PRZEKROCZONE",
+   "calosc_p50_ms": 3901.573700015433,
+   "calosc_p95_ms": 5566.5301899425685
+  },
+  "eksport": {
+   "zadan": 20,
+   "p50_ms": 434.7993499832228,
+   "p95_ms": 1350.4378349811304,
+   "maks_ms": 1516.4794999873266,
+   "statusy": {
+    "200": 20
+   },
+   "werdykt": null
+  }
+ },
+ "bledy_5xx_udzial": 0.0,
+ "odmowy_429": 0
+}
