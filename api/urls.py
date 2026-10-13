@@ -14,7 +14,7 @@ from api.views.activation import (
 from api.views.dane_rozliczeniowe import DaneRozliczenioweView
 from api.views.diagnostyka import DiagnostykaAdresuView
 from api.views.diagnostyka_zadan import DiagnostykaZadanView
-from api.views.documents import DocumentChunkListView, DocumentDetailView, UploadDocumentView
+from api.views.documents import DocumentChunkListView, UploadDocumentView
 from api.views.drugi_skladnik import (
     PotwierdzDrugiSkladnikView,
     RozpocznijDrugiSkladnikView,
@@ -161,7 +161,6 @@ urlpatterns = [
         name="invitation-revoke",
     ),
     path("documents-upload/", UploadDocumentView.as_view(), name="upload-document"),
-    path("documents/<int:pk>/", DocumentDetailView.as_view(), name="document-detail"),
     path(
         "documents/<int:document_id>/chunks/",
         DocumentChunkListView.as_view(),

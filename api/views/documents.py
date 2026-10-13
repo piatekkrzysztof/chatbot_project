@@ -9,7 +9,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -47,14 +47,6 @@ from documents.validators import (
 def z_liczba_fragmentow(queryset):
     """Liczba fragmentów w tym samym zapytaniu co dokumenty - zamiast dwóch zapytań na dokument."""
     return queryset.annotate(liczba_fragmentow=Count("chunks"))
-
-
-class DocumentDetailView(TenantQuerysetMixin, RetrieveAPIView):
-    serializer_class = DocumentSerializer
-    permission_classes = [IsTenantMember]
-
-    def get_queryset(self):
-        return z_liczba_fragmentow(super().get_queryset()).order_by("-uploaded_at")
 
 
 @extend_schema(tags=["Panel — baza wiedzy"])
