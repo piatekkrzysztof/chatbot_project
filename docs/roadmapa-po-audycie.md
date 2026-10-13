@@ -333,7 +333,7 @@ sprawdzeniem retencji.
 
 | ID | Stan i dowód | Co pozostaje do odbioru lub naprawy |
 |---|---|---|
-| F01 | Naprawa scalona i wdrożona, backend #38 | **Macierz dostępu gotowa (2.29.0):** [macierz-dostepu.md](macierz-dostepu.md), 97 operacji × 5 tożsamości, generowana z kontraktu i pilnowana testem. Przy okazji: `GET /api/documents/{pk}/` ma dwie trasy, `DocumentDetailView` jest nieosiągalny (martwy kod, do usunięcia) |
+| F01 | Naprawa scalona i wdrożona, backend #38 | **Macierz dostępu gotowa (2.29.0):** [macierz-dostepu.md](macierz-dostepu.md), 97 operacji × 5 tożsamości, generowana z kontraktu i pilnowana testem. Przy okazji: `GET /api/documents/{pk}/` miał dwie trasy, `DocumentDetailView` był nieosiągalny - usunięty 13.10.2026 (2.32.3), trasę obsługuje router |
 | F02 | Naprawa ról i ostatniego właściciela, #38 | Atomowe przyjmowanie zaproszeń należy do F07 |
 | F03 | Izolacja CSV naprawiona, #38 | Integralność treści CSV pozostaje w F19 |
 | F04 | Prywatne magazyny, szyfrowanie i klucze poza hostingiem; 2.0.14 dodaje pełne kopie z bajtami plików i zweryfikowaną próbę na danych syntetycznych | Wykonane 17.09.2026 razem z F21: rzeczywista kopia przy wstrzymanych zapisach, izolowany restore na PG16, monitor i sprawdzony alarm ([protokół](odbior-f21.md#wynik-odbioru---17092026)). Retencja archiwum kopii dodana w 2.15.0 ([opis](harmonogram-i-kontrola-kopii.md#retencja-archiwum-kopii-2150)) |

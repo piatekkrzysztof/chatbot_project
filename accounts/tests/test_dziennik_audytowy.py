@@ -287,7 +287,7 @@ class TestOdczytowWynoszacychDane:
         # utopiłby wynoszenie danych w zwykłym przeglądaniu panelu.
         dokument = Document.objects.create(tenant=firma, name="cennik.txt", content="CENNIK")
 
-        assert klient.get(reverse("document-detail", args=[dokument.pk])).status_code == 200
+        assert klient.get(reverse("documents-detail", args=[dokument.pk])).status_code == 200
         assert not WpisDziennika.objects.exists()
 
     def test_nazwy_zapisywanych_odczytow_istnieja(self):

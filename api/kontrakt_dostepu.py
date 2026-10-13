@@ -61,7 +61,6 @@ KONTRAKT = {
     ("documents-uzycie", "GET"): CZLONEK,
     ("documents-detail", "GET"): CZLONEK,
     ("documents-download", "GET"): CZLONEK,
-    ("document-detail", "GET"): CZLONEK,
     ("document-chunks", "GET"): CZLONEK,
     ("website-sources-list", "GET"): CZLONEK,
     ("website-sources-detail", "GET"): CZLONEK,

@@ -16,6 +16,15 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.3] - 2026-10-13
+
+### Removed
+
+- **A duplicate, unreachable route for document details.** The address
+  `/api/documents/{id}/` was declared twice and only the first declaration
+  ever answered. Nothing changes for the panel or the API; the access matrix
+  lists one operation fewer.
+
 ## [2.32.2] - 2026-10-12
 
 ### Added
