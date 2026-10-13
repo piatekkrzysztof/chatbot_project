@@ -21,7 +21,7 @@ Każdy wiersz jest sprawdzany prawdziwymi żądaniami w
   na każdej operacji z identyfikatorem obiektu firmy A, a token firmy A z kluczem
   firmy B - 403 wszędzie poza operacjami publicznymi i własnym kontem.
 
-Operacji: 98.
+Operacji: 97.
 
 ## Logowanie, rejestracja i hasło
 
@@ -85,7 +85,6 @@ Operacji: 98.
 | `GET /api/documents/uzycie/` | Ile miejsca zajmuje baza wiedzy | - | - | tak | tak | tak |
 | `GET /api/documents/{document_id}/chunks/` | Fragmenty dokumentu w wyszukiwaniu | - | - | tak | tak | tak |
 | `GET /api/documents/{pk}/` | Szczegóły dokumentu | - | - | tak | tak | tak |
-| `GET /api/documents/{pk}/` | Szczegóły dokumentu (trasa przesłonięta przez router) | - | - | tak | tak | tak |
 | `DELETE /api/documents/{pk}/` | Usuń dokument razem z plikiem | - | - | - | tak | tak |
 | `GET /api/documents/{pk}/download/` | Pobranie pliku dokumentu | - | - | tak | tak | tak |
 | `PATCH /api/documents/{pk}/wyszukiwanie/` | Włącz lub wyłącz dokument w wyszukiwaniu | - | - | - | tak | tak |
