@@ -314,7 +314,15 @@ def test_slow_body_is_interrupted_even_after_http_client_detaches_socket(monkeyp
     sock.shutdown.side_effect = lambda how: stopped.set()
     response = Mock(status=200)
     response.getheader.side_effect = lambda name, default=None: default
-    response.read.side_effect = lambda size: b"" if stopped.wait(2) else b"too late"
+
+    def read(size):
+        # Bez przerwania gniazda pętla odczytu kręciłaby się w nieskończoność
+        # (limit czasu poniżej wyłączony), więc brak przerwania to błąd testu.
+        if not stopped.wait(2):
+            raise AssertionError("timer nie przerwał gniazda")
+        return b""
+
+    response.read.side_effect = read
     connection = Mock(sock=sock)
 
     def detach():
@@ -324,6 +332,13 @@ def test_slow_body_is_interrupted_even_after_http_client_detaches_socket(monkeyp
     connection.getresponse.side_effect = detach
     monkeypatch.setattr(http, "_open_connection", lambda *args: connection)
     monkeypatch.setattr(http, "FETCH_SECONDS", 0.1)
+    # Sprawdza przerwanie gniazda przez timer, więc tylko timer może tu
+    # skończyć pobieranie. Z prawdziwym `_remaining` wynik zależał od tego,
+    # który wątek pierwszy zobaczy upływ 0,1 s: na wolnym runnerze (pokrycie
+    # testami, CI 9.10.2026) wątek główny rzucał wyjątek przed odczytem
+    # i anulował timer, zanim ten zamknął gniazdo. Samo `_remaining` mają
+    # pod kontrolą testy limitów czasu wyżej i niżej.
+    monkeypatch.setattr(http, "_remaining", lambda deadline: 1.0)
     start = time.monotonic()
     with pytest.raises(http.FetchLimitExceeded):
         http.fetch_page(f"http://{PUBLIC}/")
