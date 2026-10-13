@@ -284,11 +284,12 @@ odpowiada 2.19.9 (sprawdzone 2.10.2026).
    ([ADR 001](adr/001-brak-indeksu-wektorowego.md)); terminy, forma (PDF) i przegląd prawny umowy
    powierzenia przed pierwszą sprzedażą; procedura utraty MFA obowiązuje
    ([utrata-mfa.md](utrata-mfa.md)), reset MFA przez właściciela w panelu
-   i doba oczekiwania w poleceniu - do zrobienia. Kopia miesięczna ręczna i obecne zasoby pozostają
+   i doba oczekiwania w poleceniu - wdrożone w 2.32.0. Kopia miesięczna ręczna i obecne zasoby pozostają
    przyjętym wariantem; płatny cron nie jest obowiązkową nową decyzją.
    [Wzór umowy powierzenia](umowa-powierzenia.md) nadal wymaga przeglądu prawnego
    i uzupełnienia decyzji wskazanych w dokumencie, w tym podstaw przekazywania
-   danych poza EOG. Ustalić także sposób komunikowania awarii.
+   danych poza EOG. Sposób komunikowania awarii ustalony
+   ([informowanie o awariach](informowanie-o-awariach.md)), strona statusu działa.
 
 **Wykonane w tym kroku:** potwierdzenie przebiegów F08 (04:00),
 F13 (03:30), F20 (03:45), A04 (co minutę), A02 (co 5 minut) i kolejki F15;
