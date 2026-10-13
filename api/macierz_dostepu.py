@@ -80,7 +80,6 @@ OPISY_UZUPELNIAJACE = {
     ("contact-requests-detail", "PATCH"): "Oznaczenie zapytania jako obsłużone",
     ("documents-list", "GET"): "Lista dokumentów",
     ("documents-detail", "GET"): "Szczegóły dokumentu",
-    ("document-detail", "GET"): "Szczegóły dokumentu (trasa przesłonięta przez router)",
     ("documents-download", "GET"): "Pobranie pliku dokumentu",
     ("faq-list", "GET"): "Lista wpisów FAQ",
     ("faq-list", "POST"): "Dodanie wpisu FAQ",

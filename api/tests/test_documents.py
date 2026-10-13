@@ -109,7 +109,7 @@ def test_document_detail_view_response_fields(user, tenant, subscribtion):
     doc = Document.objects.create(name="Doc", tenant=tenant, processed=True, content="abc def")
     client = APIClient()
     client.force_authenticate(user=user)
-    url = reverse("document-detail", args=[doc.id])
+    url = reverse("documents-detail", args=[doc.id])
     res = client.get(url, HTTP_X_API_KEY=str(tenant.api_key))
     assert res.status_code == 200
     for field in ["id", "name", "processed", "uploaded_at", "chunk_count", "status", "preview"]:
