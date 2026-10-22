@@ -40,7 +40,7 @@ def oszacuj_tokeny_wiadomosci(messages):
     )
 
 
-def przytnij_do_budzetu(messages, budzet):
+def przytnij_do_budzetu(messages, budzet, przytnij_system=None):
     """
     Skraca listę wiadomości tak, by zmieściła się w budżecie tokenów.
 
@@ -55,6 +55,11 @@ def przytnij_do_budzetu(messages, budzet):
 
     Nigdy nie usuwamy promptu systemowego w całości ani bieżącego pytania —
     bez nich odpowiedź nie miałaby sensu.
+
+    `przytnij_system(tresc, limit_znakow)` skraca prompt systemowy w kroku 2.
+    Bez niego - zwykły wycinek od początku. Czat podaje
+    `przytnij_prompt_systemowy`, który zostawia zamknięty blok wiedzy
+    i przypomnienie o znaczniku na końcu (2.32.8).
     """
     if not messages:
         return messages
@@ -86,6 +91,7 @@ def przytnij_do_budzetu(messages, budzet):
     limit_znakow = max(0, int((dostepne - 1) * ZNAKI_NA_TOKEN))
     tresc = system.get("content", "")
     if len(tresc) > limit_znakow:
-        wiadomosci[0] = {**system, "content": tresc[:limit_znakow]}
+        skrocona = przytnij_system(tresc, limit_znakow) if przytnij_system else tresc[:limit_znakow]
+        wiadomosci[0] = {**system, "content": skrocona}
 
     return wiadomosci

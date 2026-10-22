@@ -32,7 +32,7 @@ from django.core.management.base import BaseCommand, CommandError
 from accounts.models import Tenant
 from api.utils.chat_engine import _faq_do_promptu, get_client, parametry_modelu
 from api.utils.pokrycie import ObcinaczZnacznika
-from api.utils.prompt_systemowy import build_system_prompt
+from api.utils.prompt_systemowy import build_system_prompt, przytnij_prompt_systemowy
 from api.utils.tokens import przytnij_do_budzetu
 from rag.engine import dolacz_trafienia_slowne, szukaj_po_wektorze, wektor_pytania
 
@@ -168,7 +168,12 @@ class Command(BaseCommand):
             {"role": "system", "content": build_system_prompt(tenant, fragmenty, faq, pytanie)},
             {"role": "user", "content": pytanie},
         ]
-        wiadomosci = przytnij_do_budzetu(wiadomosci, settings.OPENAI_MAX_INPUT_TOKENS)
+        # Ta sama droga co w czacie - pomiar ma ciąć prompt tak, jak cięty jest naprawdę.
+        wiadomosci = przytnij_do_budzetu(
+            wiadomosci,
+            settings.OPENAI_MAX_INPUT_TOKENS,
+            przytnij_system=przytnij_prompt_systemowy,
+        )
         wynik["prompt"] = ms(krok)
 
         wynik["model_start"] = ms(start)

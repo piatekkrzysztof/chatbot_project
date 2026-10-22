@@ -13,7 +13,7 @@ from api.utils.pokrycie import (
     determine_source,
     wybierz_faq,
 )
-from api.utils.prompt_systemowy import build_system_prompt
+from api.utils.prompt_systemowy import build_system_prompt, przytnij_prompt_systemowy
 from api.utils.tokens import przytnij_do_budzetu
 from chat.lifecycle import RozmowaUsunieta
 from chat.models import (
@@ -170,7 +170,9 @@ def build_chat_messages(tenant, conversation, message_text):
 
     # Sufit kosztu wejścia. Bez tego prompt rósł z wielkością regulaminu klienta
     # i liczbą wpisów FAQ, a płacimy za każdy token przy każdej wiadomości.
-    messages = przytnij_do_budzetu(messages, settings.OPENAI_MAX_INPUT_TOKENS)
+    messages = przytnij_do_budzetu(
+        messages, settings.OPENAI_MAX_INPUT_TOKENS, przytnij_system=przytnij_prompt_systemowy
+    )
 
     return messages, chunks, faqs, wyszukiwanie_padlo
 
