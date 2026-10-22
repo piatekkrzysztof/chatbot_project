@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.10] - 2026-10-22
+
+### Fixed
+
+- **Widget settings are checked before they are saved.** A delay typed as
+  text or a position longer than the database allows crashed the save with an
+  error 500, and values such as position "centre", an unknown branding mode
+  or a colour that is not a colour were stored and sent to the widget on the
+  customer's site. Now a wrong value gets a clear message naming the field,
+  and nothing is saved unless everything is valid. Languages sent as a list
+  are stored the same way as from the panel - until now they ended up as
+  text the bot could not read, leaving it with the default language only.
+
 ## [2.32.9] - 2026-10-22
 
 ### Fixed
