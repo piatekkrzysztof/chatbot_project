@@ -352,9 +352,13 @@ paging through the panel and dumping the whole history in one request are differ
 profiles). Enforced by permission classes, covered by `api/tests/test_rola_viewer.py`,
 which asserts both halves: that reads are allowed *and* that writes are refused.
 
-**Widget origin allowlist.** A leaked API key is visible in the page source by design.
-`WidgetDomain` restricts which origins may use it, so a stolen key cannot be pointed at
-someone else's site to burn the victim's message quota.
+**Widget site registry.** The API key is visible in the page source by design.
+`WidgetDomain` records the sites the widget runs on, from the `Origin` of the settings
+request, and enforces the plan's site limit there. It does **not** protect the key: chat
+requests come from the widget frame on our own domain and are not checked against the
+registry, so a copied key still works elsewhere, within the company's message quota and
+the per-visitor limits. Options for binding the key to a site are listed under P06 in
+[the October 2026 audit](docs/audyt-2026-10.md).
 
 **Rate limits.** Three layers: per API key, per subscription plan, and per visitor
 (`LIMIT_ODWIEDZAJACEGO`, 20/hour by default). The visitor limit needs `TRUSTED_PROXY_DEPTH`
