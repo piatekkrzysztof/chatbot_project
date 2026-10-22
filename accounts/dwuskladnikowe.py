@@ -13,6 +13,8 @@ from uuid import UUID
 
 from django.conf import settings
 from django.core import signing
+from django.core.cache import cache
+from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare, salted_hmac
@@ -30,6 +32,15 @@ ILE_KODOW_ZAPASOWYCH = 10
 WAZNOSC_BILETU_SEKUND = 300
 
 _SOL_BILETU = "logowanie-drugi-skladnik"
+
+#: Ile błędnych kodów drugiego kroku na konto w ciągu doby, zanim drugi krok
+#: się zamknie. Do 2.32.13 jedyną granicą było 10 prób na 5 minut, bez końca:
+#: kto znał hasło, miał ok. 0,9% szans dziennie na trafienie kodu, a osoba,
+#: której hasło wyciekło, nie dowiadywała się o niczym (audyt 2026-10, P16).
+#: Dwadzieścia to kilka pomyłek dziennie z dużym zapasem - człowiek, który
+#: przepisuje kod z telefonu, nie myli się dwadzieścia razy.
+DOBOWY_LIMIT_BLEDNYCH_KODOW = 20
+OKNO_DOBOWE_SEKUND = 24 * 3600
 
 
 def skrot_kodu(kod: str) -> str:
@@ -163,6 +174,70 @@ def valid_challenge(challenge, user, factor):
     )
 
 
+def _klucz_dobowy(uzytkownik):
+    # Z odciskiem hasła: zmiana hasła - to radzi ostrzeżenie - zaczyna licznik
+    # od nowa, więc właściciel konta odblokowuje się sam, bez obsługi.
+    odcisk = salted_hmac("mfa-dobowy-limit", f"{uzytkownik.pk}:{uzytkownik.password}").hexdigest()
+    return f"mfa-doba:{odcisk}"
+
+
+def drugi_krok_zamkniety(uzytkownik) -> bool:
+    """Czy konto wyczerpało dobowy limit błędnych kodów przy obecnym haśle."""
+    from api.mfa_throttles import MfaUnavailable
+
+    try:
+        return (cache.get(_klucz_dobowy(uzytkownik)) or 0) >= DOBOWY_LIMIT_BLEDNYCH_KODOW
+    except Exception:
+        # Bez licznika nie wiemy, czy limit nie minął - drugi krok zamknięty,
+        # jak przy każdym innym limicie MFA.
+        raise MfaUnavailable() from None
+
+
+def zapisz_bledny_kod(uzytkownik):
+    """Liczy błędny kod; przy osiągnięciu limitu zleca jedno ostrzeżenie."""
+    from api.mfa_throttles import MfaUnavailable
+
+    klucz = _klucz_dobowy(uzytkownik)
+    try:
+        ile = 1 if cache.add(klucz, 1, timeout=OKNO_DOBOWE_SEKUND) else cache.incr(klucz)
+    except Exception:
+        raise MfaUnavailable() from None
+    if ile == DOBOWY_LIMIT_BLEDNYCH_KODOW:
+        from accounts.tasks import ostrzez_o_blednych_kodach
+        from documents.utils.queue import enqueue
+
+        identyfikator = uzytkownik.pk
+        transaction.on_commit(lambda: enqueue(ostrzez_o_blednych_kodach, identyfikator))
+
+
+TEMAT_OSTRZEZENIA = "Ktoś zna hasło do Twojego konta"
+
+
+def tresc_ostrzezenia(uzytkownik) -> str:
+    return (
+        "Dzień dobry,\n\n"
+        f"ktoś podał poprawne hasło do konta {uzytkownik.email}, ale "
+        f"{DOBOWY_LIMIT_BLEDNYCH_KODOW} razy błędny kod z aplikacji uwierzytelniającej. "
+        "Żeby nie mógł zgadywać dalej, logowanie na to konto jest wstrzymane na dobę.\n\n"
+        "JEŚLI TO NIE TY: od razu zmień hasło przez „Nie pamiętam hasła”. Zmiana hasła "
+        "zdejmuje też blokadę logowania.\n\n"
+        "Jeśli to Ty - sprawdź, czy zegar telefonu jest ustawiony automatycznie, i zaloguj "
+        "się kodem zapasowym albo po zmianie hasła.\n"
+    )
+
+
+def wyslij_ostrzezenie_o_kodach(uzytkownik) -> None:
+    """Mail do osoby, na której koncie zamknął się drugi krok. Rzuca, gdy nie wyszedł."""
+    if not send_mail(
+        subject=TEMAT_OSTRZEZENIA,
+        message=tresc_ostrzezenia(uzytkownik),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[uzytkownik.email],
+        fail_silently=False,
+    ):
+        raise RuntimeError("send_mail zwrócił 0")
+
+
 @transaction.atomic
 def zakoncz_logowanie(bilet, kod):
     from accounts.models import CustomUser, DrugiSkladnik, MfaChallenge
@@ -183,9 +258,13 @@ def zakoncz_logowanie(bilet, kod):
     if not valid_challenge(challenge, user, factor):
         return None, 401
     account_attempt(user)
+    if drugi_krok_zamkniety(user):
+        # Także dla poprawnego kodu - inaczej blokada nie zatrzymałaby zgadywania.
+        return None, 429
     if not (sprawdz_kod(factor, kod) or zuzyj_kod_zapasowy(user, kod)):
         challenge.failures += 1
         challenge.save(update_fields=["failures"])
+        zapisz_bledny_kod(user)
         return None, 400
     challenge.used_at = timezone.now()
     challenge.save(update_fields=["used_at"])
