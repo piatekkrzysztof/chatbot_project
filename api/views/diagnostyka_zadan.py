@@ -476,12 +476,17 @@ def _zdrowie_bazy_wiedzy(tenant):
     policzyły, bot tego nie zna mimo zielonego statusu. „Niepełne" to
     ostrzeżenie: ze strony wyciągnęliśmy mniejszość tego, co na niej widać.
     """
+    from django.db.models.functions import Length
+
     from documents.models import Document, DocumentChunk
 
+    # Długość liczy baza: do udziału wystarczy liczba znaków, a treść całej
+    # bazy wiedzy w pamięci procesu to dziesiątki megabajtów na odświeżenie.
     dokumenty = list(
         Document.objects.filter(tenant=tenant, uzywaj_w_wyszukiwaniu=True)
         .exclude(content="")
-        .only("id", "name", "content", "znakow_na_stronie")
+        .only("id", "name", "znakow_na_stronie")
+        .annotate(dlugosc=Length("content"))
     )
     z_fragmentami = set(
         DocumentChunk.objects.filter(document__tenant=tenant)
@@ -499,7 +504,7 @@ def _zdrowie_bazy_wiedzy(tenant):
         # wprowadzeniem tej miary — te ocenimy przy najbliższym odświeżeniu.
         if not widocznych:
             continue
-        udzial = len(dokument.content) / widocznych
+        udzial = dokument.dlugosc / widocznych
         if udzial < PROG_NIEPELNEJ_STRONY:
             niepelne.append({"nazwa": dokument.name, "udzial_procent": round(udzial * 100)})
 
