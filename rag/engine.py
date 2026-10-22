@@ -62,11 +62,17 @@ def wektor_pytania(query: str):
 
 
 def szukaj_po_wektorze(tenant_id: int, wektor, top_k: int = 5, max_distance: float | None = None):
-    """Najbliższe fragmenty firmy, odcięte progiem odległości."""
+    """
+    Najbliższe fragmenty firmy, odcięte progiem odległości.
+
+    Razem z dokumentem: prompt i lista źródeł czytają jego nazwę i adres, a bez
+    tego każdy fragment to było osobne zapytanie - pięć na wiadomość czatu.
+    """
     if max_distance is None:
         max_distance = settings.RAG_MAX_DISTANCE
     return list(
         fragmenty_do_przeszukania(tenant_id)
+        .select_related("document")
         .annotate(distance=L2Distance("embedding", wektor))
         .filter(distance__lte=max_distance)
         .order_by("distance")[:top_k]
@@ -149,7 +155,8 @@ def dolacz_trafienia_slowne(tenant_id, pytanie, wektor, wyniki, top_k):
     for rdzen in rdzenie:
         zapytanie = zapytanie.filter(content__icontains=rdzen)
     slowne = list(
-        zapytanie.annotate(distance=L2Distance("embedding", wektor))
+        zapytanie.select_related("document")
+        .annotate(distance=L2Distance("embedding", wektor))
         .filter(distance__lte=MAKS_ODLEGLOSC_SLOWNA)
         .order_by("distance")[:MAKS_TRAFIEN_SLOWNYCH]
     )
