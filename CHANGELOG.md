@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.9] - 2026-10-22
+
+### Fixed
+
+- **A malformed login request gets a plain refusal instead of a server
+  error.** A number in the user name field, or a list instead of a form,
+  crashed the per-account login limit with an error 500 and a Sentry event.
+  Now such requests get 400, a number is counted against the same account as
+  the same text (so sending `123` instead of `"123"` does not dodge the
+  limit), and rejected requests no longer use up anybody's attempts.
+
 ## [2.32.8] - 2026-10-22
 
 ### Fixed
