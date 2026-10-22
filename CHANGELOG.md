@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.13] - 2026-10-22
+
+### Fixed
+
+- **A company name can no longer silently switch off its email
+  notifications.** The name goes into the subject of every email to the
+  owner, and a name saved with a line break made every one of them fail -
+  leads from the chat, new conversations, the weekly report. Names with line
+  breaks, tabs or other control characters are now refused, both in company
+  settings and at sign-up, with a message saying why.
+
 ## [2.32.12] - 2026-10-22
 
 ### Fixed
