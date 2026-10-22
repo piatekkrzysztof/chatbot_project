@@ -358,6 +358,15 @@ Szczegóły kolejki, gdy karta 01 świeci na czerwono:
 curl -H "X-API-Key: KLUCZ" https://TWOJ-BACKEND/api/diagnostyka/zadania/
 ```
 
+Czy błędy w ogóle docierają do Sentry - w powłoce usługi web:
+
+```bash
+python manage.py sprawdz_sentry
+```
+
+Wysyła jedno zdarzenie próbne i podaje jego numer; bez skonfigurowanego Sentry
+kończy się błędem. Publicznego adresu do tej próby nie ma od 2.32.6.
+
 ---
 
 ## Rzeczy, które dzieją się same

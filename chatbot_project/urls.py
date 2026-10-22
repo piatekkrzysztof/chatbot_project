@@ -23,13 +23,9 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from chatbot_project.zdrowie import health_check
 
-
-def trigger_error(request):
-    """Celowy blad do sprawdzenia, czy Sentry odbiera zdarzenia."""
-    # Bez przypisania: zmienna istniala tylko po to, zeby wywolac wyjatek,
-    # a nazwa sugerowala, ze wynik do czegos sluzy.
-    1 / 0  # noqa: B018 - to wyrazenie JEST celem tego widoku
-
+# Próbę Sentry robi `manage.py sprawdz_sentry`. Do 2.32.5 stał tu publiczny
+# `/sentry-debug/` bez limitu: każde wejście dawało 500 i zdarzenie, więc kto
+# chciał, wyczerpywał nim miesięczny limit zdarzeń i oślepiał monitoring.
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -39,7 +35,6 @@ urlpatterns = [
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
     path("health/", health_check),
-    path("sentry-debug/", trigger_error),
 ]
 
 if settings.DEBUG:
