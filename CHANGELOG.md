@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.17] - 2026-10-22
+
+### Security
+
+- **The key in an invitation email no longer ends up in server logs.** The
+  key that creates an account in the company, with the role from the
+  invitation (owner included), was part of the link's path and of the
+  invitation check the panel made, so the hosting providers' request logs
+  kept it. Invitation emails now carry it after `#` in the link
+  (`/invite/accept#token=...`), which browsers do not send, and the panel
+  checks the invitation with `POST /api/accounts/invitations/preview/`, key
+  in the body - the same way password reset and account activation already
+  work. The panel page for the new link must be deployed first. The old
+  check (`GET /api/accounts/invitations/<key>/preview/`) stays for a week
+  for links sent before this release, as an invitation is valid for at most
+  7 days.
+
 ## [2.32.16] - 2026-10-22
 
 ### Fixed
