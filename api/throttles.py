@@ -148,6 +148,23 @@ class KontaktOdwiedzajacegoThrottle(VisitorRateThrottle):
         return getattr(settings, "LIMIT_KONTAKTU_ODWIEDZAJACEGO", "5/hour")
 
 
+class StanRozmowyOdwiedzajacegoThrottle(VisitorRateThrottle):
+    """
+    Limit odczytów stanu rozmowy jednego odwiedzającego.
+
+    Widget pyta o stan przy każdym otwarciu, zanim pokaże historię zapisaną
+    w przeglądarce. Do 2.32.6 te odczyty liczyły się do limitu pytań do bota,
+    więc odwiedzający, który otworzył widget dwadzieścia razy na kolejnych
+    podstronach, przy pierwszym pytaniu dostawał odmowę. Odczyt to jedno
+    zapytanie do bazy, bez modelu - stąd osobny i hojniejszy licznik.
+    """
+
+    scope = "visitor-status"
+
+    def get_rate(self):
+        return getattr(settings, "LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO", "120/hour")
+
+
 class SubscriptionRateThrottle(BaseSubscriptionThrottle):
     scope = "subscription"
 

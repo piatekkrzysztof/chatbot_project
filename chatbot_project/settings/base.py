@@ -104,6 +104,8 @@ REST_FRAMEWORK = {
         "visitor": "20/hour",
         # Nadpisywane przez LIMIT_KONTAKTU_ODWIEDZAJACEGO
         "visitor-contact": "5/hour",
+        # Nadpisywane przez LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO
+        "visitor-status": "120/hour",
         # Logowanie. Stawki hojne dla człowieka, ciasne dla maszyny: ktoś, kto
         # pomyli hasło, poprawia je raz albo dwa. Dwie warstwy, bo każda łapie
         # co innego - po adresie jednego napastnika, po koncie rozproszone
@@ -338,6 +340,11 @@ LIMIT_ODWIEDZAJACEGO = os.getenv("LIMIT_ODWIEDZAJACEGO", "20/hour")
 # każde zgłoszenie to mail do właściciela wysłany z naszego konta pocztowego.
 # Prawdziwy odwiedzający zostawia kontakt raz, czasem drugi raz po literówce.
 LIMIT_KONTAKTU_ODWIEDZAJACEGO = os.getenv("LIMIT_KONTAKTU_ODWIEDZAJACEGO", "5/hour")
+
+# Odczyty stanu rozmowy (widget pyta przy każdym otwarciu). Osobno od pytań do
+# bota i hojniej: to jedno zapytanie do bazy, a odwiedzający otwiera widget na
+# każdej podstronie, którą ogląda.
+LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO = os.getenv("LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO", "120/hour")
 
 # Statystyki panelu nie muszą przeliczać całej historii przy każdym odświeżeniu.
 # Krótki cache zachowuje praktycznie bieżące dane, a odciąża bazę i przyspiesza UI.
