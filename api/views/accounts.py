@@ -244,11 +244,18 @@ class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
         serializer.is_valid(raise_exception=True)
         uzytkownik, result = dwuskladnikowe.zakoncz_logowanie(**serializer.validated_data)
         if not uzytkownik:
+            komunikaty = {
+                400: "Kod nie pasuje.",
+                429: (
+                    "Zbyt wiele błędnych kodów. Logowanie na to konto jest wstrzymane na dobę "
+                    "albo do zmiany hasła - wysłaliśmy wiadomość na adres konta."
+                ),
+            }
             return Response(
                 {
-                    "error": "Kod nie pasuje."
-                    if result == 400
-                    else "Bilet wygasl albo jest nieprawidlowy. Zaloguj sie ponownie."
+                    "error": komunikaty.get(
+                        result, "Bilet wygasl albo jest nieprawidlowy. Zaloguj sie ponownie."
+                    )
                 },
                 status=result,
             )
