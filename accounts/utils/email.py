@@ -8,7 +8,11 @@ def send_invitation_email(invitation: InvitationToken):
     """
     Wysyła e-mail z zaproszeniem do użytkownika na podstawie tokenu.
     """
-    accept_url = f"{settings.FRONTEND_URL}/invite/accept/{invitation.token}"
+    # Klucz we fragmencie: przeglądarka nie wysyła go w żądaniu ani w Referer,
+    # więc nie trafia do logów zapytań hostingu (A-26). Panel czyta `#token`
+    # i podaje go podglądowi oraz przyjęciu w treści POST.
+    base = settings.FRONTEND_URL.rstrip("/")
+    accept_url = f"{base}/invite/accept#token={invitation.token}"
 
     subject = "Zaproszenie do platformy Chatbot SaaS"
     message = f"""

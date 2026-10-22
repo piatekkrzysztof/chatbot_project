@@ -219,6 +219,26 @@ i middleware: kroki 1-3, mail na właściwy adres z kluczem przyjęcia
 kroki, po wdrożeniu backendu 2.20.0 (#119) i panelu #36 - w tej kolejności,
 zgodnie z wymaganiem wyżej.
 
+### Klucz przyjęcia we fragmencie (2.32.17, A-26 z audytu panelu)
+
+Klucz przyjęcia jechał w ścieżce linku z maila (`/invite/accept/<klucz>`)
+i w ścieżce podglądu (`GET /api/accounts/invitations/<klucz>/preview/`), więc
+trafiał do logów zapytań hostingu panelu i API. Od 2.32.17:
+
+- link w mailu to `{FRONTEND_URL}/invite/accept#token=<klucz>` - fragmentu
+  przeglądarka nie wysyła ani w żądaniu, ani w `Referer`;
+- `POST /api/accounts/invitations/preview/` z `{"token": "<uuid>"}` zwraca to
+  samo co GET (`company`, `role`, `is_valid`, `expires_at`), 404 dla
+  nieznanego klucza, 400 dla brakującego albo źle zbudowanego. Bez logowania,
+  ciasteczek i CSRF, z tym samym licznikiem limitu co GET;
+- przyjęcie (`POST /api/accounts/accept-invite/`) bez zmian.
+
+Kolejność wdrożenia: **najpierw panel** ze stroną `/invite/accept`
+(frontend_chatbot #71), bo nowe linki z maili prowadziłyby inaczej na 404,
+potem backend. Tydzień po wdrożeniu backendu (zaproszenie żyje najwyżej
+7 dni) usunąć GET podglądu razem z jego wyjątkiem w `TenantMiddleware`,
+a w panelu stronę `invite/accept/[token]`.
+
 ## Zakres nadal otwarty
 
 To nie jest pełne zamknięcie F07. Zostaje rzeczywisty odbiór poczty

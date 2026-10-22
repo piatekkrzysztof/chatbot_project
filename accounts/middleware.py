@@ -58,6 +58,8 @@ class TenantMiddleware:
             # ani klucza API, więc bez tego wyjątku każde zaproszenie kończyło
             # się odmową "Nie rozpoznano tenanta".
             "/api/accounts/accept-invite/",
+            # Podgląd zaproszenia z kluczem w treści (A-26). Ten sam powód.
+            "/api/accounts/invitations/preview/",
             # Stripe woła nas z własnych serwerów: nie ma tokenu ani klucza API.
             # Tożsamość potwierdza podpis zdarzenia, sprawdzany w samym widoku.
             "/api/billing/webhook/",
@@ -68,8 +70,9 @@ class TenantMiddleware:
         if request.path in exempt_paths:
             return
 
-        # Podgląd zaproszenia ma token w adresie, więc nie da się go dopasować
-        # dokładnie; sam token jest tu jednocześnie danymi uwierzytelniającymi.
+        # Stary podgląd zaproszenia ma token w adresie, więc nie da się go
+        # dopasować dokładnie; sam token jest tu jednocześnie danymi
+        # uwierzytelniającymi. Do usunięcia razem z GET podglądu (A-26).
         if request.path.startswith("/api/accounts/invitations/") and request.path.endswith(
             "/preview/"
         ):
