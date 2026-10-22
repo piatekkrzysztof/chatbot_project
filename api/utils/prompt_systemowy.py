@@ -103,9 +103,55 @@ def oczysc_wiedze(tresc):
     return (tresc or "").replace(OGRANICZNIK, "").replace(ZNACZNIK_BRAKU, "")
 
 
+#: Wiersz zamykający blok wiedzy.
+ZAMKNIECIE_BLOKU = f"{OGRANICZNIK} koniec"
+
+
 def blok_wiedzy(etykieta, tresc):
     """Jeden blok wiedzy klienta, zamknięty ogranicznikami po obu stronach."""
-    return f"\n{OGRANICZNIK} {etykieta}\n{oczysc_wiedze(tresc).strip()}\n{OGRANICZNIK} koniec"
+    return f"\n{OGRANICZNIK} {etykieta}\n{oczysc_wiedze(tresc).strip()}\n{ZAMKNIECIE_BLOKU}"
+
+
+def przytnij_prompt_systemowy(tresc, limit_znakow):
+    """
+    Skraca prompt do `limit_znakow`, zabierając wiedzę, a nie zakończenie.
+
+    Do 2.32.7 budżet wejścia ciął prompt zwykłym wycinkiem od końca. Wiedza
+    stoi na końcu, więc przy dłuższym regulaminie znikały razem z nią dwie
+    rzeczy, które nie są wiedzą: przypomnienie o znaczniku (zmierzone: bez
+    niego 90% odpowiedzi opartych na wiedzy zamiast 100%) i ogranicznik
+    zamykający blok - model dostawał prompt urwany w połowie zdania regulaminu.
+
+    Teraz ucinamy treść przed przypomnieniem, zamykamy urwany blok i dopiero
+    na końcu doklejamy przypomnienie. Ograniczniki rozpoznajemy po tym, że
+    zaczynają wiersz: w zasadach i w samym przypomnieniu ten sam znak stoi
+    w środku zdania, a z treści klienta wycina go `oczysc_wiedze`.
+    """
+    if len(tresc) <= limit_znakow:
+        return tresc
+    ogon = PRZYPOMNIENIE_O_ZNACZNIKU if tresc.endswith(PRZYPOMNIENIE_O_ZNACZNIKU) else ""
+    zamkniecie = f"\n{ZAMKNIECIE_BLOKU}"
+    miejsce = limit_znakow - len(ogon) - len(zamkniecie)
+    if miejsce <= 0:
+        # Budżet nie mieści nawet zakończenia. Nie zdarza się przy żadnym
+        # rozsądnym OPENAI_MAX_INPUT_TOKENS; wtedy tniemy jak dawniej.
+        return tresc[:limit_znakow]
+
+    cialo = tresc[: len(tresc) - len(ogon)][:miejsce]
+    # Urwany wiersz ogranicznika - „<<<WIEDZ" albo otwarcie bez treści - nie
+    # jest wiedzą, a zostawiony udawałby otwarcie albo zamknięcie bloku.
+    poczatek_wiersza = cialo.rfind("\n") + 1
+    ostatni_wiersz = cialo[poczatek_wiersza:]
+    if ostatni_wiersz and (
+        OGRANICZNIK.startswith(ostatni_wiersz) or ostatni_wiersz.startswith(OGRANICZNIK)
+    ):
+        cialo = cialo[: max(poczatek_wiersza - 1, 0)]
+
+    ostatni_ogranicznik = cialo.rfind(f"\n{OGRANICZNIK}")
+    blok_otwarty = ostatni_ogranicznik != -1 and not cialo[ostatni_ogranicznik + 1 :].startswith(
+        ZAMKNIECIE_BLOKU
+    )
+    return cialo + (zamkniecie if blok_otwarty else "") + ogon
 
 
 def build_system_prompt(tenant, chunks, faqs, message=None):
