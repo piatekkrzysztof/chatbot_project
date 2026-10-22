@@ -21,10 +21,12 @@ from accounts.models import (
 )
 from accounts.plans import PLANS, PRO
 from accounts.registration import (
+    NAZWA_ZE_ZNAKIEM_STERUJACYM,
     account_conflict,
     check_password,
     create_user,
     lock_invitation_team,
+    ma_znaki_sterujace,
     normalized_email,
     unique_email,
 )
@@ -142,6 +144,11 @@ class RegisterSerializer(serializers.Serializer):
     use_trial = serializers.BooleanField(default=True)
     # Bez tego rejestracja kupowała zawsze ten sam plan, niezależnie od wyboru
     plan = serializers.ChoiceField(choices=list(PLANS), default=PRO)
+
+    def validate_company_name(self, value):
+        if ma_znaki_sterujace(value):
+            raise serializers.ValidationError(NAZWA_ZE_ZNAKIEM_STERUJACYM)
+        return value
 
     def validate_nip(self, value):
         """

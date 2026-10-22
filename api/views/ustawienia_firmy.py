@@ -19,6 +19,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.registration import NAZWA_ZE_ZNAKIEM_STERUJACYM, ma_znaki_sterujace
 from api.permissions import IsOwner
 from api.schemas import UstawieniaFirmySerializer
 
@@ -60,6 +61,8 @@ class UstawieniaFirmyView(APIView):
             nazwa = str(request.data["name"]).strip()
             if not nazwa:
                 raise ValidationError({"name": "Nazwa firmy nie może być pusta."})
+            if ma_znaki_sterujace(nazwa):
+                raise ValidationError({"name": NAZWA_ZE_ZNAKIEM_STERUJACYM})
             tenant.name = nazwa[:100]
             zmienione.append("name")
 
