@@ -256,6 +256,18 @@ wiedzy 100%. Porównanie z promptem sprzed poprawki:
 „Czy pracujecie w weekend?" wraca już wyłącznie jako odmowa ze znacznikiem przy
 pudle wyszukiwania (ADR 004), a nie jako odpowiedź bez konkretu. **F25 zamknięte.**
 
+### Przypomnienie przy długiej wiedzy (2.32.8)
+
+Audyt 2026-10 (P09): budżet wejścia (`OPENAI_MAX_INPUT_TOKENS`, ok. 15 tys.
+znaków) obcinał prompt zwykłym wycinkiem od końca. Przy dłuższym regulaminie
+albo opisie firmy znikało przypomnienie z tej sekcji i ogranicznik zamykający
+blok wiedzy - firma z regulaminem 30 tys. znaków nie miała go przy żadnym
+pytaniu. Od 2.32.8 `przytnij_prompt_systemowy` ucina treść przed
+przypomnieniem, zamyka urwany blok i dokleja przypomnienie na końcu. Brzmienie
+przypomnienia bez zmian. Pomiar `ocen_generowanie` tego przypadku nie obejmuje
+(korpus ma krótką wiedzę), więc zmiana przywraca zmierzony stan, a nie
+dokłada nowy.
+
 ---
 
 ## Czego ten PR nie obejmuje
