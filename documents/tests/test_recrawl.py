@@ -153,3 +153,50 @@ class TestRecznegoOdswiezania:
 
         assert response.status_code == 404
         kolejka.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestOdswiezanieTylkoZWaznymPlanem:
+    """
+    Plan musi być aktywny i ważny, nie tylko nazywać się Pro (2.32.12).
+
+    Do 2.32.11 zadanie patrzyło wyłącznie na kod planu. Firma, której Pro
+    skończyło się miesiące temu, dalej miała źródła pobierane codziennie,
+    z przeliczaniem embeddingów przy każdej zmianie treści - na nasz koszt
+    i na czas jedynego workera (audyt 2026-10, P14).
+    """
+
+    @pytest.mark.parametrize(
+        "zmiana",
+        [
+            {"is_active": False},
+            {"end_date": timezone.now().date() - timedelta(days=1)},
+            {"start_date": timezone.now().date() + timedelta(days=1)},
+        ],
+        ids=["nieaktywny", "po-terminie", "przed-startem"],
+    )
+    def test_niewazny_plan_pro_nie_odswieza(self, tenant, subscribtion, zrodlo, mocker, zmiana):
+        subscribtion.plan_type = "pro"
+        for pole, wartosc in zmiana.items():
+            setattr(subscribtion, pole, wartosc)
+        subscribtion.save()
+        kolejka = mocker.patch("documents.tasks.enqueue")
+
+        assert crawl_all_active_sources() == 0
+        kolejka.assert_not_called()
+
+    def test_wazny_plan_pro_odswieza(self, tenant, subscribtion, zrodlo, mocker):
+        subscribtion.plan_type = "pro"
+        subscribtion.save()
+        kolejka = mocker.patch("documents.tasks.enqueue")
+
+        assert crawl_all_active_sources() == 1
+        kolejka.assert_called_once()
+
+    def test_ostatni_dzien_planu_jeszcze_odswieza(self, tenant, subscribtion, zrodlo, mocker):
+        subscribtion.plan_type = "pro"
+        subscribtion.end_date = timezone.now().date()
+        subscribtion.save()
+        mocker.patch("documents.tasks.enqueue")
+
+        assert crawl_all_active_sources() == 1

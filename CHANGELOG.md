@@ -16,6 +16,16 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.12] - 2026-10-22
+
+### Fixed
+
+- **Automatic website refresh stops when the plan ends.** The weekly (Grow)
+  and daily (Pro) refresh of imported pages looked only at the plan's name, so
+  a company whose Pro plan had ended months ago still had its pages fetched
+  every day. Now the refresh needs an active plan within its dates, the same
+  rule the chat uses. Refreshing by hand from the panel works as before.
+
 ## [2.32.11] - 2026-10-22
 
 ### Changed
