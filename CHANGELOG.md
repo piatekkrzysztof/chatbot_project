@@ -16,6 +16,23 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.5] - 2026-10-22
+
+### Security
+
+- **The widget's contact form can no longer be used to flood a company's
+  inbox.** Every submission sends an email to the owner, and until now the
+  only limit was the company's whole widget traffic (60 a minute on Start),
+  with no cap on the length of the message. Anyone who copied the public
+  widget key from a customer's page could send tens of thousands of emails a
+  day from our mail account, eating the sending limit that account
+  activation and password resets use, and store messages of 2.5 MB each.
+  Now one visitor can leave five contacts an hour per company
+  (`LIMIT_KONTAKTU_ODWIEDZAJACEGO`), the sixth gets "try again later", and
+  the message is capped at the same length as a chat question (2000
+  characters). The contact limit is counted separately from chat, so leaving
+  a contact never takes questions away from the visitor.
+
 ## [2.32.4] - 2026-10-22
 
 ### Security
