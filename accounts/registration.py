@@ -1,5 +1,7 @@
 """Shared validation for public account creation and team email changes."""
 
+import unicodedata
+
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
@@ -19,6 +21,21 @@ def lock_invitation_team(user):
     ).exists():
         raise PermissionDenied("Tylko aktywny właściciel może zarządzać zaproszeniami.")
     return tenant
+
+
+#: Komunikat przy nazwie firmy ze znakiem sterującym.
+NAZWA_ZE_ZNAKIEM_STERUJACYM = "Nazwa firmy nie może zawierać znaków nowej linii ani tabulacji."
+
+
+def ma_znaki_sterujace(tekst):
+    """
+    Czy w tekście jest znak sterujący (nowa linia, tabulacja, NUL i reszta Cc).
+
+    Nazwa firmy trafia do tematu każdego maila do właściciela, a Django odrzuca
+    temat ze znakiem nowej linii. Do 2.32.12 taka nazwa po cichu wyłączała
+    wszystkie powiadomienia firmy (audyt 2026-10, P15).
+    """
+    return any(unicodedata.category(znak) == "Cc" for znak in tekst)
 
 
 def normalized_email(value):
