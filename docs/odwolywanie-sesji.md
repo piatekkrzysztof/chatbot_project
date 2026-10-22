@@ -68,6 +68,10 @@ usuwa też rejestr odwołań. Tabela może pozostać podczas analizowania awarii
   Nie usuwa kont ani innych danych. Brak wpisu oznacza odmowę dostępu.
   Komendę trzeba włączyć do istniejącego harmonogramu wraz z
   `flushexpiredtokens`; ten PR nie zmienia konfiguracji produkcji.
+  **Stan od 2.32.11:** sesje usuwa nocna retencja (2.11.0), a od 2.32.11 także
+  wygasłe tokeny odświeżania z listą unieważnionych (`accounts/retencja.py`,
+  doba po wygaśnięciu). `flushexpiredtokens` nie trafiło do harmonogramu nigdy
+  i nie jest już potrzebne (audyt 2026-10, P13).
 - Utrata połączenia z bazą nie może prowadzić do uwierzytelnienia JWT.
   To zwiększa zależność dostępności panelu od bazy, którą aplikacja już wykorzystuje.
 - Dezaktywowane konto jest odrzucane. Ponowna aktywacja konta z niezmienionym
