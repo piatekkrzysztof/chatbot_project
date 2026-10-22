@@ -16,6 +16,20 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.14] - 2026-10-22
+
+### Security
+
+- **Guessing the authenticator code now stops after a day's worth of
+  mistakes, and the account holder is told.** Someone who knew a password
+  could try ten codes every five minutes, indefinitely - about a 1% chance a
+  day of hitting the right one - and the person whose password had leaked
+  never heard about it. After 20 wrong codes in 24 hours the second login
+  step for that account closes for a day, even for the right code, and the
+  account holder gets one email saying that someone knows their password.
+  Changing the password lifts the block straight away, which is what the
+  email recommends.
+
 ## [2.32.13] - 2026-10-22
 
 ### Fixed

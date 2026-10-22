@@ -15,6 +15,12 @@ Nie dodaje usług ani abonamentów.
   są jedną transakcją: awaria zapisu tokena pozwala ponowić próbę.
 - MFA ogranicza próby per IP, globalnie i per konto. Limit konta obejmuje
   API, admin oraz konfigurację; awaria cache blokuje weryfikację.
+- Od 2.32.14: 20 błędnych kodów drugiego kroku logowania w ciągu doby
+  zamyka drugi krok tego konta na dobę, także dla poprawnego kodu, i wysyła
+  osobie jedno ostrzeżenie, że ktoś zna jej hasło. Licznik jest związany
+  z hasłem, więc zmiana hasła (przez reset) od razu zdejmuje blokadę.
+  Wcześniej przy znanym haśle było ok. 2880 prób na dobę bez końca
+  (audyt 2026-10, P16).
 - Sekrety TOTP są szyfrowane uwierzytelnionym Fernet, także w eksporcie
   Django. Kody zapasowe pozostają skrótami. Klucz MFA wyprowadzany jest
   przez HKDF-SHA256 z DJANGO_SECRET_KEY, z osobnym kontekstem MFA.
