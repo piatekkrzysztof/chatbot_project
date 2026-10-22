@@ -16,6 +16,19 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.4] - 2026-10-22
+
+### Security
+
+- **Document and image parsing runs on patched libraries.** pypdf 6.19.0 and
+  Pillow 12.3.0 had 29 known vulnerabilities between them (pypdf: five, among
+  them infinite loops and memory exhaustion on a crafted PDF; Pillow:
+  twenty-four, mostly in formats we never open). The isolated parser process,
+  its time and memory limits and the PNG/JPEG/WebP-only rule for logos stay as
+  they were, so none of these was easy to reach, but the dependency check
+  blocked every change until now. pypdf 6.21.2 and Pillow 13.0.0 report none.
+  Needs a rebuild and deploy of web and worker; no migration, no settings.
+
 ## [2.32.3] - 2026-10-13
 
 ### Removed
