@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.11] - 2026-10-22
+
+### Changed
+
+- **Expired login tokens are deleted every night.** Each time the panel
+  refreshes a session (every 15 minutes while it is open) the server stores
+  the new token with the account it belongs to and marks the old one as used.
+  Nothing ever removed those rows. The nightly retention job now deletes
+  tokens a day after they expire, together with their used-token marks, the
+  same way it treats login sessions. An expired token opens nothing, so
+  nobody is logged out. The data flow table lists them.
+
 ## [2.32.10] - 2026-10-22
 
 ### Fixed

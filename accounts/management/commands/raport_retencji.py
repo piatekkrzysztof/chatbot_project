@@ -13,6 +13,7 @@ o danych klientów zapadłaby na podstawie fikcji.
 from django.core.management.base import BaseCommand
 from django.db.models import Min
 from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from accounts import retencja
 from accounts.models import InvitationToken, MfaChallenge, PendingRegistration, WpisDziennika
@@ -28,6 +29,7 @@ POLA_DATY = {
     "wyzwania_mfa": (MfaChallenge, None),
     "rejestracje": (PendingRegistration, "created_at"),
     "powiadomienia": (PasswordNotification, "created_at"),
+    "tokeny_odswiezania": (OutstandingToken, "created_at"),
 }
 
 UWAGI = {
@@ -45,6 +47,10 @@ UWAGI = {
     "powiadomienia": (
         "Zostają czekające na wysyłkę - to jedyny sygnał, jaki dostaje właściciel "
         "przy przejęciu konta."
+    ),
+    "tokeny_odswiezania": (
+        "Zostają tokeny ważne i wygasłe w ciągu ostatniej doby; wpis o unieważnieniu "
+        "znika razem z tokenem."
     ),
 }
 
