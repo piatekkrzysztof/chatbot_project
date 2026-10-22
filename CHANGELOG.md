@@ -16,6 +16,17 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.16] - 2026-10-22
+
+### Fixed
+
+- **A slow OpenAI no longer stalls background work for half an hour.**
+  Turning a document into search vectors waited up to ten minutes per
+  attempt, three attempts in a row, and the worker runs one task at a time -
+  so password reset emails, payment checks and every other background task
+  waited too. Each attempt now gives up after 60 seconds
+  (`OPENAI_EMBEDDINGS_TIMEOUT_SECONDS`), still with two retries.
+
 ## [2.32.15] - 2026-10-22
 
 ### Fixed
