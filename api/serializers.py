@@ -569,7 +569,12 @@ class ContactRequestCreateSerializer(serializers.Serializer):
 
     name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     contact = serializers.CharField(max_length=200)
-    message = serializers.CharField(required=False, allow_blank=True)
+    # Ten sam sufit co pytanie do bota. Bez niego formularz przyjmował wszystko,
+    # co zmieściło się w limicie żądania (2,5 MB), a każda taka wiadomość szła
+    # do bazy i w całości do maila właściciela.
+    message = serializers.CharField(
+        required=False, allow_blank=True, max_length=settings.MAX_WIADOMOSC_ZNAKOW
+    )
     conversation_session_id = serializers.UUIDField(required=False)
 
 
