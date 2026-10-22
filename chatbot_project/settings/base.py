@@ -466,6 +466,8 @@ CHAT_MAX_CONCURRENT = 10
 CHAT_TEST_DAILY_LIMIT = 100  # Per tenant, UTC day; independent of the paid package.
 CHAT_RESERVATION_SECONDS = 600
 CHAT_OPENAI_TIMEOUT_SECONDS = 60
+# Jedna próba liczenia wektorów w tle (do 64 fragmentów naraz); klient ponawia dwa razy.
+OPENAI_EMBEDDINGS_TIMEOUT_SECONDS = int(os.getenv("OPENAI_EMBEDDINGS_TIMEOUT_SECONDS", "60"))
 CHAT_STREAM_SECONDS = 90
 # Ciężkie żądania jednego procesu web (api/capacity.py). Te same liczby
 # wyznaczają wątki Gunicorna - patrz chatbot_project/pojemnosc.py. Import
