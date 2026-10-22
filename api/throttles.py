@@ -1,4 +1,5 @@
 import hashlib
+from collections.abc import Mapping
 
 from django.conf import settings
 from rest_framework.throttling import SimpleRateThrottle
@@ -221,11 +222,20 @@ class LimitLogowaniaKonto(SimpleRateThrottle):
     scope = "logowanie-konto"
 
     def get_cache_key(self, request, view):
-        nazwa = (request.data or {}).get("username") or ""
+        dane = request.data
+        nazwa = dane.get("username") if isinstance(dane, Mapping) else None
+        # Ten sam tekst, który zobaczy formularz logowania: pole tekstowe DRF
+        # przyjmuje też liczbę i zamienia ją na tekst. Do 2.32.8 liczba albo
+        # lista zamiast obiektu wywracały tu żądanie błędem 500 - a gdyby
+        # nietekstowa nazwa po prostu omijała limit, konto o nazwie "123"
+        # dałoby się zgadywać, wysyłając ją jako liczbę.
+        if isinstance(nazwa, bool) or not isinstance(nazwa, (str, int, float)):
+            nazwa = ""
+        nazwa = str(nazwa).strip()
         if not nazwa:
             # Bez nazwy nie ma czego ograniczać - takie żądanie i tak odbije
             # się o walidację, a limit po adresie nadal obowiązuje.
             return None
 
-        odcisk = hashlib.sha256(nazwa.strip().lower().encode("utf-8")).hexdigest()[:32]
+        odcisk = hashlib.sha256(nazwa.lower().encode("utf-8")).hexdigest()[:32]
         return self.cache_format % {"scope": self.scope, "ident": odcisk}
