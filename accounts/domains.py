@@ -12,10 +12,12 @@ z parametru w zapytaniu, bo ten byłby wyłącznie deklaracją.
 """
 
 import ipaddress
+from datetime import timedelta
 from urllib.parse import urlparse
 
 from django.conf import settings
 from django.db import IntegrityError
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from accounts.plans import get_plan
@@ -42,6 +44,10 @@ KONCOWKI_DEWELOPERSKIE = (".localhost", ".local", ".test")
 # i nie odpowiadało na jedyne pytanie, do którego ten rejestr służy:
 # gdzie faktycznie chodzi widget tego klienta.
 NIE_ADRESY = {"null", "undefined", "none", "about", "blank"}
+
+#: Jak często odświeżamy `last_seen` znanej witryny. Do rozpoznania witryn,
+#: które przestały działać, godzina dokładności wystarcza z dużym zapasem.
+ODSTEP_SLADU_WITRYNY = timedelta(hours=1)
 
 
 def _adres_lokalny(host):
@@ -146,8 +152,13 @@ def zarejestruj_domene(tenant, origin):
 
     istniejaca = WidgetDomain.objects.filter(tenant=tenant, host=host).first()
     if istniejaca:
-        # Odświeżamy last_seen — po tym poznamy witryny, które przestały działać
-        istniejaca.save(update_fields=["last_seen"])
+        # Odświeżamy last_seen — po tym poznamy witryny, które przestały działać.
+        # Najwyżej raz na godzinę: wczytanie ustawień to każde wyświetlenie
+        # strony klienta, a zapis przy każdym był UPDATE-em tego samego wiersza
+        # setki razy na godzinę (audyt 2026-10, P21).
+        teraz = timezone.now()
+        if istniejaca.last_seen < teraz - ODSTEP_SLADU_WITRYNY:
+            WidgetDomain.objects.filter(pk=istniejaca.pk).update(last_seen=teraz)
         return host
 
     limit = limit_domen(tenant)
