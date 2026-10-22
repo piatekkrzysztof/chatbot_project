@@ -50,7 +50,12 @@ def get_client(tenant=None):
     za rozmowy, a za przeliczanie własnej bazy wiedzy płaciliśmy my.
     """
     klucz = tenant.openai_api_key if tenant and tenant.openai_api_key else settings.OPENAI_API_KEY
-    return OpenAI(api_key=klucz)
+    # Limit czasu, nie domyślne 600 s: przy zawieszonym API jedna partia
+    # trzymała jedyny proces workera do pół godziny (trzy próby po 10 min),
+    # a z nim wszystkie zadania w tle (audyt 2026-10, P19). Ponowienia
+    # zostają - inaczej niż w czacie nikt tu nie czeka, a chwilowy błąd
+    # OpenAI nie powinien zostawiać dokumentu bez wektorów.
+    return OpenAI(api_key=klucz, timeout=settings.OPENAI_EMBEDDINGS_TIMEOUT_SECONDS, max_retries=2)
 
 
 def _wektory(klient, teksty):

@@ -282,6 +282,24 @@ class TestZapisuDoBazy:
 
         assert get_client(dokument.tenant).api_key == "sk-klucz-klienta"
 
+    @pytest.mark.wolno_uzyc_klienta_openai
+    def test_klient_ma_limit_czasu(self, settings):
+        """
+        Zawieszone API OpenAI nie może trzymać jedynego workera pół godziny (2.32.16).
+
+        Do 2.32.15 klient miał domyślne 600 s na próbę i dwa ponowienia, czyli do
+        ok. 30 minut na jedną partię fragmentów - a worker ma jeden proces, więc
+        przez ten czas stały wszystkie zadania w tle (audyt 2026-10, P19).
+        """
+        from documents.utils.embedding_generator import get_client
+
+        settings.OPENAI_EMBEDDINGS_TIMEOUT_SECONDS = 45
+
+        klient = get_client(None)
+
+        assert klient.timeout == 45
+        assert klient.max_retries == 2
+
 
 class TestTresciSprzedazowej:
     """
