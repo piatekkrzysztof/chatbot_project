@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.7] - 2026-10-22
+
+### Fixed
+
+- **Browsing a customer's site no longer uses up a visitor's questions.**
+  Each time the chat window opens, the widget checks whether the company has
+  deleted the stored conversation. Until now that check counted against the
+  same limit as questions to the bot (20 an hour), so a visitor who opened the
+  widget on twenty pages got "too many requests" on the first question. The
+  check now has its own, larger limit (`LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO`,
+  120 an hour) and leaves the question limit alone.
+
 ## [2.32.6] - 2026-10-22
 
 ### Security
