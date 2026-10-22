@@ -11,7 +11,11 @@ from api.pagination import StronicowaniePanelu
 from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.schemas import ErrorSerializer, MessageSerializer, PublicContactRequestSerializer
 from api.serializers import ContactRequestCreateSerializer, ContactRequestSerializer
-from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle
+from api.throttles import (
+    APIKeyRateThrottle,
+    KontaktOdwiedzajacegoThrottle,
+    SubscriptionRateThrottle,
+)
 from api.utils.mixins import TenantQuerysetMixin
 from chat.lifecycle import otworz_rozmowe
 from chat.models import ContactRequest
@@ -37,8 +41,13 @@ class PublicContactRequestView(APIView):
 
     authentication_classes = ()
     permission_classes = ()
-    # Ruch odwiedzających - limit czatu firmy, nie limit panelu
-    throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
+    # Ruch odwiedzających - limit czatu firmy, nie limit panelu. Do tego limit
+    # jednego odwiedzającego: każde zgłoszenie to mail do właściciela.
+    throttle_classes = [
+        APIKeyRateThrottle,
+        SubscriptionRateThrottle,
+        KontaktOdwiedzajacegoThrottle,
+    ]
 
     def post(self, request):
         if not getattr(request, "tenant", None):

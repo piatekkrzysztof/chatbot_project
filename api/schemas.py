@@ -101,7 +101,9 @@ class ChatFeedbackRequestSerializer(serializers.Serializer):
 class PublicContactRequestSerializer(serializers.Serializer):
     contact = serializers.CharField(help_text="E-mail lub telefon odwiedzającego.")
     name = serializers.CharField(required=False, allow_blank=True)
-    message = serializers.CharField(required=False, allow_blank=True)
+    message = serializers.CharField(
+        required=False, allow_blank=True, max_length=settings.MAX_WIADOMOSC_ZNAKOW
+    )
     conversation_session_id = serializers.UUIDField(required=False)
 
 
