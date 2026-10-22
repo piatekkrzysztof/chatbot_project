@@ -16,6 +16,24 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.17] - 2026-10-22
+
+### Security
+
+- **An anonymous request can no longer tie up a server worker or slip past
+  the upload size limit.** Django REST framework 3.17.2 had three known
+  vulnerabilities, and two of them were reachable without logging in,
+  through the public widget endpoints: an `Accept` header packed with long
+  quoted parameters kept one worker busy for up to about 19 seconds per
+  request (CVE-2026-114138), and a JSON request naming a compression codec
+  as its charset was unpacked after the upload size check, so a request of a
+  few hundred bytes could take tens of megabytes of memory
+  (CVE-2026-114136). The third (CVE-2026-114137) is in DRF's own token
+  login, which we do not use - sessions run on SimpleJWT. DRF 3.18.2 fixes
+  all three. Ordinary browsers and the widget see no difference; a request
+  with such a charset now gets 400 instead of being processed. Needs a
+  rebuild and deploy of web and worker; no migration, no settings.
+
 ## [2.32.16] - 2026-10-22
 
 ### Fixed
