@@ -128,6 +128,26 @@ class VisitorRateThrottle(SimpleRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": odcisk}
 
 
+class KontaktOdwiedzajacegoThrottle(VisitorRateThrottle):
+    """
+    Limit zgłoszeń z formularza kontaktu jednego odwiedzającego.
+
+    Każde zgłoszenie to mail do właściciela, wysłany z naszego konta pocztowego.
+    Do 2.32.4 formularz miał wyłącznie limit firmy (w planie Start 60 na
+    minutę), więc ktoś z samym publicznym kluczem widgetu zalewał skrzynkę
+    klienta i zużywał wspólny limit wysyłki, z którego wychodzą też aktywacje
+    kont i resety haseł.
+
+    Osobny licznik, nie wspólny z czatem: zostawienie kontaktu nie może
+    zabierać odwiedzającemu pytań do bota - ani pytania kontaktu.
+    """
+
+    scope = "visitor-contact"
+
+    def get_rate(self):
+        return getattr(settings, "LIMIT_KONTAKTU_ODWIEDZAJACEGO", "5/hour")
+
+
 class SubscriptionRateThrottle(BaseSubscriptionThrottle):
     scope = "subscription"
 
