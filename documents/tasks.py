@@ -282,11 +282,21 @@ def crawl_all_active_sources():
     embeddingów, więc różnica jest realna, nie tylko cennikowa.
     """
     teraz = timezone.now()
+    dzisiaj = teraz.date()
     zlecone = 0
 
     for source in WebsiteSource.objects.filter(is_active=True).select_related("tenant"):
         subskrypcja = getattr(source.tenant, "subscription", None)
-        co_ile_dni = recrawl_days_for(getattr(subskrypcja, "plan_type", None))
+        # Ten sam warunek ważności co przy czacie (SubscriptionMiddleware). Do
+        # 2.32.11 liczył się sam kod planu: po wygaśnięciu Pro źródła dalej
+        # były pobierane codziennie, na nasz koszt i czas jedynego workera.
+        if not (
+            subskrypcja
+            and subskrypcja.is_active
+            and subskrypcja.start_date <= dzisiaj <= subskrypcja.end_date
+        ):
+            continue
+        co_ile_dni = recrawl_days_for(subskrypcja.plan_type)
 
         # None: plan bez automatycznego odświeżania — czeka na ręczne zlecenie
         if co_ile_dni is None:
