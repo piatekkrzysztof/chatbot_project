@@ -21,6 +21,7 @@ from datetime import timedelta
 
 from django.db.models import F, Q
 from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from accounts.models import InvitationToken, MfaChallenge, PendingRegistration, WpisDziennika
 from accounts.security_notifications import PasswordNotification
@@ -47,6 +48,11 @@ OKRESY = {
     # Wysłane i nieudane. Nieudane warto móc obejrzeć, zanim znikną - to jedyny
     # ślad po powiadomieniu, które nie doszło.
     "powiadomienia": timedelta(days=90),
+    # Jak sesje: doba po wygaśnięciu. Wygasły token odświeżania odrzuca już
+    # jego podpis, więc ani on, ani wpis o jego unieważnieniu nie chronią
+    # niczego - a niosą identyfikator konta. Dodane w 2.32.11 (audyt 2026-10,
+    # P13): `docs/odwolywanie-sesji.md` wymagało tego sprzątania od początku.
+    "tokeny_odswiezania": timedelta(days=1),
 }
 
 NAZWY = {
@@ -56,6 +62,7 @@ NAZWY = {
     "wyzwania_mfa": "Wyzwania drugiego składnika",
     "rejestracje": "Rozpoczęte rejestracje",
     "powiadomienia": "Kolejka powiadomień o zmianie hasła",
+    "tokeny_odswiezania": "Wydane i unieważnione tokeny odświeżania",
 }
 
 
@@ -102,6 +109,11 @@ def _powiadomienia(teraz):
     )
 
 
+def _tokeny_odswiezania(teraz):
+    # Wpis na liście unieważnionych znika razem z tokenem (CASCADE).
+    return OutstandingToken.objects.filter(expires_at__lt=teraz - OKRESY["tokeny_odswiezania"])
+
+
 REGULY = {
     "dziennik": _dziennik,
     "zaproszenia": _zaproszenia,
@@ -109,6 +121,7 @@ REGULY = {
     "wyzwania_mfa": _wyzwania_mfa,
     "rejestracje": _rejestracje,
     "powiadomienia": _powiadomienia,
+    "tokeny_odswiezania": _tokeny_odswiezania,
 }
 
 
