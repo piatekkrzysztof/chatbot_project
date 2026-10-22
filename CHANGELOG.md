@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.6] - 2026-10-22
+
+### Security
+
+- **Error monitoring can no longer be switched off from outside.** The public
+  address `/sentry-debug/` raised an error on every visit, without any limit,
+  so anyone could use up Sentry's monthly event allowance and real production
+  errors would stop arriving for the rest of the month. The address is gone.
+  To check that Sentry works, run `python manage.py sprawdz_sentry` in the
+  service shell: it sends one test event and prints its number, and fails
+  loudly when Sentry is not configured instead of pretending all is well.
+
 ## [2.32.5] - 2026-10-22
 
 ### Security
