@@ -100,6 +100,7 @@ def test_okresy_sa_tymi_zatwierdzonymi():
         "wyzwania_mfa": timedelta(days=1),
         "rejestracje": timedelta(days=7),
         "powiadomienia": timedelta(days=90),
+        "tokeny_odswiezania": timedelta(days=1),
     }
 
 

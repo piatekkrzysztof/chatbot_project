@@ -124,6 +124,7 @@ Hosting panelu (Next.js) jest poza tym repozytorium.
 | E-mail właściciela, dane do faktury | PostgreSQL, Stripe | Z usunięciem firmy; kopia w Stripe | - |
 | Dziennik audytowy (osoba, adres IP, ścieżka) | PostgreSQL | Automatycznie, codziennie 3:45, po **12 miesiącach** | - |
 | Sesje logowania (bez adresu IP) | PostgreSQL | Automatycznie, codziennie 3:45, **24 h po wygaśnięciu** | - |
+| Wydane i unieważnione tokeny odświeżania (JWT z identyfikatorem konta, tabele SimpleJWT) | PostgreSQL | Automatycznie, codziennie 3:45, **24 h po wygaśnięciu**; wpis o unieważnieniu znika razem z tokenem (od 2.32.11, wcześniej bez usuwania) | - |
 | Rozpoczęte rejestracje (e-mail, dane firmy, bez hasła; dane czyszczone przy aktywacji) | PostgreSQL | Automatycznie, codziennie 3:45, po **7 dniach** | - |
 | Zaproszenia (e-mail zapraszanego) | PostgreSQL | Automatycznie, codziennie 3:45: **30 dni od utworzenia**, i tylko te wygasłe albo wykorzystane do końca | - |
 | Wyzwania drugiego składnika | PostgreSQL | Automatycznie, codziennie 3:45, **24 h po wygaśnięciu** | - |
