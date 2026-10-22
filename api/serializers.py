@@ -8,12 +8,16 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, Toke
 
 from accounts import nip as nip_pl
 from accounts.models import (
+    WIDGET_LANGUAGES,
+    BrandingMode,
     CustomUser,
     DaneRozliczeniowe,
     DrugiSkladnik,
     InvitationToken,
+    LanguageMode,
     Tenant,
     WidgetDomain,
+    WidgetPosition,
 )
 from accounts.plans import PLANS, PRO
 from accounts.registration import (
@@ -463,6 +467,68 @@ class DocumentChunkSerializer(serializers.ModelSerializer):
         model = DocumentChunk
         fields = ["id", "content", "created_at"]
         read_only_fields = fields
+
+
+class JezykiWidgetuField(serializers.Field):
+    """
+    Języki widgetu: tekst „pl,de" (tak wysyła panel) albo lista kodów.
+
+    Zapisujemy zawsze jako tekst po przecinku, bo tak czyta go
+    `Tenant.languages()`. Lista trafiała dotąd do bazy jako napis
+    „['pl', 'en']", z którego bot nie rozpoznawał żadnego języka.
+    """
+
+    default_error_messages = {
+        "nieznany": "Nieznany kod języka: {kod}. Dostępne: {dostepne}.",
+        "typ": "Podaj kody języków po przecinku albo listę kodów.",
+    }
+
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            kody = data.replace(";", ",").split(",")
+        elif isinstance(data, list) and all(isinstance(kod, str) for kod in data):
+            kody = data
+        else:
+            self.fail("typ")
+        kody = [kod.strip().lower() for kod in kody if kod.strip()]
+        for kod in kody:
+            if kod not in WIDGET_LANGUAGES:
+                self.fail("nieznany", kod=kod, dostepne=", ".join(WIDGET_LANGUAGES))
+        return ",".join(dict.fromkeys(kody))
+
+    def to_representation(self, value):
+        return value
+
+
+class ZapisUstawienWidgetuSerializer(serializers.Serializer):
+    """
+    Wartości, które panel może zapisać w ustawieniach widgetu.
+
+    Do 2.32.9 widok przepisywał pola wprost z żądania: liczba sekund jako tekst
+    albo za długa pozycja dawały 500, a pozycja „srodek", tryb brandingu
+    „cokolwiek" czy kolor „red;}x{" zapisywały się i szły do widgetu na
+    stronie klienta (audyt 2026-10, P12). Granice długości są te same co
+    w modelu; teksty nie są przycinane, żeby zapis zostawał taki jak dotąd.
+    """
+
+    widget_position = serializers.ChoiceField(choices=WidgetPosition.choices)
+    widget_color = serializers.RegexField(
+        r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+        max_length=20,
+        error_messages={"invalid": "Kolor zapisz szesnastkowo, np. #1a73e8."},
+    )
+    widget_title = serializers.CharField(max_length=100, allow_blank=True, trim_whitespace=False)
+    branding_mode = serializers.ChoiceField(choices=BrandingMode.choices)
+    widget_footer_text = serializers.CharField(
+        max_length=100, allow_blank=True, trim_whitespace=False
+    )
+    widget_welcome_message = serializers.CharField(allow_blank=True, trim_whitespace=False)
+    widget_suggested_questions = serializers.CharField(allow_blank=True, trim_whitespace=False)
+    widget_languages = JezykiWidgetuField()
+    widget_language_mode = serializers.ChoiceField(choices=LanguageMode.choices)
+    widget_default_language = serializers.ChoiceField(choices=list(WIDGET_LANGUAGES))
+    # Górna granica to granica kolumny w bazie, nie decyzja o produkcie.
+    widget_proactive_delay_seconds = serializers.IntegerField(min_value=0, max_value=2_147_483_647)
 
 
 class WidgetDomainSerializer(serializers.ModelSerializer):

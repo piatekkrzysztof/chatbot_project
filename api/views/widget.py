@@ -22,7 +22,12 @@ from api.schemas import (
     PublicChatResponseSerializer,
     WidgetBrandingSerializer,
 )
-from api.serializers import ChatRequestSerializer, PublicFAQSerializer, WidgetDomainSerializer
+from api.serializers import (
+    ChatRequestSerializer,
+    PublicFAQSerializer,
+    WidgetDomainSerializer,
+    ZapisUstawienWidgetuSerializer,
+)
 from api.throttles import (
     APIKeyRateThrottle,
     StanRozmowyOdwiedzajacegoThrottle,
@@ -385,6 +390,12 @@ class TenantWidgetSettingsView(CapacityMixin, APIView):
     def patch(self, request):
         tenant = request.user.tenant
 
+        # Najpierw kształt wartości, potem plan i zapis: zła wartość to 400
+        # z nazwą pola, a zapis idzie w całości albo wcale.
+        dane = ZapisUstawienWidgetuSerializer(data=request.data, partial=True)
+        dane.is_valid(raise_exception=True)
+        wartosci = dane.validated_data
+
         # Biała etykieta to główny wyróżnik płatnych planów. Bez tej blokady
         # klient Basic ustawiał sobie własny branding zwykłym żądaniem PATCH,
         # bo ograniczenie istniało wyłącznie w cenniku.
@@ -393,7 +404,7 @@ class TenantWidgetSettingsView(CapacityMixin, APIView):
         plan = get_plan(plan_code)
         nazwa_planu = plan.name if plan else plan_code
 
-        if request.data.get("branding_mode") == BrandingMode.WHITE_LABEL:
+        if wartosci.get("branding_mode") == BrandingMode.WHITE_LABEL:
             if not allows_white_label(plan_code):
                 raise PermissionDenied(
                     f"Własny branding nie jest dostępny w planie "
@@ -410,19 +421,6 @@ class TenantWidgetSettingsView(CapacityMixin, APIView):
                     f"{nazwa_planu}. Przejdź na wyższy plan."
                 )
 
-        text_fields = (
-            "widget_position",
-            "widget_color",
-            "widget_title",
-            "branding_mode",
-            "widget_footer_text",
-            "widget_welcome_message",
-            "widget_suggested_questions",
-            "widget_languages",
-            "widget_language_mode",
-            "widget_default_language",
-            "widget_proactive_delay_seconds",
-        )
         # Osobno, bo z formularza przychodzą jako napisy "true"/"false"
         bool_fields = (
             "widget_proactive_enabled",
@@ -432,10 +430,9 @@ class TenantWidgetSettingsView(CapacityMixin, APIView):
         )
         changed_fields = []
 
-        for field in text_fields:
-            if field in request.data:
-                setattr(tenant, field, request.data[field])
-                changed_fields.append(field)
+        for field, wartosc in wartosci.items():
+            setattr(tenant, field, wartosc)
+            changed_fields.append(field)
 
         for field in bool_fields:
             if field in request.data:
