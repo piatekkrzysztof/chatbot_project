@@ -214,8 +214,10 @@ class SubscriptionMiddleware(MiddlewareMixin):
             return _odmow({"error": "Missing API key"}, 401, PowodOdmowy.BRAK_KLUCZA)
 
         try:
-            # 1. Znajdź Tenant po kluczu API
-            tenant = Tenant.objects.get(api_key=api_key)
+            # 1. Firma żądania. TenantMiddleware ustalił ją przed nami i sprawdził,
+            # że klucz do niej pasuje - drugie wyszukanie po tym samym kluczu było
+            # zbędnym zapytaniem przy każdej wiadomości widgetu (audyt 2026-10, P22).
+            tenant = getattr(request, "tenant", None) or Tenant.objects.get(api_key=api_key)
 
             # 2. Pobierz subskrypcję powiązaną z tenantem
             try:
