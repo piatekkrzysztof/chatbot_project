@@ -68,6 +68,28 @@ def send_password_reset(self, email):
         ) from None
 
 
+@shared_task(bind=True, ignore_result=True, max_retries=2)
+def ostrzez_o_blednych_kodach(self, user_id):
+    """
+    Ostrzeżenie, że ktoś zna hasło: drugi krok konta zamknął się po błędnych kodach.
+
+    Poza żądaniem HTTP, bo ten, kto zgadywał, nie ma czekać na serwer poczty
+    - ani dowiadywać się z czasu odpowiedzi, że właśnie wyszedł mail.
+    """
+    from accounts.dwuskladnikowe import wyslij_ostrzezenie_o_kodach
+    from accounts.models import CustomUser
+
+    uzytkownik = CustomUser.objects.filter(pk=user_id, is_active=True).first()
+    if uzytkownik is None or not uzytkownik.email:
+        return
+    try:
+        wyslij_ostrzezenie_o_kodach(uzytkownik)
+    except Exception as blad:
+        # Numer konta, nie adres: log trafia do Rendera i Sentry.
+        logger.warning("Nie wyslano ostrzezenia o blednych kodach MFA: user=%s", user_id)
+        raise self.retry(exc=blad, countdown=60) from None
+
+
 # Treść zależy od progu, bo to trzy różne sytuacje: uprzedzenie, ostrzeżenie
 # i informacja o tym, że bot już nie odpowiada.
 TRESCI = {
