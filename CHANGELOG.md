@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.8] - 2026-10-22
+
+### Fixed
+
+- **Companies with long terms or descriptions get answers grounded in their
+  knowledge again.** When the knowledge did not fit the input budget, the
+  prompt was cut off at the end, mid-sentence, and the closing reminder went
+  with it - the one instruction measured to keep answers tied to the company's
+  own material (100% instead of 90%). A company with 30,000 characters of
+  terms lost it on every question. Now the knowledge is shortened before the
+  reminder, the cut block is closed properly and the reminder always stays.
+
 ## [2.32.7] - 2026-10-22
 
 ### Fixed
