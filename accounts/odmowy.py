@@ -22,7 +22,7 @@ To nie jest dziennik audytowy
 odwrotnie: liczy się wyłącznie ruch widgetu, i to tylko ten odrzucony.
 """
 
-from django.db import IntegrityError, models
+from django.db import IntegrityError, models, transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -111,9 +111,14 @@ class ZliczenieOdmow(models.Model):
         verbose_name = "Zliczenie odmów widgetu"
         verbose_name_plural = "Zliczenia odmów widgetu"
         constraints = [
+            # NULL jak wartość: odmowy bez rozpoznanej firmy (zły albo brak
+            # klucza) też mają jeden wiersz na powód i dzień. Bez tego dwa
+            # równoległe pierwsze żądania zakładały dwa wiersze, a każde
+            # kolejne podbijało oba (audyt 2026-10, P17). PostgreSQL 15+.
             models.UniqueConstraint(
                 fields=["tenant", "powod", "dzien"],
                 name="unikalne_zliczenie_odmow",
+                nulls_distinct=False,
             )
         ]
         indexes = [models.Index(fields=["dzien", "powod"])]
@@ -145,14 +150,17 @@ def zapisz_odmowe(tenant, powod):
         return
 
     try:
-        ZliczenieOdmow.objects.create(
-            tenant=tenant,
-            powod=powod,
-            dzien=dzien,
-            liczba=1,
-            pierwsza=teraz,
-            ostatnia=teraz,
-        )
+        # Punkt zapisu: przegrany wyścig nie może zepsuć transakcji, w której
+        # ktoś nas woła - po błędzie unikalności wiersz trzeba jeszcze podbić.
+        with transaction.atomic():
+            ZliczenieOdmow.objects.create(
+                tenant=tenant,
+                powod=powod,
+                dzien=dzien,
+                liczba=1,
+                pierwsza=teraz,
+                ostatnia=teraz,
+            )
     except IntegrityError:
         # Wyścig: ktoś utworzył ten wiersz między naszym UPDATE a INSERT.
         wiersze.update(liczba=F("liczba") + 1, ostatnia=teraz)

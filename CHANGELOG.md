@@ -16,6 +16,18 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.15] - 2026-10-22
+
+### Fixed
+
+- **Refused widget requests without a recognisable company are counted once.**
+  Requests with a wrong or missing widget key are counted per reason and day
+  for the operator's alerts, but the database rule that keeps one row per day
+  did not apply to them, so two requests arriving at the same moment could
+  start two rows and every later refusal was counted twice. The rule now
+  covers them; migration `accounts.0048` merges any duplicates that already
+  exist (keeping the total and whether the day was already reported).
+
 ## [2.32.14] - 2026-10-22
 
 ### Security
