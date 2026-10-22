@@ -4,6 +4,7 @@ from django.core.files.storage import storages
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Count
+from django.db.models.functions import Substr
 from django.http import FileResponse, Http404
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
@@ -49,6 +50,22 @@ def z_liczba_fragmentow(queryset):
     return queryset.annotate(liczba_fragmentow=Count("chunks"))
 
 
+#: Ile znaków treści pokazuje podgląd dokumentu w panelu.
+DLUGOSC_PODGLADU = 500
+
+
+def z_podgladem(queryset):
+    """
+    Podgląd treści wycięty w bazie, sama treść niewczytana.
+
+    Podgląd to 500 znaków, a treść dokumentu potrafi mieć dwa miliony. Do
+    2.32.8 lista wczytywała całą treść każdego dokumentu ze strony (50 pozycji),
+    żeby z każdej wziąć początek - przy dużej bazie wiedzy setki megabajtów na
+    jedno odświeżenie panelu (audyt 2026-10, P10).
+    """
+    return queryset.defer("content").annotate(podglad=Substr("content", 1, DLUGOSC_PODGLADU))
+
+
 @extend_schema(tags=["Panel — baza wiedzy"])
 class DocumentsViewSet(
     TenantQuerysetMixin, mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
@@ -61,7 +78,9 @@ class DocumentsViewSet(
     pagination_class = StronicowaniePanelu
 
     def get_queryset(self):
-        return z_liczba_fragmentow(super().get_queryset()).order_by("-uploaded_at", "-id")
+        return z_podgladem(z_liczba_fragmentow(super().get_queryset())).order_by(
+            "-uploaded_at", "-id"
+        )
 
     def get_permissions(self):
         # Kasowanie jak wgrywanie: właściciel i pracownik. Odczyt zostaje dla
