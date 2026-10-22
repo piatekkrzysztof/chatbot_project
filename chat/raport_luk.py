@@ -128,8 +128,12 @@ def luki_w_wiedzy(tenant, od=None, do=None, limit=LIMIT_POZYCJI):
     # brzmienie pierwszego wystąpienia. SQL-owe GROUP BY po samym `prompt`
     # rozbiłoby "Robicie chrzciny?" i "robicie chrzciny ?" na dwie pozycje.
     zgrupowane = OrderedDict()
-    for wpis in wpisy.order_by("-created_at").iterator():
-        tresc = (wpis.prompt or "").strip()
+    # Tylko pytanie i data: pełny wpis niesie też odpowiedź bota, której tu
+    # nikt nie czyta, a przy firmie z wieloma lukami to większość bajtów.
+    for pytanie, kiedy in (
+        wpisy.order_by("-created_at").values_list("prompt", "created_at").iterator()
+    ):
+        tresc = (pytanie or "").strip()
         if not tresc or _nie_pytanie(tresc):
             continue
         klucz = " ".join(tresc.lower().split())
@@ -141,7 +145,7 @@ def luki_w_wiedzy(tenant, od=None, do=None, limit=LIMIT_POZYCJI):
                 "ile": 1,
                 # Iterujemy od najnowszych, więc pierwsze trafienie jest
                 # zarazem ostatnim wystąpieniem tego pytania.
-                "ostatnio": wpis.created_at,
+                "ostatnio": kiedy,
             }
 
     posortowane = sorted(zgrupowane.values(), key=lambda p: (-p["ile"], -p["ostatnio"].timestamp()))

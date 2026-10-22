@@ -444,6 +444,11 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.CharField())
     def get_preview(self, obj):
+        # Listy i szczegóły w panelu dociągają podgląd wycięty w bazie
+        # (`z_podgladem`) - bez sięgania po treść, której nie wczytały.
+        podglad = getattr(obj, "podglad", None)
+        if podglad is not None:
+            return podglad
         return obj.content[:500] if obj.content else ""
 
     @extend_schema_field(serializers.BooleanField())
