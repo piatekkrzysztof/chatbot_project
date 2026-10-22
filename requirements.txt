@@ -14,7 +14,11 @@
 # 5.1 znaczyloby swiadome uzywanie wersji, ktorej nikt juz nie lata.
 Django==5.2.17
 # 3.17.2 zamyka CVE-2026-73228 i CVE-2026-73229 (limity wejścia i AdminRenderer).
-djangorestframework==3.17.2
+# 3.18.2 zamyka CVE-2026-114136 (kodek kompresji w charset JSON omija limit
+# rozmiaru), CVE-2026-114137 (TokenProxy, nie używamy authtoken) i
+# CVE-2026-114138 (nagłówek Accept zajmuje wątek gunicorna na kilkanaście
+# sekund). Od 3.18.0 wymaga Django 5.2.
+djangorestframework==3.18.2
 djangorestframework_simplejwt==5.5.1
 # PyJWT wchodzi jako zaleznosc simplejwt, ale przypinamy go jawnie: to on
 # weryfikuje podpisy naszych tokenow dostepu, wiec jego wersja jest decyzja
