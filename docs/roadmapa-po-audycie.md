@@ -1,5 +1,14 @@
 # Roadmapa napraw po audycie SaaS
 
+## Audyt backendu 22.10.2026 - nowe ustalenia P01-P22
+
+22 znaleziska (0 krytycznych, 4 wysokie, 6 średnich, 9 niskich,
+3 ulepszenia), z dowodem i propozycją przy każdym:
+[raport](audyt-2026-10.md). Poprawki wysokich: zależności z podatnościami
+(P02, 2.32.4) i limit formularza kontaktu (P03, 2.32.5) w osobnych PR-ach.
+Czekają na właściciela: zaległa miesięczna kopia pełna (P01) i limity
+źródeł WWW (P04) - [decyzje](audyt-2026-10.md#co-czeka-na-decyzję-właściciela).
+
 ## Pusta odpowiedź modelu — 2.28.0 przygotowane 8.10.2026
 
 Po przejściu na gpt-6-luna: rozumowanie liczy się do limitu tokenów, więc
