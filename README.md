@@ -361,7 +361,9 @@ someone else's site to burn the victim's message quota.
 to match the real number of proxies — set it wrong and every visitor looks like one IP.
 `/api/diagnostyka/adres/` shows what the server actually sees. The contact form has its
 own visitor limit (`LIMIT_KONTAKTU_ODWIEDZAJACEGO`, 5/hour by default), because every
-submission sends an email to the tenant's owner.
+submission sends an email to the tenant's owner. So does the conversation status check
+the widget makes on every open (`LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO`, 120/hour), so that
+browsing a site never eats into the questions a visitor can ask.
 
 **Payments.** Stripe webhooks are verified with `stripe.Webhook.construct_event` against
 `STRIPE_WEBHOOK_SECRET`; without a valid signature anyone could grant themselves any plan.

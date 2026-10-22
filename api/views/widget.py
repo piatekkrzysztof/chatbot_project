@@ -23,7 +23,12 @@ from api.schemas import (
     WidgetBrandingSerializer,
 )
 from api.serializers import ChatRequestSerializer, PublicFAQSerializer, WidgetDomainSerializer
-from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle, VisitorRateThrottle
+from api.throttles import (
+    APIKeyRateThrottle,
+    StanRozmowyOdwiedzajacegoThrottle,
+    SubscriptionRateThrottle,
+    VisitorRateThrottle,
+)
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
 from chat.lifecycle import RozmowaUsunieta, otworz_rozmowe, skrot_sesji
 from chat.models import FAQ, UsunietaRozmowa
@@ -132,7 +137,9 @@ class WidgetConversationStatusView(APIView):
 
     authentication_classes = ()
     permission_classes = ()
-    throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
+    # Własny licznik odwiedzającego, nie wspólny z pytaniami do bota: odczyt
+    # przy każdym otwarciu widgetu nie może zabierać pytań (2.32.7).
+    throttle_classes = [APIKeyRateThrottle, StanRozmowyOdwiedzajacegoThrottle]
 
     def get(self, request, session_id):
         tenant = getattr(request, "tenant", None)
