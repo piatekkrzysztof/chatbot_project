@@ -359,7 +359,9 @@ someone else's site to burn the victim's message quota.
 **Rate limits.** Three layers: per API key, per subscription plan, and per visitor
 (`LIMIT_ODWIEDZAJACEGO`, 20/hour by default). The visitor limit needs `TRUSTED_PROXY_DEPTH`
 to match the real number of proxies — set it wrong and every visitor looks like one IP.
-`/api/diagnostyka/adres/` shows what the server actually sees.
+`/api/diagnostyka/adres/` shows what the server actually sees. The contact form has its
+own visitor limit (`LIMIT_KONTAKTU_ODWIEDZAJACEGO`, 5/hour by default), because every
+submission sends an email to the tenant's owner.
 
 **Payments.** Stripe webhooks are verified with `stripe.Webhook.construct_event` against
 `STRIPE_WEBHOOK_SECRET`; without a valid signature anyone could grant themselves any plan.

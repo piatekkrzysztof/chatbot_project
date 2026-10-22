@@ -102,6 +102,8 @@ REST_FRAMEWORK = {
         # Nadpisywane przez LIMIT_ODWIEDZAJACEGO; wpis musi istnieć, bo DRF
         # sprawdza obecność scope'u przy starcie
         "visitor": "20/hour",
+        # Nadpisywane przez LIMIT_KONTAKTU_ODWIEDZAJACEGO
+        "visitor-contact": "5/hour",
         # Logowanie. Stawki hojne dla człowieka, ciasne dla maszyny: ktoś, kto
         # pomyli hasło, poprawia je raz albo dwa. Dwie warstwy, bo każda łapie
         # co innego - po adresie jednego napastnika, po koncie rozproszone
@@ -331,6 +333,11 @@ TRUSTED_PROXY_DEPTH = int(os.getenv("TRUSTED_PROXY_DEPTH", "0"))
 # Limit zapytań pojedynczego odwiedzającego. Chroni przed jednym natrętnym
 # rozmówcą, który sam wyczerpałby miesięczny pakiet klienta.
 LIMIT_ODWIEDZAJACEGO = os.getenv("LIMIT_ODWIEDZAJACEGO", "20/hour")
+
+# Zgłoszenia z formularza kontaktu jednego odwiedzającego. Osobno od czatu, bo
+# każde zgłoszenie to mail do właściciela wysłany z naszego konta pocztowego.
+# Prawdziwy odwiedzający zostawia kontakt raz, czasem drugi raz po literówce.
+LIMIT_KONTAKTU_ODWIEDZAJACEGO = os.getenv("LIMIT_KONTAKTU_ODWIEDZAJACEGO", "5/hour")
 
 # Statystyki panelu nie muszą przeliczać całej historii przy każdym odświeżeniu.
 # Krótki cache zachowuje praktycznie bieżące dane, a odciąża bazę i przyspiesza UI.
