@@ -508,7 +508,7 @@ class _PodgladZaproszenia(APIView):
     responses={200: InvitationPreviewSerializer, 404: ErrorSerializer},
 )
 class InvitationPreviewView(_PodgladZaproszenia):
-    # Zostaje na tydzień po wdrożeniu 2.32.17 dla linków z maili wysłanych
+    # Zostaje na tydzień po wdrożeniu 2.32.18 dla linków z maili wysłanych
     # wcześniej (zaproszenie żyje najwyżej 7 dni), potem do usunięcia.
     def get(self, request, token):
         return self.podglad(token)
@@ -535,7 +535,7 @@ class KluczZaproszeniaSerializer(serializers.Serializer):
 )
 class InvitationPreviewPostView(_PodgladZaproszenia):
     """
-    Podgląd z kluczem w treści (A-26, 2.32.17).
+    Podgląd z kluczem w treści (A-26, 2.32.18).
 
     Link z maila niesie klucz we fragmencie (`/invite/accept#token=...`),
     którego przeglądarka nie wysyła, a panel przekazuje go tutaj w treści POST.
