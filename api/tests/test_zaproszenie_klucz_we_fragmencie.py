@@ -1,8 +1,8 @@
 """
-Klucz przyjęcia zaproszenia nie jedzie w adresie żądania (A-26, 2.32.17).
+Klucz przyjęcia zaproszenia nie jedzie w adresie żądania (A-26, 2.32.18).
 
 Kategoria ryzyka: KLUCZ W LOGACH. Klucz przyjęcia zakłada konto w firmie
-z rolą z zaproszenia, także właściciela. Do 2.32.16 był w ścieżce linku z maila
+z rolą z zaproszenia, także właściciela. Do 2.32.17 był w ścieżce linku z maila
 (`/invite/accept/<klucz>`) i w ścieżce podglądu
 (`GET /api/accounts/invitations/<klucz>/preview/`), więc lądował w logach
 zapytań hostingu panelu i API. Fragment adresu (`#token=...`) przeglądarka

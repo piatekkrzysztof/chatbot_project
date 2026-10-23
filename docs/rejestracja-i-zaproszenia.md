@@ -219,11 +219,11 @@ i middleware: kroki 1-3, mail na właściwy adres z kluczem przyjęcia
 kroki, po wdrożeniu backendu 2.20.0 (#119) i panelu #36 - w tej kolejności,
 zgodnie z wymaganiem wyżej.
 
-### Klucz przyjęcia we fragmencie (2.32.17, A-26 z audytu panelu)
+### Klucz przyjęcia we fragmencie (2.32.18, A-26 z audytu panelu)
 
 Klucz przyjęcia jechał w ścieżce linku z maila (`/invite/accept/<klucz>`)
 i w ścieżce podglądu (`GET /api/accounts/invitations/<klucz>/preview/`), więc
-trafiał do logów zapytań hostingu panelu i API. Od 2.32.17:
+trafiał do logów zapytań hostingu panelu i API. Od 2.32.18:
 
 - link w mailu to `{FRONTEND_URL}/invite/accept#token=<klucz>` - fragmentu
   przeglądarka nie wysyła ani w żądaniu, ani w `Referer`;
