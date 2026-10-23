@@ -189,7 +189,7 @@ def test_wysylka_trafia_na_adres_zaproszenia_z_kluczem_przyjecia(zaproszenie):
     assert odp.status_code == 202
     assert len(mail.outbox) == 1
     assert mail.outbox[0].to == ["pracownik@piekarnia.pl"]
-    assert f"/invite/accept/{zaproszenie.token}" in mail.outbox[0].body
+    assert f"/invite/accept#token={zaproszenie.token}" in mail.outbox[0].body
     assert str(zaproszenie.token_wysylki) not in mail.outbox[0].body
 
 

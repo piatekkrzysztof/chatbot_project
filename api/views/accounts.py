@@ -462,24 +462,21 @@ class AcceptInvitationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(
-    tags=["Konto"],
-    summary="Sprawdź ważność zaproszenia",
-    description="Wołane przez stronę rejestracji, zanim pokaże formularz.",
-    responses={200: InvitationPreviewSerializer, 404: ErrorSerializer},
-)
-class InvitationPreviewView(APIView):
+class _PodgladZaproszenia(APIView):
     """
     Czy zaproszenie jest jeszcze ważne — sprawdzane przez stronę rejestracji,
     zanim pokaże formularz. Bez tego zapraszany wypełnia dane, żeby dopiero
     przy zapisie dowiedzieć się, że link wygasł.
+
+    Wspólna podstawa GET (klucz w ścieżce) i POST (klucz w treści). Ten sam
+    limit, więc na przemian GET i POST nie daje podwójnej puli prób.
     """
 
     authentication_classes = ()
     permission_classes = ()
     throttle_classes = [InvitationPreviewThrottle]
 
-    def get(self, request, token):
+    def podglad(self, token):
         invitation = InvitationToken.objects.filter(token=token).first()
         if invitation is None:
             return Response(
@@ -498,6 +495,57 @@ class InvitationPreviewView(APIView):
                 "expires_at": invitation.expires_at,
             }
         )
+
+
+@extend_schema(
+    tags=["Konto"],
+    summary="Sprawdź ważność zaproszenia",
+    description=(
+        "Wołane przez stronę rejestracji, zanim pokaże formularz. Wycofywane: "
+        "klucz w ścieżce trafia do logów zapytań. Nowy panel woła POST "
+        "`/api/accounts/invitations/preview/`."
+    ),
+    responses={200: InvitationPreviewSerializer, 404: ErrorSerializer},
+)
+class InvitationPreviewView(_PodgladZaproszenia):
+    # Zostaje na tydzień po wdrożeniu 2.32.18 dla linków z maili wysłanych
+    # wcześniej (zaproszenie żyje najwyżej 7 dni), potem do usunięcia.
+    def get(self, request, token):
+        return self.podglad(token)
+
+
+class KluczZaproszeniaSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+
+
+@extend_schema(
+    tags=["Konto"],
+    summary="Sprawdź ważność zaproszenia (klucz w treści)",
+    description=(
+        "Wołane przez stronę rejestracji, zanim pokaże formularz. Klucz jedzie "
+        "w treści, nie w adresie, więc nie trafia do logów zapytań."
+    ),
+    request=KluczZaproszeniaSerializer,
+    responses={
+        200: InvitationPreviewSerializer,
+        400: ErrorSerializer,
+        404: ErrorSerializer,
+        429: ErrorSerializer,
+    },
+)
+class InvitationPreviewPostView(_PodgladZaproszenia):
+    """
+    Podgląd z kluczem w treści (A-26, 2.32.18).
+
+    Link z maila niesie klucz we fragmencie (`/invite/accept#token=...`),
+    którego przeglądarka nie wysyła, a panel przekazuje go tutaj w treści POST.
+    Tak samo działają już reset hasła i aktywacja konta.
+    """
+
+    def post(self, request):
+        dane = KluczZaproszeniaSerializer(data=request.data)
+        dane.is_valid(raise_exception=True)
+        return self.podglad(dane.validated_data["token"])
 
 
 @extend_schema(
