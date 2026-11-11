@@ -99,8 +99,17 @@ def oczysc_wiedze(tresc):
     bota w maszynę odpowiadającą na wszystko „nie wiem" - a każde pytanie
     odwiedzającego trafiałoby do raportu luk jako brak wiedzy. Awaria cicha
     i trudna do powiązania z przyczyną.
+
+    Wycinamy do skutku, nie raz. Do 2.32.18 było to jedno przejście, a wycięcie
+    środka potrafi złożyć nowy token z tego, co stało po bokach:
+    „<<<WIEDZA_<<<WIEDZA_FIRMY>>>FIRMY>>>" po jednym przejściu daje dokładnie
+    ogranicznik, a „[BRAK_[BRAK_ODPOWIEDZI]ODPOWIEDZI]" - znacznik. Każde
+    przejście skraca tekst, więc pętla zawsze się kończy.
     """
-    return (tresc or "").replace(OGRANICZNIK, "").replace(ZNACZNIK_BRAKU, "")
+    tresc = tresc or ""
+    while OGRANICZNIK in tresc or ZNACZNIK_BRAKU in tresc:
+        tresc = tresc.replace(OGRANICZNIK, "").replace(ZNACZNIK_BRAKU, "")
+    return tresc
 
 
 #: Wiersz zamykający blok wiedzy.

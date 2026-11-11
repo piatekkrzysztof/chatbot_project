@@ -324,6 +324,7 @@ class BillingOverviewView(APIView):
         biezacy = subscription.plan_type if subscription else None
         biezacy_plan = get_plan(biezacy)
         aktywna = bool(subscription and subscription.is_active)
+        oplacana = aktywna_subskrypcja_stripe(tenant) is not None
         zaplanowany = get_plan(subscription.zaplanowany_plan) if aktywna else None
 
         return Response(
@@ -344,7 +345,7 @@ class BillingOverviewView(APIView):
                     ),
                     # Z aktywną subskrypcją Stripe plan zmienia się w portalu -
                     # nowy zakup założyłby drugą subskrypcję
-                    "has_stripe_subscription": aktywna_subskrypcja_stripe(tenant) is not None,
+                    "has_stripe_subscription": oplacana,
                     "portal_available": bool(tenant.stripe_customer_id),
                     "can_manage": getattr(request.user, "role", None) == "owner",
                     # Zmiany zaplanowane w Stripe - bez nich panel pokazywał
@@ -373,9 +374,14 @@ class BillingOverviewView(APIView):
                         # Bez identyfikatora ceny w Stripe nie da się kupić —
                         # panel ma to pokazać zamiast prowadzić w ślepy zaułek
                         "available": bool(settings.STRIPE_PRICE_IDS.get(plan.code)),
-                        # Tylko przy aktywnej subskrypcji: po anulowaniu plan był
-                        # oznaczony jako obecny i nie dało się go kupić ponownie
-                        "current": aktywna and plan.code == biezacy,
+                        # Tylko przy subskrypcji opłacanej przez Stripe. Po
+                        # anulowaniu plan był oznaczony jako obecny i nie dało
+                        # się go kupić ponownie; ten sam błąd miał okres próbny:
+                        # to wiersz planu Start bez Stripe, więc do 2.32.18
+                        # karta Start pokazywała „Twój obecny plan" bez
+                        # przycisku i najtańszego planu nie dało się kupić ani
+                        # w trakcie okresu próbnego, ani po nim.
+                        "current": oplacana and plan.code == biezacy,
                     }
                     for plan in PLANS.values()
                 ],

@@ -61,7 +61,7 @@ RapidFuzz==3.12.2
 # Parser chodzi synchronicznie w zadaniu HTTP, wiec taki plik blokuje watek
 # gunicorna, a nie zadanie w tle. pypdf 6 dokłada twarde limity i zglasza
 # LimitReachedError zamiast mielic w nieskonczonosc.
-pypdf==6.21.2
+pypdf==6.21.4
 trafilatura==2.0
 # Sitemaps may contain hostile XML; external entities and DTDs are forbidden.
 defusedxml==0.7.1

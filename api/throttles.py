@@ -91,6 +91,49 @@ class APIKeyRateThrottle(BaseSubscriptionThrottle):
         return rate_for(plan)
 
 
+class RuchWidgetuFirmyThrottle(APIKeyRateThrottle):
+    """
+    Limit firmy na ruch widgetu, który nie jest pytaniem do bota.
+
+    Ustawienia widgetu, lista FAQ, stan rozmowy, ocena i formularz kontaktu
+    liczyły się do 2.32.18 do tego samego licznika firmy co pytania do bota
+    (Start: 60 na minutę), a cztery z nich dodatkowo do licznika panelu.
+    Ustawienia pobiera każde wyświetlenie strony klienta - i jeszcze raz sama
+    ramka czatu - więc trzydzieści odsłon w minucie zamykało czat wszystkim
+    odwiedzającym. Gorzej: publiczny klucz widgetu stoi w kodzie strony, więc
+    jedna osoba pytająca o ustawienia raz na sekundę trzymała czat firmy na
+    429, a przy dziesięciu żądaniach na sekundę także panel właściciela.
+
+    Osobny licznik, dziesięć razy luźniejszy niż czat - ta sama skala co
+    panel, bo to ten sam rodzaj ruchu: tani odczyt, kilka żądań na odsłonę.
+    Koszt modelu nadal pilnuje licznik czatu.
+    """
+
+    scope = "widget"
+
+    def get_plan_rate(self, plan):
+        na_minute = int(rate_for(plan).split("/")[0])
+        return f"{na_minute * 10}/min"
+
+
+class LimityPoKoleiMixin:
+    """
+    Sprawdza limity widoku po kolei i kończy na pierwszej odmowie.
+
+    DRF sprawdza wszystkie limity zawsze, a każdy, który przepuszcza, zapisuje
+    żądanie na swoim liczniku. Żądanie odrzucone przez limit odwiedzającego
+    i tak zużywało więc limit firmy: jeden natrętny adres, dawno zablokowany
+    własnym limitem, dalej wypełniał licznik wspólny dla wszystkich
+    odwiedzających tej firmy. Widoki widgetu wymieniają najpierw limit
+    odwiedzającego, a ten mixin sprawia, że odmowa na nim nie dotyka reszty.
+    """
+
+    def check_throttles(self, request):
+        for throttle in self.get_throttles():
+            if not throttle.allow_request(request, self):
+                self.throttled(request, throttle.wait())
+
+
 class VisitorRateThrottle(SimpleRateThrottle):
     """
     Limit na pojedynczego odwiedzającego stronę klienta.
@@ -166,6 +209,30 @@ class StanRozmowyOdwiedzajacegoThrottle(VisitorRateThrottle):
         return getattr(settings, "LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO", "120/hour")
 
 
+class OdczytWidgetuOdwiedzajacegoThrottle(VisitorRateThrottle):
+    """
+    Limit odczytów ustawień widgetu i FAQ jednego odwiedzającego.
+
+    Do 2.32.18 te dwa adresy nie miały żadnego limitu odwiedzającego. Stawka
+    jest hojna, bo jedno wyświetlenie strony to dwa odczyty ustawień (skrypt
+    na stronie i ramka czatu), a za jednym adresem bywa całe biuro.
+    """
+
+    scope = "visitor-read"
+
+    def get_rate(self):
+        return getattr(settings, "LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO", "600/hour")
+
+
+class OcenaOdwiedzajacegoThrottle(VisitorRateThrottle):
+    """Limit ocen odpowiedzi (kciuków) jednego odwiedzającego."""
+
+    scope = "visitor-feedback"
+
+    def get_rate(self):
+        return getattr(settings, "LIMIT_OCEN_ODWIEDZAJACEGO", "60/hour")
+
+
 class SubscriptionRateThrottle(BaseSubscriptionThrottle):
     scope = "subscription"
 
@@ -237,5 +304,8 @@ class LimitLogowaniaKonto(SimpleRateThrottle):
             # się o walidację, a limit po adresie nadal obowiązuje.
             return None
 
-        odcisk = hashlib.sha256(nazwa.lower().encode("utf-8")).hexdigest()[:32]
+        # `surrogatepass`: poprawny JSON może nieść samotny surogat (zapis
+        # \ud800 w treści żądania), a zwykłe kodowanie rzuca na nim wyjątkiem -
+        # do 2.32.18 taka nazwa kończyła logowanie błędem 500 zamiast odmową.
+        odcisk = hashlib.sha256(nazwa.lower().encode("utf-8", "surrogatepass")).hexdigest()[:32]
         return self.cache_format % {"scope": self.scope, "ident": odcisk}

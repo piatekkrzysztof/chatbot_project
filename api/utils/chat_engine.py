@@ -165,8 +165,14 @@ def build_chat_messages(tenant, conversation, message_text):
     messages = [
         {"role": "system", "content": build_system_prompt(tenant, chunks, faqs, message_text)}
     ]
-    messages.extend(build_history_messages(conversation))
-    messages.append({"role": "user", "content": message_text})
+    historia = build_history_messages(conversation)
+    # Obie ścieżki czatu zapisują pytanie PRZED złożeniem wiadomości, więc
+    # historia już się nim kończy. Do 2.32.18 było tu bezwarunkowe dopisanie
+    # i model dostawał każde pytanie dwa razy: podwójne tokeny wejścia za
+    # pytanie i o jedną wcześniejszą wypowiedź mniej w limicie historii.
+    if not historia or historia[-1] != {"role": "user", "content": message_text}:
+        historia.append({"role": "user", "content": message_text})
+    messages.extend(historia)
 
     # Sufit kosztu wejścia. Bez tego prompt rósł z wielkością regulaminu klienta
     # i liczbą wpisów FAQ, a płacimy za każdy token przy każdej wiadomości.
@@ -353,13 +359,18 @@ def process_chat_message(tenant, conversation, message_text, on_billable=None):
     # Wcześniej widok naliczał bezwarunkowo, więc awaria po naszej stronie
     # zjadała limit, za który klient zapłacił, i zwracała komunikat o błędzie.
     billable = True
+    # Znacznik zdejmujemy PRZED sprawdzeniem, czy odpowiedź jest pusta - jak
+    # w strumieniu. Do 2.32.18 kolejność była odwrotna: odpowiedź złożona
+    # z samego znacznika przechodziła jako niepusta, była naliczana, a klient
+    # dostawał pusty tekst.
+    obcinacz = ObcinaczZnacznika()
     try:
         gpt_response = get_openai_response(messages, model=model, tenant=tenant)
-        response_text = gpt_response["content"]
+        response_text = obcinacz.podaj(gpt_response["content"] or "") + obcinacz.zakoncz()
         tokens = gpt_response["tokens"]
         tokeny_wejscia = gpt_response.get("tokeny_wejscia")
         tokeny_wyjscia = gpt_response.get("tokeny_wyjscia")
-        if not (response_text or "").strip():
+        if not response_text.strip():
             zglos_pusta_odpowiedz(model, tokeny_wyjscia)
             raise PustaOdpowiedzModelu()
     except Exception:
@@ -371,8 +382,6 @@ def process_chat_message(tenant, conversation, message_text, on_billable=None):
     if billable and on_billable:
         on_billable()
 
-    obcinacz = ObcinaczZnacznika()
-    response_text = obcinacz.podaj(response_text) + obcinacz.zakoncz()
     source = determine_source(
         chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
     )

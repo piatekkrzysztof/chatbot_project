@@ -30,8 +30,10 @@ from api.serializers import (
 )
 from api.throttles import (
     APIKeyRateThrottle,
+    LimityPoKoleiMixin,
+    OdczytWidgetuOdwiedzajacegoThrottle,
+    RuchWidgetuFirmyThrottle,
     StanRozmowyOdwiedzajacegoThrottle,
-    SubscriptionRateThrottle,
     VisitorRateThrottle,
 )
 from api.utils.chat_engine import process_chat_message, split_billing, stream_chat_message
@@ -119,7 +121,7 @@ def serialize_widget_branding(tenant, request):
         410: OpenApiResponse(response=ErrorSerializer, description="Rozmowa została usunięta."),
     },
 )
-class WidgetConversationStatusView(APIView):
+class WidgetConversationStatusView(LimityPoKoleiMixin, APIView):
     """
     Czy firma usunęła rozmowę, którą widget ma zapisaną u odwiedzającego.
 
@@ -144,7 +146,7 @@ class WidgetConversationStatusView(APIView):
     permission_classes = ()
     # Własny licznik odwiedzającego, nie wspólny z pytaniami do bota: odczyt
     # przy każdym otwarciu widgetu nie może zabierać pytań (2.32.7).
-    throttle_classes = [APIKeyRateThrottle, StanRozmowyOdwiedzajacegoThrottle]
+    throttle_classes = [StanRozmowyOdwiedzajacegoThrottle, RuchWidgetuFirmyThrottle]
 
     def get(self, request, session_id):
         tenant = getattr(request, "tenant", None)
@@ -169,11 +171,11 @@ class WidgetConversationStatusView(APIView):
         403: OpenApiResponse(description="Brak lub nieprawidłowy klucz API."),
     },
 )
-class WidgetSettingsAPIView(APIView):
+class WidgetSettingsAPIView(LimityPoKoleiMixin, APIView):
     authentication_classes = ()
     permission_classes = ()
     # Ruch odwiedzających - limit czatu firmy, nie limit panelu
-    throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
+    throttle_classes = [OdczytWidgetuOdwiedzajacegoThrottle, RuchWidgetuFirmyThrottle]
 
     def get(self, request):
         if not getattr(request, "tenant", None):
@@ -202,10 +204,10 @@ MAKS_FAQ_WIDGETU = 100
     ),
     responses={200: PublicFAQSerializer(many=True)},
 )
-class PublicFAQView(APIView):
+class PublicFAQView(LimityPoKoleiMixin, APIView):
     authentication_classes = ()  # brak JWT
     permission_classes = ()  # walidacja przez API key (X-API-KEY), wykonana w TenantMiddleware
-    throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
+    throttle_classes = [OdczytWidgetuOdwiedzajacegoThrottle, RuchWidgetuFirmyThrottle]
 
     def get(self, request):
         if not getattr(request, "tenant", None):
@@ -235,7 +237,7 @@ class PublicFAQView(APIView):
         503: OpenApiResponse(description="Serwer zajęty. Ponów po Retry-After."),
     },
 )
-class PublicChatView(CapacityMixin, APIView):
+class PublicChatView(LimityPoKoleiMixin, CapacityMixin, APIView):
     """
     Publiczny endpoint czatu dla osadzalnego widgetu — autoryzacja przez
     X-API-Key (request.tenant/request.subscription ustawiane przez middleware),
@@ -247,7 +249,7 @@ class PublicChatView(CapacityMixin, APIView):
     permission_classes = ()
     # Limit per firma chroni nas, limit per odwiedzający chroni klienta przed
     # jednym rozmówcą wyczerpującym mu cały miesięczny pakiet
-    throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
+    throttle_classes = [VisitorRateThrottle, APIKeyRateThrottle]
 
     def post(self, request):
         if not getattr(request, "tenant", None):
@@ -308,7 +310,7 @@ class PublicChatView(CapacityMixin, APIView):
         503: OpenApiResponse(description="Serwer zajęty. Ponów po Retry-After."),
     },
 )
-class PublicChatStreamView(CapacityMixin, APIView):
+class PublicChatStreamView(LimityPoKoleiMixin, CapacityMixin, APIView):
     """
     Strumieniowa wersja PublicChatView — odpowiedź leci token po tokenie (SSE),
     dzięki czemu użytkownik widzi ją od razu zamiast czekać na całość.
@@ -316,7 +318,7 @@ class PublicChatStreamView(CapacityMixin, APIView):
 
     authentication_classes = ()
     permission_classes = ()
-    throttle_classes = [APIKeyRateThrottle, VisitorRateThrottle]
+    throttle_classes = [VisitorRateThrottle, APIKeyRateThrottle]
 
     def post(self, request):
         if not getattr(request, "tenant", None):

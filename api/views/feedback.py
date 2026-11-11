@@ -7,7 +7,12 @@ from rest_framework.views import APIView
 from api.permissions import IsTenantMember
 from api.schemas import ChatFeedbackRequestSerializer, ErrorSerializer, StatusSerializer
 from api.serializers import ChatFeedbackSerializer
-from api.throttles import APIKeyRateThrottle, SubscriptionRateThrottle
+from api.throttles import (
+    LimityPoKoleiMixin,
+    OcenaOdwiedzajacegoThrottle,
+    RuchWidgetuFirmyThrottle,
+)
+from api.utils.zadania import dane_obiektu
 from chat.zapytania import ZRODLO_TESTOWE
 
 # Ten sam komunikat co przy nieistniejącej wiadomości: odmowa nie może
@@ -73,7 +78,7 @@ class SubmitFeedbackView(APIView):
     request=ChatFeedbackRequestSerializer,
     responses={200: StatusSerializer, 400: ErrorSerializer},
 )
-class PublicFeedbackView(APIView):
+class PublicFeedbackView(LimityPoKoleiMixin, APIView):
     """
     Ocena wystawiana przez odwiedzającego stronę klienta.
 
@@ -91,14 +96,15 @@ class PublicFeedbackView(APIView):
 
     authentication_classes = ()
     permission_classes = ()
-    # Ruch odwiedzających - limit czatu firmy, nie limit panelu
-    throttle_classes = [APIKeyRateThrottle, SubscriptionRateThrottle]
+    # Najpierw limit odwiedzającego, potem limit firmy na ruch widgetu - ani
+    # licznik czatu, ani licznik panelu.
+    throttle_classes = [OcenaOdwiedzajacegoThrottle, RuchWidgetuFirmyThrottle]
 
     def post(self, request):
         tenant = getattr(request, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Nieprawidłowy klucz API")
-        sesja = str(request.data.get("conversation_session_id") or "")
+        sesja = str(dane_obiektu(request).get("conversation_session_id") or "")
         return zapisz_ocene(
             request,
             tenant,
