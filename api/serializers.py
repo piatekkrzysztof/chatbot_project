@@ -451,6 +451,12 @@ class DocumentSerializer(serializers.ModelSerializer):
             if self.get_chunk_count(obj) > 0:
                 return "ready"
             return "processed_no_chunks"
+        # Strona pobrana z witryny nie przechodzi przez wyodrębnianie tekstu,
+        # więc nikt nie ustawia jej `processed`. Do 2.32.18 każda taka strona
+        # wisiała w panelu jako „Przetwarzanie" na zawsze, choć bot już z niej
+        # odpowiadał. Dla niej gotowość znaczy po prostu: ma fragmenty.
+        if obj.source == "website" and self.get_chunk_count(obj) > 0:
+            return "ready"
         return "processing"
 
     @extend_schema_field(serializers.CharField())
