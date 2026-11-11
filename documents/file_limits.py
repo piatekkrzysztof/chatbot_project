@@ -92,12 +92,24 @@ def read_text(data):
 
 def check_text(data):
     text = read_text(data)
-    if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", text):
+    if ZNAKI_STERUJACE.search(text):
         raise InvalidUpload("Plik tekstowy zawiera dane binarne lub niedozwolone znaki.")
     return check_extracted_text(text)
 
 
+#: Znaki sterujące, których nie przyjmuje ani baza, ani model. Tabulator,
+#: nowa linia i powrót karetki zostają - to zwykły układ tekstu.
+ZNAKI_STERUJACE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
 def check_extracted_text(text):
+    # Tekst z PDF-a albo DOCX-a bywa przetykany znakami sterującymi (zepsuta
+    # mapa znaków kroju). PostgreSQL odrzuca znak NUL w polu tekstowym, więc
+    # do 2.32.18 taki plik kończył wgrywanie błędem 500 i zostawiał w magazynie
+    # plik bez dokumentu. Plik tekstowy z takimi znakami odrzucamy w całości
+    # (`check_text`), bo to znak, że nie jest tekstem; tutaj tekst już
+    # wyodrębniliśmy, więc wystarczy je zdjąć.
+    text = ZNAKI_STERUJACE.sub("", text)
     if len(text) > MAX_TEXT_CHARS:
         raise UploadTooLarge("Wyodrębniony tekst przekracza limit 2 097 152 znaków na dokument.")
     return text.strip()

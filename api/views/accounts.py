@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 
+from django.contrib.auth.models import update_last_login
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
@@ -169,6 +170,19 @@ def odpowiedz_z_sesja(dane):
     return odpowiedz
 
 
+def zapisz_logowanie(uzytkownik):
+    """
+    Zapisuje chwilę logowania - dopiero gdy powstaje sesja.
+
+    Do 2.32.18 nie zapisywał jej nikt: logowanie woła serializer SimpleJWT
+    z pominięciem jego własnego zapisu, a drugi krok wydaje tokeny sam.
+    Ekran Zespół pokazywał więc przy każdej osobie „nigdy", a link do zmiany
+    hasła nie tracił ważności po późniejszym zalogowaniu, choć Django wlicza
+    tę datę do jego podpisu właśnie po to.
+    """
+    update_last_login(None, uzytkownik)
+
+
 @extend_schema(
     tags=["Konto"],
     summary="Logowanie",
@@ -214,6 +228,7 @@ class LoginView(SessionBoundaryMixin, TokenObtainPairView):
             response["Cache-Control"] = "no-store"
             return response
 
+        zapisz_logowanie(uzytkownik)
         return odpowiedz_z_sesja(serializer.validated_data)
 
 
@@ -261,6 +276,7 @@ class LogowanieDrugiSkladnikView(SessionBoundaryMixin, APIView):
             )
 
         wskaz_autora(zadanie, uzytkownik)
+        zapisz_logowanie(uzytkownik)
         odswiezenie = SessionRefreshToken.for_user(uzytkownik)
         return odpowiedz_z_sesja(
             {"refresh": str(odswiezenie), "access": str(odswiezenie.access_token)}

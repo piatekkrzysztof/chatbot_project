@@ -106,6 +106,12 @@ REST_FRAMEWORK = {
         "visitor-contact": "5/hour",
         # Nadpisywane przez LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO
         "visitor-status": "120/hour",
+        # Nadpisywane przez LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO
+        "visitor-read": "600/hour",
+        # Nadpisywane przez LIMIT_OCEN_ODWIEDZAJACEGO
+        "visitor-feedback": "60/hour",
+        # Ruch widgetu poza pytaniami do bota; stawka z planu, jak "chat"
+        "widget": "200/min",
         # Logowanie. Stawki hojne dla człowieka, ciasne dla maszyny: ktoś, kto
         # pomyli hasło, poprawia je raz albo dwa. Dwie warstwy, bo każda łapie
         # co innego - po adresie jednego napastnika, po koncie rozproszone
@@ -345,6 +351,15 @@ LIMIT_KONTAKTU_ODWIEDZAJACEGO = os.getenv("LIMIT_KONTAKTU_ODWIEDZAJACEGO", "5/ho
 # bota i hojniej: to jedno zapytanie do bazy, a odwiedzający otwiera widget na
 # każdej podstronie, którą ogląda.
 LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO = os.getenv("LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO", "120/hour")
+
+# Odczyty ustawień widgetu i FAQ jednego odwiedzającego. Jedno wyświetlenie
+# strony klienta to dwa odczyty ustawień (skrypt na stronie i ramka czatu),
+# a za jednym adresem bywa całe biuro - stąd hojnie. Chroni licznik firmy
+# przed jednym adresem odpytującym ustawienia w pętli.
+LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO = os.getenv("LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO", "600/hour")
+
+# Oceny odpowiedzi (kciuki) jednego odwiedzającego.
+LIMIT_OCEN_ODWIEDZAJACEGO = os.getenv("LIMIT_OCEN_ODWIEDZAJACEGO", "60/hour")
 
 # Statystyki panelu nie muszą przeliczać całej historii przy każdym odświeżeniu.
 # Krótki cache zachowuje praktycznie bieżące dane, a odciąża bazę i przyspiesza UI.

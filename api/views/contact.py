@@ -12,9 +12,9 @@ from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
 from api.schemas import ErrorSerializer, MessageSerializer, PublicContactRequestSerializer
 from api.serializers import ContactRequestCreateSerializer, ContactRequestSerializer
 from api.throttles import (
-    APIKeyRateThrottle,
     KontaktOdwiedzajacegoThrottle,
-    SubscriptionRateThrottle,
+    LimityPoKoleiMixin,
+    RuchWidgetuFirmyThrottle,
 )
 from api.utils.mixins import TenantQuerysetMixin
 from chat.lifecycle import otworz_rozmowe
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
     request=PublicContactRequestSerializer,
     responses={201: MessageSerializer, 400: ErrorSerializer, 410: ErrorSerializer},
 )
-class PublicContactRequestView(APIView):
+class PublicContactRequestView(LimityPoKoleiMixin, APIView):
     """
     Odwiedzający zostawia kontakt, gdy bot nie potrafił pomóc.
     Publiczne — autoryzacja kluczem API widgetu, jak reszta endpointów widgetu.
@@ -41,13 +41,10 @@ class PublicContactRequestView(APIView):
 
     authentication_classes = ()
     permission_classes = ()
-    # Ruch odwiedzających - limit czatu firmy, nie limit panelu. Do tego limit
-    # jednego odwiedzającego: każde zgłoszenie to mail do właściciela.
-    throttle_classes = [
-        APIKeyRateThrottle,
-        SubscriptionRateThrottle,
-        KontaktOdwiedzajacegoThrottle,
-    ]
+    # Najpierw limit jednego odwiedzającego (każde zgłoszenie to mail do
+    # właściciela), potem limit firmy na ruch widgetu. Ani licznik czatu, ani
+    # licznik panelu: publiczny formularz nie może zabierać żadnego z nich.
+    throttle_classes = [KontaktOdwiedzajacegoThrottle, RuchWidgetuFirmyThrottle]
 
     def post(self, request):
         if not getattr(request, "tenant", None):

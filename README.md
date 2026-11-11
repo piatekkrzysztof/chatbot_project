@@ -367,7 +367,12 @@ to match the real number of proxies — set it wrong and every visitor looks lik
 own visitor limit (`LIMIT_KONTAKTU_ODWIEDZAJACEGO`, 5/hour by default), because every
 submission sends an email to the tenant's owner. So does the conversation status check
 the widget makes on every open (`LIMIT_STANU_ROZMOWY_ODWIEDZAJACEGO`, 120/hour), so that
-browsing a site never eats into the questions a visitor can ask.
+browsing a site never eats into the questions a visitor can ask. Widget traffic that is
+not a question to the bot (settings, FAQ, status, ratings, contact form) counts against
+its own per-company limit, ten times the chat rate of the plan, and never against the
+chat limit or the panel limit; settings and FAQ reads also have a visitor limit
+(`LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO`, 600/hour). A request refused by a visitor limit
+does not count against the company's limit.
 
 **Payments.** Stripe webhooks are verified with `stripe.Webhook.construct_event` against
 `STRIPE_WEBHOOK_SECRET`; without a valid signature anyone could grant themselves any plan.
