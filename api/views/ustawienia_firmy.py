@@ -22,6 +22,10 @@ from rest_framework.views import APIView
 from accounts.registration import NAZWA_ZE_ZNAKIEM_STERUJACYM, ma_znaki_sterujace
 from api.permissions import IsOwner
 from api.schemas import UstawieniaFirmySerializer
+from api.utils.zadania import dane_obiektu
+
+#: Długość kolumny `Tenant.owner_email` (EmailField).
+MAKS_DLUGOSC_ADRESU = 254
 
 
 def _stan(tenant):
@@ -55,10 +59,11 @@ class UstawieniaFirmyView(APIView):
 
     def patch(self, request):
         tenant = self._firma(request)
+        dane = dane_obiektu(request)
         zmienione = []
 
-        if "name" in request.data:
-            nazwa = str(request.data["name"]).strip()
+        if "name" in dane:
+            nazwa = str(dane["name"]).strip()
             if not nazwa:
                 raise ValidationError({"name": "Nazwa firmy nie może być pusta."})
             if ma_znaki_sterujace(nazwa):
@@ -66,8 +71,12 @@ class UstawieniaFirmyView(APIView):
             tenant.name = nazwa[:100]
             zmienione.append("name")
 
-        if "owner_email" in request.data:
-            adres = str(request.data["owner_email"]).strip()
+        if "owner_email" in dane:
+            adres = str(dane["owner_email"]).strip()
+            # Walidator przepuszcza adresy do 320 znaków, kolumna mieści 254 -
+            # dłuższy kończył zapis błędem bazy, czyli 500.
+            if len(adres) > MAKS_DLUGOSC_ADRESU:
+                raise ValidationError({"owner_email": "Adres e-mail jest za długi."})
             if adres:
                 try:
                     validate_email(adres)

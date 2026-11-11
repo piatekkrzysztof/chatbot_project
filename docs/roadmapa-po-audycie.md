@@ -1,5 +1,12 @@
 # Roadmapa napraw po audycie SaaS
 
+## Przegląd końcowy 11.11.2026 - 2.32.19 i pozycje R01-R18
+
+Przegląd całości przed oddaniem klientowi: poprawki w 2.32.19 (liczniki
+limitów widgetu, dziennik, zakup planu Start w okresie próbnym i dziewięć
+mniejszych) oraz nowa roadmapa R01-R18, w tym osiem pozycji do zamknięcia
+przed oddaniem - [raport i roadmapa](przeglad-koncowy-2026-11.md).
+
 ## Audyt backendu 22.10.2026 - nowe ustalenia P01-P22
 
 22 znaleziska (0 krytycznych, 4 wysokie, 6 średnich, 9 niskich,

@@ -24,7 +24,11 @@ from rest_framework.test import APIClient
 from accounts.models import CustomUser, Subscription, Tenant
 from accounts.sessions import LoginSession
 from api.session_tokens import SessionJWTAuthentication, SessionRefreshToken
-from api.throttles import APIKeyRateThrottle
+from api.throttles import (
+    APIKeyRateThrottle,
+    RuchWidgetuFirmyThrottle,
+    SubscriptionRateThrottle,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -139,12 +143,29 @@ class TestLimitow:
         # odwiedzający dostałby dziesięciokrotnie luźniejszy limit panelu.
         widoki = widoki_widgetu()
         assert len(widoki) >= 6, widoki
+        # Od 2.32.19 limit firmy to albo licznik czatu, albo jego odmiana dla
+        # ruchu widgetu poza pytaniami do bota (RuchWidgetuFirmyThrottle).
         bez_limitu = sorted(
             sciezka
             for sciezka, klasa in widoki.items()
-            if APIKeyRateThrottle not in (klasa.throttle_classes or [])
+            if not any(
+                issubclass(limit, APIKeyRateThrottle) for limit in (klasa.throttle_classes or [])
+            )
         )
         assert bez_limitu == []
+
+    def test_zaden_publiczny_widok_widgetu_nie_liczy_sie_do_limitu_panelu(self):
+        # Publiczny klucz stoi w kodzie strony klienta: ruch z nim nie może
+        # zabierać właścicielowi limitu panelu (przegląd 2026-11).
+        z_limitem_panelu = sorted(
+            sciezka
+            for sciezka, klasa in widoki_widgetu().items()
+            if any(
+                issubclass(limit, SubscriptionRateThrottle)
+                for limit in (klasa.throttle_classes or [])
+            )
+        )
+        assert z_limitem_panelu == []
 
     @pytest.mark.django_db
     def test_firma_bez_aktywnego_planu_moze_pracowac_w_panelu(self):
@@ -159,12 +180,13 @@ class TestLimitow:
         assert set(kody) == {200}
 
     @pytest.mark.django_db
-    def test_widget_nadal_dostaje_429_po_limicie_czatu(self):
+    def test_widget_nadal_dostaje_429_po_limicie_ruchu_widgetu(self):
         tenant = firma()
         klient = APIClient()
         klient.credentials(HTTP_X_API_KEY=str(tenant.api_key))
 
-        with patch.object(APIKeyRateThrottle, "get_plan_rate", return_value="2/min"):
+        # FAQ od 2.32.19 liczy się do licznika ruchu widgetu, nie do czatu.
+        with patch.object(RuchWidgetuFirmyThrottle, "get_plan_rate", return_value="2/min"):
             kody = [klient.get("/api/widget/faq/").status_code for _ in range(3)]
 
         assert kody == [200, 200, 429]

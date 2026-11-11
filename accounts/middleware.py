@@ -346,7 +346,12 @@ class DziennikAudytuMiddleware(MiddlewareMixin):
             uzytkownik = wskazany_autor(request)
 
         try:
-            firma = getattr(request, "tenant", None)
+            # Firma tylko wtedy, gdy znamy osobę. `request.tenant` ustawia też
+            # sam publiczny klucz widgetu, który stoi w kodzie strony klienta:
+            # do 2.32.18 anonimowe żądanie z tym kluczem na dowolny adres
+            # panelu (odrzucone 401) dopisywało wiersz do dziennika TEJ firmy,
+            # więc każdy mógł zasypać cudzy dziennik wpisami „anonim".
+            firma = getattr(request, "tenant", None) if uzytkownik is not None else None
             if firma is None and uzytkownik is not None:
                 firma = uzytkownik.tenant
             WpisDziennika.objects.create(

@@ -25,6 +25,7 @@ from api.schemas import (
 )
 from api.serializers import DocumentChunkSerializer, DocumentSerializer, WebsiteSourceSerializer
 from api.utils.mixins import TenantQuerysetMixin
+from api.utils.zadania import dane_obiektu
 
 # Ta sama zasada odczytu wartości logicznej co w ustawieniach widgetu:
 # formularz multipart przysyła "true"/"false" jako tekst.
@@ -194,7 +195,7 @@ class DocumentsViewSet(
         policzonych dla czegoś innego, niż widać w panelu.
         """
         dokument = self.get_object()
-        wartosc = request.data.get("uzywaj_w_wyszukiwaniu")
+        wartosc = dane_obiektu(request).get("uzywaj_w_wyszukiwaniu")
         if wartosc is None:
             raise ValidationError({"uzywaj_w_wyszukiwaniu": "Pole jest wymagane."})
 

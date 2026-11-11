@@ -48,12 +48,19 @@ def rozmowa_testowa(tenant, user):
     mieszałyby sobie historię — a historia wchodzi do promptu, więc bot
     odpowiadałby na cudze pytania.
     """
-    rozmowa, _ = Conversation.objects.get_or_create(
-        tenant=tenant,
-        user_identifier=f"panel:{user.id}",
-        source=ZRODLO_TESTOWE,
-        defaults={"status": "active"},
-    )
+    # Nie `get_or_create`: tych trzech pól nie spina żadne ograniczenie bazy,
+    # więc dwa równoczesne pierwsze żądania (ekran testu czyta historię i od
+    # razu wysyła pytanie) zakładały dwie rozmowy, a wtedy każde kolejne
+    # wywołanie kończyło się `MultipleObjectsReturned` - odczyt, pytanie
+    # i „wyczyść" naraz, bez wyjścia z panelu. Bierzemy najstarszą.
+    kryteria = {
+        "tenant": tenant,
+        "user_identifier": f"panel:{user.id}",
+        "source": ZRODLO_TESTOWE,
+    }
+    rozmowa = Conversation.objects.filter(**kryteria).order_by("id").first()
+    if rozmowa is None:
+        rozmowa = Conversation.objects.create(**kryteria, status="active")
     return rozmowa
 
 

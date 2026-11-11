@@ -16,6 +16,78 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.19] - 2026-11-11
+
+Fixes from the final review before handover
+([docs/przeglad-koncowy-2026-11.md](docs/przeglad-koncowy-2026-11.md)).
+No migration. Needs a rebuild and deploy of web and worker.
+
+### Security
+
+- **One person with a company's public widget key can no longer shut down its
+  chat or its panel.** The key sits in the code of the customer's site.
+  Widget settings, the FAQ list, conversation status, ratings and the contact
+  form all counted against the same per-company limit as questions to the bot
+  (60 a minute on Start), and four of them against the panel's limit as well.
+  Asking for the settings once a second kept the company's chat refusing
+  every visitor; ten times a second locked the owner out of the panel. A busy
+  minute on the customer's site did the same by itself, because every page
+  view reads the settings twice. That traffic now has its own per-company
+  limit (ten times the plan's chat rate) and never touches the chat or panel
+  limits; settings and FAQ got a per-visitor limit
+  (`LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO`, 600/hour), ratings too
+  (`LIMIT_OCEN_ODWIEDZAJACEGO`, 60/hour); and a request refused by a visitor's
+  own limit no longer counts against the company - before, one blocked
+  address kept filling the limit shared by everybody else. Many addresses at
+  once can still fill a company's limit; that needs the key tied to the site
+  (audit 2026-10, P06).
+- **Nobody can write into another company's activity log.** An anonymous
+  request carrying only the public widget key, sent to any panel address,
+  was refused - and still recorded in that company's log as an anonymous
+  entry. A loop of such requests buried the real entries. Entries without a
+  known person are no longer attached to a company.
+- **Text from documents cannot rebuild the markers that fence it off.** The
+  markers around the company's knowledge, and the bot's "I don't know" token,
+  were stripped from document text in one pass; a marker wrapped around a
+  second copy of itself survived as a whole marker. They are now stripped
+  until none is left.
+- **pypdf 6.21.4.** Seven vulnerabilities published for 6.21.2 since the last
+  release; the dependency check in CI was red again.
+
+### Fixed
+
+- **The Start plan can be bought during and after the trial.** A trial is
+  stored as a Start plan without a payment, and the panel was told that Start
+  is "your current plan" - so its card had no purchase button, on day 3 and
+  on day 15 alike. Only Grow and Pro could be bought. A plan is now "current"
+  only when it is paid through Stripe.
+- **The bot gets each question once.** The visitor's question was saved
+  before the conversation history was read, and then appended again, so the
+  model received it twice: double the input tokens for the question and one
+  earlier message less in the history. Worth one `ocen_generowanie` run after
+  deploy.
+- **Pages imported from a website no longer say "Przetwarzanie" forever.**
+  Only uploaded files were ever marked as processed, so every imported page
+  kept that status in the panel although the bot already answered from it.
+- **A PDF or DOCX whose text contains control characters uploads normally**
+  instead of failing with a server error and leaving the file behind without
+  a document.
+- **The Team screen shows when each person last logged in.** The date was
+  never written, so everybody showed "nigdy". Password-reset links now also
+  stop working once the person logs in, as intended.
+- **The test chat survives two requests at once.** Opening the Test bota
+  screen and sending a question at the same moment could create two test
+  conversations, after which the screen failed on every request, clearing
+  included.
+- **An answer made of nothing but the "I don't know" token** is treated as an
+  empty answer on the non-streaming chat endpoint too: fallback text, not
+  counted against the plan.
+- **Malformed requests get 400, not a server error:** a JSON list or `null`
+  instead of an object on the rating, company settings, knowledge and
+  document switch endpoints; a notification address longer than 254
+  characters; a login name that is not valid Unicode. The company
+  description and terms accept text only, up to 200,000 characters each.
+
 ## [2.32.18] - 2026-10-23
 
 ### Security
