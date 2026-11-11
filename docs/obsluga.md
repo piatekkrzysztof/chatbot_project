@@ -395,10 +395,22 @@ zatrzymując pocztę:
 ```
 EMAIL_HOST  EMAIL_PORT  EMAIL_HOST_USER  EMAIL_HOST_PASSWORD  DEFAULT_FROM_EMAIL
 DATABASE_URL  DJANGO_SECRET_KEY  OPENAI_API_KEY  REDIS_URL  FRONTEND_URL
+STRIPE_SECRET_KEY  STRIPE_PRICE_START  STRIPE_PRICE_GROW  STRIPE_PRICE_PRO
+STRIPE_PRICE_START_ROCZNY  STRIPE_PRICE_GROW_ROCZNY  STRIPE_PRICE_PRO_ROCZNY
+```
+
+Stripe na workerze: co 5 minut uzgadnia płatności, gdy webhook zaginie. Klucz
+i ceny ustawia się razem - sam klucz bez cen cofałby plan klienta po zmianie
+w portalu do planu z dnia zakupu. Brakujące zmienne worker wymienia w logu
+i w alarmie „Stripe: nieuzgodnione płatności". Sprawdzenie bez ujawniania
+wartości (Shell usługi `celery-worker`):
+
+```bash
+python manage.py shell -c "from accounts.tasks_stripe import brakujace_ustawienia_stripe as b; print(b() or 'komplet')"
 ```
 
 Tylko na **web**: `RAG_MAX_DISTANCE`, `DJANGO_ALLOWED_HOSTS`,
-`DJANGO_CORS_ALLOWED_ORIGINS`, `STRIPE_*`.
+`DJANGO_CORS_ALLOWED_ORIGINS`, `STRIPE_WEBHOOK_SECRET`.
 
 Pełna lista z komentarzami jest w `render.yaml` — plik niczego nie tworzy sam
 z siebie, ale mówi, co ma istnieć i gdzie.

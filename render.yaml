@@ -92,7 +92,22 @@ services:
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
+      # Webhook przychodzi tylko na web, więc sekret podpisu tylko tutaj.
       - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Ceny planów: IDENTYCZNE na web i workerze (patrz komentarz przy
+      # workerze). Bez nich plan rozpoznaje się z metadanych zakupu.
+      - key: STRIPE_PRICE_START
+        sync: false
+      - key: STRIPE_PRICE_GROW
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_START_ROCZNY
+        sync: false
+      - key: STRIPE_PRICE_GROW_ROCZNY
+        sync: false
+      - key: STRIPE_PRICE_PRO_ROCZNY
         sync: false
 
   # Jedna usługa robi obie rzeczy: odbiera zadania z kolejki ORAZ pełni rolę
@@ -163,6 +178,26 @@ services:
         sync: false
       # Odbiorcy alarmów po przecinku; oddzieleni od adresu nadawcy.
       - key: EMAIL_ALERTOW
+        sync: false
+      # Worker co 5 minut uzgadnia płatności ze Stripe (zadanie
+      # `uzgodnij_platnosci`), więc potrzebuje klucza i cen TAKICH SAMYCH jak
+      # web. Do 2.32.19 blueprint dawał je tylko usłudze web: bez klucza
+      # uzgadnianie nie działało, a sam klucz bez cen cofał plan klienta po
+      # zmianie w portalu do planu z dnia zakupu (przegląd 2026-11, R02).
+      # Sekretu webhooka worker nie potrzebuje.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_START
+        sync: false
+      - key: STRIPE_PRICE_GROW
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_START_ROCZNY
+        sync: false
+      - key: STRIPE_PRICE_GROW_ROCZNY
+        sync: false
+      - key: STRIPE_PRICE_PRO_ROCZNY
         sync: false
 
   - type: redis

@@ -136,6 +136,42 @@ def plan_z_subskrypcji(subskrypcja):
     ).get("plan")
 
 
+def plan_dla_zapisu(subskrypcja, powiazana):
+    """
+    Plan do zapisania przy synchronizacji - bez cofania się do metadanych
+    zakupu, gdy subskrypcja jest już powiązana z firmą.
+
+    Metadane mówią, co klient kupił, a nie, za co płaci dziś: po zmianie planu
+    w portalu Stripe zmienia się cena, metadane zostają. Gdy proces nie zna
+    cen (brak `STRIPE_PRICE_*` w jego środowisku), `plan_z_subskrypcji`
+    wracał do metadanych. Tak było na workerze, który co godzinę uzgadnia
+    płatności, a według blueprintu nie dostawał zmiennych Stripe (przegląd
+    2026-11, R02): klient po przejściu ze Start na Pro dostawał od webhooka
+    Pro, a godzinę później od workera z powrotem Start - i tak w kółko.
+
+    Nieznana cena przy subskrypcji już powiązanej zostawia zapisany plan;
+    przy pierwszym zapisie metadane są jedynym źródłem, jak dotąd. W obu
+    przypadkach to błąd konfiguracji, więc idzie do logu jako ERROR.
+    """
+    kod = _plan_z_pozycji((subskrypcja.get("items") or {}).get("data"))
+    if kod:
+        return kod
+    if powiazana is not None and get_plan(powiazana.plan_type):
+        logger.error(
+            "Cena subskrypcji %s nie odpowiada żadnej STRIPE_PRICE_* tego procesu - "
+            "zostawiam zapisany plan %s zamiast planu z metadanych zakupu",
+            subskrypcja.get("id"),
+            powiazana.plan_type,
+        )
+        return powiazana.plan_type
+    if settings.STRIPE_SECRET_KEY and not any(settings.STRIPE_PRICE_IDS.values()):
+        logger.error(
+            "Proces nie zna żadnej ceny STRIPE_PRICE_* - plan subskrypcji %s z metadanych zakupu",
+            subskrypcja.get("id"),
+        )
+    return (subskrypcja.get("metadata") or {}).get("plan")
+
+
 def _plan_z_pozycji(pozycje):
     ceny = {cena: kod for kod, cena in settings.STRIPE_PRICE_IDS_ROCZNE.items() if cena}
     ceny.update({cena: kod for kod, cena in settings.STRIPE_PRICE_IDS.items() if cena})
@@ -269,7 +305,7 @@ def _zapisz_subskrypcje(tenant, subskrypcja_stripe):
 
         if status in STATUSY_Z_DOSTEPEM:
             poprzedni_status = lokalna.stripe_status if powiazana else ""
-            kod_planu = plan_z_subskrypcji(subskrypcja_stripe)
+            kod_planu = plan_dla_zapisu(subskrypcja_stripe, lokalna if powiazana else None)
             plan = get_plan(kod_planu)
             poczatek = _data(subskrypcja_stripe["current_period_start"])
             koniec_oplaconego = (

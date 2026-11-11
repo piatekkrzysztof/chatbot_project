@@ -165,3 +165,25 @@ class TestSpojnosciBlueprintu:
         # Worker realnie wysyła powiadomienia, więc nadawca musi być i tam
         assert "DEFAULT_FROM_EMAIL" in worker
         assert "EMAIL_HOST" in worker
+
+    def test_worker_ma_klucz_i_ceny_stripe_takie_jak_web(self):
+        # Worker uzgadnia płatności co 5 minut. Do 2.32.19 nie miał w blueprincie
+        # żadnej zmiennej Stripe (przegląd 2026-11, R02).
+        import yaml
+        from django.conf import settings as ustawienia
+
+        with open("render.yaml", encoding="utf-8") as plik:
+            blueprint = yaml.safe_load(plik)
+
+        komplety = {
+            usluga["type"]: {z["key"] for z in usluga["envVars"] if z["key"].startswith("STRIPE_")}
+            for usluga in blueprint["services"]
+            if usluga["type"] in ("web", "worker")
+        }
+        wymagane = {"STRIPE_SECRET_KEY"} | {
+            f"STRIPE_PRICE_{kod.upper()}" for kod in ustawienia.STRIPE_PRICE_IDS
+        }
+
+        assert wymagane <= komplety["worker"], wymagane - komplety["worker"]
+        assert komplety["web"] - {"STRIPE_WEBHOOK_SECRET"} == komplety["worker"]
+        assert "STRIPE_WEBHOOK_SECRET" in komplety["web"]

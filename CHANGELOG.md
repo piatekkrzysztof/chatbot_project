@@ -56,6 +56,19 @@ No migration. Needs a rebuild and deploy of web and worker.
 
 ### Fixed
 
+- **The hourly payment check can no longer move a customer back to the plan
+  they first bought.** The check runs on the worker, and the Render blueprint
+  gave the Stripe key and plan prices only to the web service. Without the
+  prices, a plan was read from the purchase metadata, which Stripe does not
+  change when the customer switches plans in the portal - so after Start → Pro
+  the webhook wrote Pro and the worker, an hour later, Start again. A
+  subscription already linked to the company now keeps its stored plan when
+  the price is unknown (and logs an error); the blueprint and the runbook list
+  `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` for the worker; a test keeps both
+  services in step; and the worker's log and the "Stripe: nieuzgodnione
+  płatności" alarm name the missing variables. **Operator:** the worker needs
+  `STRIPE_SECRET_KEY` and every `STRIPE_PRICE_*` set to the same values as
+  web.
 - **The Start plan can be bought during and after the trial.** A trial is
   stored as a Start plan without a payment, and the panel was told that Start
   is "your current plan" - so its card had no purchase button, on day 3 and
