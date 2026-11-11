@@ -19,6 +19,23 @@ LIMIT_FIRM = 25
 BUDZET_SEKUND = 50
 
 
+def brakujace_ustawienia_stripe():
+    """
+    Zmienne Stripe, których brakuje w środowisku TEGO procesu.
+
+    Uzgadnianie działa na workerze, a zmienne w Renderze ustawia się osobno
+    dla każdej usługi. Do 2.32.19 blueprint dawał `STRIPE_*` tylko usłudze
+    web (przegląd 2026-11, R02). Bez klucza każda firma kończyła się błędem
+    i alarmem „sprawdź Stripe i logi", który nie mówił, czego szukać; bez
+    cen plan wracał do planu z dnia zakupu.
+    """
+    braki = [] if settings.STRIPE_SECRET_KEY else ["STRIPE_SECRET_KEY"]
+    braki += [
+        f"STRIPE_PRICE_{kod.upper()}" for kod, cena in settings.STRIPE_PRICE_IDS.items() if not cena
+    ]
+    return braki
+
+
 def kandydaci():
     from accounts.models import Tenant
 
@@ -107,8 +124,18 @@ def _alarmuj():
     )
     if not oczekujace:
         return
-    tresc = "Kontrola płatności wymaga reakcji operatora. Sprawdź Stripe i logi.\n\n" + "\n".join(
-        f"Firma {k.tenant_id}: {k.blad}; ostatnia próba {k.probowano_at}." for k in oczekujace
+    braki = brakujace_ustawienia_stripe()
+    przyczyna = (
+        f"Na workerze brakuje zmiennych: {', '.join(braki)}. Ustaw je jak na web.\n\n"
+        if braki
+        else ""
+    )
+    tresc = (
+        "Kontrola płatności wymaga reakcji operatora. Sprawdź Stripe i logi.\n\n"
+        + przyczyna
+        + "\n".join(
+            f"Firma {k.tenant_id}: {k.blad}; ostatnia próba {k.probowano_at}." for k in oczekujace
+        )
     )
     try:
         if not send_mail(
@@ -141,6 +168,12 @@ def uzgodnij_platnosci():
         )
         .order_by(F("kontrola_stripe__probowano_at").asc(nulls_first=True), "pk")[:LIMIT_FIRM]
     )
+    braki = brakujace_ustawienia_stripe()
+    if firmy and braki:
+        logger.error(
+            "Uzgadnianie płatności bez zmiennych %s - ustaw je na workerze jak na web",
+            ", ".join(braki),
+        )
     sprawdzone = 0
     for tenant in firmy:
         if monotonic() - poczatek >= BUDZET_SEKUND:
