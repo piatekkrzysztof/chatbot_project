@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from unittest import mock
 
 import pytest
+import stripe
 from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -452,3 +453,96 @@ class TestPlanStartWOkresieProbnym:
         dane = self.plany(tenant, wlasciciel)
 
         assert [p["code"] for p in dane["plans"] if p["current"]] == ["grow"]
+
+
+@pytest.mark.django_db
+class TestWorkerBezCenStripe:
+    """
+    R02: worker uzgadnia płatności co 5 minut, a według blueprintu nie znał
+    cen planów. Plan rozpoznany z metadanych zakupu cofał klienta po zmianie
+    w portalu do planu z dnia zakupu - co godzinę, w kółko.
+    """
+
+    def firma_pro(self, sid="sub_r02"):
+        tenant = Tenant.objects.create(name="R02", owner_email="r02@example.test")
+        Subscription.objects.create(
+            tenant=tenant,
+            plan_type="pro",
+            message_limit=25_000,
+            stripe_subscription_id=sid,
+            stripe_status="active",
+            is_active=True,
+            start_date=date.today() - timedelta(days=1),
+            end_date=date.today() + timedelta(days=30),
+        )
+        return tenant
+
+    def test_nieznana_cena_nie_cofa_planu_do_metadanych_zakupu(self, settings):
+        from accounts.tasks_stripe import uzgodnij_platnosci
+        from api.tests.test_platnosci_spojnosc import subskrypcja_stripe
+
+        settings.STRIPE_PRICE_IDS = {"start": "", "grow": "", "pro": ""}
+        settings.STRIPE_PRICE_IDS_ROCZNE = {}
+        tenant = self.firma_pro()
+        # Kupione jako Start, w portalu zmienione na Pro: metadane zostały.
+        w_stripe = subskrypcja_stripe(tenant, sid="sub_r02", plan="start", cena="price_pro")
+
+        with mock.patch("stripe.Subscription.retrieve", return_value=w_stripe):
+            uzgodnij_platnosci()
+
+        subskrypcja = Subscription.objects.get(tenant=tenant)
+        assert (subskrypcja.plan_type, subskrypcja.message_limit) == ("pro", 25_000)
+
+    def test_znana_cena_nadal_zmienia_plan(self, settings):
+        from api.tests.test_platnosci_spojnosc import subskrypcja_stripe
+        from api.views.stripe_webhook import synchronizuj_subskrypcje
+
+        settings.STRIPE_PRICE_IDS = {"start": "price_start", "grow": "price_grow", "pro": ""}
+        settings.STRIPE_PRICE_IDS_ROCZNE = {}
+        tenant = self.firma_pro()
+        w_stripe = subskrypcja_stripe(tenant, sid="sub_r02", plan="pro", cena="price_grow")
+
+        with mock.patch("stripe.Subscription.retrieve", return_value=w_stripe):
+            synchronizuj_subskrypcje(tenant, "sub_r02")
+
+        assert Subscription.objects.get(tenant=tenant).plan_type == "grow"
+
+    def test_pierwszy_zapis_bez_cen_bierze_plan_z_metadanych(self, settings):
+        from api.tests.test_platnosci_spojnosc import subskrypcja_stripe
+        from api.views.stripe_webhook import synchronizuj_subskrypcje
+
+        settings.STRIPE_PRICE_IDS = {"start": "", "grow": "", "pro": ""}
+        settings.STRIPE_PRICE_IDS_ROCZNE = {}
+        tenant = Tenant.objects.create(name="R02 nowa", owner_email="n@example.test")
+        w_stripe = subskrypcja_stripe(tenant, sid="sub_nowa", plan="grow", cena="price_x")
+
+        with mock.patch("stripe.Subscription.retrieve", return_value=w_stripe):
+            synchronizuj_subskrypcje(tenant, "sub_nowa")
+
+        assert Subscription.objects.get(tenant=tenant).plan_type == "grow"
+
+    def test_alarm_mowi_ktorych_zmiennych_brakuje(self, settings, mailoutbox):
+        from accounts.tasks_stripe import uzgodnij_platnosci
+
+        settings.EMAIL_ALERTOW = "operator@example.test"
+        settings.DEFAULT_FROM_EMAIL = "app@example.test"
+        settings.STRIPE_SECRET_KEY = ""
+        settings.STRIPE_PRICE_IDS = {"start": "price_start", "grow": "", "pro": "price_pro"}
+        self.firma_pro()
+
+        with mock.patch(
+            "stripe.Subscription.retrieve",
+            side_effect=stripe.error.AuthenticationError("No API key provided"),
+        ):
+            uzgodnij_platnosci()
+
+        assert len(mailoutbox) == 1
+        assert "STRIPE_SECRET_KEY, STRIPE_PRICE_GROW" in mailoutbox[0].body
+
+    def test_komplet_zmiennych(self, settings):
+        from accounts.tasks_stripe import brakujace_ustawienia_stripe
+
+        settings.STRIPE_SECRET_KEY = "sk_test_x"
+        settings.STRIPE_PRICE_IDS = {"start": "a", "grow": "b", "pro": "c"}
+
+        assert brakujace_ustawienia_stripe() == []
