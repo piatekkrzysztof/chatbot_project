@@ -16,6 +16,27 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.22] - 2026-11-12
+
+Roadmap item R04 from the final review. No migration, nothing to set.
+
+### Security
+
+- **A stolen session can no longer take over an account through its email
+  address.** The team endpoint (`PATCH /api/users/<id>/`) changed a login's
+  email address and username with no password, no MFA code and no word to
+  the old address. The email address is how an account is recovered, so a
+  stolen owner access token was enough to put in one's own address, request
+  a password reset and keep the account for good - the "password changed"
+  notice went to the new address too. An owner could take over an
+  employee's login the same way and act in the activity log as that person.
+  The panel only ever changes roles there, so both fields are now closed to
+  changes on that endpoint (400 with an explanation); the same address in
+  different letter case still passes. Asking about another person's address
+  no longer reveals that it has an account. Changing one's own address safely
+  (password and MFA, a link to the new address, a notice to the old one) is a
+  separate flow, not built yet; until then it goes through support.
+
 ## [2.32.21] - 2026-11-12
 
 Roadmap item R03 from the final review. No migration, nothing to set.
