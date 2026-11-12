@@ -43,10 +43,8 @@ class TestLimituZKatalogu:
 
     def test_nieznany_plan_nie_jest_ograniczany(self, tenant, subscribtion):
         """
-        Firma w okresie próbnym nie ma jeszcze subskrypcji, a plan sprzed
-        cennika może nazywać się dowolnie. Limit jednego miejsca zablokowałby
-        im zapraszanie pracowników, zanim w ogóle zdecydują o zakupie —
-        a dodatkowe konto nic nas nie kosztuje.
+        Plan sprzed cennika może nazywać się dowolnie i zachowuje swoje
+        warunki - a dodatkowe konto nic nas nie kosztuje.
         """
         subscribtion.plan_type = "Prymium"
         subscribtion.save()
@@ -54,9 +52,16 @@ class TestLimituZKatalogu:
         assert limit_miejsc(tenant) is None
         sprawdz_limit_miejsc(tenant)
 
-    def test_brak_subskrypcji_nie_blokuje(self, tenant):
-        assert limit_miejsc(tenant) is None
-        sprawdz_limit_miejsc(tenant)
+    def test_brak_subskrypcji_to_limit_najnizszego_planu(self, tenant):
+        """
+        Do 2.32.23 brak subskrypcji znaczył brak limitu. Okres próbny ma
+        jednak wiersz planu Start, więc korzystała z tego tylko firma, która
+        niczego nie wzięła ani nie kupiła (R07).
+        """
+        assert limit_miejsc(tenant) == 1
+        dodaj_konta(tenant, 1)
+        with pytest.raises(ValidationError):
+            sprawdz_limit_miejsc(tenant)
 
     def test_wolne_miejsca_nie_schodza_ponizej_zera(self, tenant, subscribtion):
         """

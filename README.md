@@ -374,6 +374,14 @@ chat limit or the panel limit; settings and FAQ reads also have a visitor limit
 (`LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO`, 600/hour). A request refused by a visitor limit
 does not count against the company's limit.
 
+**Team invitations.** An invitation is an email from our domain carrying a company name
+the sender typed, so it has daily caps: per company (`LIMIT_ZAPROSZEN_FIRMY_DZIENNIE`,
+20), per address (`LIMIT_ZAPROSZEN_NA_ADRES_DZIENNIE`, 3) and resends of one invitation
+from its public link (`LIMIT_WYSYLEK_ZAPROSZENIA_DZIENNIE`, 5). The counters live in the
+shared cache because a revoked invitation is deleted; without the cache, invitations
+are refused (503) rather than uncapped. Pending invitations count towards the plan's
+seats, and a company with no subscription gets the lowest plan's seats.
+
 **Payments.** Stripe webhooks are verified with `stripe.Webhook.construct_event` against
 `STRIPE_WEBHOOK_SECRET`; without a valid signature anyone could grant themselves any plan.
 `@csrf_exempt` must sit directly above the webhook view — a refactor once moved it onto a

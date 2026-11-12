@@ -16,6 +16,45 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.24] - 2026-11-12
+
+Roadmap item R07 from the final review. No migration. Three optional settings
+with safe defaults: `LIMIT_ZAPROSZEN_FIRMY_DZIENNIE` (20),
+`LIMIT_ZAPROSZEN_NA_ADRES_DZIENNIE` (3), `LIMIT_WYSYLEK_ZAPROSZENIA_DZIENNIE` (5).
+
+### Security
+
+- **Team invitations can no longer be used to send mail without limit.** An
+  invitation is an email from our domain with a company name the sender chose.
+  Nothing capped how many went out: an owner could issue and revoke them
+  forever (revoking deletes the row, so the database did not even remember
+  them), and the public "send again" link resent every minute for the whole
+  week an invitation lives. A trial account was enough to turn our mail into a
+  spam or phishing source and damage the reputation of the domain every
+  customer's mail comes from. There are now daily caps per company, per
+  address and per invitation resend (429 with a plain message), and a second
+  pending invitation to the same address is refused. The counters are in the
+  shared cache; when it is down, invitations are refused (503) instead of
+  going out uncapped.
+- **The company name in the invitation email stays on one line.** Line breaks
+  in the name could add paragraphs of "instructions" to a mail sent from our
+  domain. The mail also says what to do when the invitation is unexpected.
+
+### Fixed
+
+- **Pending invitations count towards the plan's seats.** A Start or Grow
+  owner could send any number of invitations at once; the limit was only
+  checked on acceptance, so everybody after the first clicked a working link
+  and got an error. Issuing an invitation and adding an account directly now
+  count the invitations still waiting; accepting one still counts accounts
+  only, since that invitation already holds its seat.
+- **A company with no subscription gets the lowest plan's seats** (one, the
+  owner) instead of unlimited seats. The old reasoning was that a trial has no
+  subscription, but a trial is a Start row, so the gap only helped a company
+  that neither took the trial nor paid. Plans outside the catalogue keep no
+  limit, as promised in the panel.
+- The seat message said "3 kont"; it now says "3 konta".
+
 ## [2.32.23] - 2026-11-12
 
 Roadmap item R05 from the final review. No migration, nothing to set. The
