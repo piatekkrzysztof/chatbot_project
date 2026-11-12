@@ -30,6 +30,7 @@ zdarzenia; zmiana w Stripe już po odczycie wymaga kolejnego uzgodnienia.
 """
 
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 from hashlib import blake2b
 
@@ -134,6 +135,50 @@ def plan_z_subskrypcji(subskrypcja):
     return _plan_z_pozycji((subskrypcja.get("items") or {}).get("data")) or (
         subskrypcja.get("metadata") or {}
     ).get("plan")
+
+
+def nowy_cykl_zuzycia(lokalna, powiazana, poczatek):
+    """
+    Czy zapis subskrypcji otwiera nowy cykl zużycia wiadomości.
+
+    Do 2.32.20 licznik wiadomości żył własnym rytmem: cykl liczył się od dnia
+    założenia wiersza (czyli od początku okresu próbnego) i zerował się
+    leniwie miesiąc później, a synchronizacja ze Stripe zmieniała tylko limit
+    (przegląd 2026-11, R03). Firma, która w okresie próbnym zużyła 2000
+    wiadomości i kupiła Start, miała martwy widget do miesiąca od rejestracji;
+    po przejściu z Pro na Start z licznikiem 9000 - tak samo.
+
+    Nowy cykl, gdy:
+
+    * subskrypcja Stripe dopiero wiąże się z wierszem - zakup po okresie
+      próbnym albo ponowny zakup po anulowaniu. Zużycie z okresu próbnego
+      nie idzie na konto pierwszego płatnego miesiąca.
+    * Stripe przesunął początek okresu (odnowienie), a licznik nie został
+      jeszcze wyzerowany w tym okresie. Drugi warunek chroni przed podwójnym
+      zerowaniem, gdy leniwe zerowanie przy pierwszej wiadomości nowego
+      miesiąca zdążyło przed webhookiem odnowienia.
+
+    Istniejące powiązane subskrypcje mają `start_date` równe bieżącemu
+    początkowi okresu, więc wdrożenie niczego nie zeruje.
+    """
+    if lokalna is None or not powiazana:
+        return True
+    return poczatek > lokalna.start_date and lokalna.billing_cycle_start < poczatek
+
+
+def pola_nowego_cyklu(poczatek):
+    """
+    Pola zerowania - te same co `Subscription.reset_usage`, z początkiem
+    cyklu równym początkowi okresu w Stripe. Dzięki temu leniwe zerowanie
+    (miesiąc po `billing_cycle_start`) wypada razem z odnowieniem w Stripe.
+    Rezerwacje starego cyklu nie zostaną naliczone (sprawdzenie `cycle_id`).
+    """
+    return {
+        "current_message_count": 0,
+        "billing_cycle_start": poczatek,
+        "billing_cycle_id": uuid.uuid4(),
+        "alert_threshold_sent": 0,
+    }
 
 
 def plan_dla_zapisu(subskrypcja, powiazana):
@@ -334,8 +379,14 @@ def _zapisz_subskrypcje(tenant, subskrypcja_stripe):
                 "zaplanowany_plan": zaplanowany or "",
                 "zaplanowany_plan_od": zaplanowany_od,
             }
+            if nowy_cykl_zuzycia(lokalna, powiazana, poczatek):
+                pola.update(pola_nowego_cyklu(poczatek))
             if lokalna is None:
                 lokalna = Subscription.objects.create(tenant=tenant, **pola)
+                # `billing_cycle_start` ma auto_now_add, więc przy tworzeniu
+                # Django wpisuje dzisiejszą datę zamiast podanej.
+                Subscription.objects.filter(pk=lokalna.pk).update(billing_cycle_start=poczatek)
+                lokalna.billing_cycle_start = poczatek
             else:
                 for pole, wartosc in pola.items():
                     setattr(lokalna, pole, wartosc)
