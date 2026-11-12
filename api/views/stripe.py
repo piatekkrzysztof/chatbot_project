@@ -3,6 +3,7 @@ import re
 
 import stripe
 from django.conf import settings
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -326,6 +327,8 @@ class BillingOverviewView(APIView):
         aktywna = bool(subscription and subscription.is_active)
         oplacana = aktywna_subskrypcja_stripe(tenant) is not None
         zaplanowany = get_plan(subscription.zaplanowany_plan) if aktywna else None
+        dzisiaj = timezone.now().date()
+        probna = bool(subscription and subscription.jest_probna())
 
         return Response(
             {
@@ -336,6 +339,13 @@ class BillingOverviewView(APIView):
                     "name": biezacy_plan.name if biezacy_plan else biezacy,
                     "in_catalogue": biezacy_plan is not None,
                     "is_active": bool(subscription and subscription.is_active),
+                    # Okres próbny to wiersz planu Start bez Stripe - bez tych
+                    # pól panel pokazywał go jak opłacony plan, bez daty końca,
+                    # a po końcu nadal jako aktywny, choć widget już odmawiał.
+                    "is_trial": probna,
+                    "trial_ends_at": subscription.end_date if probna else None,
+                    "has_access": bool(subscription and subscription.daje_dostep(dzisiaj)),
+                    "expired": bool(subscription and subscription.end_date < dzisiaj),
                     "used": subscription.current_message_count if subscription else 0,
                     "limit": subscription.message_limit if subscription else 0,
                     "renews_at": subscription.end_date if subscription else None,

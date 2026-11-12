@@ -775,3 +775,137 @@ class TestDaneLogowaniaBezZmian:
         assert odpowiedz.status_code == 200
         wlasciciel.refresh_from_db()
         assert (wlasciciel.email, wlasciciel.first_name) == ("szef-r04-litery@firma.pl", "Anna")
+
+
+@pytest.mark.django_db
+class TestOkresProbnyWPanelu:
+    """
+    R05: okres próbny wyglądał w panelu jak opłacony plan Start - bez daty
+    końca, a po końcu pulpit nadal pisał „Asystent aktywny", bo `is_active`
+    zostaje prawdą, a widget sprawdza daty przy każdej wiadomości.
+    """
+
+    def firma_na_probie(self, nazwa):
+        from api.views.accounts import zalozenie_okresu_probnego
+
+        tenant = Tenant.objects.create(
+            name=nazwa, subscription_status="trial", subscription_plan="trial"
+        )
+        wlasciciel = CustomUser.objects.create_user(
+            username=nazwa, email=f"{nazwa}@firma.pl", password="x", tenant=tenant
+        )
+        wlasciciel.role = "owner"
+        wlasciciel.save()
+        zalozenie_okresu_probnego(tenant)
+        return tenant, wlasciciel
+
+    def przesun_w_przeszlosc(self, tenant, dni):
+        subskrypcja = Subscription.objects.get(tenant=tenant)
+        Subscription.objects.filter(pk=subskrypcja.pk).update(
+            start_date=subskrypcja.start_date - timedelta(days=dni),
+            end_date=subskrypcja.end_date - timedelta(days=dni),
+        )
+
+    # Użytkownik czytany od nowa, jak przy każdym prawdziwym zapytaniu:
+    # `force_authenticate` podaje ten sam obiekt, a jego firma pamięta
+    # subskrypcję sprzed zmiany dat w teście.
+    def biezacy(self, tenant, wlasciciel):
+        swiezy = CustomUser.objects.get(pk=wlasciciel.pk)
+        return panel(tenant, swiezy).get("/api/billing/plans/").json()["current"]
+
+    def zuzycie(self, tenant, wlasciciel):
+        swiezy = CustomUser.objects.get(pk=wlasciciel.pk)
+        return panel(tenant, swiezy).get("/api/analytics/").json()["usage"]
+
+    def test_trwajacy_okres_probny_ma_date_konca(self):
+        from accounts.plans import OKRES_PROBNY_DNI
+
+        tenant, wlasciciel = self.firma_na_probie("r05-trwa")
+        koniec = (date.today() + timedelta(days=OKRES_PROBNY_DNI)).isoformat()
+
+        biezacy = self.biezacy(tenant, wlasciciel)
+        zuzycie = self.zuzycie(tenant, wlasciciel)
+
+        assert (biezacy["is_trial"], biezacy["trial_ends_at"]) == (True, koniec)
+        assert (biezacy["has_access"], biezacy["expired"]) == (True, False)
+        assert (zuzycie["is_trial"], zuzycie["has_access"], zuzycie["ends_at"]) == (
+            True,
+            True,
+            koniec,
+        )
+
+    def test_po_koncu_okresu_probnego_panel_nie_pokazuje_dzialajacego_czatu(self):
+        tenant, wlasciciel = self.firma_na_probie("r05-koniec")
+        self.przesun_w_przeszlosc(tenant, 15)
+
+        biezacy = self.biezacy(tenant, wlasciciel)
+        zuzycie = self.zuzycie(tenant, wlasciciel)
+        czat = widget(tenant).post("/api/widget/chat/", {"message": "Dzień dobry"}, format="json")
+
+        # `is_active` nadal jest prawdą - właśnie dlatego panel nie może na
+        # nim polegać.
+        assert biezacy["is_active"] is True
+        assert (biezacy["has_access"], biezacy["expired"], biezacy["is_trial"]) == (
+            False,
+            True,
+            True,
+        )
+        assert zuzycie["has_access"] is False
+        assert czat.status_code == 403
+        assert czat.json()["kod"] == "czat_niedostepny"
+
+    def test_ostatni_dzien_okresu_probnego_jeszcze_dziala(self):
+        from accounts.plans import OKRES_PROBNY_DNI
+
+        tenant, wlasciciel = self.firma_na_probie("r05-ostatni")
+        self.przesun_w_przeszlosc(tenant, OKRES_PROBNY_DNI)
+
+        biezacy = self.biezacy(tenant, wlasciciel)
+
+        assert biezacy["trial_ends_at"] == date.today().isoformat()
+        assert (biezacy["has_access"], biezacy["expired"]) == (True, False)
+
+    def test_oplacony_plan_nie_jest_okresem_probnym(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r05-oplacona", plan="start")
+        Tenant.objects.filter(pk=tenant.pk).update(subscription_status="active")
+        Subscription.objects.filter(tenant=tenant).update(
+            stripe_subscription_id="sub_r05", stripe_status="active"
+        )
+
+        biezacy = self.biezacy(tenant, wlasciciel)
+        zuzycie = self.zuzycie(tenant, wlasciciel)
+
+        assert (biezacy["is_trial"], biezacy["trial_ends_at"]) == (False, None)
+        assert biezacy["has_access"] is True
+        assert (zuzycie["is_trial"], zuzycie["has_access"]) == (False, True)
+
+    def test_zawieszona_subskrypcja_nie_daje_dostepu_przed_data_konca(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r05-zawieszona")
+        Subscription.objects.filter(tenant=tenant).update(is_active=False)
+
+        biezacy = self.biezacy(tenant, wlasciciel)
+
+        assert (biezacy["has_access"], biezacy["expired"]) == (False, False)
+        assert self.zuzycie(tenant, wlasciciel)["has_access"] is False
+
+    def test_firma_bez_subskrypcji(self):
+        tenant = Tenant.objects.create(name="r05-brak")
+        wlasciciel = CustomUser.objects.create_user(
+            username="r05-brak", email="r05-brak@firma.pl", password="x", tenant=tenant
+        )
+        wlasciciel.role = "owner"
+        wlasciciel.save()
+
+        biezacy = self.biezacy(tenant, wlasciciel)
+        zuzycie = self.zuzycie(tenant, wlasciciel)
+
+        assert (biezacy["is_trial"], biezacy["has_access"], biezacy["expired"]) == (
+            False,
+            False,
+            False,
+        )
+        assert (zuzycie["is_trial"], zuzycie["has_access"], zuzycie["ends_at"]) == (
+            False,
+            False,
+            None,
+        )
