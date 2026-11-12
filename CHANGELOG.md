@@ -16,6 +16,28 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.23] - 2026-11-12
+
+Roadmap item R05 from the final review. No migration, nothing to set. The
+panel needs its own release to show the new state; without it nothing changes
+on screen.
+
+### Fixed
+
+- **The trial no longer looks like a paid plan, and its end is no longer
+  hidden.** A trial is a Start row with no Stripe subscription, and the panel
+  showed it as plain "Start" with no end date. After day 14 the dashboard
+  still said "Assistant active": `is_active` stays true when a trial runs out,
+  because the end date is checked on every visitor message rather than by a
+  background job. The widget was refusing everybody while the panel said all
+  was well. `GET /api/billing/plans/` now returns `is_trial`, `trial_ends_at`,
+  `has_access` and `expired` in `current`; `GET /api/analytics/` returns
+  `has_access`, `is_trial` and `ends_at` in `usage`. `has_access` uses the
+  same rule as the widget check (one method on `Subscription`), so the panel
+  and the widget can no longer disagree about whether the chat is answering.
+  A suspended subscription, which has not reached its end date, now also
+  reads as not answering.
+
 ## [2.32.22] - 2026-11-12
 
 Roadmap item R04 from the final review. No migration, nothing to set.
