@@ -231,8 +231,9 @@ class AnalyticsSerializer(serializers.Serializer):
 
 
 class InvitationPreviewSerializer(serializers.Serializer):
+    # Bez `email`: podgląd przestał podawać adres w 2.20.0, schemat został
+    # po staremu do przeglądu 2026-11 (R08).
     company = serializers.CharField()
-    email = serializers.EmailField()
     role = serializers.CharField()
     is_valid = serializers.BooleanField()
     expires_at = serializers.DateTimeField(allow_null=True)

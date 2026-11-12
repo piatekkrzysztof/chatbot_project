@@ -33,7 +33,6 @@ KONTRAKT = {
     ("password-reset-preview", "POST"): PUBLICZNA,
     ("password-reset-confirm", "POST"): PUBLICZNA,
     ("accept-invite", "POST"): PUBLICZNA,
-    ("invitation-preview", "GET"): PUBLICZNA,
     ("invitation-preview-post", "POST"): PUBLICZNA,
     ("invitation-resend", "POST"): PUBLICZNA,
     ("public-pricing", "GET"): PUBLICZNA,
