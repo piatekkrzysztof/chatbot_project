@@ -192,6 +192,11 @@ class UsageSerializer(serializers.Serializer):
     used = serializers.IntegerField()
     limit = serializers.IntegerField(allow_null=True)
     plan = serializers.CharField(allow_null=True)
+    has_access = serializers.BooleanField(
+        help_text="Czy widget odpowiada dziś odwiedzającym: aktywna subskrypcja w swoich datach."
+    )
+    is_trial = serializers.BooleanField(help_text="Okres próbny z rejestracji, nie opłacony plan.")
+    ends_at = serializers.DateField(allow_null=True, help_text="Ostatni dzień subskrypcji.")
 
 
 class UnansweredSerializer(serializers.Serializer):
@@ -303,6 +308,14 @@ class CurrentSubscriptionSerializer(serializers.Serializer):
         help_text="Czy bieżący plan pochodzi z aktualnego cennika."
     )
     is_active = serializers.BooleanField()
+    is_trial = serializers.BooleanField(help_text="Okres próbny z rejestracji, nie opłacony plan.")
+    trial_ends_at = serializers.DateField(
+        allow_null=True, help_text="Ostatni dzień okresu próbnego; null poza okresem próbnym."
+    )
+    has_access = serializers.BooleanField(
+        help_text="Czy widget odpowiada dziś odwiedzającym: aktywna subskrypcja w swoich datach."
+    )
+    expired = serializers.BooleanField(help_text="Data końca subskrypcji już minęła.")
     used = serializers.IntegerField()
     limit = serializers.IntegerField()
     renews_at = serializers.DateField(allow_null=True)

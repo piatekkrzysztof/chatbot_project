@@ -202,6 +202,14 @@ class TenantAnalyticsView(APIView):
                 "used": subscription.current_message_count if subscription else 0,
                 "limit": subscription.message_limit if subscription else None,
                 "plan": subscription.plan_type if subscription else None,
+                # Stan widgetu dla pulpitu. Do 2.32.22 pulpit zawsze pisał
+                # „Asystent aktywny" - także po końcu okresu próbnego, gdy
+                # widget odmawiał każdemu odwiedzającemu.
+                "has_access": bool(
+                    subscription and subscription.daje_dostep(timezone.now().date())
+                ),
+                "is_trial": bool(subscription and subscription.jest_probna()),
+                "ends_at": subscription.end_date if subscription else None,
             },
             "unanswered": [
                 {

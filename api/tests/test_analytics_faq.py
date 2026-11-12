@@ -106,7 +106,12 @@ def test_analytics_reports_plan_usage(user, tenant, subscribtion):
     client = auth_client(user, tenant)
     data = client.get("/api/analytics/", HTTP_X_API_KEY=str(tenant.api_key)).json()
 
-    assert data["usage"] == {"used": 7, "limit": 100, "plan": "pro"}
+    # Stan okresu próbnego i dostępu sprawdza test_przeglad_koncowy_2026_11 (R05).
+    assert {k: data["usage"][k] for k in ("used", "limit", "plan")} == {
+        "used": 7,
+        "limit": 100,
+        "plan": "pro",
+    }
 
 
 @pytest.mark.django_db

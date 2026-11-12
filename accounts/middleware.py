@@ -249,9 +249,7 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
             # 3. Sprawdź daty ważności subskrypcji
             today = timezone.now().date()
-            if not (
-                subscription.is_active and subscription.start_date <= today <= subscription.end_date
-            ):
+            if not subscription.daje_dostep(today):
                 return _odmow(
                     {"error": "Subscription expired", "kod": KOD_CZAT_NIEDOSTEPNY},
                     403,
