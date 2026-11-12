@@ -91,7 +91,9 @@ def test_zapraszany_widzi_podglad_bez_konta(tenant):
         max_users=1,
     )
 
-    response = APIClient().get(f"/api/accounts/invitations/{invitation.token}/preview/")
+    response = APIClient().post(
+        "/api/accounts/invitations/preview/", {"token": str(invitation.token)}, format="json"
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -103,7 +105,9 @@ def test_zapraszany_widzi_podglad_bez_konta(tenant):
 def test_podglad_nieistniejacego_tokenu_daje_404(tenant):
     import uuid
 
-    response = APIClient().get(f"/api/accounts/invitations/{uuid.uuid4()}/preview/")
+    response = APIClient().post(
+        "/api/accounts/invitations/preview/", {"token": str(uuid.uuid4())}, format="json"
+    )
 
     assert response.status_code == 404
 

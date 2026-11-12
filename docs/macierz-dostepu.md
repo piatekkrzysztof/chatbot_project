@@ -21,7 +21,7 @@ Każdy wiersz jest sprawdzany prawdziwymi żądaniami w
   na każdej operacji z identyfikatorem obiektu firmy A, a token firmy A z kluczem
   firmy B - 403 wszędzie poza operacjami publicznymi i własnym kontem.
 
-Operacji: 98.
+Operacji: 97.
 
 ## Logowanie, rejestracja i hasło
 
@@ -33,7 +33,6 @@ Operacji: 98.
 | `POST /api/accounts/invitations/preview/` | Sprawdź ważność zaproszenia (klucz w treści) | tak | tak | tak | tak | tak |
 | `POST /api/accounts/invitations/wyslij/{token_wysylki}/` | Wyślij zaproszenie na adres, na który je wystawiono | tak | tak | tak | tak | tak |
 | `DELETE /api/accounts/invitations/{pk}/` | Cofnij zaproszenie | - | - | - | - | tak |
-| `GET /api/accounts/invitations/{token}/preview/` | Sprawdź ważność zaproszenia | tak | tak | tak | tak | tak |
 | `POST /api/accounts/login/` | Logowanie | tak | tak | tak | tak | tak |
 | `POST /api/accounts/login/2fa/` | Drugi krok logowania | tak | tak | tak | tak | tak |
 | `POST /api/accounts/logout/` | Wyloguj | tak | tak | tak | tak | tak |
