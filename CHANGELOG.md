@@ -16,6 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.26] - 2026-11-12
+
+Roadmap item R09 from the final review. No migration, nothing to set.
+
+### Fixed
+
+- **A purchase rejected by Stripe no longer locks the company out of buying.**
+  When Stripe refused to create the first checkout session (a wrong or
+  archived price, a missing customer), the purchase attempt kept its saved
+  parameters and no session. Every later click replayed the same rejected
+  request - even after the price was fixed in the configuration, and even
+  for a different plan - and after 23 hours it turned into a permanent 503
+  that only a manual database change could clear. A 400/404 rejection
+  (`InvalidRequestError` with an HTTP status, not an `idempotency_error`)
+  means no session exists under that key, so the attempt is now closed with
+  a new key and the next click starts from current settings. Lost
+  responses, 409, 429, 5xx and idempotency errors still keep the attempt
+  untouched, as before. Attempts stuck before this release still need the
+  operator procedure in `docs/checkout-jedna-proba.md`.
+
 ## [2.32.25] - 2026-11-12
 
 Roadmap item R08 from the final review: the clean-up left over from A-26

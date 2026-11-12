@@ -31,6 +31,14 @@ aplikacji, znika razem z firmą, a następny zakup zastępuje poprzednie paramet
    potwierdzający `canceled` lub `incomplete_expired` dopuszcza nowy zakup.
    Nie anulujemy abonamentów ani nie zwracamy pieniędzy automatycznie.
 
+Odrzucenie przez Stripe (odpowiedź 400/404 inna niż `idempotency_error`, w bibliotece
+`InvalidRequestError` z kodem HTTP) zamyka próbę: nowy UUID, puste parametry. Sesja
+pod tym kluczem nie powstała, więc nowy klucz nie grozi drugim zakupem, a następne
+kliknięcie bierze aktualną cenę i wybrany plan. Do 2.32.25 próba zostawała z parametrami
+i bez sesji, powtarzała to samo odrzucone żądanie i po 23 h kończyła się trwałym 503
+(przegląd 2026-11, R09). Zerwane połączenie, 409, 429, 5xx i `idempotency_error`
+nadal zostawiają próbę bez zmian.
+
 Po 23 h nie ponawiamy tworzenia sesji o nieznanym identyfikatorze. Pamięć
 idempotencji Stripe jest ograniczona (co najmniej 24 h), więc kolejne użycie
 tego samego klucza po jej usunięciu mogłoby utworzyć drugi zakup. Znana sesja
@@ -90,8 +98,9 @@ firmy, UUID aktualnej próby, trybu subscription i statusu. Nie tworzy ani nie
 anuluje płatności. Kolejne wejście klienta sprawdzi bieżący stan Stripe.
 Nie można przypiąć sesji innej firmy, dawnej próby ani podmienić znanego ID.
 
-Jeżeli sesji nie da się odnaleźć (np. pierwsze żądanie miało niepoprawną cenę),
-potrzebny jest ręczny przegląd żądań i subskrypcji Stripe. Kod celowo nie udostępnia
+Jeżeli sesji nie da się odnaleźć, potrzebny jest ręczny przegląd żądań i subskrypcji
+Stripe. Odrzucona cena nie wymaga już tej procedury (od 2.32.26 zamyka próbę sama),
+ale próby zablokowane przed tą wersją nadal przechodzą przez operatora. Kod celowo nie udostępnia
 automatycznego resetu niepewnego zakupu. Przy odtworzeniu starszej kopii bazy
 także uzgodnić zakupy ze Stripe przed ponownym otwarciem sprzedaży.
 

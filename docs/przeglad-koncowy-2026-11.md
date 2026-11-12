@@ -70,7 +70,7 @@ niezależnego potwierdzenia ani testu.
 
 | ID | Obszar | Ustalenie | Status |
 |---|---|---|---|
-| R09 | Płatności | Odrzucone przez Stripe pierwsze utworzenie sesji zostawia zablokowaną próbę zakupu bez wyjścia (zapisane parametry, brak `sesja_id`, po 23 h trwałe 503) | z przeglądu |
+| R09 | Płatności | Odrzucone przez Stripe pierwsze utworzenie sesji zostawia zablokowaną próbę zakupu bez wyjścia (zapisane parametry, brak `sesja_id`, po 23 h trwałe 503) | **Zamknięte 12.11.2026 w 2.32.26:** odrzucenie 400/404 zamyka próbę; niepewne odpowiedzi bez zmian |
 | R10 | Koszty | Czat testowy nie sprawdza subskrypcji: 100 odpowiedzi dziennie bez planu, bez końca. Ta sama klasa: ręczne odświeżenie źródła i upload bez ważnego planu | potwierdzone (`message_quota.py`); decyzja właściciela |
 | R11 | Płatności | `stripe_customer_id` nie jest uzupełniany, gdy klienta założył sam Stripe - płacąca firma bez dostępu do portalu | z przeglądu |
 | R12 | MFA | Logowanie do panelu administracyjnego Django bez dobowego limitu kodów i bez maila z ostrzeżeniem (reszta P16) | z przeglądu |
