@@ -36,6 +36,22 @@ from chat.models import FAQ, ChatFeedback, ChatMessage, ContactRequest, PromptLo
 from documents.models import Document, DocumentChunk, WebsiteSource
 from documents.safe_http import FetchError, validate_url
 
+#: Odmowa zmiany adresu e-mail albo nazwy logowania przez listę zespołu.
+#:
+#: Do 2.32.21 `PATCH /api/users/<id>/` zmieniał oba pola bez hasła, kodu MFA
+#: i bez słowa do starego adresu (przegląd 2026-11, R04). Adres e-mail to
+#: kanał odzyskiwania konta: przejęty token dostępu właściciela wystarczał,
+#: żeby wpisać własny adres, zamówić reset hasła i przejąć konto na stałe -
+#: a powiadomienie o zmianie hasła szło już na nowy adres. Tą samą drogą
+#: właściciel mógł przejąć logowanie pracownika i działać w dzienniku jako on.
+#: Panel nigdy z tego nie korzystał (zmienia tylko rolę), więc pola są
+#: zamknięte do zapisu. Bezpieczna zmiana adresu to osobny przepływ:
+#: hasło i kod MFA, link na nowy adres, wiadomość na stary.
+DANE_LOGOWANIA_BEZ_ZMIAN = (
+    "Adresu e-mail ani nazwy logowania nie zmienia się w ustawieniach zespołu. "
+    "Osobę z innym adresem zaproś ponownie; zmianę własnego adresu zgłoś do obsługi."
+)
+
 
 class UserSerializer(serializers.ModelSerializer):
     # Tylko dla właściciela: lista Zespołu pokazuje, komu może zresetować MFA
@@ -52,7 +68,18 @@ class UserSerializer(serializers.ModelSerializer):
         return DrugiSkladnik.objects.filter(uzytkownik=obj, potwierdzony_od__isnull=False).exists()
 
     def validate_email(self, value):
+        if self.instance is not None:
+            # Przed sprawdzeniem unikalności: inaczej odpowiedź na cudzy adres
+            # („konto już istnieje") zdradzałaby, kto ma konto w systemie.
+            if normalized_email(value) != normalized_email(self.instance.email or ""):
+                raise serializers.ValidationError(DANE_LOGOWANIA_BEZ_ZMIAN)
+            return self.instance.email
         return unique_email(value, self.instance)
+
+    def validate_username(self, value):
+        if self.instance is not None and value != self.instance.username:
+            raise serializers.ValidationError(DANE_LOGOWANIA_BEZ_ZMIAN)
+        return value
 
     def create(self, validated_data):
         try:

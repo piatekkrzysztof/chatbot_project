@@ -700,3 +700,78 @@ class TestLicznikPoZakupie:
         po = self.synchronizuj(tenant, plan="grow", poczatek=poczatek)
 
         assert (po.billing_cycle_start, po.current_message_count) == (poczatek, 0)
+
+
+@pytest.mark.django_db
+class TestDaneLogowaniaBezZmian:
+    """
+    R04: lista zespołu zmieniała adres e-mail i nazwę logowania bez hasła,
+    kodu MFA i powiadomienia. Przejęty token właściciela wystarczał do
+    przejęcia konta przez reset hasła na nowy adres; właściciel mógł tak samo
+    przejąć logowanie pracownika.
+    """
+
+    def test_wlasciciel_nie_zmienia_wlasnego_adresu(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r04-sam")
+
+        odpowiedz = panel(tenant, wlasciciel).patch(
+            f"/api/users/{wlasciciel.pk}/", {"email": "napastnik@zly.example"}, format="json"
+        )
+
+        assert odpowiedz.status_code == 400
+        wlasciciel.refresh_from_db()
+        assert wlasciciel.email == "szef-r04-sam@firma.pl"
+
+    def test_wlasciciel_nie_przejmuje_logowania_pracownika(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r04-zespol")
+        pracownik = CustomUser.objects.create_user(
+            username="pracownik", email="pracownik@firma.pl", password="x", tenant=tenant
+        )
+        klient = panel(tenant, wlasciciel)
+
+        adres = klient.patch(
+            f"/api/users/{pracownik.pk}/", {"email": "szef-prywatny@firma.pl"}, format="json"
+        )
+        nazwa = klient.patch(f"/api/users/{pracownik.pk}/", {"username": "inna"}, format="json")
+
+        assert (adres.status_code, nazwa.status_code) == (400, 400)
+        pracownik.refresh_from_db()
+        assert (pracownik.email, pracownik.username) == ("pracownik@firma.pl", "pracownik")
+
+    def test_cudzy_adres_nie_zdradza_ze_konto_istnieje(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r04-cudzy")
+        firma_z_wlascicielem("r04-inna")
+
+        odpowiedz = panel(tenant, wlasciciel).patch(
+            f"/api/users/{wlasciciel.pk}/", {"email": "szef-r04-inna@firma.pl"}, format="json"
+        )
+
+        assert odpowiedz.status_code == 400
+        assert "już istnieje" not in str(odpowiedz.json())
+
+    def test_zmiana_roli_dziala_jak_dotad(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r04-rola")
+        pracownik = CustomUser.objects.create_user(
+            username="rola", email="rola@firma.pl", password="x", tenant=tenant
+        )
+
+        odpowiedz = panel(tenant, wlasciciel).patch(
+            f"/api/users/{pracownik.pk}/", {"role": "viewer"}, format="json"
+        )
+
+        assert odpowiedz.status_code == 200
+        pracownik.refresh_from_db()
+        assert pracownik.role == "viewer"
+
+    def test_ten_sam_adres_innymi_literami_nie_jest_zmiana(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r04-litery")
+
+        odpowiedz = panel(tenant, wlasciciel).patch(
+            f"/api/users/{wlasciciel.pk}/",
+            {"email": " SZEF-R04-LITERY@firma.pl ", "first_name": "Anna"},
+            format="json",
+        )
+
+        assert odpowiedz.status_code == 200
+        wlasciciel.refresh_from_db()
+        assert (wlasciciel.email, wlasciciel.first_name) == ("szef-r04-litery@firma.pl", "Anna")
