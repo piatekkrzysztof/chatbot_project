@@ -24,7 +24,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounts.models import CustomUser, InvitationToken, Tenant
+from accounts.models import CustomUser, InvitationToken, Subscription, Tenant
 
 pytestmark = pytest.mark.django_db
 
@@ -41,7 +41,16 @@ def czysty_cache():
 
 @pytest.fixture
 def firma():
-    return Tenant.objects.create(name="Piekarnia")
+    firma = Tenant.objects.create(name="Piekarnia")
+    # Plan z miejscami dla zespołu: od 2.32.24 firma bez subskrypcji ma
+    # limit najniższego planu, czyli jedno konto - właściciela (R07).
+    Subscription.objects.create(
+        tenant=firma,
+        plan_type="grow",
+        start_date=timezone.now().date(),
+        end_date=timezone.now().date() + timedelta(days=30),
+    )
+    return firma
 
 
 @pytest.fixture

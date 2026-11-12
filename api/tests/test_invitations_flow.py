@@ -8,13 +8,25 @@ zaproszenia. Do tego nieudana wysyłka e-maila kończyła się pięćsetką mimo
 poprawnie zapisanego tokenu, bo send_mail leciał z fail_silently=False.
 """
 
+from datetime import date, timedelta
+
 import pytest
 from rest_framework.test import APIClient
 
-from accounts.models import CustomUser, InvitationDuration, InvitationToken
+from accounts.models import CustomUser, InvitationDuration, InvitationToken, Subscription
 
 
 def owner_client(user, tenant):
+    # Plan z miejscami dla zespołu: od 2.32.24 firma bez subskrypcji ma limit
+    # najniższego planu, czyli jedno konto - właściciela (R07).
+    Subscription.objects.get_or_create(
+        tenant=tenant,
+        defaults={
+            "plan_type": "grow",
+            "start_date": date.today(),
+            "end_date": date.today() + timedelta(days=30),
+        },
+    )
     user.tenant = tenant
     user.role = "owner"
     user.save()
