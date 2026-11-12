@@ -18,6 +18,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from accounts import dwuskladnikowe
 from accounts.adresy import skrot_skrzynki
 from accounts.dziennik import wskaz_autora
+from accounts.limity_zaproszen import wysylka_ponowna_dozwolona
 from accounts.models import InvitationToken, Subscription, Tenant
 from accounts.plans import OKRES_PROBNY_DNI, PLAN_PROBNY, message_limit_for
 from accounts.registration import lock_invitation_team
@@ -619,6 +620,14 @@ class InvitationResendView(APIView):
         # osoby, która po prostu nie widzi jeszcze wiadomości.
         if not cache.add(f"zaproszenie-wysylka:{invitation.pk}", 1, self.ODSTEP_WYSYLKI_S):
             return Response(odpowiedz, status=status.HTTP_202_ACCEPTED)
+        if not wysylka_ponowna_dozwolona(invitation):
+            return Response(
+                {
+                    "detail": "To zaproszenie wysłano dziś już kilka razy. Sprawdź folder "
+                    "spam albo poproś właściciela konta o nowy link jutro."
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         try:
             send_invitation_email(invitation)

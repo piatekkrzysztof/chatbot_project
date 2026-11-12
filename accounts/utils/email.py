@@ -14,17 +14,25 @@ def send_invitation_email(invitation: InvitationToken):
     base = settings.FRONTEND_URL.rstrip("/")
     accept_url = f"{base}/invite/accept#token={invitation.token}"
 
+    # Nazwę firmy wpisuje nadawca. W jednej linii i przycięta, żeby nie dało
+    # się nią dopisać do maila własnych akapitów z „instrukcjami" (R07).
+    firma = " ".join(invitation.tenant.name.split())[:100]
+
     subject = "Zaproszenie do platformy Chatbot SaaS"
     message = f"""
 Cześć!
 
-Zostałeś zaproszony do współpracy w zespole: {invitation.tenant.name}
+Zostałeś zaproszony do współpracy w zespole firmy „{firma}”.
 Rola: {invitation.role.capitalize()}
 
 Kliknij w link, aby dołączyć:
 {accept_url}
 
 Uwaga: link wygaśnie {invitation.expires_at.strftime("%Y-%m-%d %H:%M")} i może być użyty maksymalnie {invitation.max_users} raz(y).
+
+Jeśli nie znasz tej firmy albo nie spodziewasz się zaproszenia, zignoruj tę
+wiadomość - bez kliknięcia w link nic się nie stanie. Nigdy nie prosimy
+mailem o hasło ani dane karty.
 
 Pozdrawiamy,
 Zespół Chatbot Platform

@@ -16,7 +16,7 @@ from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from accounts.models import CustomUser, Subscription, Tenant, WpisDziennika
+from accounts.models import CustomUser, InvitationToken, Subscription, Tenant, WpisDziennika
 from api.throttles import APIKeyRateThrottle, RuchWidgetuFirmyThrottle
 from api.utils.chat_engine import FALLBACK_MESSAGE, process_chat_message
 from api.utils.prompt_systemowy import OGRANICZNIK, ZNACZNIK_BRAKU, blok_wiedzy, oczysc_wiedze
@@ -909,3 +909,161 @@ class TestOkresProbnyWPanelu:
             False,
             None,
         )
+
+
+@pytest.mark.django_db
+class TestLimityZaproszen:
+    """
+    R07: zaproszenia nie liczyły się do limitu miejsc, firma bez subskrypcji
+    miała miejsc bez limitu, a liczba maili z zaproszeniem (z naszej domeny,
+    z nazwą firmy wybraną przez nadawcę) nie miała żadnego pułapu.
+    """
+
+    URL = "/api/accounts/invitations/"
+
+    def zapros(self, klient, email, rola="employee"):
+        return klient.post(self.URL, {"email": email, "role": rola}, format="json")
+
+    def wlasciciel_planu(self, nazwa, plan):
+        tenant, wlasciciel = firma_z_wlascicielem(nazwa, plan=plan)
+        return tenant, panel(tenant, wlasciciel)
+
+    @pytest.fixture(autouse=True)
+    def bez_poczty(self, mocker):
+        mocker.patch("api.views.accounts.send_invitation_email")
+
+    def test_oczekujace_zaproszenia_zajmuja_miejsca(self):
+        _, klient = self.wlasciciel_planu("r07-grow", "grow")
+
+        assert self.zapros(klient, "a@firma.pl").status_code == 201
+        assert self.zapros(klient, "b@firma.pl").status_code == 201
+        trzecie = self.zapros(klient, "c@firma.pl")
+
+        assert trzecie.status_code == 400
+        assert "czekają na przyjęcie zaproszenia" in str(trzecie.json())
+        assert "3 konta" in str(trzecie.json())
+
+    def test_cofniete_zaproszenie_zwalnia_miejsce(self):
+        tenant, klient = self.wlasciciel_planu("r07-cofniecie", "grow")
+        self.zapros(klient, "a@firma.pl")
+        drugie = self.zapros(klient, "b@firma.pl").json()
+
+        assert klient.delete(f"{self.URL}{drugie['id']}/").status_code == 204
+        assert self.zapros(klient, "c@firma.pl").status_code == 201
+
+    def test_przyjecie_dziala_gdy_oczekujace_wypelniaja_plan(self):
+        tenant, klient = self.wlasciciel_planu("r07-przyjecie", "grow")
+        self.zapros(klient, "a@firma.pl")
+        self.zapros(klient, "b@firma.pl")
+        zaproszenie = InvitationToken.objects.get(tenant=tenant, email="a@firma.pl")
+
+        odpowiedz = APIClient().post(
+            "/api/accounts/accept-invite/",
+            {
+                "token": str(zaproszenie.token),
+                "username": "pracownik-a",
+                "password": "Bardzo-Dlugie-Haslo-Testowe-2026!",
+            },
+            format="json",
+        )
+
+        assert odpowiedz.status_code == 201
+
+    def test_konto_dodane_wprost_nie_zabiera_miejsca_z_zaproszenia(self):
+        _, klient = self.wlasciciel_planu("r07-wprost", "grow")
+        self.zapros(klient, "a@firma.pl")
+        self.zapros(klient, "b@firma.pl")
+
+        odpowiedz = klient.post(
+            "/api/users/",
+            {"username": "wprost", "email": "wprost@firma.pl", "role": "employee"},
+            format="json",
+        )
+
+        assert odpowiedz.status_code == 400
+
+    def test_drugie_oczekujace_zaproszenie_na_ten_sam_adres(self):
+        _, klient = self.wlasciciel_planu("r07-duplikat", "pro")
+        self.zapros(klient, "a@firma.pl")
+
+        odpowiedz = self.zapros(klient, " A@firma.pl ", rola="viewer")
+
+        assert odpowiedz.status_code == 400
+        assert "czeka już zaproszenie" in str(odpowiedz.json())
+
+    def test_firma_bez_subskrypcji_ma_jedno_miejsce(self):
+        tenant, klient = self.wlasciciel_planu("r07-bez", "pro")
+        Subscription.objects.filter(tenant=tenant).delete()
+
+        assert self.zapros(klient, "a@firma.pl").status_code == 400
+
+    def test_pulap_na_adres(self):
+        _, klient = self.wlasciciel_planu("r07-adres", "pro")
+        for _ in range(3):
+            utworzone = self.zapros(klient, "cel@poczta.pl")
+            assert utworzone.status_code == 201
+            klient.delete(f"{self.URL}{utworzone.json()['id']}/")
+
+        czwarte = self.zapros(klient, "cel@poczta.pl")
+
+        assert czwarte.status_code == 429
+        assert self.zapros(klient, "inny@poczta.pl").status_code == 201
+
+    def test_pulap_firmy(self, settings):
+        settings.LIMIT_ZAPROSZEN_FIRMY_DZIENNIE = 2
+        _, klient = self.wlasciciel_planu("r07-firma", "pro")
+
+        assert self.zapros(klient, "a@firma.pl").status_code == 201
+        assert self.zapros(klient, "b@firma.pl").status_code == 201
+        assert self.zapros(klient, "c@firma.pl").status_code == 429
+
+    def test_odmowa_nie_zjada_pulapu(self, settings):
+        settings.LIMIT_ZAPROSZEN_FIRMY_DZIENNIE = 1
+        _, klient = self.wlasciciel_planu("r07-odmowa", "start")
+
+        # Start: właściciel zajmuje jedyne miejsce - odmowa z braku miejsca
+        assert self.zapros(klient, "a@firma.pl").status_code == 400
+        assert self.zapros(klient, "a@firma.pl").status_code == 400
+        # i nadal 400, a nie 429: licznik rośnie dopiero, gdy mail wyjdzie
+
+    def test_niedostepny_licznik_to_odmowa(self, mocker):
+        _, klient = self.wlasciciel_planu("r07-cache", "pro")
+        mocker.patch("accounts.limity_zaproszen.cache.add", side_effect=ConnectionError)
+
+        odpowiedz = self.zapros(klient, "a@firma.pl")
+
+        assert odpowiedz.status_code == 503
+        assert not InvitationToken.objects.filter(email="a@firma.pl").exists()
+
+    def test_pulap_ponownej_wysylki(self, settings, mocker):
+        settings.LIMIT_WYSYLEK_ZAPROSZENIA_DZIENNIE = 2
+        wyslij = mocker.patch("api.views.accounts.send_invitation_email")
+        tenant, _ = self.wlasciciel_planu("r07-ponowna", "pro")
+        zaproszenie = InvitationToken.objects.create(tenant=tenant, email="a@firma.pl")
+        url = f"/api/accounts/invitations/wyslij/{zaproszenie.token_wysylki}/"
+
+        kody = []
+        for _ in range(3):
+            # Odstęp minuty między wysyłkami pilnuje osobny klucz
+            cache.delete(f"zaproszenie-wysylka:{zaproszenie.pk}")
+            kody.append(APIClient().post(url).status_code)
+
+        assert kody == [202, 202, 429]
+        assert wyslij.call_count == 2
+
+
+@pytest.mark.django_db
+def test_nazwa_firmy_w_mailu_zaproszenia_nie_dopisuje_akapitow():
+    from django.core import mail
+
+    from accounts.utils.email import send_invitation_email
+
+    tenant = Tenant.objects.create(name="Firma\n\nPilne: zaloguj się na zly.example")
+    zaproszenie = InvitationToken.objects.create(tenant=tenant, email="a@firma.pl")
+
+    send_invitation_email(zaproszenie)
+
+    tresc = mail.outbox[-1].body
+    assert "„Firma Pilne: zaloguj się na zly.example”" in tresc
+    assert "\nPilne" not in tresc
+    assert "zignoruj tę wiadomość" in " ".join(tresc.split())

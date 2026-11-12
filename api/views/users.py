@@ -75,7 +75,9 @@ class UserViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         tenant = self._lock_team()
-        sprawdz_limit_miejsc(tenant)
+        # Oczekujące zaproszenia rezerwują miejsca (R07) - inaczej konto dodane
+        # wprost zajęłoby miejsce obiecane komuś, kto ma już link.
+        sprawdz_limit_miejsc(tenant, z_zaproszeniami=True)
         return super().create(request, *args, **kwargs)
 
     @transaction.atomic

@@ -7,6 +7,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenObtainSerializer
 
 from accounts import nip as nip_pl
+from accounts.limity_zaproszen import sprawdz_wystawienie
 from accounts.models import (
     WIDGET_LANGUAGES,
     BrandingMode,
@@ -307,9 +308,27 @@ class InvitationCreateSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         tenant = lock_invitation_team(self.context["request"].user)
+        # Drugie zaproszenie na adres, który już ma działające, tylko
+        # rezerwowało drugie miejsce i wysyłało drugi mail (R07). Zmiana roli
+        # to cofnięcie i nowe zaproszenie.
+        if any(
+            z.is_valid()
+            for z in InvitationToken.objects.filter(
+                tenant=tenant, email__iexact=validated_data["email"]
+            )
+        ):
+            raise serializers.ValidationError(
+                {
+                    "email": "Na ten adres czeka już zaproszenie. Skopiuj link z listy "
+                    "zaproszeń albo cofnij je, żeby wystawić nowe."
+                }
+            )
         # Wcześnie, żeby właściciel dowiedział się teraz, a nie po tym, jak
-        # pracownik kliknie w link i zobaczy błąd
-        sprawdz_limit_miejsc(tenant)
+        # pracownik kliknie w link i zobaczy błąd. Z oczekującymi zaproszeniami:
+        # każde z nich rezerwuje miejsce (R07).
+        sprawdz_limit_miejsc(tenant, z_zaproszeniami=True)
+        # Na końcu: liczymy tylko zaproszenia, które naprawdę wyjdą.
+        sprawdz_wystawienie(tenant, validated_data["email"])
         return InvitationToken.objects.create(tenant=tenant, **validated_data)
 
 
