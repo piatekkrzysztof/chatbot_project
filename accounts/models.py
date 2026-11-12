@@ -549,6 +549,28 @@ class Subscription(models.Model):
         verbose_name="Data końca, której dotyczy wysłany próg",
     )
 
+    def daje_dostep(self, dzisiaj):
+        """
+        Czy widget odpowiada odwiedzającym w danym dniu.
+
+        Ta sama definicja w SubscriptionMiddleware i w panelu. Do 2.32.22
+        panel patrzył tylko na `is_active`, które po końcu okresu próbnego
+        zostaje prawdą (datę końca sprawdza się przy każdej wiadomości, bez
+        zadania w tle) - pulpit pokazywał „Asystent aktywny", a widget
+        odmawiał.
+        """
+        return bool(self.is_active and self.start_date <= dzisiaj <= self.end_date)
+
+    def jest_probna(self):
+        """
+        Okres próbny z rejestracji, a nie opłacony plan Start.
+
+        Okres próbny to wiersz z limitami planu Start, więc sam plan go nie
+        odróżnia. Zakup w Stripe wiąże ten sam wiersz z subskrypcją i zmienia
+        status firmy - od tej chwili to zwykły plan.
+        """
+        return not self.stripe_subscription_id and self.tenant.subscription_status == "trial"
+
     def prog_konca_do_powiadomienia(self, dzisiaj):
         """
         Najpilniejszy prog konca, o ktorym jeszcze nie powiadomilismy.
