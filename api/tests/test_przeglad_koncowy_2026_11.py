@@ -546,3 +546,157 @@ class TestWorkerBezCenStripe:
         settings.STRIPE_PRICE_IDS = {"start": "a", "grow": "b", "pro": "c"}
 
         assert brakujace_ustawienia_stripe() == []
+
+
+@pytest.mark.django_db
+class TestLicznikPoZakupie:
+    """
+    R03: zakup planu i odnowienie w Stripe zaczynają nowy cykl zużycia.
+    Do 2.32.20 cykl liczył się od założenia okresu próbnego, a synchronizacja
+    zmieniała tylko limit - firma z wyczerpanym okresem próbnym kupowała Start
+    i miała martwy widget do miesiąca od rejestracji.
+    """
+
+    @pytest.fixture(autouse=True)
+    def ceny(self, settings):
+        settings.STRIPE_PRICE_IDS = {
+            "start": "price_start",
+            "grow": "price_grow",
+            "pro": "price_pro",
+        }
+        settings.STRIPE_PRICE_IDS_ROCZNE = {}
+
+    def synchronizuj(self, tenant, **pola):
+        from api.tests.test_platnosci_spojnosc import subskrypcja_stripe
+        from api.views.stripe_webhook import synchronizuj_subskrypcje
+
+        w_stripe = subskrypcja_stripe(tenant, sid="sub_r03", **pola)
+        with mock.patch("stripe.Subscription.retrieve", return_value=w_stripe):
+            synchronizuj_subskrypcje(tenant, "sub_r03")
+        return Subscription.objects.get(tenant=tenant)
+
+    def wiersz(self, tenant, **pola):
+        dane = {
+            "plan_type": "start",
+            "message_limit": 2_000,
+            "is_active": True,
+            "start_date": date.today() - timedelta(days=10),
+            "end_date": date.today() + timedelta(days=4),
+            "current_message_count": 2_000,
+            "alert_threshold_sent": 100,
+            **pola,
+        }
+        wiersz = Subscription.objects.create(tenant=tenant, **dane)
+        # auto_now_add - początek cyklu ustawiamy po utworzeniu
+        Subscription.objects.filter(pk=wiersz.pk).update(billing_cycle_start=dane["start_date"])
+        wiersz.refresh_from_db()
+        return wiersz
+
+    def test_zakup_po_wyczerpanym_okresie_probnym_zeruje_licznik(self):
+        from accounts.message_quota import reserve_message
+
+        tenant = Tenant.objects.create(name="R03 próbna")
+        przed = self.wiersz(tenant)
+        poczatek = date.today() - timedelta(days=1)
+
+        po = self.synchronizuj(tenant, plan="start", poczatek=poczatek)
+
+        assert (po.current_message_count, po.alert_threshold_sent) == (0, 0)
+        assert po.billing_cycle_start == poczatek
+        assert po.billing_cycle_id != przed.billing_cycle_id
+        reserve_message(tenant)  # wcześniej: "Message limit exceeded"
+
+    def test_kolejne_zdarzenia_tego_samego_zakupu_nie_zeruja_ponownie(self):
+        tenant = Tenant.objects.create(name="R03 zdarzenia")
+        self.wiersz(tenant)
+        poczatek = date.today() - timedelta(days=1)
+        self.synchronizuj(tenant, plan="start", poczatek=poczatek)
+        Subscription.objects.filter(tenant=tenant).update(current_message_count=7)
+
+        po = self.synchronizuj(tenant, plan="start", poczatek=poczatek)
+
+        assert po.current_message_count == 7
+
+    def test_odnowienie_w_stripe_zeruje_licznik(self):
+        tenant = Tenant.objects.create(name="R03 odnowienie")
+        stary = date.today() - timedelta(days=31)
+        self.wiersz(
+            tenant,
+            plan_type="pro",
+            message_limit=25_000,
+            stripe_subscription_id="sub_r03",
+            stripe_status="active",
+            start_date=stary,
+            current_message_count=9_000,
+            alert_threshold_sent=0,
+        )
+        nowy = date.today()
+
+        po = self.synchronizuj(tenant, plan="pro", poczatek=nowy)
+
+        assert po.current_message_count == 0
+        assert po.billing_cycle_start == nowy
+
+    def test_obnizka_od_nowego_okresu_nie_zostawia_licznika_z_pro(self):
+        tenant = Tenant.objects.create(name="R03 obniżka")
+        self.wiersz(
+            tenant,
+            plan_type="pro",
+            message_limit=25_000,
+            stripe_subscription_id="sub_r03",
+            stripe_status="active",
+            start_date=date.today() - timedelta(days=31),
+            current_message_count=9_000,
+            alert_threshold_sent=0,
+        )
+
+        po = self.synchronizuj(tenant, plan="start", poczatek=date.today())
+
+        assert (po.plan_type, po.message_limit, po.current_message_count) == ("start", 2_000, 0)
+
+    def test_po_leniwym_zerowaniu_odnowienie_nie_zeruje_drugi_raz(self):
+        tenant = Tenant.objects.create(name="R03 leniwe")
+        nowy = date.today()
+        self.wiersz(
+            tenant,
+            stripe_subscription_id="sub_r03",
+            stripe_status="active",
+            start_date=nowy - timedelta(days=31),
+            current_message_count=3,
+            alert_threshold_sent=0,
+        )
+        # Pierwsza wiadomość nowego miesiąca zdążyła wyzerować licznik.
+        Subscription.objects.filter(tenant=tenant).update(billing_cycle_start=nowy)
+
+        po = self.synchronizuj(tenant, plan="start", poczatek=nowy)
+
+        assert po.current_message_count == 3
+
+    def test_wdrozenie_nie_zeruje_istniejacych_subskrypcji(self):
+        # Na produkcji powiązane subskrypcje mają start_date równe bieżącemu
+        # początkowi okresu, a początek cyklu - z dnia założenia wiersza.
+        tenant = Tenant.objects.create(name="R03 wdrożenie")
+        poczatek = date.today() - timedelta(days=5)
+        self.wiersz(
+            tenant,
+            stripe_subscription_id="sub_r03",
+            stripe_status="active",
+            start_date=poczatek,
+            current_message_count=1_200,
+            alert_threshold_sent=50,
+        )
+        Subscription.objects.filter(tenant=tenant).update(
+            billing_cycle_start=date.today() - timedelta(days=40)
+        )
+
+        po = self.synchronizuj(tenant, plan="start", poczatek=poczatek)
+
+        assert (po.current_message_count, po.alert_threshold_sent) == (1_200, 50)
+
+    def test_nowy_wiersz_ma_cykl_od_poczatku_okresu_w_stripe(self):
+        tenant = Tenant.objects.create(name="R03 nowy")
+        poczatek = date.today() - timedelta(days=2)
+
+        po = self.synchronizuj(tenant, plan="grow", poczatek=poczatek)
+
+        assert (po.billing_cycle_start, po.current_message_count) == (poczatek, 0)

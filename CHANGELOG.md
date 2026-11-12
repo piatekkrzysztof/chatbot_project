@@ -16,6 +16,25 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.21] - 2026-11-12
+
+Roadmap item R03 from the final review. No migration, nothing to set.
+
+### Fixed
+
+- **Buying a plan gives the full monthly allowance at once.** The message
+  counter ran on its own monthly cycle, counted from the day the trial
+  started, and syncing with Stripe changed only the limit. A company that
+  used up its 2,000 trial messages and bought Start had a widget refusing
+  every visitor until a month after sign-up; part-used trial messages were
+  taken from the first paid month; and after a scheduled move from Pro to
+  Start the Pro month's usage carried over. The counter now starts from zero
+  when a Stripe subscription is first linked (a purchase after the trial or
+  after cancelling) and when Stripe starts a new billing period, and the
+  usage cycle follows the Stripe period. Paying customers' current counters
+  are not touched by the deploy; their cycle lines up with Stripe at the next
+  renewal.
+
 ## [2.32.20] - 2026-11-11
 
 Roadmap item R02 from the final review. No migration. **Before or right after
