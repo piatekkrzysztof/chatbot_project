@@ -180,9 +180,22 @@ class TestAktywacjaPoPlatnosci:
         assert tenant.subscription_status == "active"
         assert tenant.subscription_plan == "pro"
 
-    def test_zmiana_planu_nadpisuje_limit(self, tenant, subscribtion):
-        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant, "start"))
-        uzgodnij_testowo(tenant, subskrypcja_stripe(tenant, "pro"))
+    def test_zmiana_planu_nadpisuje_limit(self, tenant, subscribtion, settings):
+        # Zmiana planu w Stripe to zmiana CENY - metadane zakupu zostają.
+        # Od 2.32.20 same metadane nie zmieniają planu subskrypcji już
+        # powiązanej z firmą (przegląd 2026-11, R02), więc test podaje ceny.
+        settings.STRIPE_PRICE_IDS = {
+            "start": "price_start",
+            "grow": "price_grow",
+            "pro": "price_pro",
+        }
+        start = subskrypcja_stripe(tenant, "start")
+        start["items"] = {"data": [{"price": {"id": "price_start"}}]}
+        po_zmianie = subskrypcja_stripe(tenant, "start")
+        po_zmianie["items"] = {"data": [{"price": {"id": "price_pro"}}]}
+
+        uzgodnij_testowo(tenant, start)
+        uzgodnij_testowo(tenant, po_zmianie)
 
         subskrypcja = Subscription.objects.get(tenant=tenant)
         assert subskrypcja.message_limit == 25_000

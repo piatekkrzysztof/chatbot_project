@@ -16,6 +16,28 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.20] - 2026-11-11
+
+Roadmap item R02 from the final review. No migration. **Before or right after
+deploy:** the worker needs `STRIPE_SECRET_KEY` and every `STRIPE_PRICE_*`
+with the same values as web.
+
+### Fixed
+
+- **The hourly payment check can no longer move a customer back to the plan
+  they first bought.** The check runs on the worker, and the Render blueprint
+  gave the Stripe key and plan prices only to the web service. Without the
+  prices, a plan was read from the purchase metadata, which Stripe does not
+  change when the customer switches plans in the portal - so after Start → Pro
+  the webhook wrote Pro and the worker, an hour later, Start again. A
+  subscription already linked to the company now keeps its stored plan when
+  the price is unknown (and logs an error); the blueprint and the runbook list
+  `STRIPE_SECRET_KEY` and `STRIPE_PRICE_*` for the worker; a test keeps both
+  services in step; and the worker's log and the "Stripe: nieuzgodnione
+  płatności" alarm name the missing variables. **Operator:** the worker needs
+  `STRIPE_SECRET_KEY` and every `STRIPE_PRICE_*` set to the same values as
+  web.
+
 ## [2.32.19] - 2026-11-11
 
 Fixes from the final review before handover
