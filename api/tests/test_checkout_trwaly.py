@@ -26,9 +26,13 @@ class StripeAtrapa:
         self.odpowiedzi = {}
         self.utworzenia, self.wygaszenia = [], []
         self.zgub_odpowiedz = False
+        self.odmowa = None  # błąd zwracany przez Stripe ZAMIAST utworzenia sesji
 
     def create(self, **parametry):
         self.utworzenia.append(deepcopy(parametry))
+        if self.odmowa is not None:
+            odmowa, self.odmowa = self.odmowa, None
+            raise odmowa
         klucz = parametry.pop("idempotency_key")
         if klucz in self.klucze:
             sid, poprzednie = self.klucze[klucz]
@@ -405,3 +409,94 @@ def test_uzgodnienie_nie_przypina_cudzej_lub_poprzedniej_proby(tenant, provider,
     with pytest.raises(CommandError):
         call_command("uzgodnij_checkout", tenant=tenant.pk, sesja=sid, zapisz=True)
     assert not ProbaZakupu.objects.get(tenant=tenant).sesja_id
+
+
+# --- odrzucone pierwsze utworzenie sesji (przegląd 2026-11, R09) ---------------
+
+
+def _zla_cena():
+    return stripe.InvalidRequestError(
+        "No such price: 'price_pro'",
+        param="line_items[0][price]",
+        code="resource_missing",
+        http_status=400,
+    )
+
+
+@pytest.mark.django_db
+def test_odrzucone_utworzenie_nie_blokuje_kolejnej_proby(tenant, provider, settings):
+    """
+    Do 2.32.25 odrzucone utworzenie zostawiało próbę z parametrami i bez sesji:
+    każde kolejne kliknięcie powtarzało tę samą złą cenę, a po 23 h - 503 na stałe.
+    """
+    provider.odmowa = _zla_cena()
+    with pytest.raises(ValidationError):
+        create_checkout_session(tenant, "pro")
+    proba = ProbaZakupu.objects.get(tenant=tenant)
+    assert proba.parametry == {} and proba.sesja_id == ""
+
+    # Operator poprawia cenę w konfiguracji - następna próba bierze nową.
+    settings.STRIPE_PRICE_IDS = {"pro": "price_pro_poprawiona", "grow": "price_grow"}
+    adres = create_checkout_session(tenant, "pro")
+
+    assert adres.startswith("https://checkout.stripe.test/")
+    assert provider.utworzenia[-1]["line_items"] == [
+        {"price": "price_pro_poprawiona", "quantity": 1}
+    ]
+    assert provider.utworzenia[-1]["idempotency_key"] != provider.utworzenia[0]["idempotency_key"]
+    assert len(provider.sesje) == 1
+
+
+@pytest.mark.django_db
+def test_po_odrzuceniu_mozna_wybrac_inny_plan(tenant, provider):
+    provider.odmowa = _zla_cena()
+    with pytest.raises(ValidationError):
+        create_checkout_session(tenant, "pro")
+
+    create_checkout_session(tenant, "grow")
+
+    assert provider.utworzenia[-1]["metadata"]["plan"] == "grow"
+    assert [s["metadata"]["plan"] for s in provider.sesje.values()] == ["grow"]
+
+
+@pytest.mark.django_db
+def test_odrzucenie_po_23_godzinach_nadal_nie_tworzy_bez_operatora(tenant, provider):
+    """Stan sprzed poprawki (parametry bez sesji, ponad 23 h) dalej wymaga uzgodnienia."""
+    provider.zgub_odpowiedz = True
+    with pytest.raises(ValidationError):
+        create_checkout_session(tenant, "pro")
+    ProbaZakupu.objects.filter(tenant=tenant).update(
+        rozpoczeta_at=timezone.now() - timedelta(hours=24)
+    )
+
+    with pytest.raises(CheckoutDoWyjasnienia):
+        create_checkout_session(tenant, "pro")
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "niepewny",
+    [
+        # Bez kodu HTTP: rzucony przez bibliotekę, nie przez Stripe.
+        stripe.InvalidRequestError("Lokalny błąd", param="x"),
+        # Ten sam klucz z innymi parametrami - wcześniejsze żądanie istniało.
+        stripe.IdempotencyError("Keys can only be used with the same parameters", http_status=400),
+        # Inne żądanie z tym kluczem jeszcze trwa.
+        stripe.APIError("Conflict", http_status=409),
+        stripe.APIError("Internal", http_status=500),
+        stripe.RateLimitError("Too many requests", http_status=429),
+    ],
+    ids=["bez-http", "idempotency", "409", "500", "429"],
+)
+def test_niepewna_odpowiedz_zachowuje_klucz_i_parametry(tenant, provider, niepewny):
+    provider.odmowa = niepewny
+    with pytest.raises((ValidationError, stripe.StripeError)):
+        create_checkout_session(tenant, "pro")
+    proba = ProbaZakupu.objects.get(tenant=tenant)
+    klucz = proba.klucz
+
+    create_checkout_session(tenant, "pro")
+
+    proba.refresh_from_db()
+    assert proba.klucz == klucz
+    assert provider.utworzenia[0] == provider.utworzenia[1]

@@ -144,65 +144,112 @@ def _zamknij(proba):
     proba.save(update_fields=["klucz", "parametry", "sesja_id"])
 
 
+def _odrzucone_bez_sesji(blad):
+    """
+    Czy Stripe odrzucił utworzenie sesji tak, że pod tym kluczem jej nie ma.
+
+    400/404 z typem innym niż `idempotency_error` znaczy, że żądanie zostało
+    odrzucone (zła cena, nieistniejąca kartoteka, błędny parametr) - sesja nie
+    powstała, a zapamiętany pod kluczem wynik to ten sam błąd. Biblioteka
+    Stripe mapuje dokładnie te odpowiedzi na InvalidRequestError; 409 (inne
+    żądanie z tym kluczem w toku), 429, 5xx i zerwane połączenie to inne klasy
+    i zostają niepewne. Błąd bez kodu HTTP (rzucony przez samą bibliotekę)
+    też traktujemy jak niepewny.
+    """
+    return isinstance(blad, InvalidRequestError) and getattr(blad, "http_status", None) in (
+        400,
+        404,
+    )
+
+
 def _uzgodnij(stripe, tenant, plan, price_id):
+    odrzucenie = None
     with transaction.atomic():
-        proba = _slot(tenant)
-        _bez_aktywnej_subskrypcji(tenant)
-        if not proba.parametry:
-            return None  # Równoległe żądanie zamknęło poprzednią sesję.
-        if proba.sesja_id:
-            sesja = stripe.checkout.Session.retrieve(proba.sesja_id)
-        else:
-            if timezone.now() - proba.rozpoczeta_at >= timedelta(hours=GODZINY_PONAWIANIA):
-                # Po wygaśnięciu pamięci idempotencji ten sam klucz mógłby
-                # utworzyć drugi abonament. Wymagane uzgodnienie przez operatora.
-                raise CheckoutDoWyjasnienia()
+        sesja = _uzgodnij_w_transakcji(stripe, tenant, plan, price_id)
+        if isinstance(sesja, _Odrzucenie):
+            odrzucenie = sesja.blad
+    if odrzucenie is not None:
+        # Po zatwierdzeniu zamknięcia próby: błąd wraca do widoku, a następne
+        # kliknięcie zbuduje parametry od nowa (przegląd 2026-11, R09).
+        raise odrzucenie
+    return sesja
+
+
+class _Odrzucenie:
+    def __init__(self, blad):
+        self.blad = blad
+
+
+def _uzgodnij_w_transakcji(stripe, tenant, plan, price_id):
+    proba = _slot(tenant)
+    _bez_aktywnej_subskrypcji(tenant)
+    if not proba.parametry:
+        return None  # Równoległe żądanie zamknęło poprzednią sesję.
+    if proba.sesja_id:
+        sesja = stripe.checkout.Session.retrieve(proba.sesja_id)
+    else:
+        if timezone.now() - proba.rozpoczeta_at >= timedelta(hours=GODZINY_PONAWIANIA):
+            # Po wygaśnięciu pamięci idempotencji ten sam klucz mógłby
+            # utworzyć drugi abonament. Wymagane uzgodnienie przez operatora.
+            raise CheckoutDoWyjasnienia()
+        try:
             sesja = stripe.checkout.Session.create(
                 **proba.parametry, idempotency_key=f"checkout-{tenant.pk}-{proba.klucz}"
             )
-            if not isinstance(sesja.get("id"), str) or not sesja["id"]:
-                raise CheckoutDoWyjasnienia()
-            proba.sesja_id = sesja["id"]
-            proba.save(update_fields=["sesja_id"])
-            # Idempotentny replay może zwrócić DAWNĄ odpowiedź create, mimo
-            # że sesja jest już opłacona lub wygasła. Zatwierdź identyfikator
-            # i sprawdź aktualny stan przez retrieve w kolejnym przebiegu.
-            return None
+        except InvalidRequestError as blad:
+            if not _odrzucone_bez_sesji(blad):
+                raise
+            # Do 2.32.25 próba zostawała z zapisanymi parametrami i bez
+            # sesji. Każde kolejne kliknięcie powtarzało to samo odrzucone
+            # żądanie - także po poprawieniu ceny w konfiguracji i przy
+            # wyborze innego planu - a po 23 h kończyło się trwałym 503,
+            # którego nie odblokowywało nic poza ręczną zmianą w bazie.
+            # Sesja nie powstała, więc nowy klucz nie grozi drugim zakupem.
+            _zamknij(proba)
+            return _Odrzucenie(blad)
+        if not isinstance(sesja.get("id"), str) or not sesja["id"]:
+            raise CheckoutDoWyjasnienia()
+        proba.sesja_id = sesja["id"]
+        proba.save(update_fields=["sesja_id"])
+        # Idempotentny replay może zwrócić DAWNĄ odpowiedź create, mimo
+        # że sesja jest już opłacona lub wygasła. Zatwierdź identyfikator
+        # i sprawdź aktualny stan przez retrieve w kolejnym przebiegu.
+        return None
 
-        status = sesja.get("status")
-        if status == "complete":
-            _zakonczona_subskrypcja(stripe, sesja)
-            _zamknij(proba)
+    status = sesja.get("status")
+    if status == "complete":
+        _zakonczona_subskrypcja(stripe, sesja)
+        _zamknij(proba)
+        return None
+    if status == "expired":
+        _zamknij(proba)
+        return None
+    if status != "open":
+        raise CheckoutDoWyjasnienia()
+    ten_sam_plan = (
+        proba.parametry["metadata"]["plan"] == plan.code
+        and proba.parametry["line_items"][0]["price"] == price_id
+    )
+    if not ten_sam_plan:
+        try:
+            wynik = stripe.checkout.Session.expire(proba.sesja_id)
+        except InvalidRequestError:
+            # Sesja przestała być otwarta między odczytem a wygaszeniem -
+            # najczęściej klient właśnie zapłacił. Odbiór A01 (11.10.2026):
+            # Stripe odpowiada wtedy „Only Checkout Sessions with a status
+            # in ["open"] can be expired”, a klient dostawał ogólne „spróbuj
+            # ponownie”. Kolejny przebieg odczyta aktualny stan i powie
+            # właściwie. Odmowa przy wciąż otwartej sesji to inny problem.
+            if stripe.checkout.Session.retrieve(proba.sesja_id).get("status") == "open":
+                raise
             return None
-        if status == "expired":
-            _zamknij(proba)
-            return None
-        if status != "open":
+        if wynik.get("status") != "expired":
             raise CheckoutDoWyjasnienia()
-        ten_sam_plan = (
-            proba.parametry["metadata"]["plan"] == plan.code
-            and proba.parametry["line_items"][0]["price"] == price_id
-        )
-        if not ten_sam_plan:
-            try:
-                wynik = stripe.checkout.Session.expire(proba.sesja_id)
-            except InvalidRequestError:
-                # Sesja przestała być otwarta między odczytem a wygaszeniem -
-                # najczęściej klient właśnie zapłacił. Odbiór A01 (11.10.2026):
-                # Stripe odpowiada wtedy „Only Checkout Sessions with a status
-                # in ["open"] can be expired”, a klient dostawał ogólne „spróbuj
-                # ponownie”. Kolejny przebieg odczyta aktualny stan i powie
-                # właściwie. Odmowa przy wciąż otwartej sesji to inny problem.
-                if stripe.checkout.Session.retrieve(proba.sesja_id).get("status") == "open":
-                    raise
-                return None
-            if wynik.get("status") != "expired":
-                raise CheckoutDoWyjasnienia()
-            _zamknij(proba)
-            return None
-        if not isinstance(sesja.get("url"), str) or not sesja["url"]:
-            raise CheckoutDoWyjasnienia()
-        return sesja
+        _zamknij(proba)
+        return None
+    if not isinstance(sesja.get("url"), str) or not sesja["url"]:
+        raise CheckoutDoWyjasnienia()
+    return sesja
 
 
 def pojedyncza_sesja(stripe, tenant, plan, price_id, email, frontend, kartoteka):
