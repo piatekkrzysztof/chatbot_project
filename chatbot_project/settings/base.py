@@ -361,6 +361,13 @@ LIMIT_ODCZYTU_WIDGETU_ODWIEDZAJACEGO = os.getenv("LIMIT_ODCZYTU_WIDGETU_ODWIEDZA
 # Oceny odpowiedzi (kciuki) jednego odwiedzającego.
 LIMIT_OCEN_ODWIEDZAJACEGO = os.getenv("LIMIT_OCEN_ODWIEDZAJACEGO", "60/hour")
 
+# Dzienne pułapy zaproszeń (accounts/limity_zaproszen.py, R07). Zaproszenie
+# to mail z naszej domeny z nazwą firmy wybraną przez nadawcę - bez pułapu
+# konto w okresie próbnym wystarczało do rozsyłania go bez końca.
+LIMIT_ZAPROSZEN_FIRMY_DZIENNIE = int(os.getenv("LIMIT_ZAPROSZEN_FIRMY_DZIENNIE", "20"))
+LIMIT_ZAPROSZEN_NA_ADRES_DZIENNIE = int(os.getenv("LIMIT_ZAPROSZEN_NA_ADRES_DZIENNIE", "3"))
+LIMIT_WYSYLEK_ZAPROSZENIA_DZIENNIE = int(os.getenv("LIMIT_WYSYLEK_ZAPROSZENIA_DZIENNIE", "5"))
+
 # Statystyki panelu nie muszą przeliczać całej historii przy każdym odświeżeniu.
 # Krótki cache zachowuje praktycznie bieżące dane, a odciąża bazę i przyspiesza UI.
 ANALYTICS_CACHE_SECONDS = int(os.getenv("ANALYTICS_CACHE_SECONDS", "15"))
