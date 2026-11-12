@@ -485,8 +485,9 @@ class _PodgladZaproszenia(APIView):
     zanim pokaże formularz. Bez tego zapraszany wypełnia dane, żeby dopiero
     przy zapisie dowiedzieć się, że link wygasł.
 
-    Wspólna podstawa GET (klucz w ścieżce) i POST (klucz w treści). Ten sam
-    limit, więc na przemian GET i POST nie daje podwójnej puli prób.
+    Do 2.32.25 była też wersja GET z kluczem w ścieżce - klucz trafiał do
+    logów zapytań hostingu (A-26). Zostawiona na tydzień dla linków z maili
+    sprzed 2.32.18, usunięta w przeglądzie 2026-11 (R08).
     """
 
     authentication_classes = ()
@@ -512,23 +513,6 @@ class _PodgladZaproszenia(APIView):
                 "expires_at": invitation.expires_at,
             }
         )
-
-
-@extend_schema(
-    tags=["Konto"],
-    summary="Sprawdź ważność zaproszenia",
-    description=(
-        "Wołane przez stronę rejestracji, zanim pokaże formularz. Wycofywane: "
-        "klucz w ścieżce trafia do logów zapytań. Nowy panel woła POST "
-        "`/api/accounts/invitations/preview/`."
-    ),
-    responses={200: InvitationPreviewSerializer, 404: ErrorSerializer},
-)
-class InvitationPreviewView(_PodgladZaproszenia):
-    # Zostaje na tydzień po wdrożeniu 2.32.18 dla linków z maili wysłanych
-    # wcześniej (zaproszenie żyje najwyżej 7 dni), potem do usunięcia.
-    def get(self, request, token):
-        return self.podglad(token)
 
 
 class KluczZaproszeniaSerializer(serializers.Serializer):

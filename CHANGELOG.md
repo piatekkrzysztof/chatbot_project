@@ -16,6 +16,26 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.25] - 2026-11-12
+
+Roadmap item R08 from the final review: the clean-up left over from A-26
+(2.32.18). No migration, nothing to set. Deploy together with the panel
+release that removes `/invite/accept/<key>`, or after it.
+
+### Removed
+
+- **`GET /api/accounts/invitations/<key>/preview/`.** It put the invitation's
+  acceptance key in the request path, so it reached the hosting request logs.
+  It was kept for a week after 2.32.18 for links mailed before then (an
+  invitation lives at most seven days) and was due to go after 30.10.2026;
+  it was still there. The panel has used `POST /api/accounts/invitations/preview/`
+  with the key in the body since 2.32.18. The `TenantMiddleware` prefix rule
+  that let any `/api/accounts/invitations/.../preview/` path through without a
+  tenant went with it, as did its access-contract entry (the access matrix is
+  regenerated: 97 operations).
+- The OpenAPI schema of the invitation preview no longer lists `email`, which
+  the endpoint stopped returning in 2.20.0.
+
 ## [2.32.24] - 2026-11-12
 
 Roadmap item R07 from the final review. No migration. Three optional settings

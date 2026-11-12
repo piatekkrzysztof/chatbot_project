@@ -65,21 +65,23 @@ def test_podglad_przyjmuje_klucz_w_tresci(zaproszenie):
     assert "pracownik@piekarnia.pl" not in str(dane)
 
 
-def test_podglad_post_odpowiada_tak_samo_jak_get(zaproszenie):
+def test_stary_podglad_z_kluczem_w_sciezce_nie_istnieje(zaproszenie):
+    """
+    GET z kluczem w adresie został na tydzień dla linków sprzed 2.32.18 i
+    zniknął w 2.32.25 (przegląd 2026-11, R08). Nie odpowiada ani nie zdradza
+    firmy - także ważnemu kluczowi.
+    """
     stary = APIClient().get(f"/api/accounts/invitations/{zaproszenie.token}/preview/")
-    nowy = podglad({"token": str(zaproszenie.token)})
 
-    assert nowy.status_code == stary.status_code == 200
-    assert nowy.json() == stary.json()
+    assert stary.status_code in (401, 404)
+    assert "Piekarnia" not in stary.content.decode()
 
 
-def test_nieznany_klucz_daje_ten_sam_blad_co_get():
-    klucz = uuid.uuid4()
-    stary = APIClient().get(f"/api/accounts/invitations/{klucz}/preview/")
-    nowy = podglad({"token": str(klucz)})
+def test_nieznany_klucz_daje_404():
+    odp = podglad({"token": str(uuid.uuid4())})
 
-    assert nowy.status_code == stary.status_code == 404
-    assert nowy.json() == stary.json()
+    assert odp.status_code == 404
+    assert odp.json() == {"detail": "Nieprawidłowy link zaproszenia."}
 
 
 def test_klucz_wysylki_nie_otwiera_podgladu(zaproszenie):
@@ -115,11 +117,11 @@ def test_wygasle_zaproszenie_nie_jest_wazne(zaproszenie):
     assert odp.json()["is_valid"] is False
 
 
-def test_get_i_post_dziela_jeden_limit(zaproszenie, monkeypatch):
-    """Na przemian GET i POST nie daje podwójnej puli prób na zgadywanie kluczy."""
+def test_podglad_ma_limit_prob(zaproszenie, monkeypatch):
+    """Zgadywanie kluczy podglądem kończy się na limicie prób z jednego adresu."""
     monkeypatch.setattr(InvitationPreviewThrottle, "ip_limit", 2)
 
-    APIClient().get(f"/api/accounts/invitations/{zaproszenie.token}/preview/")
+    podglad({"token": str(zaproszenie.token)})
     podglad({"token": str(zaproszenie.token)})
 
     assert podglad({"token": str(zaproszenie.token)}).status_code == 429

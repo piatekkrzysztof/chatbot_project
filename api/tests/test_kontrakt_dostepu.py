@@ -95,7 +95,6 @@ def adres(swiat, nazwa):
         "users-detail": {"pk": swiat.osoby["employee"].pk},
         "users-reset-mfa": {"pk": swiat.osoby["employee"].pk},
         "invitation-revoke": {"pk": o.zaproszenie.pk},
-        "invitation-preview": {"token": o.zaproszenie.token},
         "invitation-resend": {"token_wysylki": o.zaproszenie.token_wysylki},
         "revoke-account-session": {"session_uuid": uuid.uuid4()},
         "conversation-erase": {"session_id": o.rozmowa.session_id},
