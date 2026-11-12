@@ -70,14 +70,6 @@ class TenantMiddleware:
         if request.path in exempt_paths:
             return
 
-        # Stary podgląd zaproszenia ma token w adresie, więc nie da się go
-        # dopasować dokładnie; sam token jest tu jednocześnie danymi
-        # uwierzytelniającymi. Do usunięcia razem z GET podglądu (A-26).
-        if request.path.startswith("/api/accounts/invitations/") and request.path.endswith(
-            "/preview/"
-        ):
-            return
-
         # Wysyłka zaproszenia kluczem z panelu (2.20.0). Woła ją ktoś, komu
         # właściciel przekazał link - z definicji bez konta i bez klucza API.
         # Dopasowanie ścisłe, a nie po prefiksie: lista i cofanie zaproszeń

@@ -75,6 +75,10 @@ def anonim():
     return APIClient()
 
 
+def podglad_post(token):
+    return anonim().post("/api/accounts/invitations/preview/", {"token": str(token)}, format="json")
+
+
 def przyjmij(token, username="pracownik", **dodatkowe):
     return anonim().post(
         "/api/accounts/accept-invite/",
@@ -108,7 +112,7 @@ def test_link_z_panelu_nie_zaklada_konta(wlasciciel, mocker):
     )
     klucz = klucz_z_linku(odp.json()["accept_url"])
 
-    podglad = anonim().get(f"/api/accounts/invitations/{klucz}/preview/")
+    podglad = podglad_post(klucz)
     adres = podglad.json().get("email", "") if podglad.status_code == 200 else ""
     proba = przyjmij(klucz, email=adres)
 
@@ -127,7 +131,7 @@ def test_lista_zaproszen_nie_pokazuje_klucza_przyjecia(wlasciciel, zaproszenie):
 
 def test_podglad_nie_podaje_adresu(zaproszenie):
     """Podgląd odpowiada każdemu, kto ma klucz - nie podsuwa mu adresu do wpisania."""
-    odp = anonim().get(f"/api/accounts/invitations/{zaproszenie.token}/preview/")
+    odp = podglad_post(zaproszenie.token)
 
     assert odp.status_code == 200
     assert "email" not in odp.json()
@@ -170,7 +174,7 @@ def test_podany_cudzy_adres_nadal_jest_odrzucany(zaproszenie):
 
 def test_klucz_wysylki_nie_dziala_jako_klucz_przyjecia(zaproszenie):
     assert przyjmij(zaproszenie.token_wysylki).status_code == 400
-    podglad = anonim().get(f"/api/accounts/invitations/{zaproszenie.token_wysylki}/preview/")
+    podglad = podglad_post(zaproszenie.token_wysylki)
     assert podglad.status_code == 404
 
 
