@@ -581,8 +581,13 @@ class ZapisUstawienWidgetuSerializer(serializers.Serializer):
     widget_footer_text = serializers.CharField(
         max_length=100, allow_blank=True, trim_whitespace=False
     )
-    widget_welcome_message = serializers.CharField(allow_blank=True, trim_whitespace=False)
-    widget_suggested_questions = serializers.CharField(allow_blank=True, trim_whitespace=False)
+    # R14: modele mają tu TextField bez granicy; granica jest w zapisie z panelu.
+    widget_welcome_message = serializers.CharField(
+        max_length=Tenant.MAX_WELCOME_MESSAGE, allow_blank=True, trim_whitespace=False
+    )
+    widget_suggested_questions = serializers.CharField(
+        max_length=Tenant.MAX_SUGGESTED_QUESTIONS_TEXT, allow_blank=True, trim_whitespace=False
+    )
     widget_languages = JezykiWidgetuField()
     widget_language_mode = serializers.ChoiceField(choices=LanguageMode.choices)
     widget_default_language = serializers.ChoiceField(choices=list(WIDGET_LANGUAGES))
@@ -743,3 +748,9 @@ class FAQSerializer(serializers.ModelSerializer):
         model = FAQ
         fields = ["id", "question", "answer"]
         read_only_fields = ["id"]
+        # R14: bez granic jeden wpis mógł mieć megabajty tekstu, czytane przy
+        # każdej wiadomości czatu i oddawane każdemu odwiedzającemu.
+        extra_kwargs = {
+            "question": {"max_length": FAQ.MAKS_PYTANIA},
+            "answer": {"max_length": FAQ.MAKS_ODPOWIEDZI},
+        }
