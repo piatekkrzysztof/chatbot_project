@@ -132,12 +132,38 @@ def validate_url(url):
     return urlunsplit((parsed.scheme, authority, parsed.path or "/", parsed.query, ""))
 
 
+def _bez_www(host):
+    """`www.firma.pl` -> `firma.pl`; jedna etykieta `www`, nic poza nią."""
+    if host.startswith("www.") and host.count(".") >= 2:
+        return host[4:]
+    return host
+
+
 def same_site(url, base_url):
-    """Exact canonical hostname equality, never a string prefix comparison."""
+    """
+    Canonical hostname equality, never a string prefix comparison.
+
+    `firma.pl` i `www.firma.pl` to jedna witryna (przegląd 2026-11, R13).
+    Hosting przekierowuje jedno na drugie, więc podstrony z linków i mapy
+    strony mają inny host niż adres wpisany przez klienta. Przy ścisłym
+    porównaniu każda była „z innej domeny" i do wiedzy trafiała sama strona
+    główna. Inne subdomeny (`sklep.firma.pl`) dalej są osobnymi witrynami.
+    """
     try:
-        return urlsplit(validate_url(url)).hostname == urlsplit(validate_url(base_url)).hostname
+        host = urlsplit(validate_url(url)).hostname
+        host_zrodla = urlsplit(validate_url(base_url)).hostname
     except FetchError:
         return False
+    return _bez_www(host) == _bez_www(host_zrodla)
+
+
+def klucz_strony(url):
+    """
+    Adres podstrony bez rozróżnienia `www` - do rozpoznania tej samej strony
+    zapisanej w dwóch pisowniach. Rzuca FetchError dla niepoprawnego adresu.
+    """
+    czesci = urlsplit(validate_url(url))
+    return urlunsplit(czesci._replace(netloc=_bez_www(czesci.netloc)))
 
 
 def _resolve(host, port, deadline):

@@ -16,6 +16,25 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.30] - 2026-11-13
+
+Roadmap item R13 from the final review. No migration, nothing to set.
+
+### Fixed
+
+- **A website that redirects between `firma.pl` and `www.firma.pl` is
+  imported in full.** The crawler compared every subpage with the address the
+  customer typed, character for character. After the hosting redirect, every
+  link and every sitemap entry carried the other spelling of the host, so all
+  of them counted as a different domain: only the homepage reached the
+  knowledge base, and the source still showed as working. `www.` and the bare
+  domain are now one site in link discovery, sitemaps and the import itself;
+  other subdomains (`shop.firma.pl`) stay separate sites, as before.
+- The homepage is not imported twice when it is known under both spellings
+  (`https://firma.pl` from the source and `https://www.firma.pl/` from a link
+  or the sitemap), and an existing document under either spelling is
+  refreshed instead of copied.
+
 ## [2.32.29] - 2026-11-13
 
 Roadmap item R12 from the final review (the rest of P16 from the October
