@@ -1,10 +1,12 @@
 import json
 import logging
 import time
+from types import SimpleNamespace
 
 import openai
 from django.conf import settings
 from django.db import transaction
+from django.db.models.functions import Left
 from openai import OpenAI
 
 from api.utils.pokrycie import (
@@ -126,7 +128,16 @@ def _faq_do_promptu(tenant, message_text):
     tego pułapu wracamy do kolejności wstawiania i mówimy o tym w logu, bo
     wtedy wracają też skutki opisane w `wybierz_faq`.
     """
-    wszystkie = list(FAQ.objects.filter(tenant=tenant).order_by("id")[:MAKS_FAQ_DO_PRZESZUKANIA])
+    # Do wyboru wystarczy pytanie. Do 2.32.30 wczytywaliśmy tu do 500 pełnych
+    # wpisów z odpowiedziami przy każdej wiadomości, choć model dostaje
+    # najwyżej MAKS_FAQ_W_PROMPCIE z nich (przegląd 2026-11, R14). Pytanie
+    # przycinamy w bazie: wpisy sprzed granicy długości mogą być dłuższe.
+    wszystkie = [
+        SimpleNamespace(pk=pk, question=pytanie)
+        for pk, pytanie in FAQ.objects.filter(tenant=tenant)
+        .order_by("id")
+        .values_list("pk", Left("question", FAQ.MAKS_PYTANIA))[:MAKS_FAQ_DO_PRZESZUKANIA]
+    ]
 
     if len(wszystkie) == MAKS_FAQ_DO_PRZESZUKANIA:
         logger.warning(
@@ -137,7 +148,10 @@ def _faq_do_promptu(tenant, message_text):
             MAKS_FAQ_DO_PRZESZUKANIA,
         )
 
-    return wybierz_faq(wszystkie, message_text)
+    wybrane = [wpis.pk for wpis in wybierz_faq(wszystkie, message_text)]
+    pelne = FAQ.objects.in_bulk(wybrane)
+    # Wpis mógł zniknąć między zapytaniami - wtedy go pomijamy.
+    return [pelne[pk] for pk in wybrane if pk in pelne]
 
 
 def build_chat_messages(tenant, conversation, message_text):

@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 
 from accounts.domains import limit_domen, zarejestruj_domene
 from accounts.message_quota import ReservedStream, reserve_message
-from accounts.models import BrandingMode, WidgetDomain
+from accounts.models import WIDGET_LANGUAGES, BrandingMode, Tenant, WidgetDomain
 from accounts.plans import allows_hiding_branding, allows_white_label, get_plan
 from api.capacity import CapacityMixin
 from api.permissions import IsOwnerOrEmployeeOrTenantReadOnly
@@ -57,6 +57,35 @@ def _wlaczone(wartosc):
     if isinstance(wartosc, str):
         return wartosc.strip().lower() in ("true", "1", "on", "yes")
     return bool(wartosc)
+
+
+def teksty_zaczepki(surowe):
+    """
+    Teksty zaczepki do zapisu: tylko obsługiwane języki, tylko napisy, każdy
+    w granicy `Tenant.MAX_PROACTIVE_TEXT` (przegląd 2026-11, R14).
+
+    Do 2.32.30 słownik szedł do bazy w całości, a granica działała dopiero
+    przy odczycie. Jedno żądanie mogło więc zapisać w wierszu firmy dowolnie
+    duży JSON. Nieznane kody języków pomijamy, zamiast odrzucać: widget i tak
+    ich nie używa, a panel odsyła to, co dostał przy odczycie.
+    """
+    wynik = {}
+    for kod, tekst in surowe.items():
+        if kod not in WIDGET_LANGUAGES:
+            continue
+        if not isinstance(tekst, str):
+            raise ValidationError(
+                {"widget_proactive_texts": f"Tekst zaczepki ({kod}) musi być napisem."}
+            )
+        if len(tekst) > Tenant.MAX_PROACTIVE_TEXT:
+            raise ValidationError(
+                {
+                    "widget_proactive_texts": f"Tekst zaczepki ({kod}) może mieć najwyżej "
+                    f"{Tenant.MAX_PROACTIVE_TEXT} znaków."
+                }
+            )
+        wynik[kod] = tekst
+    return wynik
 
 
 def branding_dla_panelu(tenant, request):
@@ -456,7 +485,7 @@ class TenantWidgetSettingsView(CapacityMixin, APIView):
                 raise ValidationError(
                     {"widget_proactive_texts": "Oczekiwano obiektu kod języka → tekst."}
                 )
-            tenant.widget_proactive_texts = surowe
+            tenant.widget_proactive_texts = teksty_zaczepki(surowe)
             changed_fields.append("widget_proactive_texts")
 
         for file_field in ("widget_logo", "widget_avatar"):

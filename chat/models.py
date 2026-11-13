@@ -108,6 +108,14 @@ class FAQ(models.Model):
     question = models.TextField()
     answer = models.TextField()
 
+    # Granice zapisu z panelu (przegląd 2026-11, R14). Wpis idzie do promptu
+    # przy każdej pasującej wiadomości i do publicznego endpointu widgetu, więc
+    # jego długość to nasz koszt i pamięć, nie tylko wygląd. Kolumny zostają
+    # TextField: starsze, dłuższe wpisy się czytają, tylko zapis ich nie
+    # wydłuży.
+    MAKS_PYTANIA = 500
+    MAKS_ODPOWIEDZI = 4000
+
     def __str__(self):
         return f"FAQ ({self.tenant.name}): {self.question[:50]}"
 
