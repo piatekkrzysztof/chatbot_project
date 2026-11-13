@@ -27,6 +27,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.message_quota import ReservedStream, reserve_message
+from accounts.wazny_plan import wymagaj_waznego_planu
 from api.capacity import CapacityMixin
 from api.permissions import IsTenantMember
 from api.schemas import (
@@ -99,9 +100,12 @@ class CzatTestowyView(CapacityMixin, APIView):
         tenant = getattr(request, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Brak uprawnień.")
-
         serializer = CzatTestowyZadanieSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        # Po walidacji, przed rezerwacją: odpowiedzi modelu płacimy my, a budżet
+        # testów (CHAT_TEST_DAILY_LIMIT) działał też po końcu okresu próbnego,
+        # bez końca (R10).
+        wymagaj_waznego_planu(tenant, "Rozmowa testowa z botem")
         wiadomosc = serializer.validated_data["message"]
 
         rozmowa = rozmowa_testowa(tenant, request.user)
