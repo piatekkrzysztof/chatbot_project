@@ -1067,3 +1067,112 @@ def test_nazwa_firmy_w_mailu_zaproszenia_nie_dopisuje_akapitow():
     assert "„Firma Pilne: zaloguj się na zly.example”" in tresc
     assert "\nPilne" not in tresc
     assert "zignoruj tę wiadomość" in " ".join(tresc.split())
+
+
+@pytest.mark.django_db
+class TestKosztyBezPlanu:
+    """
+    R10: czat testowy, wgranie dokumentu oraz dodanie i ręczne odświeżenie strony
+    WWW kosztują nas (model, embeddingi, pobieranie), a do 2.32.26 działały bez
+    ważnego planu - po końcu okresu próbnego bez końca. Decyzja właściciela
+    (13.11.2026): bez ważnego planu wszystkie cztery odmawiają.
+    """
+
+    @pytest.fixture(autouse=True)
+    def bez_kolejki(self, mocker):
+        self.zlecenia = mocker.patch("api.views.documents.enqueue")
+        self.rezerwacje = mocker.patch(
+            "api.views.czat_testowy.reserve_message", side_effect=AssertionError("bez planu")
+        )
+        self.parser = mocker.patch(
+            "api.views.documents.parse_document", side_effect=AssertionError("bez planu")
+        )
+
+    def firma(self, nazwa, *, wygasla):
+        tenant, wlasciciel = firma_z_wlascicielem(nazwa, plan="pro")
+        if wygasla:
+            Subscription.objects.filter(tenant=tenant).update(
+                start_date=date.today() - timedelta(days=30),
+                end_date=date.today() - timedelta(days=1),
+            )
+        return tenant, panel(tenant, CustomUser.objects.get(pk=wlasciciel.pk))
+
+    def odmowa(self, odpowiedz):
+        assert odpowiedz.status_code == 402, odpowiedz.content
+        assert "Wybierz plan" in odpowiedz.json()["detail"]
+
+    def test_czat_testowy(self):
+        _, klient = self.firma("r10-czat", wygasla=True)
+
+        self.odmowa(klient.post("/api/chat/test/", {"message": "Dzień dobry"}, format="json"))
+        self.rezerwacje.assert_not_called()
+
+    def test_wgranie_dokumentu(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        tenant, klient = self.firma("r10-upload", wygasla=True)
+        plik = SimpleUploadedFile("cennik.txt", b"Przeglad roweru 120 zl.", "text/plain")
+
+        self.odmowa(
+            klient.post(
+                "/api/documents-upload/", {"file": plik, "name": "Cennik"}, format="multipart"
+            )
+        )
+        self.parser.assert_not_called()
+        assert not Document.objects.filter(tenant=tenant).exists()
+
+    def test_dodanie_strony(self):
+        from documents.models import WebsiteSource
+
+        tenant, klient = self.firma("r10-strona", wygasla=True)
+
+        self.odmowa(
+            klient.post(
+                "/api/website-sources/",
+                {"url": "https://example.com", "name": "Strona"},
+                format="json",
+            )
+        )
+        assert not WebsiteSource.objects.filter(tenant=tenant).exists()
+        self.zlecenia.assert_not_called()
+
+    def test_reczne_odswiezenie(self):
+        from documents.models import WebsiteSource
+
+        tenant, klient = self.firma("r10-odswiez", wygasla=True)
+        zrodlo = WebsiteSource.objects.create(tenant=tenant, url="https://example.com", name="S")
+
+        self.odmowa(klient.post(f"/api/website-sources/{zrodlo.pk}/recrawl/"))
+        self.zlecenia.assert_not_called()
+
+    def test_firma_bez_subskrypcji_tez(self):
+        from documents.models import WebsiteSource
+
+        tenant, klient = self.firma("r10-brak", wygasla=False)
+        Subscription.objects.filter(tenant=tenant).delete()
+        zrodlo = WebsiteSource.objects.create(tenant=tenant, url="https://example.com", name="S")
+
+        self.odmowa(klient.post(f"/api/website-sources/{zrodlo.pk}/recrawl/"))
+
+    def test_z_waznym_planem_dziala_jak_dotad(self):
+        from documents.models import WebsiteSource
+
+        tenant, klient = self.firma("r10-wazny", wygasla=False)
+        zrodlo = WebsiteSource.objects.create(tenant=tenant, url="https://example.com", name="S")
+
+        assert klient.post(f"/api/website-sources/{zrodlo.pk}/recrawl/").status_code == 202
+        self.zlecenia.assert_called_once()
+
+    def test_bez_planu_dane_zostaja_dostepne(self):
+        """Podgląd, FAQ i usuwanie działają - klient może przygotować bazę albo zabrać dane."""
+        tenant, klient = self.firma("r10-dane", wygasla=True)
+        dokument = Document.objects.create(tenant=tenant, name="Stary", processed=True)
+
+        assert klient.get("/api/documents/").status_code == 200
+        assert (
+            klient.post(
+                "/api/faq/", {"question": "Godziny?", "answer": "9-17"}, format="json"
+            ).status_code
+            == 201
+        )
+        assert klient.delete(f"/api/documents/{dokument.pk}/").status_code == 204
