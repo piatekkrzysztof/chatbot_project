@@ -39,13 +39,27 @@ class MFAAdminForm(AdminAuthenticationForm):
                     raise forms.ValidationError(
                         "Najpierw włącz drugi składnik w ustawieniach konta."
                     )
+                # Ten sam dobowy limit co w panelu (2.32.14, P16), wspólny dla
+                # obu wejść. Do 2.32.28 logowanie admina miało tylko 10 prób
+                # na 5 minut - kto znał hasło konta z dostępem do całej
+                # platformy, zgadywał tu bez końca i bez wiedzy osoby (R12).
+                # Także przy poprawnym kodzie, jak w panelu.
+                if dwuskladnikowe.drugi_krok_zamkniety(user):
+                    raise forms.ValidationError(
+                        "Logowanie na to konto jest wstrzymane na dobę po zbyt wielu "
+                        "błędnych kodach. Zmiana hasła zdejmuje blokadę."
+                    )
                 code = result.get("kod", "")
-                if not (
-                    dwuskladnikowe.sprawdz_kod(factor, code)
-                    or dwuskladnikowe.zuzyj_kod_zapasowy(user, code)
-                ):
-                    raise forms.ValidationError("Kod jest nieprawidłowy lub został użyty.")
-                self.request._admin_mfa = dwuskladnikowe.fingerprint(user, factor)
+                poprawny = dwuskladnikowe.sprawdz_kod(
+                    factor, code
+                ) or dwuskladnikowe.zuzyj_kod_zapasowy(user, code)
+                if poprawny:
+                    self.request._admin_mfa = dwuskladnikowe.fingerprint(user, factor)
+            if not poprawny:
+                # Poza blokiem transakcji: błąd formularza wycofałby go razem
+                # ze zleceniem maila (on_commit), a ostrzeżenie musi wyjść.
+                dwuskladnikowe.zapisz_bledny_kod(user)
+                raise forms.ValidationError("Kod jest nieprawidłowy lub został użyty.")
             return result
         except APIException:
             raise forms.ValidationError(
