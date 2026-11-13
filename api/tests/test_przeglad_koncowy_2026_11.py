@@ -1414,3 +1414,174 @@ class TestTaSamaWitryna:
         from documents.safe_http import same_site
 
         assert not same_site(adres, zrodlo)
+
+
+# --- R14: granice długości tekstów, które idą do modelu i do widgetu --------
+
+
+@pytest.mark.django_db
+class TestLimityFaq:
+    """
+    R14: do 2.32.30 pytanie i odpowiedź FAQ nie miały granicy długości, a każda
+    wiadomość czatu wczytywała do 500 pełnych wpisów - także odpowiedzi,
+    z których model dostaje najwyżej dwadzieścia.
+    """
+
+    def test_za_dlugie_pytanie_odrzucone(self):
+        tenant, szef = firma_z_wlascicielem("r14-pytanie")
+
+        odpowiedz = panel(tenant, szef).post(
+            "/api/faq/", {"question": "x" * 501, "answer": "Tak."}, format="json"
+        )
+
+        assert odpowiedz.status_code == 400
+        assert "question" in odpowiedz.json()
+        assert not tenant.faqs.exists()
+
+    def test_za_dluga_odpowiedz_odrzucona(self):
+        tenant, szef = firma_z_wlascicielem("r14-odpowiedz")
+
+        odpowiedz = panel(tenant, szef).post(
+            "/api/faq/", {"question": "Cennik?", "answer": "x" * 4001}, format="json"
+        )
+
+        assert odpowiedz.status_code == 400
+        assert "answer" in odpowiedz.json()
+
+    def test_edycja_tez_pilnuje_granicy(self):
+        from chat.models import FAQ
+
+        tenant, szef = firma_z_wlascicielem("r14-edycja")
+        wpis = FAQ.objects.create(tenant=tenant, question="Cennik?", answer="Od 90 zł.")
+
+        odpowiedz = panel(tenant, szef).patch(
+            f"/api/faq/{wpis.pk}/", {"answer": "x" * 4001}, format="json"
+        )
+
+        assert odpowiedz.status_code == 400
+        wpis.refresh_from_db()
+        assert wpis.answer == "Od 90 zł."
+
+    def test_wpis_na_granicy_przechodzi(self):
+        tenant, szef = firma_z_wlascicielem("r14-granica")
+
+        odpowiedz = panel(tenant, szef).post(
+            "/api/faq/", {"question": "p" * 500, "answer": "o" * 4000}, format="json"
+        )
+
+        assert odpowiedz.status_code == 201
+
+    def test_czat_nie_wczytuje_odpowiedzi_wpisow_spoza_promptu(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from api.utils.chat_engine import _faq_do_promptu
+        from api.utils.pokrycie import MAKS_FAQ_W_PROMPCIE
+        from chat.models import FAQ
+
+        tenant, _ = firma_z_wlascicielem("r14-czat")
+        FAQ.objects.bulk_create(
+            [
+                FAQ(tenant=tenant, question=f"Pytanie numer {i} o cokolwiek", answer="o" * 4000)
+                for i in range(60)
+            ]
+            + [FAQ(tenant=tenant, question="Jakie macie godziny otwarcia?", answer="9-17.")]
+        )
+
+        with CaptureQueriesContext(connection) as zapytania:
+            wybrane = _faq_do_promptu(tenant, "godziny otwarcia")
+
+        assert wybrane[0].answer == "9-17."
+        assert len(wybrane) == MAKS_FAQ_W_PROMPCIE
+        # Odpowiedzi czytane tylko dla wybranych wpisów - jednym zapytaniem.
+        z_odpowiedziami = [q["sql"] for q in zapytania.captured_queries if '"answer"' in q["sql"]]
+        assert len(z_odpowiedziami) == 1
+        assert "LIMIT" not in z_odpowiedziami[0].upper()
+
+    def test_wybor_dalej_po_dopasowaniu_nie_po_kolejnosci(self):
+        """Straż: lżejsze wczytanie nie zmienia, które wpisy trafiają do modelu."""
+        from api.utils.chat_engine import _faq_do_promptu
+        from chat.models import FAQ
+
+        tenant, _ = firma_z_wlascicielem("r14-kolejnosc")
+        for i in range(25):
+            FAQ.objects.create(tenant=tenant, question=f"Inny temat {i}", answer="Nie.")
+        FAQ.objects.create(tenant=tenant, question="Czy macie parking?", answer="Tak, za salonem.")
+
+        wybrane = _faq_do_promptu(tenant, "czy jest parking")
+
+        assert wybrane[0].question == "Czy macie parking?"
+        assert wybrane[0].answer == "Tak, za salonem."
+
+
+@pytest.mark.django_db
+class TestLimityTekstowWidgetu:
+    """
+    R14: powitanie, pytania startowe i teksty zaczepki zapisywały się
+    w dowolnej długości. Zaczepka szła do bazy jako dowolny JSON - przycinana
+    dopiero przy odczycie - więc jedno żądanie mogło wpisać do wiersza firmy
+    megabajty, które każdy widget czytał przy każdym otwarciu ustawień.
+    """
+
+    URL = "/api/widget-settings/mine/"
+
+    def zapisz(self, nazwa, dane):
+        tenant, szef = firma_z_wlascicielem(nazwa)
+        odpowiedz = panel(tenant, szef).patch(self.URL, dane, format="json")
+        tenant.refresh_from_db()
+        return odpowiedz, tenant
+
+    def test_za_dlugie_powitanie_odrzucone(self):
+        odpowiedz, tenant = self.zapisz("r14-powitanie", {"widget_welcome_message": "x" * 1001})
+
+        assert odpowiedz.status_code == 400
+        assert "widget_welcome_message" in odpowiedz.json()
+        assert tenant.widget_welcome_message == ""
+
+    def test_za_dlugie_pytania_startowe_odrzucone(self):
+        odpowiedz, _ = self.zapisz(
+            "r14-pytania", {"widget_suggested_questions": "Pytanie?\n" * 200}
+        )
+
+        assert odpowiedz.status_code == 400
+        assert "widget_suggested_questions" in odpowiedz.json()
+
+    def test_za_dluga_zaczepka_odrzucona(self):
+        odpowiedz, tenant = self.zapisz(
+            "r14-zaczepka", {"widget_proactive_texts": {"pl": "x" * 201}}
+        )
+
+        assert odpowiedz.status_code == 400
+        assert tenant.widget_proactive_texts == {}
+
+    def test_zaczepka_niebedaca_tekstem_odrzucona(self):
+        odpowiedz, tenant = self.zapisz(
+            "r14-zaczepka-obiekt", {"widget_proactive_texts": {"pl": {"a": "x" * 5000}}}
+        )
+
+        assert odpowiedz.status_code == 400
+        assert tenant.widget_proactive_texts == {}
+
+    def test_nieznane_jezyki_zaczepki_nie_trafiaja_do_bazy(self):
+        smieci = {f"k{i}": "Pomóc?" for i in range(2000)}
+        odpowiedz, tenant = self.zapisz(
+            "r14-zaczepka-klucze", {"widget_proactive_texts": {"pl": "Pomóc?", **smieci}}
+        )
+
+        assert odpowiedz.status_code == 200
+        assert tenant.widget_proactive_texts == {"pl": "Pomóc?"}
+
+    def test_teksty_na_granicy_zapisane_bez_zmian(self):
+        """Straż: dotychczasowe teksty z panelu zapisują się tak jak przedtem."""
+        odpowiedz, tenant = self.zapisz(
+            "r14-granica-widget",
+            {
+                "widget_welcome_message": "  Cześć!  " + "x" * 990,
+                "widget_suggested_questions": "Godziny?\nCennik?",
+                "widget_proactive_texts": {"pl": "z" * 200, "en": ""},
+            },
+        )
+
+        assert odpowiedz.status_code == 200
+        assert tenant.widget_welcome_message == "  Cześć!  " + "x" * 990
+        assert tenant.widget_proactive_texts == {"pl": "z" * 200, "en": ""}

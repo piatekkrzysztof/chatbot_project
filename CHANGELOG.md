@@ -16,6 +16,32 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.31] - 2026-11-13
+
+Roadmap item R14 from the final review. No migration, nothing to set.
+
+### Changed
+
+- **FAQ entries and widget texts have length limits when saved from the
+  panel.** A FAQ question can be up to 500 characters and an answer up to
+  4,000. The welcome message and the suggested questions can each be up to
+  1,000 characters, and each proactive message up to 200 (the panel field
+  already stopped there). Before, there was no limit at all: one entry or one
+  setting could hold megabytes of text, read on every chat message or every
+  widget load. Existing longer texts still work; only saving them again
+  requires shortening.
+- Proactive message texts are stored only for supported languages and only as
+  plain text. Before, any JSON object was stored as sent and cut down only
+  when read.
+
+### Fixed
+
+- **A chat message no longer loads every FAQ answer.** Choosing which FAQ
+  entries go to the model needs only the questions; up to 500 full entries,
+  answers included, were read for every message, although at most 20 reach
+  the model. Now questions are read for the choice and answers only for the
+  chosen entries. Which entries are chosen is unchanged.
+
 ## [2.32.30] - 2026-11-13
 
 Roadmap item R13 from the final review. No migration, nothing to set.

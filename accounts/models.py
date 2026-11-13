@@ -131,6 +131,10 @@ class Tenant(models.Model):
     )
 
     MAX_SUGGESTED_QUESTIONS = 4
+    # Granice zapisu z panelu (przegląd 2026-11, R14) - powitanie to jeden
+    # dymek, a pytania startowe to cztery krótkie przyciski.
+    MAX_WELCOME_MESSAGE = 1000
+    MAX_SUGGESTED_QUESTIONS_TEXT = 1000
 
     class Meta:
         constraints = [
