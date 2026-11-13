@@ -116,3 +116,91 @@ class TestOstrzezenie:
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to == ["mfa@example.com"]
         assert "hasło" in mail.outbox[0].body
+
+
+# --- logowanie do panelu administracyjnego Django (przegląd 2026-11, R12) -----
+
+
+@pytest.fixture
+def administrator(konto, monkeypatch):
+    # admin_security importuje account_attempt bezpośrednio; limit adresu IP
+    # (MfaThrottle) też tu przeszkadza z tego samego powodu co wyżej.
+    monkeypatch.setattr("accounts.admin_security.account_attempt", lambda user: None)
+    monkeypatch.setattr(
+        "accounts.admin_security.MfaThrottle.allow_request", lambda self, request, view: True
+    )
+    CustomUser.objects.filter(pk=konto.pk).update(is_staff=True)
+    konto.refresh_from_db()
+    return konto
+
+
+def logowanie_admina(osoba, kod, haslo="haslo-2026-x"):
+    from django.test import Client
+
+    klient = Client()
+    odpowiedz = klient.post(
+        "/admin/login/?next=/admin/",
+        {"username": osoba.username, "password": haslo, "kod": kod, "next": "/admin/"},
+    )
+    return odpowiedz, "_auth_user_id" in klient.session
+
+
+def dobry_kod(osoba):
+    return totp.kod(DrugiSkladnik.objects.get(uzytkownik=osoba).sekret)
+
+
+@pytest.mark.django_db
+class TestLogowanieAdmina:
+    """
+    Do 2.32.28 logowanie admina sprawdzało kod tym samym kodem co panel, ale bez
+    dobowego licznika: przy znanym haśle konta z dostępem do całej platformy
+    zgadywanie kodu trwało bez końca i bez wiadomości do osoby.
+    """
+
+    def test_bledne_kody_admina_licza_sie_do_dobowego_limitu(self, administrator):
+        for _ in range(dwuskladnikowe.DOBOWY_LIMIT_BLEDNYCH_KODOW):
+            _, zalogowany = logowanie_admina(administrator, "000000")
+            assert not zalogowany
+
+        odpowiedz, zalogowany = logowanie_admina(administrator, dobry_kod(administrator))
+
+        assert not zalogowany
+        assert "wstrzymane na dobę" in odpowiedz.content.decode()
+
+    def test_ostrzezenie_wychodzi_mimo_bledu_formularza(
+        self, administrator, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            for _ in range(dwuskladnikowe.DOBOWY_LIMIT_BLEDNYCH_KODOW):
+                logowanie_admina(administrator, "000000")
+
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ["mfa@example.com"]
+
+    def test_licznik_wspolny_z_panelem(self, administrator):
+        zly_kod(administrator, dwuskladnikowe.DOBOWY_LIMIT_BLEDNYCH_KODOW)
+
+        _, zalogowany = logowanie_admina(administrator, dobry_kod(administrator))
+
+        assert not zalogowany
+
+    def test_ponizej_limitu_admin_loguje_sie_jak_dotad(self, administrator):
+        for _ in range(dwuskladnikowe.DOBOWY_LIMIT_BLEDNYCH_KODOW - 1):
+            logowanie_admina(administrator, "000000")
+
+        odpowiedz, zalogowany = logowanie_admina(administrator, dobry_kod(administrator))
+
+        assert zalogowany
+        assert odpowiedz.status_code == 302
+
+    def test_zmiana_hasla_zdejmuje_blokade_admina(self, administrator):
+        for _ in range(dwuskladnikowe.DOBOWY_LIMIT_BLEDNYCH_KODOW):
+            logowanie_admina(administrator, "000000")
+        administrator.set_password("nowe-haslo-2026-y")
+        administrator.save()
+
+        _, zalogowany = logowanie_admina(
+            administrator, dobry_kod(administrator), haslo="nowe-haslo-2026-y"
+        )
+
+        assert zalogowany

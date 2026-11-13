@@ -16,6 +16,25 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.29] - 2026-11-13
+
+Roadmap item R12 from the final review (the rest of P16 from the October
+audit). No migration, nothing to set.
+
+### Security
+
+- **The Django admin login has the same daily limit on wrong MFA codes as
+  the panel.** 2.32.14 closed the panel's second step after 20 wrong codes a
+  day and emailed the account owner, but the admin login checked codes
+  without that counter: with a known password of an account that can see the
+  whole platform, guessing went on at 10 tries per 5 minutes indefinitely,
+  and the person never heard about it. Wrong admin codes now count towards
+  the same per-account daily counter as the panel (one counter for both),
+  the 20th sends the same warning email, and a closed second step refuses
+  even a correct code until the password changes. The failure is recorded
+  outside the form's transaction, so the form error no longer rolls back
+  the queued warning.
+
 ## [2.32.28] - 2026-11-13
 
 Roadmap item R11 from the final review. No migration, nothing to set.
