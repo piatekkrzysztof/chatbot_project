@@ -9,7 +9,12 @@ from rest_framework.exceptions import ValidationError
 from accounts.plans import recrawl_days_for
 from documents.file_limits import MAX_DOCUMENT_BYTES, InvalidUpload, UploadTooLarge
 from documents.models import Document, WebsiteSource
-from documents.safe_http import FetchError, crawl_fetch_budget, same_site, validate_url
+from documents.safe_http import (
+    FetchError,
+    crawl_fetch_budget,
+    klucz_strony,
+    same_site,
+)
 from documents.sitemaps import sitemap_search
 
 # Rejestracja trwałej kolejki przy autodiscovery Celery.
@@ -132,7 +137,7 @@ MAX_PAGES_PER_CRAWL = 20
 
 def _klucz_adresu(adres):
     try:
-        return validate_url(adres)
+        return klucz_strony(adres)
     except FetchError:
         return adres
 
@@ -149,7 +154,9 @@ def kolejnosc_pobierania(tenant, adres_zrodla, znalezione):
     Ta sama podstrona bywa zapisana w dwóch pisowniach: "https://firma.pl"
     z adresu źródła i "https://firma.pl/" z mapy strony. Gdy firma ma już
     dokument pod jedną z nich, używamy tamtej - inaczej powstaje drugi dokument
-    z tą samą treścią, a pierwszy zostaje w wiedzy na zawsze.
+    z tą samą treścią, a pierwszy zostaje w wiedzy na zawsze. Tak samo
+    "https://firma.pl/" ze źródła i "https://www.firma.pl/" z mapy strony
+    witryny, która przekierowuje na www (R13).
     """
     zapisane = {}
     for adres in (
