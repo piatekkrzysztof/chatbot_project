@@ -290,11 +290,7 @@ def crawl_all_active_sources():
         # Ten sam warunek ważności co przy czacie (SubscriptionMiddleware). Do
         # 2.32.11 liczył się sam kod planu: po wygaśnięciu Pro źródła dalej
         # były pobierane codziennie, na nasz koszt i czas jedynego workera.
-        if not (
-            subskrypcja
-            and subskrypcja.is_active
-            and subskrypcja.start_date <= dzisiaj <= subskrypcja.end_date
-        ):
+        if not (subskrypcja and subskrypcja.daje_dostep(dzisiaj)):
             continue
         co_ile_dni = recrawl_days_for(subskrypcja.plan_type)
 

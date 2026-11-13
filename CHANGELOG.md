@@ -16,6 +16,28 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.27] - 2026-11-13
+
+Roadmap item R10 from the final review. No migration, nothing to set.
+
+### Changed
+
+- **Actions that cost us money now need a valid plan.** Test chat (model
+  answers), document upload (embeddings and the isolated parser), adding a
+  website and refreshing one by hand (crawling and embeddings) did not check
+  the subscription. After a trial ended, or with no subscription at all, a
+  company had 100 model answers a day in the test chat and unlimited manual
+  refreshes, indefinitely, at our cost. Owner's decision (13.11.2026): without
+  a valid plan all four answer 402 with "Wybierz plan w zakładce Subskrypcja".
+  "Valid" is the same rule as for the widget (`Subscription.daje_dostep`):
+  when the bot does not answer visitors there is nothing to test or feed.
+  Viewing the panel, FAQ, settings, deleting data and exports keep working,
+  so a customer can prepare the knowledge base before buying or take their
+  data away. 402 rather than 403 because the panel reads 403 as a missing
+  role permission.
+- The scheduled website refresh uses the same `daje_dostep` rule instead of
+  its own copy of the date check.
+
 ## [2.32.26] - 2026-11-12
 
 Roadmap item R09 from the final review. No migration, nothing to set.

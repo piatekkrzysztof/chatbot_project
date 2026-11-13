@@ -14,6 +14,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.wazny_plan import wymagaj_waznego_planu
 from api.capacity import CapacityMixin
 from api.pagination import StronicowaniePanelu
 from api.permissions import *
@@ -225,6 +226,8 @@ class UploadDocumentView(CapacityMixin, APIView):
         tenant = getattr(request, "tenant", None)
         if not tenant:
             return Response({"error": "Brak tenanta."}, status=403)
+        # Przed parsowaniem: embeddingi i izolowany parser kosztują (R10).
+        wymagaj_waznego_planu(tenant, "Dodanie dokumentu")
 
         file = request.data.get("file")
         if not isinstance(file, UploadedFile):
@@ -313,6 +316,8 @@ class WebsiteSourceViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
 
         if WebsiteSource.objects.filter(tenant=tenant, url=url).exists():
             raise ValidationError({"url": "Ten adres URL został już dodany."})
+        # Dodanie od razu zleca pobranie strony i embeddingi (R10).
+        wymagaj_waznego_planu(tenant, "Dodanie strony WWW")
 
         source = serializer.save(tenant=tenant)
         enqueue(crawl_and_import_website_source, source.id)
@@ -331,6 +336,9 @@ class WebsiteSourceViewSet(TenantQuerysetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def recrawl(self, request, pk=None):
         source = self.get_object()
+        # Automatyczne odświeżanie pomija firmy bez ważnego planu od 2.32.11;
+        # ręczne do 2.32.26 nie sprawdzało niczego (R10).
+        wymagaj_waznego_planu(request.tenant, "Odświeżenie strony")
         enqueue(crawl_and_import_website_source, source.id)
         return Response(
             {"message": "Odświeżanie rozpoczęte. Potrwa chwilę."},
