@@ -1252,3 +1252,165 @@ class TestKartotekaZSubskrypcji:
         self.synchronizuj(tenant, status="canceled")
 
         assert tenant.stripe_customer_id in (None, "")
+
+
+# --- R13: przekierowanie firma.pl <-> www.firma.pl ---------------------------
+
+
+class WitrynaZPrzekierowaniem:
+    """
+    Strona klienta pod `www.firma.pl`, a `firma.pl` przekierowuje na nią -
+    najczęstsza konfiguracja hostingu. Odpowiedź niesie adres końcowy, tak jak
+    prawdziwe `fetch_page` po przekierowaniu.
+    """
+
+    def __init__(self, glowna="www.firma.pl", mapa=False):
+        self.glowna = glowna
+        self.mapa = mapa
+        self.pobrane = []
+
+    def __call__(self, adres):
+        from urllib.parse import urlsplit, urlunsplit
+
+        from documents.safe_http import FetchError, Page
+
+        self.pobrane.append(adres)
+        czesci = urlsplit(adres)
+        koncowy = urlunsplit(("https", self.glowna, czesci.path or "/", czesci.query, ""))
+        sciezka = urlsplit(koncowy).path
+        baza = f"https://{self.glowna}"
+        if sciezka == "/sitemap.xml" and self.mapa:
+            wpisy = "".join(
+                f"<url><loc>{baza}{p}</loc></url>" for p in ("/", "/oferta", "/cennik", "/kontakt")
+            )
+            return Page(
+                koncowy,
+                f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{wpisy}</urlset>'.encode(),
+                "application/xml",
+            )
+        if sciezka in {"/robots.txt", "/sitemap.xml"}:
+            raise FetchError("HTTP 404")
+        if sciezka == "/":
+            linki = (
+                f'<a href="{baza}/">Start</a><a href="/oferta">Oferta</a>'
+                f'<a href="/cennik">Cennik</a><a href="{baza}/kontakt">Kontakt</a>'
+            )
+        else:
+            linki = ""
+        tresc = f"Salon Aurora - {sciezka}. " + "Strzyżenie, koloryzacja i pielęgnacja włosów. " * 4
+        html = f"<html><body><nav>{linki}</nav><main><p>{tresc}</p></main></body></html>"
+        return Page(koncowy, html.encode(), "text/html; charset=utf-8")
+
+
+@pytest.mark.django_db
+class TestPrzekierowanieNaWww:
+    """
+    R13: do 2.32.29 crawler porównywał podstrony z adresem wpisanym przez
+    klienta co do znaku. Gdy `firma.pl` przekierowywało na `www.firma.pl`
+    (albo odwrotnie), każdy link i każdy wpis mapy strony był „z innej
+    domeny": do wiedzy trafiała tylko strona główna, a status świecił na
+    zielono.
+    """
+
+    def pobierz(self, monkeypatch, zrodlo, witryna):
+        from documents import sitemaps, website_import
+        from documents.tasks import crawl_and_import_website_source
+
+        monkeypatch.setattr(website_import, "fetch_page", witryna)
+        monkeypatch.setattr(sitemaps, "fetch_page", witryna)
+        crawl_and_import_website_source(zrodlo.id)
+        zrodlo.refresh_from_db()
+        return set(
+            Document.objects.filter(tenant=zrodlo.tenant).values_list("source_url", flat=True)
+        )
+
+    def test_podstrony_z_linkow_po_przekierowaniu_na_www(self, monkeypatch):
+        from documents.models import WebsiteSource
+
+        tenant, _ = firma_z_wlascicielem("r13-linki")
+        zrodlo = WebsiteSource.objects.create(tenant=tenant, url="https://firma.pl")
+
+        adresy = self.pobierz(monkeypatch, zrodlo, WitrynaZPrzekierowaniem())
+
+        assert {
+            "https://www.firma.pl/oferta",
+            "https://www.firma.pl/cennik",
+            "https://www.firma.pl/kontakt",
+        } <= adresy
+        # Strona główna raz, nie drugi raz w pisowni z www.
+        assert len(adresy) == 4
+        assert zrodlo.last_error == ""
+
+    def test_podstrony_z_mapy_strony_po_przekierowaniu_na_www(self, monkeypatch):
+        from documents.models import WebsiteSource
+
+        tenant, _ = firma_z_wlascicielem("r13-mapa")
+        zrodlo = WebsiteSource.objects.create(tenant=tenant, url="https://firma.pl/")
+
+        adresy = self.pobierz(monkeypatch, zrodlo, WitrynaZPrzekierowaniem(mapa=True))
+
+        assert "https://www.firma.pl/cennik" in adresy
+        assert len(adresy) == 4
+
+    def test_przekierowanie_w_druga_strone(self, monkeypatch):
+        from documents.models import WebsiteSource
+
+        tenant, _ = firma_z_wlascicielem("r13-bez-www")
+        zrodlo = WebsiteSource.objects.create(tenant=tenant, url="https://www.firma.pl")
+
+        adresy = self.pobierz(monkeypatch, zrodlo, WitrynaZPrzekierowaniem(glowna="firma.pl"))
+
+        assert "https://firma.pl/cennik" in adresy
+        assert len(adresy) == 4
+
+    def test_strona_glowna_zapisana_z_www_nie_tworzy_kopii(self, monkeypatch):
+        from documents.models import WebsiteSource
+
+        tenant, _ = firma_z_wlascicielem("r13-kopia")
+        Document.objects.create(
+            tenant=tenant,
+            source="website",
+            source_url="https://www.firma.pl/",
+            name="https://www.firma.pl/",
+            content="Stara treść strony głównej.",
+        )
+        zrodlo = WebsiteSource.objects.create(tenant=tenant, url="https://firma.pl")
+
+        adresy = self.pobierz(monkeypatch, zrodlo, WitrynaZPrzekierowaniem(mapa=True))
+
+        assert "https://firma.pl" not in adresy
+        assert "https://firma.pl/" not in adresy
+        assert len(adresy) == 4
+
+
+class TestTaSamaWitryna:
+    """Straże R13: www to ta sama witryna, ale nic poza tym."""
+
+    @pytest.mark.parametrize(
+        "adres,zrodlo",
+        [
+            ("https://www.firma.pl/cennik", "https://firma.pl"),
+            ("https://firma.pl/cennik", "https://www.firma.pl/"),
+            ("http://WWW.firma.pl./a", "https://firma.pl"),
+        ],
+    )
+    def test_www_i_bez_www_to_ta_sama_witryna(self, adres, zrodlo):
+        from documents.safe_http import same_site
+
+        assert same_site(adres, zrodlo)
+
+    @pytest.mark.parametrize(
+        "adres,zrodlo",
+        [
+            ("https://sklep.firma.pl/", "https://firma.pl"),
+            ("https://firma.pl/", "https://sklep.firma.pl"),
+            ("https://wwwfirma.pl/", "https://firma.pl"),
+            ("https://www.firma.pl.zly.example/", "https://firma.pl"),
+            ("https://www.www.firma.pl/", "https://firma.pl"),
+            ("https://www.zly.example/", "https://firma.pl"),
+        ],
+    )
+    def test_inne_domeny_dalej_odrzucone(self, adres, zrodlo):
+        from documents.safe_http import same_site
+
+        assert not same_site(adres, zrodlo)

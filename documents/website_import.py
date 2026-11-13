@@ -11,6 +11,7 @@ from documents.safe_http import (
     FetchLimitExceeded,
     ResponseTooLarge,
     fetch_page,
+    klucz_strony,
     same_site,
     validate_url,
 )
@@ -239,7 +240,10 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
     max_depth = max(0, min(max_depth, 2))
     visited: set[str] = set()
     # Keep the original root spelling for updates of already imported documents.
-    scheduled = {normalized_base}
+    # Zaplanowane liczymy po kluczu bez `www`: po przekierowaniu `firma.pl` na
+    # `www.firma.pl` link "Start" prowadzi do tej samej strony głównej, którą
+    # już pobieramy - nie może zająć drugiego miejsca na podstronę (R13).
+    scheduled = {klucz_strony(normalized_base)}
     to_visit = [(base_url, 0)] if max_pages else []
 
     while to_visit and len(visited) < max_pages:
@@ -281,8 +285,11 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
                 continue
             if _rozszerzenie(absolute_url) in POMIJANE_ROZSZERZENIA:
                 continue
-            if same_site(absolute_url, base_url) and absolute_url not in scheduled:
-                scheduled.add(absolute_url)
+            if not same_site(absolute_url, base_url):
+                continue
+            klucz = klucz_strony(absolute_url)
+            if klucz not in scheduled:
+                scheduled.add(klucz)
                 to_visit.append((absolute_url, depth + 1))
 
     return visited
