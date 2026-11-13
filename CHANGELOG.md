@@ -16,6 +16,24 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.28] - 2026-11-13
+
+Roadmap item R11 from the final review. No migration, nothing to set.
+
+### Fixed
+
+- **A paying company always gets the Stripe portal.** When our side could not
+  create the Stripe customer, checkout fell back to `customer_email` and
+  Stripe created the customer itself. Nothing recorded that customer, so
+  `Tenant.stripe_customer_id` stayed empty (or pointed at a customer with no
+  subscription) and the panel offered no way to change the card, see
+  invoices or cancel. Syncing an active subscription now stores its
+  `customer` on the company - from the webhook, from the panel's sync and
+  from the hourly reconciliation alike. Only when the subscription's metadata
+  names this company, so a customer from someone else's or a hand-made
+  subscription cannot end up behind this company's portal button. A
+  different stored customer is replaced and logged.
+
 ## [2.32.27] - 2026-11-13
 
 Roadmap item R10 from the final review. No migration, nothing to set.

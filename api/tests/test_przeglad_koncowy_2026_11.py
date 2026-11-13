@@ -1176,3 +1176,79 @@ class TestKosztyBezPlanu:
             == 201
         )
         assert klient.delete(f"/api/documents/{dokument.pk}/").status_code == 204
+
+
+@pytest.mark.django_db
+class TestKartotekaZSubskrypcji:
+    """
+    R11: gdy kartotekę klienta założył sam Stripe (zakup z samym adresem
+    e-mail, bo kartoteka_klienta zwróciła None), jej identyfikatora nic nie
+    zapisywało - firma płaciła, a panel nie dawał dostępu do portalu.
+    """
+
+    @pytest.fixture(autouse=True)
+    def ceny(self, settings):
+        settings.STRIPE_PRICE_IDS = {
+            "start": "price_start",
+            "grow": "price_grow",
+            "pro": "price_pro",
+        }
+        settings.STRIPE_PRICE_IDS_ROCZNE = {}
+
+    def synchronizuj(self, tenant, *, klient="cus_ze_stripe", **zmiany):
+        from api.tests.test_platnosci_spojnosc import subskrypcja_stripe
+        from api.views.stripe_webhook import synchronizuj_subskrypcje
+
+        w_stripe = {**subskrypcja_stripe(tenant, sid="sub_r11"), "customer": klient, **zmiany}
+        with mock.patch("stripe.Subscription.retrieve", return_value=w_stripe):
+            synchronizuj_subskrypcje(tenant, "sub_r11")
+        tenant.refresh_from_db()
+        return tenant
+
+    def test_kartoteka_zalozona_przez_stripe_trafia_do_firmy(self):
+        tenant, wlasciciel = firma_z_wlascicielem("r11-pusta")
+        Subscription.objects.filter(tenant=tenant).delete()
+
+        self.synchronizuj(tenant)
+
+        assert tenant.stripe_customer_id == "cus_ze_stripe"
+        biezacy = (
+            panel(tenant, CustomUser.objects.get(pk=wlasciciel.pk))
+            .get("/api/billing/plans/")
+            .json()["current"]
+        )
+        assert biezacy["portal_available"] is True
+
+    def test_rozwinieta_kartoteka_tez(self):
+        tenant, _ = firma_z_wlascicielem("r11-obiekt")
+        Subscription.objects.filter(tenant=tenant).delete()
+
+        self.synchronizuj(tenant, klient={"id": "cus_obiekt", "object": "customer"})
+
+        assert tenant.stripe_customer_id == "cus_obiekt"
+
+    def test_subskrypcja_na_innej_kartotece_przepina_firme(self):
+        tenant, _ = firma_z_wlascicielem("r11-inna")
+        Subscription.objects.filter(tenant=tenant).delete()
+        Tenant.objects.filter(pk=tenant.pk).update(stripe_customer_id="cus_nasza_bez_subskrypcji")
+        tenant.refresh_from_db()
+
+        self.synchronizuj(tenant)
+
+        assert tenant.stripe_customer_id == "cus_ze_stripe"
+
+    def test_subskrypcja_bez_metadanych_firmy_nie_zmienia_kartoteki(self):
+        tenant, _ = firma_z_wlascicielem("r11-obca")
+        Subscription.objects.filter(tenant=tenant).delete()
+
+        self.synchronizuj(tenant, metadata={})
+
+        assert tenant.stripe_customer_id in (None, "")
+
+    def test_wstrzymana_subskrypcja_nie_ustawia_kartoteki(self):
+        tenant, _ = firma_z_wlascicielem("r11-wstrzymana")
+        Subscription.objects.filter(tenant=tenant).delete()
+
+        self.synchronizuj(tenant, status="canceled")
+
+        assert tenant.stripe_customer_id in (None, "")

@@ -275,6 +275,30 @@ def _powiadom_o_nieudanej_platnosci(subscription_id):
         )
 
 
+def kartoteka_z_subskrypcji(tenant, subskrypcja):
+    """
+    Identyfikator klienta Stripe do zapisania przy firmie albo None.
+
+    Gdy założenie kartoteki po naszej stronie się nie uda (kartoteka_klienta
+    zwraca None), zakup idzie z samym `customer_email` i kartotekę zakłada sam
+    Stripe. Jej identyfikatora nic nie zapisywało: firma płaciła, a panel nie
+    pokazywał portalu (karta, faktury, anulowanie), bo `stripe_customer_id`
+    zostawał pusty albo wskazywał kartotekę bez tej subskrypcji (R11).
+
+    Tylko gdy metadane subskrypcji wprost wskazują tę firmę - czyli zakup
+    z naszego checkoutu. Kartoteka z cudzej albo ręcznie założonej subskrypcji
+    nie może trafić do portalu tej firmy.
+    """
+    if str((subskrypcja.get("metadata") or {}).get("tenant_id") or "") != str(tenant.pk):
+        return None
+    klient = _identyfikator(subskrypcja.get("customer"))
+    if not isinstance(klient, str) or not klient.startswith("cus_"):
+        return None
+    if klient == tenant.stripe_customer_id:
+        return None
+    return klient
+
+
 def synchronizuj_subskrypcje(tenant, identyfikator):
     """Jedna kolejność odczytu i zapisu, wspólna dla webhooka, panelu i zadania.
 
@@ -395,7 +419,20 @@ def _zapisz_subskrypcje(tenant, subskrypcja_stripe):
             # Pola na Tenant są tylko odbiciem stanu - panel admina po nich filtruje.
             tenant.subscription_status = "past_due" if status == "past_due" else "active"
             tenant.subscription_plan = pola["plan_type"]
-            tenant.save(update_fields=["subscription_status", "subscription_plan"])
+            pola_firmy = ["subscription_status", "subscription_plan"]
+            klient = kartoteka_z_subskrypcji(tenant, subskrypcja_stripe)
+            if klient:
+                if tenant.stripe_customer_id:
+                    logger.warning(
+                        "Firma %s: subskrypcja %s jest na kartotece %s, nie %s - przepinam",
+                        tenant.id,
+                        sid,
+                        klient,
+                        tenant.stripe_customer_id,
+                    )
+                tenant.stripe_customer_id = klient
+                pola_firmy.append("stripe_customer_id")
+            tenant.save(update_fields=pola_firmy)
 
             # Jedna wiadomość na wejście w past_due, nie na każde zdarzenie:
             # nieudana płatność przychodzi jako kilka zdarzeń naraz, a Stripe
