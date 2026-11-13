@@ -2,7 +2,12 @@
 .venv/
 venv/
 .env
+.env.*
 chatbot_project/.env
+chatbot_project/.env.*
+# Dwa pliki bez sekretów zostają w repozytorium: wzór i wartości testowe.
+!.env.example
+!.env.test
 
 # Python
 __pycache__/

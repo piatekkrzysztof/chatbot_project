@@ -4,7 +4,8 @@ Multi-tenant RAG chatbot that answers website visitors' questions from a company
 documents, and refuses to answer when those documents don't cover the question.
 
 [![CI](https://github.com/piatekkrzysztof/chatbot_project/actions/workflows/ci.yml/badge.svg)](https://github.com/piatekkrzysztof/chatbot_project/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-810%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-3204%20passing-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
 ![python](https://img.shields.io/badge/python-3.11-blue)
 ![django](https://img.shields.io/badge/django-5.1.7-092E20)
 ![licence](https://img.shields.io/badge/licence-source--available-lightgrey)
@@ -265,11 +266,11 @@ Tests never call OpenAI or Stripe; both are mocked. They need a PostgreSQL with 
 
 | | |
 |---|---|
-| Tests | **810 passing**, 0 failing |
-| Runtime | ~3 min on a laptop (measured; CI time not recorded yet) |
-| Coverage | not measured yet — see [Known limitations](#known-limitations) |
-| Lint / types | not enforced yet — see [Roadmap](#roadmap) |
-| CI | Django checks · missing-migration check · full suite · production-dependency boot test |
+| Tests | **3204 passing**, 0 failing (CI on `main`, 13 November 2026) |
+| Runtime | ~7 min in CI |
+| Coverage | **90.84%**, measured in CI; the build fails below 83% |
+| Lint / types | Ruff, formatting, mypy, Bandit and `pip-audit` all block a merge — see [Known limitations](#known-limitations) |
+| CI | Django checks · missing-migration check · full suite · coverage gate · lint and types · security · Docker image build and scan · production-dependency boot test |
 
 The suite is behavioural, not unit-shaped: most files are named after a bug or a decision
 (`test_wylaczanie_dokumentow`, `test_odswiezanie_stron`, `test_webhook_faktury`) and their
@@ -434,10 +435,14 @@ restore worked, and what the backup deliberately does not contain.
 ## Scale
 
 **[How far this scales, measured](docs/skala-i-wydajnosc.md).** On the
-production instance retrieval takes 90 ms at a thousand chunks and 1.3 s at ten
+production instance retrieval took 90 ms at a thousand chunks and 1.3 s at ten
 thousand — worse than linear, with the knee between the two. Set against the
-price list that means a full Start plan spends at least 0.7 s before the model
-writes anything, and Grow and Pro are not servable at their advertised limits.
+price list that meant a full Start plan spent at least 0.7 s before the model
+wrote anything, and Grow and Pro were not servable at their advertised limits.
+
+Shortening the vector from 1536 to 512 dimensions on 7 September 2026 moved
+that: 9 ms at a thousand chunks, 305 ms at ten thousand, 1.8 s at forty
+thousand. The knee did not go away, it moved by roughly 4×.
 
 The largest real knowledge base is 246 chunks, about 22 ms, so no customer is
 affected today. The document records two corrections as well as the numbers:
@@ -451,11 +456,12 @@ laptop overstated by more than an order of magnitude.
 Most decisions here are described where they apply — above under *Key technical
 decisions*, and in the docstring next to the code that implements them.
 
-Three are recorded separately in [docs/adr](docs/adr), because they are still
+Four are recorded separately in [docs/adr](docs/adr), because they are still
 open: each gave something up, each could reasonably be reversed, and each names
 the condition that should make somebody revisit it. No vector index on
-embeddings, alerts only on unambiguous signals, and `style-src 'unsafe-inline'`
-kept while the script hole is closed.
+embeddings, alerts only on unambiguous signals, `style-src 'unsafe-inline'`
+kept while the script hole is closed, and no enrichment of chunks before
+embedding.
 
 They are separate from the code because the code shows what was chosen and not
 what was declined.
@@ -502,10 +508,15 @@ Honest list. These are measured or known, not hypothetical.
   in three of four full runs, erroring twice with `SystemExit` in the fourth. Not yet
   diagnosed. A randomly red pipeline is worse than none, so this needs fixing before
   coverage gates go in.
-- **No load test.** Throughput under concurrency is unknown. Slow API requests (over
-  `WOLNE_ZADANIE_MS`) leave a log line with route, status, duration and query count, and
-  proposed response-time targets are in `docs/slo-i-czasy-odpowiedzi.md`, but they are
-  not yet measured against production traffic.
+- **Load tested at a small profile only.** One ten-minute run against production on
+  12 October 2026, off-hours and on a test account: 1697 requests, no 5xx and no 429.
+  Widget p95 went from 2.2 s to 165 ms and panel p95 from 2.2 s to 205 ms once database
+  connections were kept open instead of opened per request. The first words of a chat
+  answer are still over target (p95 3.3 s against 3 s). The profile was about 3 requests
+  a second with 15 streamed conversations, so throughput under real concurrency is still
+  unknown. Numbers and method are in
+  [docs/test-obciazeniowy.md](docs/test-obciazeniowy.md); targets are in
+  `docs/slo-i-czasy-odpowiedzi.md`.
 - **Monitoring is alerts, not a dashboard.** Widget refusals are counted
   (`accounts/odmowy.py`) and alerted on (`accounts/czuwanie.py`), and a chatbot that goes
   quiet is detected (`accounts/cisza.py`). There is still no dashboard for trends.
@@ -514,9 +525,8 @@ Honest list. These are measured or known, not hypothetical.
 
 ## Roadmap
 
-**Now — engineering quality.** Ruff, formatter, type checking, `pip-audit`, Bandit and
-coverage in CI, with the threshold set just below the first measured value and raised from
-there. Docker image build in CI.
+**Done — engineering quality.** Ruff, formatter, mypy, `pip-audit`, Bandit and a coverage
+gate run in CI and block a merge, next to a Docker image build and vulnerability scan.
 
 `api/utils/chat_engine.py` was split on 8 September 2026: the coverage protocol moved to
 `api/utils/pokrycie.py` and the system prompt to `api/utils/prompt_systemowy.py`, leaving
@@ -530,9 +540,11 @@ p50/p95 latency and cost per question. Threshold comparison across values. A sma
 regression subset running in CI, so a prompt change that quietly degrades retrieval fails
 the build instead of reaching customers.
 
-**Then — operations.** k6 or Locust load test with a stated concurrency figure, an
-anonymised monitoring screenshot, one written production incident (symptom, diagnosis,
-fix, regression test), `v1.0.0` with a changelog, and short ADRs for the decisions above.
+**Then — operations.** Done so far: a first production load test
+([docs/test-obciazeniowy.md](docs/test-obciazeniowy.md)), one written production incident
+([docs/incydent-2026-08-26.md](docs/incydent-2026-08-26.md)), `v1.0.0` with a changelog,
+and ADRs for the decisions still open ([docs/adr](docs/adr)). Still to do: a load test
+with a stated concurrency figure and an anonymised monitoring screenshot.
 
 **Product backlog.** Per-tenant retrieval threshold, plan changes in the panel, and a
 decision on annual billing: implement it or take it off the pricing page.

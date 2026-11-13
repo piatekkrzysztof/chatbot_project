@@ -7,7 +7,10 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DEV_DB_NAME", "chatbot_dev_db"),
         "USER": os.getenv("DEV_DB_USER", "postgres"),
-        "PASSWORD": os.getenv("DEV_DB_PASSWORD", "wojaki123"),
+        # Domyślne hasło to hasło kontenera z docker-compose i z CI, nie
+        # czyjekolwiek prywatne. Własną lokalną bazę z innym hasłem podaje
+        # się przez DEV_DB_PASSWORD w chatbot_project/.env (poza repozytorium).
+        "PASSWORD": os.getenv("DEV_DB_PASSWORD", "postgres"),
         "HOST": os.getenv("DEV_DB_HOST", "localhost"),
         "PORT": os.getenv("DEV_DB_PORT", "5432"),
     }
