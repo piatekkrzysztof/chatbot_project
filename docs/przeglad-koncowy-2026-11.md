@@ -79,7 +79,7 @@ niezależnego potwierdzenia ani testu.
 | R15 | Panel | Ustawienie „Pozycja" widgetu nie ma żadnego skutku (skrypt czyta tylko atrybut `data-position`) | **Zamknięte 13.11.2026 w panelu (frontend_chatbot#79):** `embed.js` bierze pozycję z ustawień widgetu; atrybut `data-position` na stronie klienta ma pierwszeństwo |
 | R16 | Widget | Przy nieudanym odczycie ustawień widget firmy z własną marką pokazuje „SM-art" do końca odsłony | **Zamknięte 13.11.2026 w panelu (frontend_chatbot#80):** ostatnie udane ustawienia są zapamiętywane, odczyt ponawiany dwa razy, a bez ustawień okno jest bez podpisu („Czat", bez stopki) |
 | R17 | Konto | Rejestracja zdradza, czy adres ma konto (400 zamiast 202); nazwa użytkownika może być cudzym adresem e-mail i blokuje tej osobie rejestrację | **Zamknięte 14.11.2026 w 2.32.32:** początek rejestracji odpowiada 202 także dla adresu z kontem (osoba dostaje mail „masz już konto", najwyżej raz na dobę); nazwa z `@` musi być własnym adresem konta; wcześniej zajęta nazwa nie blokuje rejestracji |
-| R18 | Widget | Wysłanie pytania przed wczytaniem zapisanej historii gubi je z ekranu; usunięcie ostatniego wiersza ostatniej strony listy pokazuje błąd i stary wiersz | z przeglądu |
+| R18 | Widget | Wysłanie pytania przed wczytaniem zapisanej historii gubi je z ekranu; usunięcie ostatniego wiersza ostatniej strony listy pokazuje błąd i stary wiersz | **Zamknięte 14.11.2026 w panelu (frontend_chatbot#81):** pytanie czeka na wczytanie zapisanej rozmowy; Konwersacje i Baza wiedzy po 404 cofają się o stronę |
 
 ### Niskie i porządki
 
