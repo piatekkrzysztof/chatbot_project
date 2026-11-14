@@ -156,7 +156,14 @@ class ObcinaczZnacznika:
         return tekst
 
 
-def determine_source(chunks, faqs, message_text, brak_pokrycia=False, wyszukiwanie_padlo=False):
+def determine_source(
+    chunks,
+    faqs,
+    message_text,
+    brak_pokrycia=False,
+    wyszukiwanie_padlo=False,
+    awaria_modelu=False,
+):
     """
     Skąd realnie pochodzi pokrycie odpowiedzi — steruje raportem luk w wiedzy
     i tym, czy widget zaproponuje kontakt z firmą.
@@ -175,6 +182,12 @@ def determine_source(chunks, faqs, message_text, brak_pokrycia=False, wyszukiwan
     # a bot odpowiadal bez bazy wiedzy - to nalezy do raportu luk, nawet gdy
     # model nie postawil znacznika.
     if wyszukiwanie_padlo:
+        return ZRODLO_BRAK_WIEDZY
+    # Model nie odpowiedział i odwiedzający dostał komunikat o błędzie. Do
+    # 2.32.33 przy trafionych fragmentach taka wymiana szła jako "document":
+    # liczyła się jako pytanie z odpowiedzią z wiedzy firmy, a widget nie
+    # proponował kontaktu - choć odwiedzający nie dowiedział się niczego.
+    if awaria_modelu:
         return ZRODLO_BRAK_WIEDZY
     if chunks:
         return ZRODLO_DOKUMENT

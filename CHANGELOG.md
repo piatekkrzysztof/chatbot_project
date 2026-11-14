@@ -16,6 +16,32 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.34] - 2026-11-14
+
+Second batch of the low-priority list from the final review. No migration,
+nothing to set.
+
+### Security
+
+- **The sign-in attempt limit belongs to the account, not to the text typed.**
+  A person's username and email address had separate counters, so someone
+  guessing a password had twice the attempts. Both now count together.
+
+### Fixed
+
+- **A model failure is no longer recorded as an answer from the company's
+  documents.** When the model failed and the visitor saw the error message,
+  but the search had found matching fragments, the exchange was stored with
+  the source "document": it counted as covered, and the widget did not offer
+  to leave contact details. It now counts as unanswered.
+- **A chat answer cut off halfway is marked.** The final stream event carries
+  `przerwana: true` when the connection to the model broke after the first
+  words. Before, it ended exactly like a complete answer.
+- **One network error while talking to Stripe no longer raises an operator
+  alarm.** The payment check retries the company on its next run; the alarm
+  goes out when the error repeats. Rejected requests and wrong keys still
+  alarm at once.
+
 ## [2.32.33] - 2026-11-14
 
 First batch of the low-priority list from the final review. No migration,

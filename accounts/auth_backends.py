@@ -12,6 +12,20 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 
 
+def konta_dla_logowania(nazwa):
+    """
+    Konta, do których pasuje tekst z pola logowania: najpierw po adresie
+    e-mail (bez rozróżniania wielkości liter), potem po nazwie użytkownika.
+
+    Jedna reguła dla logowania i dla limitu prób na konto - inaczej limit
+    liczyłby co innego, niż sprawdza logowanie.
+    """
+    User = get_user_model()
+    return list(User.objects.filter(email__iexact=nazwa)[:2]) or list(
+        User.objects.filter(username=nazwa)[:2]
+    )
+
+
 class EmailOrUsernameBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         User = get_user_model()
@@ -23,9 +37,7 @@ class EmailOrUsernameBackend(ModelBackend):
 
         # iexact, bo adresy e-mail bywają wpisywane wielką literą; przy kilku
         # kontach na ten sam adres nie zgadujemy, do którego chodziło
-        matches = list(User.objects.filter(email__iexact=username)[:2]) or list(
-            User.objects.filter(username=username)[:2]
-        )
+        matches = konta_dla_logowania(username)
 
         if len(matches) != 1:
             # Ten sam koszt czasowy co przy trafieniu — inaczej różnica w czasie

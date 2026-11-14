@@ -83,9 +83,10 @@ niezależnego potwierdzenia ani testu.
 
 ### Niskie i porządki
 
-- Strumień przerwany w połowie kończy się zwykłym `done` bez znacznika
+- ~~Strumień przerwany w połowie kończy się zwykłym `done` bez znacznika
   urwania; awaria modelu przy trafionych fragmentach zapisuje źródło
-  „document".
+  „document".~~ **Zamknięte w 2.32.34:** `done` niesie `przerwana: true`,
+  a awaria modelu liczy się jako brak odpowiedzi.
 - ~~`acks_late` z `reject_on_worker_lost` bez limitu doręczeń: dokument, który
   zabija proces, blokowałby jedyny worker.~~ **Zamknięte w 2.32.33:** po
   trzech przerwanych doręczeniach dokument dostaje błąd i zadanie odpuszcza.
@@ -107,11 +108,14 @@ niezależnego potwierdzenia ani testu.
   produkcji" (opis w `chatbot_project/zdrowie.py`).
 - Pełna kopia ma sztywny limit 100 MiB razem z wektorami - przy kilkunastu
   tysiącach fragmentów przestanie się mieścić.
-- Alarm uzgadniania Stripe po pojedynczym błędzie sieci.
+- ~~Alarm uzgadniania Stripe po pojedynczym błędzie sieci.~~ **Zamknięte
+  w 2.32.34:** pierwszy błąd sieci albo limitu jest ponawiany, alarm po
+  powtórce.
 - ~~`.env.dev` w repozytorium (martwy), `.gitignore` nie obejmuje `.env.*`~~
   (**zamknięte 13.11.2026 w PR #196**), pusty `runtime.txt`.
-- Limit logowania na konto liczony po wpisanym tekście, nie po koncie
-  (osobne liczniki dla nazwy i adresu).
+- ~~Limit logowania na konto liczony po wpisanym tekście, nie po koncie
+  (osobne liczniki dla nazwy i adresu).~~ **Zamknięte w 2.32.34:** jeden
+  licznik na konto.
 - Panel: błędy pól jako surowy JSON, brak `maxLength` w polu czatu, pole
   logowania typu `email` przy dowolnych nazwach użytkowników, odwołanie
   zaproszenia jednym kliknięciem, stan MFA nieodświeżany po zmianie na tym

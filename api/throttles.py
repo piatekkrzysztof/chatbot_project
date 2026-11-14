@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from django.conf import settings
 from rest_framework.throttling import SimpleRateThrottle
 
+from accounts.auth_backends import konta_dla_logowania
 from accounts.models import Subscription
 from accounts.plans import rate_for
 from accounts.tenancy import verified_request_tenant
@@ -308,4 +309,16 @@ class LimitLogowaniaKonto(SimpleRateThrottle):
         # \ud800 w treści żądania), a zwykłe kodowanie rzuca na nim wyjątkiem -
         # do 2.32.18 taka nazwa kończyła logowanie błędem 500 zamiast odmową.
         odcisk = hashlib.sha256(nazwa.lower().encode("utf-8", "surrogatepass")).hexdigest()[:32]
+        # Licznik należy do konta, nie do wpisanego tekstu. Do 2.32.33 nazwa
+        # użytkownika i adres e-mail tej samej osoby miały osobne liczniki,
+        # więc zgadujący hasło miał dwa razy więcej prób. Tekst, który nie
+        # pasuje do jednego konta, liczymy po staremu - po samym tekście.
+        try:
+            konta = konta_dla_logowania(nazwa)
+        except Exception:
+            # Znak NUL albo samotny surogat w nazwie: baza odmawia zapytania,
+            # a logowanie i tak odpowie odmową. Limit zostaje po tekście.
+            konta = []
+        if len(konta) == 1:
+            odcisk = f"konto-{konta[0].pk}"
         return self.cache_format % {"scope": self.scope, "ident": odcisk}
