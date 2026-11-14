@@ -1,0 +1,10 @@
+# Akcje w .github/workflows są przypięte do commitów. Bez tego pliku
+# zostałyby na nich na zawsze, razem z ich podatnościami.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci

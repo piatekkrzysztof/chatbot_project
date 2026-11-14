@@ -100,8 +100,11 @@ niezależnego potwierdzenia ani testu.
   API odpowiada tylko JSON-em.
 - Puste `STRIPE_WEBHOOK_SECRET`, `DATABASE_URL`, `FRONTEND_URL` i `REDIS_URL`
   mają ciche wartości domyślne - sprawdzenia przy starcie tylko ostrzegają.
-- CI: bramka ruff może przejść jałowo, brak bloku `permissions:`, akcje
-  przypięte znacznikiem, wejście monitora kopii wstawiane wprost do polecenia.
+- ~~CI: bramka ruff może przejść jałowo, brak bloku `permissions:`, akcje
+  przypięte znacznikiem, wejście monitora kopii wstawiane wprost do polecenia.~~
+  **Zamknięte 14.11.2026:** bramka wymaga wiersza podsumowania ruff, token
+  przebiegu tylko do odczytu, akcje przypięte do commitów (aktualizacje przez
+  Dependabot), próg kopii przez zmienną środowiska i tylko jako liczba.
 - `/health/` ~~otwiera połączenie z brokerem przy każdym żądaniu~~ i podaje
   dokładną wersję. **Połączenie zamknięte w 2.32.33** (wynik pamiętany 15 s).
   Wersja zostaje świadomie: to jedyna odpowiedź na pytanie „co jest na
@@ -112,14 +115,16 @@ niezależnego potwierdzenia ani testu.
   w 2.32.34:** pierwszy błąd sieci albo limitu jest ponawiany, alarm po
   powtórce.
 - ~~`.env.dev` w repozytorium (martwy), `.gitignore` nie obejmuje `.env.*`~~
-  (**zamknięte 13.11.2026 w PR #196**), pusty `runtime.txt`.
+  (**zamknięte 13.11.2026 w PR #196**), ~~pusty `runtime.txt`~~ (nieaktualne:
+  plik ma `python-3.11.17` i pilnuje go `test_wersja_pythona.py`).
 - ~~Limit logowania na konto liczony po wpisanym tekście, nie po koncie
   (osobne liczniki dla nazwy i adresu).~~ **Zamknięte w 2.32.34:** jeden
   licznik na konto.
-- Panel: błędy pól jako surowy JSON, brak `maxLength` w polu czatu, pole
+- ~~Panel: błędy pól jako surowy JSON, brak `maxLength` w polu czatu, pole
   logowania typu `email` przy dowolnych nazwach użytkowników, odwołanie
   zaproszenia jednym kliknięciem, stan MFA nieodświeżany po zmianie na tym
-  samym ekranie, `powrot` bez parametrów zapytania.
+  samym ekranie, `powrot` bez parametrów zapytania.~~ **Zamknięte 14.11.2026
+  w panelu (frontend_chatbot#83).**
 
 ### Nadal otwarte z audytu 22.10 (decyzje właściciela)
 
