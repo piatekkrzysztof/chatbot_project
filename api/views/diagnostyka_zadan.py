@@ -70,6 +70,23 @@ def _stan_brokera():
         }
 
 
+def _broker_dla(uzytkownik, broker):
+    """
+    Stan brokera w wersji dla pytającego.
+
+    Nazwy workerów to nazwy hostów naszej infrastruktury, a treść błędu
+    połączenia potrafi zawierać adres brokera. Ekran „Stan systemu" widzi
+    każda osoba z każdej firmy, a korzysta tylko z liczby workerów - więc
+    szczegóły zostają dla obsługi (konto `is_staff`).
+    """
+    if getattr(uzytkownik, "is_staff", False):
+        return broker
+    okrojony = {**broker, "nazwy": []}
+    if "blad" in okrojony:
+        okrojony["blad"] = "Kolejka zadań nie odpowiada."
+    return okrojony
+
+
 def _slad_pobierania(teraz, tenant):
     """
     Czy strony WWW faktycznie były ostatnio pobierane.
@@ -419,7 +436,7 @@ class DiagnostykaZadanView(APIView):
 
     def get(self, request):
         teraz = timezone.now()
-        broker = _stan_brokera()
+        broker = _broker_dla(request.user, _stan_brokera())
         pobieranie = _slad_pobierania(teraz, request.tenant)
         retencja = _slad_retencji(teraz, request.tenant)
         rezerwacje_slad = _slad_rezerwacji(teraz, request.tenant)

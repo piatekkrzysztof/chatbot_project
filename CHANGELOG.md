@@ -16,6 +16,36 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.33] - 2026-11-14
+
+First batch of the low-priority list from the final review. No migration,
+nothing to set.
+
+### Security
+
+- **An API view without its own permissions now requires a login.** Every
+  view sets its permissions itself, but the framework default underneath was
+  "anyone": a new view that forgot would have been public. Public views
+  already say so explicitly, so nothing changes for the widget or sign-in.
+- **The browsable HTML version of the API is off.** The API answers JSON only.
+- **The "System status" screen no longer shows worker host names or the
+  broker connection error to customers.** They see how many workers answered,
+  which is all the screen uses. Staff accounts still see the details.
+- `/health/` checks the task broker at most once every 15 seconds per process
+  instead of opening a new connection on every request to a public address.
+
+### Fixed
+
+- **A subpage whose address is longer than 200 characters is skipped with a
+  plain message** ("address too long") instead of ending the import with a raw
+  database error. Link discovery no longer spends one of the twenty subpage
+  slots on such an address.
+- **A document that crashes the worker no longer blocks the queue.** A task
+  interrupted by a lost worker is delivered again, which is right for a
+  restart, but a document that kills the process itself came back forever and
+  stopped every other background job. After three interrupted attempts the
+  document is marked with an error and left alone.
+
 ## [2.32.32] - 2026-11-14
 
 Roadmap item R17 from the final review. No migration, nothing to set.

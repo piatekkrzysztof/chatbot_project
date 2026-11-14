@@ -21,6 +21,9 @@ from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
 
 TYPY_HTML = {"text/html", "application/xhtml+xml"}
 
+#: Najdłuższy adres podstrony, jaki mieści kolumna `Document.source_url`.
+MAKS_ADRESU_PODSTRONY: int = Document._meta.get_field("source_url").max_length or 200
+
 # Pliki podlinkowane na stronie klienta czytamy tym samym izolowanym parserem
 # co upload w panelu. Wcześniej każda odpowiedź szła przez ekstrakcję HTML:
 # PDF z cennikiem trafiał do wiedzy jako składnia "%PDF-1.3 ... obj", a zdjęcie
@@ -166,6 +169,14 @@ def import_website_as_document(tenant, url: str, name: str = "Strona WWW klienta
     Rozpoznajemy podstronę po `source_url`, nie po nazwie: nazwę klient może
     zmienić w panelu, adres jest tym, co faktycznie pobieramy.
     """
+    # Kolumna adresu ma 200 znaków. Dłuższy adres (filtry sklepu, parametry
+    # śledzące) kończył import surowym błędem bazy w komunikacie dla klienta;
+    # teraz odmawiamy przed pobraniem, zwykłym zdaniem.
+    if len(url) > MAKS_ADRESU_PODSTRONY:
+        raise ValueError(
+            f"Adres podstrony jest za długi (ponad {MAKS_ADRESU_PODSTRONY} znaków) - pominięto."
+        )
+
     text, znakow_widocznych = fetch_text_from_url(url)
 
     # Pobranie strony trwa poza blokadą; odczyt istniejącej wersji, sprawdzenie
@@ -284,6 +295,9 @@ def discover_links_recursively(base_url: str, max_depth: int = 2, max_pages: int
             except FetchError:
                 continue
             if _rozszerzenie(absolute_url) in POMIJANE_ROZSZERZENIA:
+                continue
+            if len(absolute_url) > MAKS_ADRESU_PODSTRONY:
+                # Nie da się go zapisać - nie zajmuje miejsca na podstronę.
                 continue
             if not same_site(absolute_url, base_url):
                 continue

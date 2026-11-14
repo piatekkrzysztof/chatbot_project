@@ -88,6 +88,19 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "api.session_tokens.SessionJWTAuthentication",
     ],
+    # Siatka pod spodem. Każdy widok ustawia uprawnienia sam i pilnuje tego
+    # kontrakt dostępu, ale bez tej linii domyślne DRF to AllowAny: nowy widok
+    # bez `permission_classes` byłby publiczny. Teraz wymaga logowania, a widok
+    # publiczny musi to powiedzieć wprost (`permission_classes = ()`).
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    # Bez przeglądalnego API: jego strony HTML z formularzami nie są nikomu
+    # potrzebne (panel i widget mówią JSON-em, dokumentacja jest w schemacie),
+    # a pokazują opis każdego widoku i przyjmują zapisy z formularza.
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
     # Domyślnie tylko limit panelu (F16). Limit czatu obowiązywał wcześniej
     # także na każdym ekranie panelu: firma bez aktywnego planu dostawała 429 po
     # 30 żądaniach na minutę w całym panelu. Widoki ruchu odwiedzających
