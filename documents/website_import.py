@@ -22,7 +22,7 @@ from documents.validators import sprawdz_limit_bazy_wiedzy, zablokuj_baze_wiedzy
 TYPY_HTML = {"text/html", "application/xhtml+xml"}
 
 #: Najdłuższy adres podstrony, jaki mieści kolumna `Document.source_url`.
-MAKS_ADRESU_PODSTRONY = Document._meta.get_field("source_url").max_length
+MAKS_ADRESU_PODSTRONY: int = Document._meta.get_field("source_url").max_length or 200
 
 # Pliki podlinkowane na stronie klienta czytamy tym samym izolowanym parserem
 # co upload w panelu. Wcześniej każda odpowiedź szła przez ekstrakcję HTML:
