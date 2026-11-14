@@ -32,6 +32,7 @@ do logu.
 """
 
 import logging
+import time
 from datetime import timedelta
 
 from django.db import connection
@@ -77,6 +78,29 @@ def _broker_odpowiada() -> bool:
         return False
 
 
+#: Jak długo wynik sprawdzenia brokera służy kolejnym żądaniom.
+BROKER_PAMIEC_S = 15
+_broker_ostatnio: tuple[float, bool] | None = None
+
+
+def _broker_z_pamieci() -> bool:
+    """
+    Stan brokera, sprawdzany najwyżej raz na `BROKER_PAMIEC_S` sekund na proces.
+
+    Adres jest publiczny i odpytywany co kilkanaście sekund przez hosting
+    i monitoring. Każde żądanie otwierało nowe połączenie z Redisem - więc
+    każdy, kto odpytywał ten adres w pętli, zużywał połączenia brokera,
+    z których korzystają zadania w tle.
+    """
+    global _broker_ostatnio
+    teraz = time.monotonic()
+    if _broker_ostatnio is not None and teraz - _broker_ostatnio[0] < BROKER_PAMIEC_S:
+        return _broker_ostatnio[1]
+    wynik = _broker_odpowiada()
+    _broker_ostatnio = (teraz, wynik)
+    return wynik
+
+
 def _zadania_dzialaja() -> bool:
     from accounts.models import PrzebiegMonitora
 
@@ -94,7 +118,7 @@ def _zadania_dzialaja() -> bool:
 @never_cache
 def health_check(request):
     baza = _baza_odpowiada()
-    broker = _broker_odpowiada()
+    broker = _broker_z_pamieci()
     zadania = baza and _zadania_dzialaja()
 
     if not baza:

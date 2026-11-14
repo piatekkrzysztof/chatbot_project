@@ -86,24 +86,30 @@ niezależnego potwierdzenia ani testu.
 - Strumień przerwany w połowie kończy się zwykłym `done` bez znacznika
   urwania; awaria modelu przy trafionych fragmentach zapisuje źródło
   „document".
-- `acks_late` z `reject_on_worker_lost` bez limitu doręczeń: dokument, który
-  zabija proces, blokowałby jedyny worker.
-- Adres podstrony dłuższy niż 200 znaków kończy import surowym błędem bazy.
-- Diagnostyka zadań pokazuje każdemu członkowi firmy nazwy hostów workera.
-- `DEFAULT_PERMISSION_CLASSES` nieustawione (dziś każdy widok ustawia
+- ~~`acks_late` z `reject_on_worker_lost` bez limitu doręczeń: dokument, który
+  zabija proces, blokowałby jedyny worker.~~ **Zamknięte w 2.32.33:** po
+  trzech przerwanych doręczeniach dokument dostaje błąd i zadanie odpuszcza.
+- ~~Adres podstrony dłuższy niż 200 znaków kończy import surowym błędem bazy.~~
+  **Zamknięte w 2.32.33:** pomijany ze zwykłym komunikatem.
+- ~~Diagnostyka zadań pokazuje każdemu członkowi firmy nazwy hostów workera.~~
+  **Zamknięte w 2.32.33:** nazwy i treść błędu brokera tylko dla obsługi.
+- ~~`DEFAULT_PERMISSION_CLASSES` nieustawione (dziś każdy widok ustawia
   uprawnienia sam, pilnuje tego kontrakt dostępu); przeglądalne API włączone
-  w produkcji.
+  w produkcji.~~ **Zamknięte w 2.32.33:** domyślnie wymagane logowanie,
+  API odpowiada tylko JSON-em.
 - Puste `STRIPE_WEBHOOK_SECRET`, `DATABASE_URL`, `FRONTEND_URL` i `REDIS_URL`
   mają ciche wartości domyślne - sprawdzenia przy starcie tylko ostrzegają.
 - CI: bramka ruff może przejść jałowo, brak bloku `permissions:`, akcje
   przypięte znacznikiem, wejście monitora kopii wstawiane wprost do polecenia.
-- `/health/` otwiera połączenie z brokerem przy każdym żądaniu i podaje
-  dokładną wersję.
+- `/health/` ~~otwiera połączenie z brokerem przy każdym żądaniu~~ i podaje
+  dokładną wersję. **Połączenie zamknięte w 2.32.33** (wynik pamiętany 15 s).
+  Wersja zostaje świadomie: to jedyna odpowiedź na pytanie „co jest na
+  produkcji" (opis w `chatbot_project/zdrowie.py`).
 - Pełna kopia ma sztywny limit 100 MiB razem z wektorami - przy kilkunastu
   tysiącach fragmentów przestanie się mieścić.
 - Alarm uzgadniania Stripe po pojedynczym błędzie sieci.
-- `.env.dev` w repozytorium (martwy), `.gitignore` nie obejmuje `.env.*`,
-  pusty `runtime.txt`.
+- ~~`.env.dev` w repozytorium (martwy), `.gitignore` nie obejmuje `.env.*`~~
+  (**zamknięte 13.11.2026 w PR #196**), pusty `runtime.txt`.
 - Limit logowania na konto liczony po wpisanym tekście, nie po koncie
   (osobne liczniki dla nazwy i adresu).
 - Panel: błędy pól jako surowy JSON, brak `maxLength` w polu czatu, pole

@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from celery import shared_task
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -81,6 +82,41 @@ def extract_text_from_document(document_id):
         logger.error("Błąd przetwarzania dokumentu %s", document_id)
 
 
+#: Ile razy jedno przeliczenie dokumentu może zostać doręczone.
+#:
+#: `acks_late` z `reject_on_worker_lost` oddaje zadanie do kolejki, gdy worker
+#: zginie w trakcie. Dla restartu i wdrożenia to jest cel. Ale dokument, który
+#: sam zabija proces (brak pamięci przy bardzo dużej treści), wracałby do
+#: kolejki bez końca i blokował jedynego workera: żadne inne zadanie firmy ani
+#: innych firm by się nie wykonało. Po tylu doręczeniach odpuszczamy i zostawiamy
+#: ślad przy dokumencie.
+MAKS_DORECZEN = 3
+_DORECZENIA_WAZNE_S = 6 * 3600
+
+
+def _klucz_doreczen(document_id):
+    return f"wektory-doreczenia:{document_id}"
+
+
+def _doreczenie_dozwolone(document_id):
+    """Liczy doręczenie; False, gdy to już ponad `MAKS_DORECZEN`."""
+    klucz = _klucz_doreczen(document_id)
+    try:
+        if cache.add(klucz, 1, timeout=_DORECZENIA_WAZNE_S):
+            return True
+        return cache.incr(klucz) <= MAKS_DORECZEN
+    except Exception:
+        # Bez licznika działamy jak dotąd: lepiej przeliczyć niż odmówić.
+        return True
+
+
+def _zapomnij_doreczenia(document_id):
+    try:
+        cache.delete(_klucz_doreczen(document_id))
+    except Exception:
+        logger.warning("Nie udalo sie wyczyscic licznika doreczen dokumentu %s", document_id)
+
+
 @shared_task(
     # Potwierdzenie PO wykonaniu, nie przed. Domyślnie Celery potwierdza
     # odebranie zadania od razu, więc worker zabity w trakcie liczenia (restart,
@@ -109,6 +145,20 @@ def generate_embeddings_for_document(document_id):
         logger.info("Dokument %s juz nie istnieje - nie ma czego przeliczac.", document_id)
         return
 
+    if not _doreczenie_dozwolone(document_id):
+        Document.objects.filter(pk=document_id).update(
+            processing_error=(
+                "Przetwarzanie tego dokumentu kilka razy przerwało pracę serwera. "
+                "Wgraj go ponownie w innej postaci albo zgłoś to obsłudze."
+            )
+        )
+        logger.error(
+            "Dokument %s: przekroczony limit %s doreczen zadania - nie przeliczam.",
+            document_id,
+            MAKS_DORECZEN,
+        )
+        return
+
     if not document.content:
         # Pusta treść NIE kasuje tu fragmentów. Żaden import jej nie zapisuje:
         # upload i odczyt pliku odrzucają plik bez tekstu, a pobranie strony
@@ -122,7 +172,10 @@ def generate_embeddings_for_document(document_id):
 
     try:
         _generate_embeddings(document)
+        _zapomnij_doreczenia(document_id)
     except Exception:
+        # Zwykły błąd to nie utrata workera - licznik liczy tylko przerwane.
+        _zapomnij_doreczenia(document_id)
         # Tylko gdy pole jest puste: błąd wyodrębniania tekstu jest ważniejszy
         # i nie może zniknąć pod komunikatem o wektorach.
         Document.objects.filter(pk=document_id, processing_error="").update(

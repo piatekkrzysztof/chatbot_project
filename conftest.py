@@ -66,6 +66,16 @@ load_dotenv(".env.test", override=True)
 
 
 @pytest.fixture(autouse=True)
+def swiezy_stan_brokera():
+    """/health/ pamięta wynik sprawdzenia brokera przez kilkanaście sekund."""
+    from chatbot_project import zdrowie
+
+    zdrowie._broker_ostatnio = None
+    yield
+    zdrowie._broker_ostatnio = None
+
+
+@pytest.fixture(autouse=True)
 def signup_mail_configuration(settings):
     settings.FRONTEND_URL = "https://panel.example.test"
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
