@@ -1,11 +1,11 @@
 """
 Porządki po przeglądzie końcowym 11.11.2026 - lista „Niskie i porządki"
-z docs/przeglad-koncowy-2026-11.md, partia pierwsza (2.32.33).
+z docs/przeglad-koncowy-2026-11.md, partie pierwsza (2.32.33) i druga (2.32.34).
 
 Każda klasa to jedna pozycja listy. Opis przy klasie mówi, co było przedtem.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from django.core.cache import cache
@@ -258,3 +258,219 @@ class TestHealthNieOtwieraBrokeraZaKazdymRazem:
             client.get("/health/")
 
         assert broker.call_count == 2
+
+
+# --- partia druga (2.32.34) ----------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestLimitLogowaniaNaKonto:
+    """
+    Limit prób na konto liczył wpisany tekst. Nazwa użytkownika i adres e-mail
+    tej samej osoby miały osobne liczniki - dwa razy więcej prób zgadywania.
+    """
+
+    def klucz(self, nazwa):
+        from rest_framework.test import APIRequestFactory
+        from rest_framework.views import APIView
+
+        from api.throttles import LimitLogowaniaKonto
+
+        zadanie = APIView().initialize_request(
+            APIRequestFactory().post("/x/", {"username": nazwa, "password": "x"}, format="json")
+        )
+        return LimitLogowaniaKonto().get_cache_key(zadanie, None)
+
+    def test_nazwa_i_adres_tego_samego_konta_maja_wspolny_licznik(self, firma):
+        CustomUser.objects.create_user(
+            username="jan.kowalski", email="jan@firma.example", password="x", tenant=firma
+        )
+
+        assert self.klucz("jan.kowalski") == self.klucz("JAN@firma.example")
+
+    def test_rozne_konta_maja_rozne_liczniki(self, firma):
+        CustomUser.objects.create_user(
+            username="jan", email="jan@firma.example", password="x", tenant=firma
+        )
+        CustomUser.objects.create_user(
+            username="ewa", email="ewa@firma.example", password="x", tenant=firma
+        )
+
+        assert self.klucz("jan") != self.klucz("ewa")
+
+    def test_nieznana_nazwa_dalej_ma_licznik_i_nie_zdradza_konta(self, firma):
+        """Straż: tekst bez konta jest ograniczany po samym tekście."""
+        klucz = self.klucz("nikt@nigdzie.example")
+
+        assert klucz
+        assert "nikt" not in klucz
+        assert klucz == self.klucz("NIKT@nigdzie.example")
+
+
+@pytest.mark.django_db
+class TestAlarmStripePoPowtorzonymBledzie:
+    """
+    Pojedynczy błąd sieci przy rozmowie z API Stripe od razu oznaczał firmę
+    jako wymagającą reakcji i wysyłał alarm do operatora.
+    """
+
+    def firma_z_subskrypcja(self):
+        from accounts.models import Subscription
+
+        tenant = Tenant.objects.create(name="Kontrola", owner_email="a@example.test")
+        Subscription.objects.create(
+            tenant=tenant,
+            plan_type="pro",
+            stripe_subscription_id=f"sub_{tenant.pk}",
+            stripe_status="active",
+            is_active=True,
+            start_date="2026-01-01",
+            end_date="2027-01-01",
+        )
+        return tenant
+
+    def uzgodnij(self, blad):
+        from accounts.tasks_stripe import uzgodnij_platnosci
+
+        with patch("stripe.Subscription.retrieve", side_effect=blad):
+            uzgodnij_platnosci()
+
+    def test_pierwszy_blad_sieci_nie_alarmuje_i_jest_ponawiany(self, settings, mailoutbox):
+        import stripe
+
+        from accounts.stripe_sync import KontrolaStripe
+
+        settings.EMAIL_ALERTOW = "operator@example.test"
+        tenant = self.firma_z_subskrypcja()
+
+        self.uzgodnij(stripe.error.APIConnectionError("sieć"))
+
+        kontrola = KontrolaStripe.objects.get(tenant=tenant)
+        assert kontrola.blad == ""
+        # Znacznik próby cofnięty: następny przebieg bierze firmę od razu.
+        assert kontrola.probowano_at is None
+        assert mailoutbox == []
+
+    def test_drugi_blad_sieci_z_rzedu_alarmuje(self, settings, mailoutbox):
+        import stripe
+
+        from accounts.stripe_sync import KontrolaStripe
+
+        settings.EMAIL_ALERTOW = "operator@example.test"
+        tenant = self.firma_z_subskrypcja()
+
+        self.uzgodnij(stripe.error.APIConnectionError("sieć"))
+        self.uzgodnij(stripe.error.APIConnectionError("sieć"))
+
+        assert KontrolaStripe.objects.get(tenant=tenant).blad == "wymaga_uzgodnienia"
+        assert len(mailoutbox) == 1
+
+    def test_blad_ktory_nie_jest_chwilowy_alarmuje_od_razu(self, settings, mailoutbox):
+        """Straż: odrzucone żądanie to dalej sprawa dla operatora."""
+        import stripe
+
+        from accounts.stripe_sync import KontrolaStripe
+
+        settings.EMAIL_ALERTOW = "operator@example.test"
+        tenant = self.firma_z_subskrypcja()
+
+        self.uzgodnij(stripe.error.AuthenticationError("zły klucz"))
+
+        assert KontrolaStripe.objects.get(tenant=tenant).blad == "wymaga_uzgodnienia"
+        assert len(mailoutbox) == 1
+
+
+@pytest.mark.django_db
+class TestAwariaModeluWCzacie:
+    """
+    Awaria modelu przy trafionych fragmentach zapisywała źródło „document":
+    wymiana liczyła się jako odpowiedź z wiedzy firmy, choć odwiedzający dostał
+    komunikat o błędzie. Strumień urwany w połowie kończył się zwykłym `done`.
+    """
+
+    def test_awaria_modelu_bije_trafione_fragmenty(self):
+        from api.utils.pokrycie import determine_source
+        from chat.models import ZRODLO_BRAK_WIEDZY, ZRODLO_DOKUMENT
+
+        fragmenty = [object()]
+
+        assert determine_source(fragmenty, [], "Cennik?") == ZRODLO_DOKUMENT
+        assert determine_source(fragmenty, [], "Cennik?", awaria_modelu=True) == ZRODLO_BRAK_WIEDZY
+
+    def rozmowa(self, firma):
+        from chat.models import Conversation
+
+        return Conversation.objects.create(tenant=firma)
+
+    def zlozone(self):
+        wiadomosci = [{"role": "system", "content": "x"}, {"role": "user", "content": "Cennik?"}]
+        return patch(
+            "api.utils.chat_engine.build_chat_messages",
+            return_value=(wiadomosci, [object()], [], False),
+        )
+
+    def test_odpowiedz_bez_strumienia_po_awarii_nie_jest_z_dokumentu(self, firma):
+        from api.utils.chat_engine import FALLBACK_MESSAGE, process_chat_message
+        from chat.models import ZRODLO_BRAK_WIEDZY
+
+        with (
+            self.zlozone(),
+            patch("api.utils.chat_engine.get_openai_response", side_effect=RuntimeError("api")),
+        ):
+            wynik = process_chat_message(firma, self.rozmowa(firma), "Cennik?")
+
+        assert wynik["response"] == FALLBACK_MESSAGE
+        assert wynik["source"] == ZRODLO_BRAK_WIEDZY
+        assert wynik["sources"] == []
+
+    def strumien(self, firma, zdarzenia):
+        import json
+
+        from api.utils.chat_engine import stream_chat_message
+
+        dostawca = MagicMock()
+        dostawca.__iter__.return_value = zdarzenia
+        with (
+            self.zlozone(),
+            patch("api.utils.chat_engine.get_client") as klient,
+        ):
+            klient.return_value.chat.completions.create.return_value = dostawca
+            surowe = "".join(stream_chat_message(firma, self.rozmowa(firma), "Cennik?"))
+        return [json.loads(wiersz[len("data: ") :]) for wiersz in surowe.split("\n\n") if wiersz]
+
+    @staticmethod
+    def kawalek(tekst):
+        return Mock(usage=None, choices=[Mock(delta=Mock(content=tekst))])
+
+    def test_strumien_urwany_w_polowie_jest_oznaczony(self, firma):
+        def zdarzenia():
+            yield self.kawalek("Strzyżenie kosztuje ")
+            raise RuntimeError("połączenie zerwane")
+
+        with patch("api.utils.chat_engine.zrodla_do_pokazania", return_value=[]):
+            wynik = self.strumien(firma, zdarzenia())
+
+        koniec = wynik[-1]
+        assert koniec["type"] == "done"
+        assert koniec["przerwana"] is True
+
+    def test_strumien_bez_zadnego_slowa_nie_jest_z_dokumentu(self, firma):
+        from chat.models import ZRODLO_BRAK_WIEDZY
+
+        def zdarzenia():
+            raise RuntimeError("model nie odpowiada")
+            yield  # pragma: no cover
+
+        wynik = self.strumien(firma, zdarzenia())
+
+        assert wynik[-1]["source"] == ZRODLO_BRAK_WIEDZY
+
+    def test_pelna_odpowiedz_nie_ma_znacznika_przerwania(self, firma):
+        """Straż: zwykła odpowiedź kończy się tak jak dotąd."""
+        from chat.models import ZRODLO_DOKUMENT
+
+        with patch("api.utils.chat_engine.zrodla_do_pokazania", return_value=[]):
+            wynik = self.strumien(firma, iter([self.kawalek("Strzyżenie kosztuje 90 zł.")]))
+
+        assert "przerwana" not in wynik[-1]
+        assert wynik[-1]["source"] == ZRODLO_DOKUMENT

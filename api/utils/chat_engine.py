@@ -378,6 +378,7 @@ def process_chat_message(tenant, conversation, message_text, on_billable=None):
     # z samego znacznika przechodziła jako niepusta, była naliczana, a klient
     # dostawał pusty tekst.
     obcinacz = ObcinaczZnacznika()
+    awaria = False
     try:
         gpt_response = get_openai_response(messages, model=model, tenant=tenant)
         response_text = obcinacz.podaj(gpt_response["content"] or "") + obcinacz.zakoncz()
@@ -392,12 +393,13 @@ def process_chat_message(tenant, conversation, message_text, on_billable=None):
         tokens = 0
         tokeny_wejscia = tokeny_wyjscia = None
         billable = False
+        awaria = True
 
     if billable and on_billable:
         on_billable()
 
     source = determine_source(
-        chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
+        chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo, awaria
     )
 
     wiadomosc = persist_exchange(
@@ -466,6 +468,10 @@ def _stream_chat_message(tenant, conversation, message_text, on_billable=None):
     tokeny_wejscia = None
     tokeny_wyjscia = None
     awaria = False
+    # Strumień urwany po pierwszych słowach: odwiedzający ma na ekranie pół
+    # zdania. Do 2.32.33 kończyło się to zwykłym `done`, nie do odróżnienia od
+    # pełnej odpowiedzi.
+    przerwana = False
     charged = False
     stream = None
     usunieta = False
@@ -513,6 +519,8 @@ def _stream_chat_message(tenant, conversation, message_text, on_billable=None):
                 pieces.append(FALLBACK_MESSAGE)
                 awaria = True
                 yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
+            else:
+                przerwana = True
 
         reszta = "" if awaria or usunieta else obcinacz.zakoncz()
         if reszta:
@@ -528,6 +536,7 @@ def _stream_chat_message(tenant, conversation, message_text, on_billable=None):
         if not "".join(pieces).strip() and not usunieta:
             zglos_pusta_odpowiedz(model, tokeny_wyjscia)
             pieces.append(FALLBACK_MESSAGE)
+            awaria = True
             yield _sse({"type": "delta", "content": FALLBACK_MESSAGE})
     finally:
         if stream is not None:
@@ -539,7 +548,7 @@ def _stream_chat_message(tenant, conversation, message_text, on_billable=None):
                     logger.exception("Could not close OpenAI stream")
         response_text = "".join(pieces)
         source = determine_source(
-            chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo
+            chunks, faqs, message_text, obcinacz.brak_pokrycia, wyszukiwanie_padlo, awaria
         )
         try:
             wiadomosc = persist_exchange(
@@ -573,5 +582,7 @@ def _stream_chat_message(tenant, conversation, message_text, on_billable=None):
             "tokens": tokens,
             "sources": zrodla_do_pokazania(chunks, source),
             "message_id": wiadomosc.id,
+            # Tylko gdy prawda: starsze panele nie znają pola i je pomijają.
+            **({"przerwana": True} if przerwana else {}),
         }
     )

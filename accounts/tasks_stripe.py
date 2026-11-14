@@ -7,6 +7,7 @@ from time import monotonic
 import stripe
 from celery import shared_task
 from django.conf import settings
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import OperationalError, transaction
 from django.db.models import F, Q
@@ -17,6 +18,36 @@ from accounts.stripe_sync import KontrolaStripe
 logger = logging.getLogger(__name__)
 LIMIT_FIRM = 25
 BUDZET_SEKUND = 50
+
+
+#: Błędy, po których sensowne jest samo ponowienie: sieć i limit zapytań.
+BLEDY_CHWILOWE = (stripe.APIConnectionError, stripe.RateLimitError)
+_BLAD_CHWILOWY_WAZNY_S = 6 * 3600
+
+
+def _klucz_bledu_chwilowego(tenant):
+    return f"stripe-kontrola-chwilowy:{tenant.pk}"
+
+
+def _pierwszy_blad_chwilowy(tenant):
+    """
+    True przy pierwszym chwilowym błędzie firmy od ostatniego udanego uzgodnienia.
+
+    Do 2.32.33 pojedynczy błąd sieci przy rozmowie z API Stripe od razu
+    oznaczał firmę jako wymagającą reakcji i wysyłał alarm do operatora.
+    Bez pamięci podręcznej zachowujemy się jak dotąd: alarm.
+    """
+    try:
+        return bool(cache.add(_klucz_bledu_chwilowego(tenant), 1, timeout=_BLAD_CHWILOWY_WAZNY_S))
+    except Exception:
+        return False
+
+
+def _zapomnij_bledy_chwilowe(tenant):
+    try:
+        cache.delete(_klucz_bledu_chwilowego(tenant))
+    except Exception:
+        logger.warning("Nie udalo sie wyczyscic licznika bledow Stripe: tenant=%s", tenant.pk)
 
 
 def brakujace_ustawienia_stripe():
@@ -106,10 +137,25 @@ def _kontroluj(tenant):
         _uzgodnij_firme(tenant)
     except SynchronizacjaZajeta:
         aktualna_proba.update(probowano_at=poprzednia_proba)
-    except (ZdarzenieDoPonowienia, stripe.error.StripeError):
-        aktualna_proba.update(blad="wymaga_uzgodnienia")
-        logger.error("Kontrola Stripe wymaga reakcji: tenant=%s", tenant.pk)
+    except (ZdarzenieDoPonowienia, stripe.error.StripeError) as blad:
+        # Synchronizacja opakowuje błąd Stripe w ZdarzenieDoPonowienia,
+        # więc o tym, czy był chwilowy, mówi dopiero przyczyna.
+        chwilowy = isinstance(blad, BLEDY_CHWILOWE) or isinstance(blad.__cause__, BLEDY_CHWILOWE)
+        if chwilowy and _pierwszy_blad_chwilowy(tenant):
+            # Jedno zerwane połączenie albo limit zapytań to nie jest sprawa
+            # dla operatora. Cofamy znacznik próby, żeby następny przebieg
+            # spróbował od razu, a alarm zostawiamy na powtórkę.
+            aktualna_proba.update(probowano_at=poprzednia_proba)
+            logger.warning(
+                "Kontrola Stripe: chwilowy blad (%s), ponowie: tenant=%s",
+                type(blad.__cause__ or blad).__name__,
+                tenant.pk,
+            )
+        else:
+            aktualna_proba.update(blad="wymaga_uzgodnienia")
+            logger.error("Kontrola Stripe wymaga reakcji: tenant=%s", tenant.pk)
     else:
+        _zapomnij_bledy_chwilowe(tenant)
         aktualna_proba.update(blad="", alarm_at=None, uzgodniono_at=timezone.now())
 
 

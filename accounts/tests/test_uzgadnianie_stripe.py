@@ -68,7 +68,9 @@ def test_awaria_jednej_firmy_nie_glodzi_innych_i_wysyla_alarm(settings, mailoutb
     with patch(
         "stripe.Subscription.retrieve",
         side_effect=[
-            stripe.error.APIConnectionError("awaria"),
+            # Trwały błąd: pojedynczy błąd sieci od 2.32.34 jest ponawiany bez
+            # alarmu (api/tests/test_porzadki_2026_11.py).
+            stripe.error.APIError("awaria"),
             subskrypcja_stripe(druga, sid=f"sub_{druga.pk}", status="canceled"),
         ],
     ):
