@@ -6,9 +6,11 @@ from datetime import timedelta
 from urllib.parse import urlsplit
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 from rest_framework.exceptions import APIException, ValidationError
 
 from accounts.models import CustomUser, PendingRegistration
@@ -43,11 +45,69 @@ def activation_url(token):
     return f"{base}/potwierdz-email#token={token}"
 
 
+def adres_logowania():
+    # Ta sama walidacja adresu panelu co dla linku potwierdzającego.
+    return activation_url("x").split("/potwierdz-email", 1)[0] + "/login"
+
+
+def powiadom_o_istniejacym_koncie(konto):
+    """
+    Mail do osoby, która próbuje zarejestrować adres mający już konto.
+
+    Formularz rejestracji odpowiada wtedy tak samo jak dla nowego adresu
+    (przegląd 2026-11, R17), więc jedynym miejscem, gdzie właściciel adresu
+    może się dowiedzieć, że konto już ma, jest jego skrzynka. Jedna wiadomość
+    na dobę na adres: formularz jest publiczny i nie może służyć do zasypywania
+    cudzej skrzynki. Nieaktywne konto nie dostaje nic - nie ma się na co
+    logować.
+    """
+    if not konto.is_active or not konto.email:
+        return
+    klucz = (
+        "rejestracja-istnieje:"
+        + salted_hmac("rejestracja-istnieje", konto.email.lower()).hexdigest()
+    )
+    try:
+        if not cache.add(klucz, 1, timeout=24 * 3600):
+            return
+    except Exception:
+        # Bez licznika nie wysyłamy: brak pamięci podręcznej nie może znaczyć
+        # „bez limitu".
+        return
+    try:
+        sent = send_mail(
+            "Masz już konto — Chatbot SaaS",
+            "Ktoś próbował założyć konto na ten adres e-mail, a konto już istnieje. "
+            "Nowe konto nie powstało i nic się nie zmieniło.\n\n"
+            f"Jeśli to Ty, zaloguj się: {adres_logowania()}\n"
+            "Jeśli nie pamiętasz hasła, użyj na stronie logowania opcji "
+            "„Nie pamiętam hasła”.\n\n"
+            "Jeśli to nie Ty, zignoruj wiadomość.",
+            settings.DEFAULT_FROM_EMAIL,
+            [konto.email],
+            fail_silently=False,
+        )
+        if sent != 1:
+            raise EmailUnavailable()
+    except Exception:
+        # Jak przy linku potwierdzającym: awaria poczty daje tę samą odpowiedź
+        # dla adresu z kontem i bez konta.
+        cache.delete(klucz)
+        raise EmailUnavailable() from None
+
+
 def request_email(email, payload=None):
     """Lock per address; a profile change always rotates the confirmation token."""
     now = timezone.now()
     token = secrets.token_urlsafe(32)
     url = activation_url(token)
+    konto = CustomUser.objects.filter(email__iexact=email).first()
+    if konto is not None:
+        # Tylko początek rejestracji; ponowna wysyłka linku (payload None)
+        # dla adresu z kontem zostaje bez żadnej wiadomości.
+        if payload is not None:
+            powiadom_o_istniejacym_koncie(konto)
+        return
     with transaction.atomic():
         if CustomUser.objects.filter(email__iexact=email).exists():
             return

@@ -28,7 +28,9 @@ from accounts.registration import (
     create_user,
     lock_invitation_team,
     ma_znaki_sterujace,
+    nazwa_dla_adresu,
     normalized_email,
+    sprawdz_nazwe_uzytkownika,
     unique_email,
 )
 from accounts.seats import sprawdz_limit_miejsc
@@ -81,6 +83,11 @@ class UserSerializer(serializers.ModelSerializer):
         if self.instance is not None and value != self.instance.username:
             raise serializers.ValidationError(DANE_LOGOWANIA_BEZ_ZMIAN)
         return value
+
+    def validate(self, attrs):
+        if self.instance is None and "username" in attrs:
+            sprawdz_nazwe_uzytkownika(attrs["username"], attrs.get("email"))
+        return attrs
 
     def create(self, validated_data):
         try:
@@ -231,7 +238,7 @@ class RegisterSerializer(serializers.Serializer):
         )
 
         user = create_user(
-            username=validated_data["email"],
+            username=nazwa_dla_adresu(validated_data["email"]),
             email=validated_data["email"],
             password=validated_data["password"],
             first_name=validated_data["imie"],
@@ -253,6 +260,16 @@ class RegistrationStartSerializer(RegisterSerializer):
     password = serializers.CharField(
         required=False, write_only=True, trim_whitespace=False, max_length=1024
     )
+
+    def validate_email(self, value):
+        # Bez sprawdzania, czy adres ma już konto. Do 2.32.31 istniejący adres
+        # dawał tu 400 „Konto z tym adresem e-mail już istnieje", a nowy 202 -
+        # publiczny formularz mówił każdemu, kto ma u nas konto (przegląd
+        # 2026-11, R17). Teraz oba kończą się tym samym 202, a osoba z kontem
+        # dostaje wiadomość na swój adres (`accounts.signup`). Unikalność
+        # sprawdza się przy potwierdzeniu adresu, gdy pytający ma już link
+        # z tej skrzynki.
+        return normalized_email(value)
 
     def validate(self, attrs):
         return super().validate(attrs) if "password" in attrs else attrs
@@ -411,6 +428,7 @@ class AcceptInvitationSerializer(serializers.Serializer):
         attrs["email"] = unique_email(invitation.email)
         if not attrs["email"]:
             raise serializers.ValidationError("Invalid token.")
+        sprawdz_nazwe_uzytkownika(attrs["username"], attrs["email"])
         check_password(attrs["password"], username=attrs["username"], email=attrs["email"])
 
         # Ponownie, bo między wystawieniem zaproszenia a jego przyjęciem mogą

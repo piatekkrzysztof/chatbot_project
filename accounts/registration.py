@@ -1,5 +1,6 @@
 """Shared validation for public account creation and team email changes."""
 
+import secrets
 import unicodedata
 
 from django.contrib.auth.password_validation import validate_password
@@ -54,6 +55,37 @@ def unique_email(value, instance=None):
     if users.exists():
         raise ValidationError("Konto z tym adresem e-mail już istnieje.")
     return value
+
+
+#: Komunikat przy nazwie logowania wyglądającej jak cudzy adres e-mail.
+NAZWA_JAK_CUDZY_ADRES = "Nazwa użytkownika nie może być adresem e-mail innym niż adres tego konta."
+
+
+def sprawdz_nazwe_uzytkownika(username, email):
+    """
+    Nazwa ze znakiem @ musi być adresem e-mail tego samego konta.
+
+    Konto z rejestracji dostaje nazwę równą adresowi. Do 2.32.31 osoba
+    przyjmująca zaproszenie (albo właściciel dodający kogoś wprost) mogła
+    wpisać jako nazwę cudzy adres - i właściciel tego adresu nie mógł się już
+    zarejestrować: jego nazwa była zajęta (przegląd 2026-11, R17).
+    """
+    if "@" in username and normalized_email(username) != normalized_email(email or ""):
+        raise ValidationError({"username": NAZWA_JAK_CUDZY_ADRES})
+
+
+def nazwa_dla_adresu(email):
+    """
+    Nazwa logowania dla konta z rejestracji: adres, a gdy jest zajęty - zastępcza.
+
+    Zajęty może być tylko przez konto sprzed `sprawdz_nazwe_uzytkownika`,
+    które wzięło cudzy adres jako nazwę. Takie konto nie może blokować
+    właścicielowi adresu rejestracji. Logowanie i tak szuka najpierw po
+    adresie e-mail, więc osoba loguje się adresem jak każda inna.
+    """
+    if not CustomUser.objects.filter(username=email).exists():
+        return email
+    return f"u-{secrets.token_hex(12)}"
 
 
 def check_password(password, **attributes):

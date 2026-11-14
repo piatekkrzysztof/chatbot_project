@@ -1585,3 +1585,190 @@ class TestLimityTekstowWidgetu:
         assert odpowiedz.status_code == 200
         assert tenant.widget_welcome_message == "  Cześć!  " + "x" * 990
         assert tenant.widget_proactive_texts == {"pl": "z" * 200, "en": ""}
+
+
+# --- R17: rejestracja nie zdradza kont, nazwa nie blokuje cudzego adresu -----
+
+
+def dane_rejestracji(**zmiany):
+    return {
+        "imie": "Anna",
+        "nazwisko": "Nowak",
+        "company_name": "Salon R17",
+        "email": "nowa@firma.example",
+        "ulica": "Testowa 1",
+        "kod_pocztowy": "00-001",
+        "miasto": "Testowo",
+        **zmiany,
+    }
+
+
+@pytest.mark.django_db
+class TestRejestracjaNieZdradzaKont:
+    """
+    R17: do 2.32.31 początek rejestracji odpowiadał 400 „Konto z tym adresem
+    e-mail już istnieje" dla adresu z kontem i 202 dla nowego. Publiczny
+    formularz mówił więc każdemu, kto ma u nas konto.
+    """
+
+    URL = "/api/accounts/register/"
+
+    def test_adres_z_kontem_i_nowy_dostaja_te_sama_odpowiedz(self):
+        _, szef = firma_z_wlascicielem("r17-odpowiedz")
+
+        z_kontem = APIClient().post(self.URL, dane_rejestracji(email=szef.email), format="json")
+        nowy = APIClient().post(self.URL, dane_rejestracji(), format="json")
+
+        assert z_kontem.status_code == nowy.status_code == 202
+        assert z_kontem.json() == nowy.json()
+
+    def test_adres_z_kontem_nie_zaklada_drugiej_rejestracji(self):
+        from accounts.models import PendingRegistration
+
+        _, szef = firma_z_wlascicielem("r17-bez-rejestracji")
+
+        APIClient().post(self.URL, dane_rejestracji(email=szef.email.upper()), format="json")
+
+        assert not PendingRegistration.objects.exists()
+        assert CustomUser.objects.filter(email__iexact=szef.email).count() == 1
+
+    def test_osoba_z_kontem_dostaje_wiadomosc_bez_linku_aktywacji(self):
+        from django.core import mail
+
+        _, szef = firma_z_wlascicielem("r17-mail")
+
+        APIClient().post(self.URL, dane_rejestracji(email=szef.email), format="json")
+
+        assert len(mail.outbox) == 1
+        wiadomosc = mail.outbox[0]
+        assert wiadomosc.to == [szef.email]
+        assert "konto już istnieje" in wiadomosc.body
+        assert "#token=" not in wiadomosc.body
+
+    def test_wiadomosc_o_istniejacym_koncie_najwyzej_raz_na_dobe(self):
+        from django.core import mail
+
+        _, szef = firma_z_wlascicielem("r17-raz")
+
+        for _ in range(3):
+            odpowiedz = APIClient().post(
+                self.URL, dane_rejestracji(email=szef.email), format="json"
+            )
+            assert odpowiedz.status_code == 202
+
+        assert len(mail.outbox) == 1
+
+    def test_nieaktywne_konto_nie_dostaje_wiadomosci(self):
+        from django.core import mail
+
+        _, szef = firma_z_wlascicielem("r17-nieaktywne")
+        CustomUser.objects.filter(pk=szef.pk).update(is_active=False)
+
+        odpowiedz = APIClient().post(self.URL, dane_rejestracji(email=szef.email), format="json")
+
+        assert odpowiedz.status_code == 202
+        assert mail.outbox == []
+
+    def test_awaria_poczty_wyglada_tak_samo_dla_obu_adresow(self, monkeypatch):
+        _, szef = firma_z_wlascicielem("r17-awaria")
+
+        def awaria(*args, **kwargs):
+            raise OSError("smtp")
+
+        monkeypatch.setattr("accounts.signup.send_mail", awaria)
+
+        z_kontem = APIClient().post(self.URL, dane_rejestracji(email=szef.email), format="json")
+        nowy = APIClient().post(self.URL, dane_rejestracji(), format="json")
+
+        assert z_kontem.status_code == nowy.status_code == 503
+        assert z_kontem.json() == nowy.json()
+
+    def test_nowy_adres_dalej_dostaje_link_i_zaklada_konto(self):
+        """Straż: zwykła rejestracja działa jak dotąd."""
+        from api.tests.signup_helpers import complete_registration
+
+        odpowiedz = APIClient().post(self.URL, dane_rejestracji(), format="json")
+        odpowiedz = complete_registration(odpowiedz, "v7!Independent-Phrase-739")
+
+        assert odpowiedz.status_code == 201
+        assert CustomUser.objects.filter(
+            email="nowa@firma.example", username="nowa@firma.example"
+        ).exists()
+
+
+@pytest.mark.django_db
+class TestNazwaUzytkownikaNieJestCudzymAdresem:
+    """
+    R17: osoba przyjmująca zaproszenie mogła wpisać jako nazwę użytkownika
+    cudzy adres e-mail. Konto z rejestracji dostaje nazwę równą adresowi, więc
+    właściciel tego adresu nie mógł się już zarejestrować.
+    """
+
+    HASLO = "v7!Independent-Phrase-739"
+
+    def przyjmij(self, tenant, nazwa, adres="zaproszona@firma.example"):
+        zaproszenie = InvitationToken.objects.create(tenant=tenant, email=adres)
+        return APIClient().post(
+            "/api/accounts/accept-invite/",
+            {"token": str(zaproszenie.token), "username": nazwa, "password": self.HASLO},
+            format="json",
+        )
+
+    def test_cudzy_adres_jako_nazwa_odrzucony_przy_zaproszeniu(self):
+        tenant, _ = firma_z_wlascicielem("r17-zaproszenie")
+
+        odpowiedz = self.przyjmij(tenant, "ofiara@inna.example")
+
+        assert odpowiedz.status_code == 400
+        assert "username" in odpowiedz.json()
+        assert not CustomUser.objects.filter(username="ofiara@inna.example").exists()
+
+    def test_wlasny_adres_i_zwykla_nazwa_dalej_dozwolone(self):
+        tenant, _ = firma_z_wlascicielem("r17-wlasny")
+
+        assert self.przyjmij(tenant, "Zaproszona@Firma.example").status_code == 201
+        assert self.przyjmij(tenant, "jan.kowalski", adres="jan@firma.example").status_code == 201
+
+    def test_cudzy_adres_jako_nazwa_odrzucony_przy_dodaniu_do_zespolu(self):
+        tenant, szef = firma_z_wlascicielem("r17-zespol")
+
+        odpowiedz = panel(tenant, szef).post(
+            "/api/users/",
+            {
+                "username": "ofiara@inna.example",
+                "email": "pracownik@firma.example",
+                "password": self.HASLO,
+                "role": "employee",
+            },
+            format="json",
+        )
+
+        assert odpowiedz.status_code == 400
+        assert "username" in odpowiedz.json()
+
+    def test_zajeta_wczesniej_nazwa_nie_blokuje_rejestracji_wlasciciela_adresu(self):
+        from api.tests.signup_helpers import complete_registration
+
+        # Konto sprzed poprawki: cudzy adres wpisany jako nazwa logowania.
+        tenant, _ = firma_z_wlascicielem("r17-zajeta")
+        CustomUser.objects.create_user(
+            username="nowa@firma.example",
+            email="ktos@inna.example",
+            password=self.HASLO,
+            tenant=tenant,
+        )
+
+        odpowiedz = APIClient().post("/api/accounts/register/", dane_rejestracji(), format="json")
+        odpowiedz = complete_registration(odpowiedz, self.HASLO)
+
+        assert odpowiedz.status_code == 201
+        konto = CustomUser.objects.get(email="nowa@firma.example")
+        assert konto.username != "nowa@firma.example"
+        # Logowanie adresem trafia do właściciela adresu, nie do konta z nazwą.
+        logowanie = APIClient(HTTP_ORIGIN=ORIGIN).post(
+            "/api/accounts/login/",
+            {"username": "nowa@firma.example", "password": self.HASLO},
+            format="json",
+        )
+        assert logowanie.status_code == 200
+        assert logowanie.json()["user"]["id"] == konto.id
