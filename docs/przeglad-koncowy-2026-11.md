@@ -100,6 +100,8 @@ niezależnego potwierdzenia ani testu.
   API odpowiada tylko JSON-em.
 - Puste `STRIPE_WEBHOOK_SECRET`, `DATABASE_URL`, `FRONTEND_URL` i `REDIS_URL`
   mają ciche wartości domyślne - sprawdzenia przy starcie tylko ostrzegają.
+  **Decyzja właściciela z 14.11.2026: zostają ostrzeżenia.** Odmowa startu
+  zamieniałaby literówkę w jednej zmiennej w zatrzymanie całej usługi.
 - ~~CI: bramka ruff może przejść jałowo, brak bloku `permissions:`, akcje
   przypięte znacznikiem, wejście monitora kopii wstawiane wprost do polecenia.~~
   **Zamknięte 14.11.2026:** bramka wymaga wiersza podsumowania ruff, token
