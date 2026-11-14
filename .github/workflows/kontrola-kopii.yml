@@ -47,6 +47,12 @@ on:
     # Poniedziałek 06:20 UTC - początek tygodnia, pora, o której ktoś czyta pocztę.
     - cron: '20 6 * * 1'
 
+# Token przebiegu tylko do odczytu kodu. Żadne zadanie niczego nie zapisuje
+# w repozytorium, a bez tego bloku token dostaje uprawnienia domyślne
+# repozytorium - czyli tyle, ile ktoś kiedyś ustawił w jego opcjach.
+permissions:
+  contents: read
+
 jobs:
   obecnosc-kopii:
     name: Czy kopie w ogóle powstają
@@ -68,9 +74,9 @@ jobs:
       BACKUPS_S3_ENDPOINT_URL: ${{ secrets.BACKUPS_S3_ENDPOINT_URL }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
           cache: pip
@@ -96,9 +102,18 @@ jobs:
         # czyli `tee`, które udaje się zawsze. Wykryta stara kopia kończyła się
         # więc zielonym przebiegiem: kontrola mówiła prawdę, a alarm nie dochodził.
         # Znalezione 17.09.2026 próbnym fałszywym alarmem, nie przeglądem kodu.
+        env:
+          PELNA_GODZIN: ${{ inputs.pelna-godzin || '744' }}
         run: |
           set -o pipefail
-          python manage.py kontrola_obecnosci_kopii --archiwa pelna --pelna-godzin "${{ inputs.pelna-godzin || '744' }}" | tee wynik.json
+          # Wartość z formularza idzie przez zmienną środowiska, nie jest
+          # wklejana w treść polecenia: `${{ }}` podstawia się przed powłoką,
+          # więc cudzysłów w polu kończyłby napis i dopisywał własne polecenia.
+          # Do tego przyjmujemy wyłącznie liczbę.
+          case "$PELNA_GODZIN" in
+            ''|*[!0-9]*) echo "Próg musi być liczbą godzin, podano: '$PELNA_GODZIN'"; exit 1 ;;
+          esac
+          python manage.py kontrola_obecnosci_kopii --archiwa pelna --pelna-godzin "$PELNA_GODZIN" | tee wynik.json
 
       - name: Wynik w podsumowaniu przebiegu
         if: always()

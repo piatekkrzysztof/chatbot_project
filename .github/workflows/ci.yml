@@ -17,6 +17,15 @@ on:
 # Jedyne nowe zadanie, które BLOKUJE od razu, to budowa obrazu: albo się buduje,
 # albo nie, nie ma tu nic do wytarowania.
 
+# Token przebiegu tylko do odczytu kodu. Żadne zadanie niczego nie zapisuje
+# w repozytorium, a bez tego bloku token dostaje uprawnienia domyślne
+# repozytorium - czyli tyle, ile ktoś kiedyś ustawił w jego opcjach.
+permissions:
+  contents: read
+
+# Akcje są przypięte do konkretnego commita, a znacznik stoi w komentarzu.
+# Znacznik (`@v5`) autor akcji może przesunąć na inny kod; commit nie zmieni
+# się nigdy. Aktualizacje proponuje Dependabot (.github/dependabot.yml).
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -48,9 +57,9 @@ jobs:
       OPENAI_API_KEY: not-used-tests-are-mocked
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
           cache: pip
@@ -106,9 +115,9 @@ jobs:
       OPENAI_API_KEY: not-used-tests-are-mocked
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
           cache: pip
@@ -147,7 +156,7 @@ jobs:
       - name: Zachowaj raport
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: pokrycie
           path: coverage.xml
@@ -158,9 +167,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
           cache: pip
@@ -203,6 +212,15 @@ jobs:
           # podsumowanie „Found N errors." i w CI zawsze wychodziło o jedno
           # trafienie więcej niż w rzeczywistości (F24 cz. 2).
           ILE=$(grep -cE '^[^:]+:[0-9]+:[0-9]+: ' ruff.txt || true)
+          # Bramka nie może przejść jałowo. Gdy ruff w ogóle nie zadziałał
+          # (błąd konfiguracji, awaria instalacji), w pliku nie ma ani jednego
+          # trafienia - i zero wyglądało dotąd jak czysty kod. Wymagamy wiersza
+          # podsumowania, który ruff wypisuje tylko po pełnym sprawdzeniu.
+          if ! grep -qE '^(Found [0-9]+ errors?\.|All checks passed!)' ruff.txt; then
+            echo "::error title=Ruff::brak podsumowania - ruff nie zakończył sprawdzania"
+            tail -20 ruff.txt
+            exit 1
+          fi
           # 15.09.2026: obniżony z 50 do 29, potem do 15 (F24).
           PROG=15
 
@@ -287,9 +305,9 @@ jobs:
       OPENAI_API_KEY: not-used-tests-are-mocked
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
           cache: pip
@@ -349,9 +367,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
           cache: pip
@@ -425,9 +443,9 @@ jobs:
     # To zadanie blokuje. Obraz albo się buduje, albo nie — nie ma tu progu
     # do wytarowania. Zweryfikowane lokalnie przed dodaniem: buduje się.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Syntetyczne sekrety i dane poza kontekstem obrazu
         run: |
@@ -451,7 +469,7 @@ jobs:
           PY
 
       - name: Budowa obrazu
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           push: false
@@ -519,7 +537,7 @@ jobs:
       # istnieją - tyle że po stronie setuptools, nie naszej. Naprawione
       # usunięciem pip, setuptools i wheel z ostatniego etapu obrazu.
       - name: Podatności w obrazie
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: chatbot-backend:ci
           format: table
@@ -584,9 +602,9 @@ jobs:
       OPENAI_API_KEY: not-used-nothing-is-called
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
           cache: pip
