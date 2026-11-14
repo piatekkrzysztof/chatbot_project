@@ -85,4 +85,8 @@ def test_register_duplicate_email():
     }
 
     response = client.post("/api/accounts/register/", payload)
-    assert response.status_code == 400
+    # Od 2.32.32 ta sama odpowiedź co dla nowego adresu (R17); drugie konto
+    # i tak nie powstaje.
+    assert response.status_code == 202
+    assert CustomUser.objects.filter(email="dup@dup.com").count() == 1
+    assert Tenant.objects.count() == 1

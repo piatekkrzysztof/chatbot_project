@@ -60,9 +60,12 @@ def test_password_spaces_are_preserved():
 
 
 @pytest.mark.django_db
-def test_registration_normalizes_email_and_rejects_case_variant(user):
+def test_registration_normalizes_email_and_ignores_case_variant_of_existing(user):
+    # Od 2.32.32 adres z kontem dostaje to samo 202 co nowy (R17) - konto
+    # i tak nie powstaje drugi raz.
     response = APIClient().post("/api/accounts/register/", registration(email=user.email.upper()))
-    assert response.status_code == 400
+    assert response.status_code == 202
+    assert CustomUser.objects.filter(email__iexact=user.email).count() == 1
     response = APIClient().post("/api/accounts/register/", registration(email=" NEW@EXAMPLE.COM "))
     response = complete_registration(response, PASSWORD)
     assert response.status_code == 201

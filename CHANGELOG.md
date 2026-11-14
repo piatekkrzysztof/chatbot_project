@@ -16,6 +16,31 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.32] - 2026-11-14
+
+Roadmap item R17 from the final review. No migration, nothing to set.
+
+### Security
+
+- **The registration form no longer tells anyone whether an address has an
+  account.** Starting a registration answered 400 "an account with this
+  address already exists" for a known address and 202 for a new one. Both now
+  get the same 202. The person who already has an account receives one email
+  a day at most, saying that an account exists and how to sign in or reset
+  the password. A deactivated account receives nothing.
+- **A username can no longer be somebody else's email address.** Accounts
+  from registration use the email address as the username, so a person
+  accepting an invitation (or an owner adding someone directly) could take
+  another person's address as a username and block that person from ever
+  registering. A username containing `@` must now be the account's own
+  address.
+
+### Fixed
+
+- An address whose username was already taken that way can register: the new
+  account gets a substitute username and signs in with the email address as
+  usual.
+
 ## [2.32.31] - 2026-11-13
 
 Roadmap item R14 from the final review. No migration, nothing to set.
