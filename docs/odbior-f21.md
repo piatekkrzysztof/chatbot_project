@@ -48,17 +48,31 @@ na razie wyłącznie ręczny - harmonogram jest zakomentowany do czasu dodania s
 ## Krok A: pełna kopia produkcji
 
 1. Zapisz porę rozpoczęcia okna.
-2. Wstrzymaj zapisy: w panelu Rendera zatrzymaj (suspend) usługę web i worker
-   (oraz beat, jeśli chodzi osobno). Poczekaj, aż trwające zadania się skończą.
-   Nie uruchamiaj w tym czasie migracji ani ręcznych zmian w R2.
-3. W powłoce usługi web (Render → Shell) uruchom:
+2. Wstrzymaj zapisy: w panelu Rendera zatrzymaj (suspend) usługę
+   `celery-worker` (harmonogram beat chodzi razem z nią). Poczekaj, aż trwające
+   zadania się skończą. Nie uruchamiaj w tym czasie migracji ani ręcznych zmian
+   w R2 i nie wgrywaj w panelu dokumentów, logo ani awatara.
+
+   **Usługa web zostaje włączona.** Render nie daje powłoki do wstrzymanej
+   usługi („The shell is unavailable for suspended services"), więc kopii nie da
+   się uruchomić z wstrzymanego web - do 16.11.2026 ten krok kazał wstrzymać
+   obie usługi i kończył się ślepą uliczką przy wyłączonej produkcji.
+
+   Co to znaczy dla spójności: baza jest czytana w jednej transakcji, więc
+   wiadomość z czatu zapisana w trakcie kopii niczego nie psuje. Wstrzymanie
+   chroni pliki w magazynie; przy działającym web zmienić je może tylko ktoś,
+   kto w tej chwili wgrywa plik w panelu. Gdyby wskazany plik zniknął
+   w trakcie, kopia przerwie się błędem zamiast zapisać się jako kompletna -
+   wtedy wystarczy ją powtórzyć.
+3. W powłoce usługi web (`chatbot-backend`, Render → Shell) uruchom:
 
 ```bash
 python manage.py backup_full --source-quiesced --to-storage
 ```
 
 4. Zapisz wypisaną nazwę kopii, liczbę plików i bajtów oraz porę zakończenia.
-5. Wznów usługi. **Zapisz długość okna** - to jest realny koszt pełnej kopii.
+5. Wznów `celery-worker`. **Zapisz długość okna** - to jest realny koszt
+   pełnej kopii.
 6. Sprawdź kopię, nie ruszając produkcji:
 
 ```bash
