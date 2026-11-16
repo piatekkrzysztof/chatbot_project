@@ -107,9 +107,13 @@ jobs:
         run: |
           set -o pipefail
           # Wartość z formularza idzie przez zmienną środowiska, nie jest
-          # wklejana w treść polecenia: `${{ }}` podstawia się przed powłoką,
-          # więc cudzysłów w polu kończyłby napis i dopisywał własne polecenia.
-          # Do tego przyjmujemy wyłącznie liczbę.
+          # wklejana w treść polecenia: wyrażenia GitHuba podstawiają się przed
+          # powłoką, więc cudzysłów w polu kończyłby napis i dopisywał własne
+          # polecenia. Do tego przyjmujemy wyłącznie liczbę.
+          #
+          # W tym komentarzu celowo nie ma zapisu wyrażenia: GitHub rozwija je
+          # także w komentarzach skryptu, a puste unieważnia cały plik. Tak
+          # właśnie ten przepływ nie działał od 14 do 16.11.2026.
           case "$PELNA_GODZIN" in
             ''|*[!0-9]*) echo "Próg musi być liczbą godzin, podano: '$PELNA_GODZIN'"; exit 1 ;;
           esac
