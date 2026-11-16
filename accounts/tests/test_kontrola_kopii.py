@@ -109,6 +109,34 @@ class TestPelnejKopii:
         assert odpowiedz["name"] == nazwa
         assert odpowiedz["files"] == 2
 
+    def test_zdrowa_kopia_podaje_rozmiar_zrzutu_bez_ostrzezenia(self, seed, magazyn):
+        dodaj_pelna(magazyn)
+
+        odpowiedz = wynik("kontrola_pelnej_kopii")
+
+        assert 0 < odpowiedz["database_bytes"] < odpowiedz["database_limit_bytes"]
+        assert "ostrzezenie" not in odpowiedz
+
+    def test_zrzut_powyzej_polowy_limitu_ostrzega_ale_nie_alarmuje(self, seed, magazyn, settings):
+        # Limit 100 MiB kończył się błędem `backup_full` dopiero w dniu, w którym
+        # kopii nie dało się już zrobić. Ostrzeżenie od połowy daje czas na
+        # decyzję; status zostaje „ok", bo sama kopia jest dobra.
+        dodaj_pelna(magazyn)
+        rozmiar = wynik("kontrola_pelnej_kopii")["database_bytes"]
+        settings.BACKUP_MAX_BYTES = int(rozmiar * 1.5)
+
+        odpowiedz = wynik("kontrola_pelnej_kopii")
+
+        assert odpowiedz["status"] == "ok"
+        assert "67% limitu" in odpowiedz["ostrzezenie"]
+
+    def test_dokladnie_polowa_limitu_jeszcze_nie_ostrzega(self, seed, magazyn, settings):
+        dodaj_pelna(magazyn)
+        rozmiar = wynik("kontrola_pelnej_kopii")["database_bytes"]
+        settings.BACKUP_MAX_BYTES = rozmiar * 2
+
+        assert "ostrzezenie" not in wynik("kontrola_pelnej_kopii")
+
     def test_brak_jakiejkolwiek_kopii_to_blad_a_nie_cisza(self, seed, magazyn):
         # Harmonogram, który nigdy nie ruszył. Sukces w tym miejscu znaczyłby,
         # że po wdrożeniu bez skonfigurowanego zadania kopii monitor świeci

@@ -111,8 +111,12 @@ niezależnego potwierdzenia ani testu.
   dokładną wersję. **Połączenie zamknięte w 2.32.33** (wynik pamiętany 15 s).
   Wersja zostaje świadomie: to jedyna odpowiedź na pytanie „co jest na
   produkcji" (opis w `chatbot_project/zdrowie.py`).
-- Pełna kopia ma sztywny limit 100 MiB razem z wektorami - przy kilkunastu
-  tysiącach fragmentów przestanie się mieścić.
+- ~~Pełna kopia ma sztywny limit 100 MiB razem z wektorami - przy kilkunastu
+  tysiącach fragmentów przestanie się mieścić.~~ **Decyzja właściciela
+  z 16.11.2026, wdrożona w 2.32.35:** limit zostaje, a `backup_full`
+  i `kontrola_pelnej_kopii` ostrzegają, gdy zrzut bazy przekroczy połowę
+  limitu. Szacunek z 16.11: jeden fragment to ok. 12,5 kB w zrzucie, więc
+  limit wypada przy ok. 8 tysiącach fragmentów łącznie u wszystkich firm.
 - ~~Alarm uzgadniania Stripe po pojedynczym błędzie sieci.~~ **Zamknięte
   w 2.32.34:** pierwszy błąd sieci albo limitu jest ponawiany, alarm po
   powtórce.

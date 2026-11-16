@@ -198,6 +198,40 @@ def references():
     return result
 
 
+#: Od jakiej części `BACKUP_MAX_BYTES` kopia zaczyna ostrzegać.
+PROG_OSTRZEZENIA_ZRZUTU = 0.5
+
+
+def zajetosc_zrzutu(manifest):
+    """
+    Ile limitu zrzutu bazy zajmuje ta kopia i czy pora o tym powiedzieć.
+
+    Zrzut bazy w pełnej kopii ma sztywny limit `BACKUP_MAX_BYTES`, a rośnie
+    głównie z wektorami: jeden fragment wiedzy to kilkanaście kilobajtów.
+    Po przekroczeniu limitu `backup_full` kończy się błędem - i do 2.32.34
+    był to pierwszy sygnał, w dniu, w którym kopii już nie dało się zrobić.
+    Decyzja właściciela z 16.11.2026: limit zostaje, a kopia ostrzega od
+    połowy, żeby na decyzję (większy limit albo kopia bez wektorów) był czas.
+    """
+    rozmiar = manifest["database"]["size"]
+    limit = settings.BACKUP_MAX_BYTES
+    return {
+        "database_bytes": rozmiar,
+        "database_limit_bytes": limit,
+        "ostrzezenie": rozmiar > limit * PROG_OSTRZEZENIA_ZRZUTU,
+    }
+
+
+def opis_ostrzezenia(zajetosc):
+    procent = round(100 * zajetosc["database_bytes"] / zajetosc["database_limit_bytes"])
+    return (
+        f"Zrzut bazy zajmuje {procent}% limitu BACKUP_MAX_BYTES "
+        f"({zajetosc['database_bytes']} z {zajetosc['database_limit_bytes']} bajtów). "
+        "Po przekroczeniu limitu pełna kopia przestanie się tworzyć - "
+        "zaplanuj zwiększenie limitu albo kopię bez wektorów."
+    )
+
+
 def create_bundle(stream, *, source_quiesced, limit=DEFAULT_LIMIT):
     if not source_quiesced:
         raise CommandError(
