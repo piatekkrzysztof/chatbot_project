@@ -79,6 +79,11 @@ python manage.py backup_full --source-quiesced --to-storage
 python manage.py kontrola_pelnej_kopii
 ```
 
+Od 2.32.35 wynik podaje też rozmiar zrzutu bazy (`database_bytes`) i jego
+limit. Gdy zrzut przekroczy połowę limitu, w wyniku pojawia się pole
+`ostrzezenie` - kopia jest wtedy nadal dobra, ale to pora zaplanować większy
+limit albo kopię bez wektorów, zanim `backup_full` zacznie kończyć się błędem.
+
 Wynik to JSON z nazwą, czasem snapshotu, liczbą plików i bajtów. Niezerowy kod
 wyjścia znaczy, że kopii nie ma albo nie da się jej odczytać - wtedy przerwij
 odbiór i zgłoś wynik, zamiast powtarzać okno.

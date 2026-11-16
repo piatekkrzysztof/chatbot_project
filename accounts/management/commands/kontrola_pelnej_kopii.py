@@ -19,7 +19,12 @@ import math
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.backups import private_backup_storage
-from accounts.full_backups import najnowsza_pelna_kopia, verify_bundle
+from accounts.full_backups import (
+    najnowsza_pelna_kopia,
+    opis_ostrzezenia,
+    verify_bundle,
+    zajetosc_zrzutu,
+)
 
 
 class Command(BaseCommand):
@@ -45,15 +50,18 @@ class Command(BaseCommand):
             raise CommandError("Nie można odczytać pełnej kopii z prywatnego magazynu.") from None
         with stream:
             manifest = verify_bundle(stream, max_age_hours=wiek)
-        self.stdout.write(
-            json.dumps(
-                {
-                    "status": "ok",
-                    "name": nazwa,
-                    "snapshot_at": manifest["snapshot_at"],
-                    "files": len(manifest["files"]),
-                    "bytes": manifest["total_bytes"],
-                },
-                sort_keys=True,
-            )
-        )
+        zajetosc = zajetosc_zrzutu(manifest)
+        wynik = {
+            "status": "ok",
+            "name": nazwa,
+            "snapshot_at": manifest["snapshot_at"],
+            "files": len(manifest["files"]),
+            "bytes": manifest["total_bytes"],
+            "database_bytes": zajetosc["database_bytes"],
+            "database_limit_bytes": zajetosc["database_limit_bytes"],
+        }
+        # Ostrzeżenie nie zmienia statusu ani kodu wyjścia: kopia jest dobra.
+        # Pole pojawia się tylko wtedy, gdy jest co przeczytać.
+        if zajetosc["ostrzezenie"]:
+            wynik["ostrzezenie"] = opis_ostrzezenia(zajetosc)
+        self.stdout.write(json.dumps(wynik, sort_keys=True, ensure_ascii=False))

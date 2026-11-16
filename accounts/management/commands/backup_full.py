@@ -10,7 +10,13 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from accounts.backups import private_backup_storage
-from accounts.full_backups import create_bundle, nazwa_nowej_pelnej_kopii, verify_bundle
+from accounts.full_backups import (
+    create_bundle,
+    nazwa_nowej_pelnej_kopii,
+    opis_ostrzezenia,
+    verify_bundle,
+    zajetosc_zrzutu,
+)
 
 
 class Command(BaseCommand):
@@ -77,3 +83,6 @@ class Command(BaseCommand):
             f"Pełna kopia zweryfikowana; pliki: {len(manifest['files'])}; "
             f"bajty: {manifest['total_bytes']}."
         )
+        zajetosc = zajetosc_zrzutu(manifest)
+        if zajetosc["ostrzezenie"]:
+            self.stdout.write(self.style.WARNING("UWAGA: " + opis_ostrzezenia(zajetosc)))

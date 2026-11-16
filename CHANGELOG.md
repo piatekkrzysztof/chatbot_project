@@ -16,6 +16,21 @@ fails if it drifts from the newest entry here.
 
 ## [Unreleased]
 
+## [2.32.35] - 2026-11-16
+
+Last item of the low-priority list from the final review. No migration,
+nothing to set.
+
+### Added
+
+- **The full backup warns before it stops fitting.** The database part of a
+  full backup has a fixed 100 MiB limit and grows mostly with vectors. Past
+  the limit `backup_full` fails, and until now that failure was the first
+  sign. Both `backup_full` and `kontrola_pelnej_kopii` now say so once the
+  database part is over half the limit, and `kontrola_pelnej_kopii` always
+  reports its size. The warning does not change the status or the exit code:
+  the backup itself is good.
+
 ## [2.32.34] - 2026-11-14
 
 Second batch of the low-priority list from the final review. No migration,
