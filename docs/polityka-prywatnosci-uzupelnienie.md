@@ -13,6 +13,11 @@ są do sprawdzenia przez prawnika - tak samo jak we
 
 Stan polityki sprawdzony 16.11.2026.
 
+**17.11.2026:** na podstawie tej listy powstał
+[projekt polityki](polityka-prywatnosci-projekt.md) gotowy do publikacji oraz
+[nota dla prawnika](polityka-prywatnosci-nota-dla-prawnika.md) z założeniami
+do potwierdzenia. Ta lista zostaje jako zapis tego, czego brakowało.
+
 ## Dwie role, które trzeba rozdzielić
 
 Polityka opisuje dziś jedną sytuację: ktoś pisze do agencji. Chatbot dokłada
@@ -91,6 +96,7 @@ Chatbot korzysta z innych dostawców:
 | Dostawca | Co dostaje | Po co |
 |---|---|---|
 | Render | całość: aplikacja, baza danych, logi | hosting |
+| Vercel | adres IP i dane techniczne żądań do panelu i okna czatu | hosting panelu i okna czatu |
 | Cloudflare R2 | pliki dokumentów, kopie zapasowe | przechowywanie |
 | OpenAI | pytania odwiedzających, fragmenty i treść dokumentów | odpowiedzi i wyszukiwanie |
 | Stripe | dane do faktury, e-mail konta | płatności |
