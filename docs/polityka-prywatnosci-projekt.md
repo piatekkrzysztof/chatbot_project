@@ -30,7 +30,15 @@ Punkty 7-14 dotyczą wszystkich.
 ## 3. Formularz kontaktowy i korespondencja
 
 **Jakie dane:** imię i nazwisko, adres e-mail, numer telefonu (jeśli go
-podasz) i treść wiadomości.
+podasz) i treść wiadomości. Formularz jest chroniony przed automatami usługą
+Cloudflare Turnstile, która przy wysyłce sprawdza dane techniczne Twojej
+przeglądarki i adres IP.
+
+Gdy odwiedzasz stronę, zapisywane są też dane techniczne: adres IP, typ
+przeglądarki i czas wizyty - w celu zapewnienia bezpieczeństwa strony
+(art. 6 ust. 1 lit. f RODO). Statystyki odwiedzin (Google Analytics) zbieramy
+tylko wtedy, gdy wyrazisz na to zgodę w oknie ustawień cookies (art. 6 ust. 1
+lit. a RODO); szczegóły są w Polityce cookies.
 
 **Po co i na jakiej podstawie:**
 
@@ -166,7 +174,10 @@ umów powierzenia. Nie sprzedajemy danych osobowych.
 | Stripe | dane do faktury, adres e-mail konta | obsługa płatności |
 | Resend | adresy e-mail i treść wysyłanych wiadomości, w tym zapytania kontaktowe z czatu | wysyłka poczty |
 | Sentry | informacje o błędach i czasie działania, bez treści rozmów | diagnostyka |
-| dostawca hostingu strony `agencjasm-art.pl`, Google (Workspace, Analytics) | dane z formularza kontaktowego, korespondencja, dane statystyczne o wizycie | strona agencji, poczta, statystyki |
+| Google (Workspace) | korespondencja, w tym wiadomości z formularza kontaktowego | poczta agencji |
+| Google (Analytics) | dane statystyczne o wizycie na stronie agencji, wyłącznie po Twojej zgodzie | statystyki odwiedzin |
+| Cloudflare (Turnstile) | adres IP i dane techniczne przeglądarki przy wysyłce formularza | ochrona formularza przed automatami |
+| dostawca hostingu strony `agencjasm-art.pl` | dane z formularza kontaktowego, logi serwera | utrzymanie strony agencji |
 
 Dane karty płatniczej podajesz bezpośrednio operatorowi płatności; nie
 przechodzą one przez nasze serwery i nie mamy do nich dostępu. Stripe
@@ -242,7 +253,8 @@ Te informacje zostają w Twojej przeglądarce i możesz je usunąć w jej
 ustawieniach, czyszcząc dane strony.
 
 **Strona `agencjasm-art.pl`** korzysta z plików cookies na zasadach opisanych
-w Polityce cookies.
+w [Polityce cookies](https://agencjasm-art.pl/cookies). Cookies analityczne
+zapisujemy dopiero po Twojej zgodzie.
 
 ## 13. Bezpieczeństwo
 

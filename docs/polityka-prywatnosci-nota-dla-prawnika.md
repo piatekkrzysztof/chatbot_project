@@ -20,7 +20,8 @@ Projekt podaje formułę ogólną: decyzja o odpowiednim stopniu ochrony dla
 dostawców uczestniczących w ramach ochrony danych UE-USA albo standardowe
 klauzule umowne. **Nie sprawdzono, który mechanizm dotyczy którego dostawcy
 ani czy zawarte z nimi umowy powierzenia go obejmują.** Do sprawdzenia dla
-każdego z: Render, Vercel, Cloudflare, OpenAI, Stripe, Resend, Sentry, Google.
+każdego z: Render, Vercel, Cloudflare (R2 i Turnstile), OpenAI, Stripe, Resend,
+Sentry, Google (Workspace i Analytics).
 
 - Jeśli wszyscy są objęci jednym z dwóch mechanizmów: punkt 9 zostaje.
 - Jeśli któryś nie jest: punkt 9 trzeba zmienić albo dostawcę wymienić.
@@ -54,6 +55,8 @@ Przyjęte w projekcie:
 | Odpowiedź na zapytanie z formularza | art. 6 ust. 1 lit. b |
 | Dalsza korespondencja, wykazanie jej przebiegu | lit. f |
 | Marketing | lit. a (zgoda) |
+| Dane techniczne wizyty na stronie agencji, ochrona formularza (Turnstile) | lit. f |
+| Statystyki odwiedzin (Google Analytics) | lit. a (zgoda w oknie cookies) |
 | Konto, świadczenie usługi, wiadomości systemowe i raporty | lit. b |
 | Faktury | lit. c |
 | Dziennik działań, sesje, limity prób logowania | lit. f |
@@ -106,19 +109,30 @@ jest właściwa.
 - Punkt 9: udostępnienie kopii zabezpieczeń na żądanie.
 - Punkt 11: odpowiedź w ciągu miesiąca.
 
-## B. Do potwierdzenia przez właściciela przed publikacją
+## B. Fakty o agencji - potwierdzone 17.11.2026
 
-Fakty, których nie da się sprawdzić w kodzie chatbota.
+Fakty, których nie da się sprawdzić w kodzie chatbota. Wszystkie są
+potwierdzone: część przez właściciela, część oględzinami strony
+`agencjasm-art.pl`.
 
-| # | Założenie w projekcie | Gdzie | Co zrobić, jeśli nieprawda |
+| # | Fakt w projekcie | Gdzie | Jak potwierdzony |
 |---|---|---|---|
-| B1 | Administrator to „SM-art Agencja", adres i NIP jak w dotychczasowej polityce | punkt 1 | wpisać pełną nazwę z CEIDG albo KRS |
-| B2 | Adres do spraw danych: `krzysztof@agencjasm-art.pl` (dotychczasowa polityka podawała prywatną skrzynkę Gmail; panel podaje adres w domenie agencji) | punkt 1 | wpisać właściwy; ważne, żeby polityka i panel podawały ten sam |
-| B3 | Panel działa pod `panel.agencjasm-art.pl` | wstęp | poprawić adres |
-| B4 | Strona agencji korzysta z Google Workspace i Google Analytics (przeniesione z dotychczasowej polityki) | punkt 8 | usunąć albo poprawić ostatni wiersz tabeli |
-| B5 | Chatbot działa także na stronie agencji | punkty 2 i 6 | jeśli nie działa: usunąć ostatni wiersz tabeli w punkcie 2 i drugi akapit punktu 6 |
-| B6 | Istnieje osobna „Polityka cookies" strony agencji | punkt 12 | jeśli nie istnieje: opisać cookies strony w punkcie 12 |
-| B7 | Agencja wysyła marketing wyłącznie za zgodą | punkt 3 | jeśli nie wysyła wcale: usunąć trzeci podpunkt |
+| B1 | Administrator: „SM-art Agencja", ul. Podzmacze 6, 32-067 Tenczynek, NIP 5130270019 | punkt 1 | właściciel: zostaje jak w dotychczasowej polityce |
+| B2 | Adres do spraw danych: `krzysztof@agencjasm-art.pl` (wcześniej prywatna skrzynka Gmail) | punkt 1 | właściciel |
+| B3 | Panel działa pod `panel.agencjasm-art.pl` | wstęp | strona agencji wczytuje stamtąd skrypt czatu |
+| B4 | Poczta agencji w Google Workspace | punkt 8 | właściciel |
+| B5 | Google Analytics na stronie agencji, wyłącznie po zgodzie | punkty 3, 8 i 12 | skrypt na stronie i Polityka cookies z 22.10.2026 |
+| B6 | Chatbot działa także na stronie agencji | punkty 2 i 6 | skrypt czatu i przycisk czatu na stronie głównej |
+| B7 | Istnieje osobna Polityka cookies | punkt 12 | `agencjasm-art.pl/cookies`, wersja z 22.10.2026 |
+| B8 | Agencja wysyła marketing wyłącznie za zgodą | punkt 3 | właściciel |
+| B9 | Formularz kontaktowy chroni Cloudflare Turnstile | punkty 3 i 8 | skrypt na stronie; dotychczasowa polityka o nim nie wspominała |
+
+**Do uwagi prawnika przy B1:** nazwa administratora jest przeniesiona
+z dotychczasowej polityki bez zmian. Jeśli działalność jest jednoosobowa,
+do rozważenia dopisanie imienia i nazwiska przedsiębiorcy.
+
+**Nie sprawdzono:** kto jest dostawcą hostingu strony `agencjasm-art.pl`.
+W tabeli w punkcie 8 jest wpisany bez nazwy.
 
 ## C. Co wyszło przy pisaniu
 
