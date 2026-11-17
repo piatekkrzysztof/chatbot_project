@@ -101,13 +101,17 @@ o tym zapomnieć.
 | Usługa | Co dostaje | Po co |
 |---|---|---|
 | Render | Całość: API, worker, PostgreSQL, Redis, logi | Hosting |
+| Vercel | Adres IP i dane techniczne żądań do panelu i do okna czatu (ramka widgetu jest serwowana z adresu panelu) | Hosting panelu i okna czatu |
 | Cloudflare R2 | Pliki dokumentów w prywatnym magazynie, pełne kopie zapasowe | Przechowywanie plików |
 | OpenAI | Pytania odwiedzających, fragmenty bazy wiedzy, treść dokumentów do wektorów | Odpowiedzi bota i wyszukiwanie |
 | Stripe | Dane do faktury (nazwa, adres, NIP), e-mail konta; dane karty nie przechodzą przez nas | Płatności |
 | Resend (SMTP) | Adresy i treść wiadomości: aktywacja, zaproszenia, reset i zmiana hasła, raporty, powiadomienie o zapytaniu z czatu razem z danymi kontaktowymi odwiedzającego | Poczta |
 | Sentry | Błędy i próbki czasu żądań, w zakresie opisanym wyżej | Diagnostyka |
 
-Hosting panelu (Next.js) jest poza tym repozytorium.
+Hosting panelu (Next.js) jest poza tym repozytorium, ale należy do tej listy:
+do 17.11.2026 Vercela tu nie było, choć każda osoba otwierająca czat łączy się
+z nim swoim adresem IP. Wyszło przy pisaniu
+[projektu polityki prywatności](polityka-prywatnosci-projekt.md).
 
 ## Dane osobowe i czas przechowywania
 

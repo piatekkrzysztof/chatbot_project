@@ -220,13 +220,14 @@ wartość 0 wyłącza usuwanie i jest wtedy decyzją Klienta jako administratora
 
 ## Załącznik B. Podprzetwarzający
 
-Stan na 29.09.2026. Lista musi być zgodna z tabelą „Kto przetwarza dane poza
+Stan na 17.11.2026 (dopisany Vercel). Lista musi być zgodna z tabelą „Kto przetwarza dane poza
 naszą bazą" w [przepływach danych](przeplywy-danych.md) - pilnuje tego test
 w `chatbot_project/tests/test_umowa_powierzenia.py`.
 
 | Usługa | Co przetwarza | Po co | Podstawa przekazania poza EOG |
 |---|---|---|---|
 | Render | Całość: API, worker, PostgreSQL, Redis, logi | Hosting | do uzupełnienia |
+| Vercel | Adres IP i dane techniczne żądań do panelu i do okna czatu | Hosting panelu i okna czatu | do uzupełnienia |
 | Cloudflare R2 | Pliki dokumentów w prywatnym magazynie, pełne kopie zapasowe | Przechowywanie plików | do uzupełnienia |
 | OpenAI | Pytania odwiedzających, fragmenty bazy wiedzy, treść dokumentów do wektorów | Odpowiedzi bota i wyszukiwanie | do uzupełnienia |
 | Stripe | Dane do faktury, e-mail konta; dane karty nie przechodzą przez Sm-art | Płatności | do uzupełnienia |
